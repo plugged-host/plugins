@@ -1,0 +1,20 @@
+{
+    "id": "plugged-host-status",
+    "name": "plugged.host Status",
+    "author": "plugged.host",
+    "version": "1.2.0",
+    "description": "Public status pipeline: per-minute node and endpoint probing, incident and node admin resources, and JSON/RSS export for a static status site. Runs standalone.",
+    "category": "plugin",
+    "url": null,
+    "update_url": null,
+    "namespace": "PluggedHost\\Status",
+    "class": "PluggedHostStatusPlugin",
+    "panels": ["admin"],
+    "panel_version": null,
+    "composer_packages": null,
+    "meta": {
+        "status": "enabled",
+        "status_message": null,
+        "load_order": 0
+    }
+}

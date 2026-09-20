@@ -1,0 +1,23 @@
+// Reference template — install.sh generates the real unit with an absolute Node path and the
+// resolved release symlink. Kept here for review and manual installs.
+//
+// ExecStart must be an ABSOLUTE node path: on the storage box Node may live under nvm and is
+// not on www-data's PATH. install.sh resolves it (find_node) and substitutes it below.
+//
+// [Unit]
+// Description=plugged.host storage agent
+// After=network-online.target
+// Wants=network-online.target
+//
+// [Service]
+// Type=simple
+// EnvironmentFile=/etc/plugged-host-storage.env
+// ExecStart=/ABSOLUTE/PATH/TO/node /opt/plugged-host-storage/current/agent.mjs
+// Restart=always
+// RestartSec=5
+// WorkingDirectory=/opt/plugged-host-storage/current
+// StandardOutput=append:/var/log/plugged-host-storage-agent.log
+// StandardError=append:/var/log/plugged-host-storage-agent.log
+//
+// [Install]
+// WantedBy=multi-user.target

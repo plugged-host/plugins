@@ -1,0 +1,571 @@
+<?php
+
+return [
+    'role_resource_limits' => 'Role Resource Limit|Role Resource Limits',
+    'role' => 'Role|Roles',
+    'user' => 'User|Users',
+    'cpu' => 'CPU',
+    'memory' => 'Memory',
+    'disk' => 'Disk Space',
+    'server_limit' => 'Server Limit',
+    'no_limit' => 'No Limit',
+    'unlimited' => 'Unlimited',
+    'hint_unlimited' => '0 means unlimited',
+    'name' => 'Server Name',
+    'egg' => 'Egg',
+    'left' => 'left',
+    'variables' => 'Startup variables',
+
+    'create_server' => 'Create server',
+    'create_network_ports' => 'Create next network port',
+
+    'choose_game_description' => 'Pick a game to get started. You can configure it on the next step.',
+    'no_games' => 'No games available',
+    'no_games_description' => 'There are no games you can deploy right now. Please contact the panel admin.',
+
+    'configure_server_description' => 'Choose your setup, then deploy.',
+    'deploy_server' => 'Deploy server',
+
+    'choose_type' => 'Server software',
+    'choose_type_description' => 'Which flavour of the game server do you want to run?',
+    'choose_type_onboarding' => 'You choose this in the setup guide once the server exists, together with the Minecraft version - so the two always match. The guide opens by itself the first time you open your new server.',
+
+    'choose_location' => 'Location',
+    'choose_location_description' => 'Where should your server be hosted?',
+    'location_unavailable' => 'No capacity for the selected resources',
+    'no_locations' => 'No locations are configured. Please contact the panel admin.',
+
+    'choose_plan' => 'Resources',
+    'choose_plan_description' => 'Pick a plan, or switch to advanced for custom values.',
+    'plan_unavailable' => 'Exceeds your remaining allowance',
+    'advanced_resources' => 'Advanced',
+    'advanced_resources_hint' => 'Set CPU, memory and disk manually instead of using a plan.',
+
+    'server_details' => 'Details',
+    'server_details_description' => 'Name your server and adjust its startup variables.',
+    'eula_agree' => 'I agree to the Minecraft End User License Agreement (EULA)',
+    'eula_description' => 'By creating this server, you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA). The EULA will be automatically accepted on your server so it starts immediately without pausing.',
+    'resize_plan_description' => 'Pick a plan, or switch to advanced to set custom values.',
+    'plan_current' => 'Current plan',
+
+    'change_version_description' => 'Switch to a different Minecraft version or server software.',
+    'change_version_section' => 'Version and software',
+    'change_version_section_description' => 'Pick the software and version to install. Applying reinstalls the server.',
+    'change_version_apply' => 'Change and reinstall',
+    'change_version_confirm' => 'Change version and reinstall?',
+    'change_version_warning' => 'The server will be stopped and reinstalled with the selected software and version. World and configuration files are kept, but jar files and mod libraries are replaced. Mods and plugins built for the old version may stop working.',
+    'server_software' => 'Server software',
+    'minecraft_version' => 'Minecraft version',
+    'minecraft_version_hint' => 'Only versions available for the selected software are listed.',
+    'version_latest' => 'Latest (recommended)',
+
+    'server_settings' => [
+        'sections' => [
+            'general' => 'General',
+            'resources' => 'Resources',
+            'startup' => 'Startup',
+            'startup_command' => 'Startup command',
+            'version' => 'Version',
+        ],
+        'jump_to' => 'Jump to',
+        'save_resources' => 'Save resources',
+    ],
+
+    'content' => [
+        'nav_plugins' => 'Plugins',
+        'nav_mods' => 'Mods & Modpacks',
+        'subheading_plugins' => 'Browse Modrinth and install plugins straight onto this server. Only plugins for your server software and Minecraft version are listed.',
+        'subheading_mods' => 'Browse Modrinth and install mods and modpacks straight onto this server. Only content for your loader and Minecraft version is listed.',
+        'search' => 'Search Modrinth...',
+        'col_project' => 'Project',
+        'col_author' => 'Author',
+        'col_downloads' => 'Downloads',
+        'col_categories' => 'Categories',
+        'filter_kind' => 'Type',
+        'filter_version' => 'Minecraft version',
+        'kind_mod' => 'Mods',
+        'kind_modpack' => 'Modpacks',
+        'kind_plugin' => 'Plugins',
+        'empty_heading' => 'Nothing found',
+        'empty_body' => 'Try a different search term, or clear the Minecraft version filter - not every author lists every version they support.',
+        'installed_badge' => 'Installed',
+        'quick_install' => '1-Click Install',
+        'versions' => 'Versions',
+        'install' => 'Install',
+        'install_heading' => 'Install :name',
+        'install_submit' => 'Install',
+        'version' => 'Version',
+        'version_loose' => 'No build lists Minecraft :version, so all builds are shown. Take the newest one and test it - most work anyway.',
+        'version_gone' => 'That version is no longer available on Modrinth.',
+        'view' => 'View on Modrinth',
+        'modpack_warning' => 'The server is switched to the loader and Minecraft version this pack needs, reinstalled, and then the pack files are placed. Your world is kept. The exact loader build of the pack cannot be pinned, so a pack that demands one specific build may still need manual work.',
+        'client_only_warning' => 'The author marks this project as client-side only, so it may do nothing on a server.',
+        'modpack_queued' => 'Modpack installation started',
+        'modpack_queued_body' => ':name is being installed. The server is reinstalled first, then the pack files are placed - this takes a few minutes. You will be notified when it finishes.',
+        'no_file' => 'That version has no downloadable file.',
+        'pull_failed' => 'The server could not download the file. Please try again.',
+        'installed' => 'Installation started',
+        'installed_body' => ':file is being downloaded into :directory/. Restart the server to load it.',
+        'modpack_done' => 'Modpack installed',
+        'modpack_done_body' => ':name is installed and :count files were downloaded onto the server. Start it and watch the console.',
+        'modpack_failed' => 'Modpack installation failed',
+        'modpack_failed_body' => ':name could not be installed. Check the console and the file list before starting the server.',
+        'modpack_reinstall_failed' => 'The server could not be reinstalled for this modpack, so none of the pack files were placed.',
+        'modpack_broken' => 'That modpack file could not be read. It may use a format this panel does not support.',
+        'modpack_unsupported' => 'That modpack needs a mod loader this server cannot install.',
+        'modpack_download_failed' => 'The modpack could not be downloaded from Modrinth. Please try again.',
+        'modpack_overrides_skipped' => 'The configuration files bundled with the pack were too large to apply automatically - download the pack from Modrinth and upload its overrides folder through the file manager.',
+    ],
+
+    // The typed editor for the config files a Minecraft server keeps in its own data
+    // directory. Which files show up depends on the server software and on what it has
+    // actually written, so a file being absent is ordinary rather than an error.
+    'game_config' => [
+        'nav_label' => 'Game Settings',
+        'title' => 'Game Settings',
+        'subheading' => 'Edit the configuration files on this server. Saved values take effect the next time it starts.',
+        'empty_heading' => 'No configuration files yet',
+        'empty_body' => 'None of the files this page can edit are on the server. Start it once so it writes them, then come back.',
+        'unreachable' => 'The server could not be reached, so its configuration files could not be read. Please try again in a moment.',
+        'general' => 'General',
+        'properties_notice' => 'Comments, key order and any keys not shown here are kept exactly as they are. Ports and the RCON password are managed by the panel and cannot be edited.',
+        'yaml_notice' => 'Saving this file drops the comments in it - the original is kept as :file. Lists and sections this form does not show are preserved.',
+        'save' => 'Save',
+        'raw_edit' => 'Edit as text',
+        'raw_description' => 'Writes the file exactly as you leave it here. Nothing is checked, so a mistake can stop the server from starting.',
+        'saved' => ':file saved',
+        'saved_body' => 'Restart the server to apply the new values.',
+        'no_changes' => 'Nothing to save',
+        'no_changes_body' => 'This file already holds the values shown.',
+        'failed' => 'Something went wrong',
+        'read_failed' => 'The file could not be read from the server. Please try again.',
+        'save_failed' => 'The file could not be written to the server, so nothing was changed.',
+        'backup_failed' => 'A copy of the original could not be saved as :file, so the file was left untouched.',
+        'invalid_number' => ':key has to be a number.',
+        'invalid_choice' => '":value" is not a valid value for :key.',
+        'restart' => 'Restart server',
+        'restart_confirm' => 'Restart the server now?',
+        'restart_warning' => 'The server stops and starts again so it reads the saved configuration. Anyone playing is disconnected while it restarts.',
+        'restarting' => 'Server restarting',
+        'restart_failed' => 'The server could not be restarted. Try again from the console.',
+    ],
+
+    // Whitelist and operators. A change reaches a running server through its console and a
+    // stopped one through its files, and the wording has to keep that difference visible:
+    // a file edit is only read on the next start.
+    'players' => [
+        'nav_label' => 'Players',
+        'subheading' => 'Choose who may join this server and who has operator powers.',
+        'unreachable_heading' => 'Player lists unavailable',
+        'unreachable' => 'The server could not be reached, so its whitelist and operator list could not be read. Please try again in a moment.',
+        'enforcement' => 'Whitelist',
+        'enforcement_description' => 'While the whitelist is on, only the players listed below can join.',
+        'enforced' => 'Only allow whitelisted players',
+        'offline_mode' => 'This server does not check accounts with Mojang, so anyone can play under any name. The whitelist matches on the name alone.',
+        'col_player' => 'Player',
+        'col_whitelisted' => 'Whitelisted',
+        'col_operator' => 'Operator',
+        'op_level' => 'Level :level',
+        'search' => 'Search players',
+        'empty_heading' => 'No players yet',
+        'empty_body' => 'Nobody is whitelisted or an operator on this server. Add a player to get started.',
+        'whitelist' => 'Whitelist',
+        'unwhitelist' => 'Remove from whitelist',
+        'unwhitelist_confirm' => 'Remove :name from the whitelist?',
+        'unwhitelist_warning' => 'They can no longer join, and are disconnected right away if they are playing.',
+        'op' => 'Make operator',
+        'deop' => 'Remove operator',
+        'op_confirm' => 'Make :name an operator?',
+        'deop_confirm' => 'Remove operator from :name?',
+        'op_warning' => 'Operators can run commands, change the game and edit the world. Only give this to people you trust.',
+        'deop_warning' => 'They keep their access to the server but lose every operator command.',
+        'add' => 'Add player',
+        'username' => 'Minecraft username',
+        'username_hint' => 'The name has to be an existing Minecraft account.',
+        'username_hint_offline' => 'This server does not check accounts, so the name is taken exactly as you type it.',
+        'access' => 'Give them',
+        'access_whitelist' => 'Access to the server',
+        'access_operator' => 'Operator powers',
+        'access_both' => 'Access and operator powers',
+        'refresh' => 'Reload',
+        'whitelisted' => ':name whitelisted',
+        'unwhitelisted' => ':name removed from the whitelist',
+        'opped' => ':name is now an operator',
+        'deopped' => ':name is no longer an operator',
+        'enforced_on' => 'Whitelist turned on',
+        'enforced_off' => 'Whitelist turned off',
+        'restart_note' => 'Saved to the server files - it applies the next time the server starts.',
+        'failed' => 'Something went wrong',
+        'unknown_user' => 'There is no Minecraft account called ":name", so nothing was changed.',
+        'write_failed' => ':file could not be written to the server, so nothing was changed.',
+        'properties_missing' => 'server.properties could not be read, so the whitelist setting was left as it was. Start the server once so it writes the file.',
+    ],
+
+    'onboarding' => [
+        'nav_label' => 'Set up',
+        'title' => 'Set up your server',
+        'subheading' => 'A few questions, and your server is configured the way you want it. You can change any of it later.',
+        'callout_heading' => 'Your server is not set up yet',
+        'callout_body' => 'Pick your server software, a modpack, and who is allowed to join - we will write the files for you.',
+        'callout_action' => 'Start setup',
+        'finish' => 'Finish setup',
+        'gate_title' => 'Finish setting up your server first',
+        'gate_body' => 'This server was just created and still needs its server software chosen. The rest of the panel opens up as soon as you are done here.',
+
+        'step_software' => 'Server software',
+        'step_software_hint' => 'Which server this is, and which Minecraft version it runs.',
+        'version_hint' => 'Leave this on Latest and your server follows new Minecraft releases on its next reinstall.',
+
+        'step_modpack' => 'Modpack',
+        'step_modpack_hint' => 'Optional. Install a ready-made modpack instead of setting one up by hand.',
+        'modpack' => 'Modpack',
+        'modpack_none' => 'No modpack - just the plain server',
+        'modpack_search' => 'Search Modrinth for a modpack',
+        'modpack_version' => 'Modpack version',
+        'modpack_version_hint' => 'The newest release is selected for you. Older versions exist for packs that are still being updated.',
+        'modpack_hint' => 'A modpack brings its own loader and Minecraft version, so it overrides the two answers in the previous step. Packs that require one exact Forge or NeoForge build may still need manual work afterwards.',
+
+        'step_accounts' => 'Player accounts',
+        'step_accounts_hint' => 'Whether players need a paid Minecraft account to join.',
+        'premium' => 'Premium accounts only',
+        'premium_description' => 'Every player is verified against Mojang. Skins, capes and usernames are guaranteed to be genuine. This is the safe default.',
+        'cracked' => 'Allow cracked clients',
+        'cracked_description' => 'Anyone can join with any username, without owning Minecraft. Choose this only if you know you need it.',
+        'cracked_warning' => 'Careful: with cracked clients allowed, anyone can connect using your username - including operators. Keep the whitelist on, or your server will be taken over.',
+
+        'step_access' => 'Who is it for',
+        'step_access_hint' => 'A private server for friends, or open to anyone.',
+        'private' => 'Private - friends only',
+        'private_description' => 'Only the players you list can join. Turns the whitelist on and enforces it, so removing someone also disconnects them.',
+        'public' => 'Public - anyone can join',
+        'public_description' => 'No whitelist. Anyone who knows the address can connect.',
+        'public_warning' => 'A public server will be found by scanners within hours. Expect uninvited visitors, and keep backups.',
+
+        'step_players' => 'Players',
+        'step_players_hint' => 'Who may join, and who is allowed to run the place.',
+        'players' => 'Allowed players',
+        'players_placeholder' => 'Type a username and press Enter',
+        'players_hint' => 'Minecraft usernames, not e-mail addresses. You can add more from the Players page at any time.',
+        'operators' => 'Operators',
+        'operators_placeholder' => 'Type a username and press Enter',
+        'operators_hint' => 'Start with your own Minecraft username so you can run commands in game.',
+        'operators_warning' => 'Operators can change anything on the server, including granting themselves items and banning other players. Only add people you trust.',
+
+        'done' => 'Your server is set up',
+        'done_body' => 'The settings have been written to the server files.',
+        'done_restart' => 'The settings have been written to the server files. Restart the server so it picks them up.',
+        'done_installing' => 'The server is installing now. Your whitelist and settings are applied automatically as soon as it is finished - it can take a few minutes.',
+        'reinstall_failed' => 'The server could not be reinstalled',
+        'reinstall_failed_body' => 'Your answers were saved, but the software change could not be started. Try it again from the Version tab.',
+    ],
+
+    'plans' => [
+        'starter' => 'Starter',
+        'standard' => 'Standard',
+        'pro' => 'Pro',
+        'ultimate' => 'Ultimate',
+        'extreme' => 'Extreme',
+        'master' => 'Master',
+    ],
+
+    'game_types' => [
+        'purpur' => [
+            'label' => 'Vanilla / Paper / Spigot / Purpur',
+            'description' => 'The standard server. Supports Bukkit, Spigot and Paper plugins.',
+        ],
+        'fabric' => [
+            'label' => 'Fabric',
+            'description' => 'Lightweight mod loader. Use for Fabric mods.',
+        ],
+        'neoforge' => [
+            'label' => 'NeoForge',
+            'description' => 'Modern Forge fork. Use for NeoForge mods.',
+        ],
+        'forge' => [
+            'label' => 'Forge',
+            'description' => 'The classic mod loader. Use for Forge mods and older modpacks.',
+        ],
+    ],
+
+    'validation' => [
+        'allocation_limit' => 'You can add :count more ports to this server.',
+        'no_primary_allocation' => 'This server does not have a primary network allocation.',
+        'no_available_port' => 'No available port was found after the current primary port.',
+    ],
+
+    'delete_account' => 'Delete account',
+    'danger_zone' => 'Danger Zone',
+    'delete_account_description' => 'Permanently delete your plugged.host account and all associated personal data.',
+    'current_password' => 'Current Password',
+
+    'admin_delete_user' => [
+        'label' => 'Delete user & servers',
+        'submit' => 'Delete user & servers',
+        'heading' => 'Delete :username and their servers',
+        'description' => 'This user owns :count server(s): :servers. Deleting the account destroys them and everything on them, including worlds, files, databases and backups. This cannot be undone.',
+        'acknowledge' => 'Yes, permanently delete these :count server(s) and everything on them',
+        'confirm_username' => 'Type the username (:username) to confirm',
+        'force' => 'Delete even if a node does not respond',
+        'force_helper' => 'The panel forgets each server even when its node cannot confirm the deletion. Use this only for a node that is gone for good: the container may be left running.',
+    ],
+
+    'modals' => [
+        'delete_server_confirm' => 'Are you sure you want to delete this server?',
+        'delete_server_warning' => 'This action cannot be undone and all data will be permanently lost.',
+        'delete_server' => 'Delete Server',
+        'delete_account_confirm' => 'Are you sure you want to delete your account? This action is permanent and cannot be undone.',
+        'delete_account_warning' => 'All your personal data, API keys, and SSH keys will be permanently removed.',
+        'delete_account_servers' => 'You still own :count server(s): :servers. Deleting your account destroys them and everything on them, including worlds, files, databases and backups.',
+        'delete_account_servers_ack' => 'Yes, permanently delete my :count server(s) and everything on them',
+        'delete_account_confirm_username' => 'Type your username (:username) to confirm',
+    ],
+
+    'notifications' => [
+        'server_resources_updated' => 'Server Resource Limits updated',
+        'might_need_restart' => 'To fully use the new resource limits a server restart might be required.',
+        'manual_restart_needed' => 'Please manually restart your server to apply the new resource limits.',
+        'server_resources_not_updated' => 'Resource limits not updated',
+
+        'server_deleted' => 'Server Deleted',
+        'server_deleted_success' => 'The server has been deleted successfully.',
+        'server_delete_error' => 'Could not delete server',
+
+        'change_version_started' => 'Reinstalling server',
+        'change_version_started_body' => 'The selected software and version are being installed. This can take a few minutes.',
+        'change_version_failed' => 'Could not change version',
+        'invalid_loader' => 'That server software is not available for this game.',
+        'unsupported_version' => 'Minecraft :version is not available for :loader.',
+
+        'account_deleted' => 'Account Deleted',
+        'account_deleted_success' => 'Your account has been deleted successfully.',
+        'account_deleted_with_servers' => 'Your account and :count server(s) have been deleted.',
+        'account_delete_failed' => 'Could not delete account',
+        'account_delete_has_servers' => 'Cannot delete an account with active servers. Please delete your servers first.',
+        'account_delete_last_admin' => 'Cannot delete the last root administrator.',
+        'account_delete_server_failed' => 'The server ":server" could not be deleted (:error), so the account was left alone.',
+        'account_delete_server_unreachable' => 'its node did not respond',
+        'account_delete_partial' => ':count server(s) had already been removed before that happened.',
+        'account_delete_servers_not_acknowledged' => 'Please confirm that the servers may be deleted.',
+        'account_delete_username_mismatch' => 'That does not match the username.',
+        'account_delete_unknown_error' => 'Unknown error. Please contact the panel admin.',
+        'user_deleted' => 'User deleted',
+        'user_deleted_body' => ':username and :count server(s) have been deleted.',
+
+        'server_creation_failed' => 'Could not create server',
+        'no_viable_node_found' => 'No viable node was found. Please contact the panel admin.',
+        'no_viable_allocation_found' => 'No viable allocation was found. Please contact the panel admin.',
+        'unknown_server_creation_error' => 'Unknown error. Please contact the panel admin.',
+        'resource_limit_exceeded' => 'This would exceed your resource or server limit.',
+        'invalid_location' => 'Please choose a valid location.',
+        'no_plan_selected' => 'Please choose a plan, or switch to advanced and set custom values.',
+
+        'ports_created' => 'Network ports created',
+        'ports_created_body' => 'Port :address was added.',
+        'ports_create_failed' => 'Could not create network ports',
+        'ports_conflict' => 'One or more ports became unavailable. Please try again.',
+        'ports_unknown_error' => 'The ports could not be created. Please contact the panel admin.',
+
+        'primary_allocation_required' => 'Cannot remove primary allocation',
+        'primary_allocation_required_body' => 'Assign another network allocation as primary before removing this one.',
+        'locked_allocation_required' => 'Cannot remove locked allocation',
+        'locked_allocation_required_body' => 'This network allocation is locked and cannot be removed.',
+    ],
+
+    /*
+     * What is left of the credits block now that the economy lives in
+     * plugged-host-economy.
+     *
+     * These five are still rendered by core code — UserResourceLimitsOverview is a core
+     * widget — so they stay here rather than becoming a cross-plugin lookup that degrades
+     * to a raw translation key the moment the economy plugin is uninstalled. Everything
+     * else that used to be under this key is now plugged-host-economy::strings.credits.
+     */
+    'credits' => [
+        'credits' => 'Credits',
+        'store_description' => 'Upgrade limits in Store',
+        'need_more_upgrade_store' => 'Need more? Upgrade in Resource Store',
+
+        // Shown when existing servers already allocate more than the current limit
+        // allows — a role was removed, lowered, or resources were reclaimed. Buying
+        // more is one fix, shrinking a server is the other.
+        'over_quota' => 'Over your limit by :amount — shrink or delete a server',
+        'over_quota_slots' => 'Over your server limit by :amount — delete a server',
+    ],
+
+    // The waiting page a server sits on until its egg has installed. Deliberately free of
+    // any percentage: wings reports no completion fraction, so a progress bar would be
+    // invented. Phase, elapsed time and a clear failure state instead.
+    'installing' => [
+        'nav_label' => 'Setting up',
+        'title' => 'Setting up your server',
+        'title_reinstall' => 'Reinstalling your server',
+        'title_failed' => 'Installation failed',
+        'subheading' => ':server is being installed. This page updates itself and opens the panel as soon as it is ready.',
+        'subheading_failed' => 'The install did not finish. Your files are untouched, but the server cannot start yet.',
+        'status_body' => 'Most installs finish in a couple of minutes; larger modpacks take longer. You can close this tab and come back later.',
+        'failed_body' => 'Something went wrong while installing. This is almost always a failed download or a version that is no longer available — get in touch and we will sort it out.',
+        'elapsed' => 'Running for',
+        'get_help' => 'Get help',
+        'steps_heading' => 'Progress',
+        'step_allocated' => 'Server created and resources reserved',
+        'step_installing' => 'Downloading and installing :egg',
+        'step_installing_generic' => 'Downloading and installing server files',
+        'step_ready' => 'Starting up for the first time',
+        'details_heading' => 'What is being set up',
+        'detail_type' => 'Type',
+        'while_you_wait' => 'While you wait',
+        'ready_title' => 'Your server is ready',
+        'ready_body' => ':server finished installing and can be started now.',
+    ],
+
+    // Feeds every perk-discovery surface through PluggedHost\Core\Services\PerkDiscovery.
+    // Amounts are substituted at runtime from the role limit profiles and the store prices,
+    // so no figure is restated here — change a role's limits and this copy follows.
+    'perks' => [
+        'heading' => 'Get more out of your account',
+        // The dashboard's collapsed one-line variant. The count belongs in the heading because
+        // a closed bar has to say how much is behind it, or nobody opens it.
+        'heading_compact' => 'Unlock more resources (:count)',
+        'description' => 'Upgrades you have not claimed yet. Each one leaves this list once it is yours.',
+        'discord_link_title' => 'Link Discord for :gain',
+        'discord_link_body' => 'Connect your Discord account and join our server to raise your limits for free.',
+        'discord_link_cta' => 'Link Discord',
+        'discord_join_title' => 'Join our Discord for :gain',
+        'discord_join_body' => 'Your account is linked, but the upgrade only lands once you are a member of the server.',
+        'discord_join_cta' => 'Join server',
+        'discord_earn_title' => 'Earn :credits credits per friend you invite',
+        'discord_earn_body' => 'Invite people to our Discord with your own invite link, then spend the credits on more resources.',
+        'discord_earn_body_boost' => 'Invite people with your own invite link, or boost the server for :credits credits, then spend it all on more resources.',
+        'discord_earn_cta' => 'View invites',
+        'store_title' => ':price credits buys :amount more RAM',
+        'store_body' => 'You have :balance credits. Spend them on CPU, RAM, disk space or another server slot.',
+        'store_cta' => 'Open store',
+        'gain_unlock' => 'your own servers',
+        'gain_cpu' => '+:amount CPU',
+        'gain_memory' => '+:amount RAM',
+        'gain_disk' => '+:amount disk space',
+        'gain_servers' => ':amount more servers',
+        'gain_unlimited_cpu' => 'unlimited CPU',
+        'gain_unlimited_memory' => 'unlimited RAM',
+        'gain_unlimited_disk' => 'unlimited disk space',
+        'gain_unlimited_servers' => 'unlimited servers',
+        'gain_and' => 'and',
+    ],
+
+    // Topbar chips (PluggedHost\Core\Livewire\AccountChips). Mostly tooltips: the numbers
+    // themselves are formatted in the component so they stay identical in both languages,
+    // and a chip with no room for a label has to explain itself on hover.
+    //
+    // `store` is the exception — a real, visible label, and only ever a fallback. The
+    // button reads its name off the page it opens (ResourceStorePage::getNavigationLabel()),
+    // so the topbar and the sidebar cannot end up calling the same page two things.
+    'chips' => [
+        'tokens_title' => 'Start queue tokens',
+        'credits_title' => 'Credits — open the Economy page',
+        'quota_title' => "CPU :cpu\nMemory :memory\nDisk :disk\nServers :servers",
+        'store' => 'Economy',
+    ],
+
+    // First-login welcome tour (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage). Every
+    // step names a real control by the label it actually carries in the interface -- the whole
+    // point is that someone told "go to Settings" can then find Settings.
+    //
+    // `bullets` is an array and the view renders however many there are; the intro step has
+    // none on purpose, because a wall of text is the thing people skip.
+    'tour' => [
+        'title' => 'Welcome',
+        'progress' => 'Step :step of :total',
+        'acknowledge' => 'Got it',
+        'next' => 'Next',
+        'back' => 'Back',
+        'skip' => 'Skip the rest',
+        'finish' => 'Take me to my servers',
+        'menu' => 'Replay the welcome tour',
+        'steps' => [
+            'intro' => [
+                'heading' => 'Welcome to plugged.host',
+                'body' => 'This is your game server panel. Everything you rent from us lives here: you start and stop your servers, edit their files, and change what they run — all in one place. The next few screens show you where each of those things is. It takes about a minute.',
+            ],
+            'servers' => [
+                'heading' => 'Your servers',
+                'body' => 'The server list is your home page. Every server you own is a row on it.',
+                'bullets' => [
+                    'Click the name of a server to open it.',
+                    'Create server sits in the toolbar above the list, to the left of the search box.',
+                    'The coloured dot on each row tells you whether that server is running.',
+                ],
+            ],
+            'console' => [
+                'heading' => 'The console',
+                'body' => 'Opening a server drops you on its console — the live output of the server itself, and the fastest way to see what it is doing.',
+                'bullets' => [
+                    'Start, Stop and Restart are the buttons at the top of that page.',
+                    'You can type commands straight into the box below the log.',
+                    'A brand-new Minecraft server shows a setup guide here — follow it and the server is ready to play on.',
+                ],
+            ],
+            'inside' => [
+                'heading' => 'Everything else about a server',
+                'body' => 'While a server is open, the sidebar on the left belongs to that one server. The entries you will need most:',
+                'bullets' => [
+                    'Files — upload, edit and delete anything on the server.',
+                    'Backups — take one before you change something, restore it if you break it.',
+                    'Players — whitelist, operators and bans, without editing a config file.',
+                    'Databases — create a MySQL database for a plugin or mod that needs one.',
+                    'Network — the ports and addresses people connect to.',
+                ],
+            ],
+            'settings' => [
+                'heading' => 'Settings, and your balance',
+                'body' => 'Settings is one page per server, and it holds everything about that server: rename it, give it more memory, change which version it runs, or reinstall it.',
+                'bullets' => [
+                    'The coin in the top bar is your tokens — they let a server skip the start queue.',
+                    'The $ next to it is your credits. Click it to open the store and buy more resources.',
+                    'You can reopen this tour at any time from the menu under your avatar.',
+                ],
+            ],
+        ],
+    ],
+
+    // Forced password for accounts created by an OAuth login
+    // (PluggedHost\Core\Filament\App\Pages\SetPasswordPage).
+    'set_password' => [
+        'title' => 'Set a password',
+        'heading' => 'Finish setting up your account',
+        'subheading' => 'You signed up with Discord, so your account has no password yet. Choose one now — it is how you get back in if you ever lose access to your Discord account.',
+        'password' => 'Password',
+        'password_helper' => 'At least 8 characters. Longer is better than complicated.',
+        'confirmation' => 'Confirm password',
+        'submit' => 'Save password',
+        'logout' => 'Sign out',
+        'saved' => 'Password set',
+        'saved_body' => 'You can now sign in with your email address and this password, as well as with Discord.',
+        'gate_title' => 'One more step',
+        'gate_body' => 'Set a password before you continue.',
+    ],
+
+    // Admin settings form (PluggedHostCorePlugin, over EnvironmentWriterTrait). Legal,
+    // registration and sidebar sections carry their own inline labels; these keys cover the
+    // welcome-tour knobs added on top of them.
+    'settings' => [
+        'section_tour' => 'Welcome tour',
+        'section_tour_hint' => 'The first-login guide new users are walked through. Turning it off stops the redirect for everyone immediately.',
+        'tour_enabled' => 'Show the welcome tour',
+        'tour_enabled_hint' => 'Redirect users to the guided tour the first time they sign in.',
+        'tour_version' => 'Tour version',
+        'tour_version_hint' => 'Bump this to show the tour again to everyone who has already seen it. Leave it alone for wording fixes.',
+    ],
+
+    'maintenance' => [
+        'title' => 'Scheduled Maintenance',
+        'badge' => 'Maintenance Mode',
+        'heading' => "We'll be right back",
+        'subheading' => 'We are currently performing scheduled maintenance and system upgrades to improve your experience. Services will resume shortly.',
+        'status_active' => 'System Maintenance Active',
+        'refresh_now' => 'Check Again',
+        'refresh_auto' => 'Auto-checking in :seconds',
+        'discord' => 'Discord Support',
+        'status_page' => 'Public Status',
+        'service_unavailable' => '503 • Service Temporarily Unavailable',
+    ],
+];

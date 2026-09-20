@@ -1,0 +1,16 @@
+/*
+ * INTENTIONALLY EMPTY — do not import flag-icons here.
+ *
+ * flag-icons owns the `.fi-*` class prefix, and so does Filament: `fi-no` is
+ * Filament's *notifications* container, alongside `fi-tabs`, `fi-btn`, `fi-main-ctn`
+ * and friends. Loading flag-icons' stylesheet into a panel therefore paints the
+ * Norwegian flag across Filament's own components (and 248 other collisions behind
+ * it). It broke the whole panel when tried.
+ *
+ * Country flags are rendered as plain <img> elements pointing at self-hosted SVGs
+ * under public/flags/4x3/, built by PluggedHost\Core\Services\LocationCatalog::flagUrl().
+ * An <img> has no class namespace to collide with and needs no CSS rule per country.
+ *
+ * This file is kept (rather than deleted) only because vite.config.js globs
+ * plugins/*\/resources/css/**\/*.css; leaving it empty keeps that entry harmless.
+ */

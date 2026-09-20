@@ -1,0 +1,23 @@
+{
+    "id": "plugged-host-theme-v2",
+    "name": "plugged.host Theme v2",
+    "author": "plugged.host",
+    "version": "1.2.0",
+    "description": "plugged.host Theme v2 inspired by UIExample with deep blue accents and Space Grotesk typography",
+    "category": "plugin",
+    "url": "https://plugged.host",
+    "update_url": null,
+    "namespace": "PluggedHost\\ThemeV2",
+    "class": "PluggedHostThemeV2Plugin",
+    "panels": [
+        "admin",
+        "app",
+        "server"
+    ],
+    "panel_version": null,
+    "composer_packages": null,
+    "meta": {
+        "status": "enabled",
+        "status_message": null
+    }
+}

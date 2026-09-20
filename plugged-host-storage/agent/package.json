@@ -1,0 +1,15 @@
+{
+  "name": "plugged-host-storage-agent",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "plugged.host storage agent: delta-mirror replication, signed archive service, node reachability probe, and signed self-update. Runs on the storage box.",
+  "main": "agent.mjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node agent.mjs"
+  },
+  "dependencies": {}
+}

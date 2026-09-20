@@ -1,0 +1,1767 @@
+/*
+ * plugged.host Theme v2 — 1:1 port of /var/www/UIExample (the PlutoNodes dashboard).
+ *
+ * Every value below is lifted from the UIExample templates rather than eyeballed, and the
+ * Tailwind class it came from is quoted next to it. Read UIExample/views/components/top.ejs
+ * next to this file — the two are meant to stay in step.
+ *
+ * Two things make this sheet work:
+ *
+ * 1. The Filament *panels* stylesheet is imported below. It is NOT part of
+ *    public/build/app.css — that only carries support/actions/forms/infolists/notifications/
+ *    schemas/tables/widgets — so without this import every fi-sidebar-*, fi-topbar-*,
+ *    fi-main-*, fi-page-*, fi-breadcrumbs, fi-user-menu and fi-logo class is unstyled.
+ * 2. Everything after the imports is deliberately *outside* any @layer. Filament ships its
+ *    components in @layer components, and unlayered rules beat layered ones regardless of
+ *    specificity or order, so overrides here need neither !important nor selector padding.
+ *
+ * Accent: UIExample is orange (orange-600 #ea580c, used 169x in its templates); this theme
+ * runs a darker blue instead, by request. The --phv2-accent-* properties in the first block
+ * are the entire accent surface — set them back to #ea580c / #c2410c / #f97316 / #fb923c
+ * (and --primary-* to Tailwind orange) for UIExample's own colour.
+ *
+ * The accent is deliberately *two* tiers rather than one, which the orange did not need:
+ * --phv2-accent is the fill (active nav, badges, filled buttons) and --phv2-accent-bright is
+ * the same accent used as text or a focus ring on a dark surface. Orange-600 as text on this
+ * theme's surfaces is 4.2:1; blue-700 is 2.4:1, i.e. unreadable, so every text/ring use points
+ * at the brighter rung, which lands back on 4.3:1. Keep that split if you re-colour: a single
+ * dark accent used for both is the one way to make this sheet illegible.
+ *
+ * Dark only, like UIExample. The panel's light/dark switcher stays in the user menu but this
+ * theme renders the same dark surfaces either way; switch back to Nord for light mode.
+ */
+
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+:root:root {
+    /* --- accent knob: blue-700 / blue-800 fills, blue-500 / blue-400 for text and rings --- */
+    --phv2-accent: #1d4ed8; /* blue-700 — fills only */
+    --phv2-accent-hover: #1e40af; /* blue-800 */
+    --phv2-accent-bright: #3b82f6; /* blue-500 — the accent as text or a ring on dark */
+    --phv2-accent-glow: #60a5fa; /* blue-400 — the navigate progress bar */
+    --phv2-accent-soft: rgb(29 78 216 / 0.1); /* bg-blue-700/10  — active nav fill */
+    --phv2-accent-tint: rgb(29 78 216 / 0.15); /* bg-blue-700/15 — callout fill */
+    --phv2-accent-edge: rgb(29 78 216 / 0.2); /* border-blue-700/20 — active dashes */
+    --phv2-accent-icon: rgb(59 130 246 / 0.5); /* text-blue-500/50  — active nav icon */
+
+    /* --- UIExample surfaces --- */
+    --phv2-bg-top: #101319; /* from-[#101319] */
+    --phv2-bg-bottom: #0b0d10; /* to-[#0b0d10] */
+    --phv2-sidebar: #1c1e23; /* bg-[#1c1e23] */
+    --phv2-sunken: rgb(15 17 22 / 0.5); /* bg-[#0f1116]/50 — inputs, icon buttons */
+    --phv2-dropdown: #181a1e; /* bg-[#181a1e] — user dropdown */
+    --phv2-modal: #1a1c20; /* bg-[#1a1c20] — modals */
+    --phv2-raise: rgb(255 255 255 / 0.05); /* bg-white/5  — cards, sections */
+    --phv2-raise-2: rgb(255 255 255 / 0.1); /* bg-white/10 — badges, gray buttons */
+    --phv2-raise-3: rgb(255 255 255 / 0.15); /* hover:bg-white/15 */
+    --phv2-hairline: rgb(255 255 255 / 0.05); /* border-white/5 */
+
+    /* --- UIExample text ramp --- */
+    --phv2-text: #ffffff;
+    --phv2-text-nav: #d1d5db; /* text-gray-300 */
+    --phv2-text-muted: #9ca3af; /* text-gray-400 */
+    --phv2-text-faint: #71717a; /* text-zinc-500 */
+
+    /* Space Grotesk everywhere, JetBrains Mono in the console. Filament resolves both
+       through @theme inline, so setting them here re-points every font-sans/font-mono. */
+    --font-family: 'Space Grotesk';
+    --mono-font-family: 'JetBrains Mono';
+    --sidebar-width: 16rem; /* w-64 */
+
+    color-scheme: dark;
+
+    /* --------------------------------------------------------------------------------
+     * Filament palettes. These MUST be real colour values, not the "r, g, b" triplets
+     * Filament v3 wanted: v5 consumes them as var(--primary-500) and
+     * color-mix(in oklab, var(--primary-500) 50%, transparent), so a triplet is invalid
+     * at computed-value time and silently drops the whole declaration.
+     *
+     * @theme inline in filament/support maps --color-primary-* -> var(--primary-*), so
+     * these also re-point every bg-primary-600 / text-primary-500 utility in the panel.
+     * ------------------------------------------------------------------------------ */
+
+    /* primary = Tailwind blue, shifted one rung darker from 200 up so that primary-600 —
+       the fill Filament gives every `fi-color-primary` button — lands on --phv2-accent
+       (blue-700) rather than blue-600. Any shift has to skip a rung somewhere; it is at
+       100→200, the light end, because this theme is dark-only and 50–200 is barely reached. */
+    --primary-50: #eff6ff; /* blue-50 */
+    --primary-100: #dbeafe; /* blue-100 */
+    --primary-200: #93c5fd; /* blue-300 */
+    --primary-300: #60a5fa; /* blue-400 */
+    --primary-400: #3b82f6; /* blue-500 */
+    --primary-500: #2563eb; /* blue-600 */
+    --primary-600: #1d4ed8; /* blue-700 — == --phv2-accent */
+    --primary-700: #1e40af; /* blue-800 */
+    --primary-800: #1e3a8a; /* blue-900 */
+    --primary-900: #172554; /* blue-950 */
+    --primary-950: #0d1330;
+
+    /* gray: the dark end becomes UIExample's actual surfaces (Filament reaches for
+       gray-900 for dropdowns/modals and gray-800 for panels in dark mode), the light
+       end stays Tailwind gray so text-on-light bits still read. */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db; /* text-gray-300 — nav labels */
+    --gray-400: #9ca3af; /* text-gray-400 — muted */
+    --gray-500: #71717a; /* text-zinc-500 — faint */
+    --gray-600: #3f4046;
+    --gray-700: #26282e;
+    --gray-800: #1c1e23; /* bg-[#1c1e23] — sidebar */
+    --gray-900: #1a1c20; /* bg-[#1a1c20] — modals, dropdowns */
+    --gray-950: #0b0d10; /* to-[#0b0d10] — page floor */
+
+    /* danger = red */
+    --danger-50: #fef2f2;
+    --danger-100: #fee2e2;
+    --danger-200: #fecaca;
+    --danger-300: #fca5a5;
+    --danger-400: #f87171;
+    --danger-500: #ef4444;
+    --danger-600: #dc2626;
+    --danger-700: #b91c1c;
+    --danger-800: #991b1b;
+    --danger-900: #7f1d1d;
+    --danger-950: #450a0a;
+
+    /* success = green (UIExample's green callout / "Operational") */
+    --success-50: #f0fdf4;
+    --success-100: #dcfce7;
+    --success-200: #bbf7d0;
+    --success-300: #86efac;
+    --success-400: #4ade80;
+    --success-500: #22c55e;
+    --success-600: #16a34a;
+    --success-700: #15803d;
+    --success-800: #166534;
+    --success-900: #14532d;
+    --success-950: #052e16;
+
+    /* warning = amber */
+    --warning-50: #fffbeb;
+    --warning-100: #fef3c7;
+    --warning-200: #fde68a;
+    --warning-300: #fcd34d;
+    --warning-400: #fbbf24;
+    --warning-500: #f59e0b;
+    --warning-600: #d97706;
+    --warning-700: #b45309;
+    --warning-800: #92400e;
+    --warning-900: #78350f;
+    --warning-950: #451a03;
+
+    /* info = blue */
+    --info-50: #eff6ff;
+    --info-100: #dbeafe;
+    --info-200: #bfdbfe;
+    --info-300: #93c5fd;
+    --info-400: #60a5fa;
+    --info-500: #3b82f6;
+    --info-600: #2563eb;
+    --info-700: #1d4ed8;
+    --info-800: #1e40af;
+    --info-900: #1e3a8a;
+    --info-950: #172554;
+}
+
+/* Space Grotesk on the document itself: Tailwind preflight sets html { font-family:
+   var(--default-font-family) }, which does not follow --font-family. */
+html,
+body {
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* =============================================================================
+ * Page shell — body class="flex h-screen bg-gradient-to-b from-[#101319] to-[#0b0d10]"
+ * The gradient is fixed so it does not repeat down a long table.
+ * ============================================================================= */
+
+.fi-body {
+    background-color: var(--phv2-bg-bottom);
+    background-image: linear-gradient(to bottom, var(--phv2-bg-top), var(--phv2-bg-bottom));
+    background-attachment: fixed;
+    color: var(--phv2-text); /* body class="text-white" */
+}
+
+/* -----------------------------------------------------------------------------
+ * Desktop shape.
+ *
+ * UIExample's sidebar owns the full height, with the logo in its own top-left
+ * corner; Filament's is the other way round — a full-width `.fi-topbar-ctn` above
+ * `.fi-layout`, with the sidebar pushed down 4rem to clear it and its header
+ * `lg:hidden` because the topbar already carries the mark. CSS cannot reparent one
+ * into the other, so the topbar is switched off in PHP instead (see
+ * PluggedHostThemeV2Plugin) and everything it carried moves into the sidebar.
+ *
+ * That leaves very little to state here, because Filament already dresses the
+ * topbar-less case: `.fi-body:not(.fi-body-has-topbar) .fi-main-ctn` is
+ * `flex min-h-dvh`, `.fi-sidebar` is `h-dvh` and only takes its 4rem offset under
+ * `.fi-body-has-topbar`, and `:not(.fi-body-has-topbar) .fi-sidebar-header` is
+ * already transparent and visible at every width.
+ *
+ * What is left is the hamburger. Without a topbar to hold it, Filament falls back
+ * to a floating `.fi-layout-sidebar-toggle-btn`, in the page flow above
+ * `.fi-layout` and `lg:hidden` — the same thing UIExample's own `lg:hidden`
+ * hamburger does, minus the bar around it. `p-4` is that header's padding.
+ * --------------------------------------------------------------------------- */
+
+.fi-body > .fi-layout-sidebar-toggle-btn-ctn {
+    padding: 1rem;
+}
+
+/* =============================================================================
+ * Sidebar — bg-[#1c1e23] border-r border-white/5 w-64 overflow-y-auto flex flex-col
+ * ============================================================================= */
+
+.fi-sidebar {
+    background-color: var(--phv2-sidebar);
+    border-inline-end: 1px solid var(--phv2-hairline);
+}
+
+/* logo block: "flex items-center justify-center mt-8", image "w-auto h-10".
+   The header is `justify-center` upstream but `.fi-sidebar-header-logo-ctn` is
+   `flex-1`, so without a second centring the mark sits at the left edge of a
+   full-width box — invisible while the header was `lg:hidden`, obvious now that it
+   is the only place a logo appears. */
+.fi-sidebar-header {
+    height: auto;
+    padding: 2rem 0.5rem 0;
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.fi-sidebar-header-logo-ctn {
+    display: flex;
+    justify-content: center;
+}
+
+/* !important is unavoidable here: brandLogoHeight('2rem') is an inline style attribute. */
+.fi-sidebar-header .fi-logo {
+    height: 2.5rem !important;
+    width: auto;
+    margin-inline-start: 0; /* undoes :not(.fi-body-has-topbar) … .fi-logo { ms-3 } */
+}
+
+/* nav: "mt-4 pl-2 pr-2 font-medium flex-grow". UIExample stacks every row in one
+   flow with no group separation, so Filament's gap-y-7 between groups goes away;
+   0.25rem keeps adjacent rounded fills from touching now that the rows are tall. */
+.fi-sidebar-nav {
+    gap: 0.25rem;
+    padding: 1rem 0.5rem 0.5rem;
+}
+
+.fi-sidebar-nav-groups {
+    margin-inline: 0;
+    gap: 0.25rem;
+}
+
+.fi-sidebar-group,
+.fi-sidebar-group-items {
+    gap: 0.25rem;
+}
+
+/* -- every nav row: item buttons and group headers share one shape --
+ * item:  "flex items-center py-1.5 text-gray-300 hover:bg-white/5 rounded-lg hover:text-white"
+ * group: "flex items-center justify-between w-full py-1.5 text-gray-300 hover:bg-white/5 rounded-lg"
+ *
+ * `min-height: 2.75rem` — not `height` — is the "all buttons are big buttons" request. It
+ * is the same 2.75rem as `.fi-btn` and `.phv2-new-server`, so the CTA above this tree and
+ * every row below it now read as one family of controls. min- rather than a fixed height
+ * because a long label in de wraps rather than being clipped, and because a group header on
+ * the admin and server panels has a collapse chevron inside it that must stay centred.
+ *
+ * This is deliberately wider than UIExample's own `py-1.5` rows: the flat app nav has no
+ * group headers left to carry visual weight, so the rows have to carry it themselves.
+ *
+ * The 2px transparent border matches the active row's border box so switching pages
+ * does not shift the rows below it; UIExample only puts the border on the active row.
+ */
+.fi-sidebar-item-btn,
+.fi-sidebar-group-btn {
+    justify-content: flex-start;
+    min-height: 2.75rem;
+    gap: 0.625rem;
+    padding: 0.5rem 0.875rem;
+    border: 2px solid transparent;
+    border-radius: 0.75rem; /* rounded-xl, to sit between the pill CTA and the search field */
+    color: var(--phv2-text-nav);
+    transition-property: color, background-color, border-color;
+    transition-duration: 200ms;
+}
+
+.fi-sidebar-group-btn {
+    justify-content: space-between;
+}
+
+.fi-sidebar-item-btn > .fi-icon,
+.fi-sidebar-group-btn > .fi-icon,
+.fi-sidebar-group-btn .fi-icon {
+    color: var(--phv2-text-faint); /* text-zinc-500 */
+}
+
+/* size-6, as UIExample's inline SVGs are — Filament's own default too, but it is restated
+   here because a 2.75rem row makes a smaller glyph look lost, and because the flat app nav
+   gave every former group child an icon of its own that has to match the rows around it. */
+.fi-sidebar-item-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.fi-sidebar-item-label {
+    color: inherit; /* UIExample colours the whole row, not the label alone */
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Filament renders the group label as a small muted caption; in UIExample it is an
+   ordinary nav label on a clickable row. */
+.fi-sidebar-group-label {
+    color: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.5rem;
+}
+
+/* chevron: "w-4 h-4 mr-2 transition-transform". Filament already applies -rotate-180
+   via .fi-collapsed, so no second rotation here — just strip the icon-button chrome.
+   The selector is deliberately two levels deep so the generic .fi-icon-btn rules
+   further down this sheet cannot win on source order. */
+.fi-sidebar-group-btn .fi-sidebar-group-collapse-btn {
+    padding: 0;
+    margin-inline-end: 0.5rem;
+    background-color: transparent;
+    border: 0;
+    color: inherit;
+}
+
+.fi-sidebar-group-btn .fi-sidebar-group-collapse-btn .fi-icon {
+    width: 1rem;
+    height: 1rem;
+}
+
+.fi-sidebar-item-has-url > .fi-sidebar-item-btn:hover,
+.fi-sidebar-item-has-url > .fi-sidebar-item-btn:focus-visible,
+.fi-sidebar-group.fi-collapsible > .fi-sidebar-group-btn:hover {
+    background-color: var(--phv2-raise); /* hover:bg-white/5 */
+    color: var(--phv2-text);
+}
+
+/* -- active, flavour 1: top-level rows and group headers --
+ * "bg-orange-600/10 text-orange-600 border-2 border-dashed border-orange-600/20 shadow-sm"
+ * A group with no label is Filament's bucket for ungrouped items, so :has() is what
+ * separates a top-level row from an indented child.
+ *
+ * Since the app nav went flat this is the *only* flavour that panel can ever show: every
+ * one of its rows is an ungrouped item inside that single unlabelled bucket. The selector
+ * is unchanged because it was already asking the right question — the admin and server
+ * panels still build their own grouped navigation and still need both flavours.
+ *
+ * The label takes the *bright* rung, not the fill: UIExample reads its accent straight
+ * back as text because orange-600 is light enough to, and blue-700 on this fill is 2.4:1.
+ */
+.fi-sidebar-group:not(:has(> .fi-sidebar-group-btn))
+    > .fi-sidebar-group-items
+    > .fi-sidebar-item.fi-active
+    > .fi-sidebar-item-btn,
+.fi-sidebar-group.fi-active > .fi-sidebar-group-btn {
+    background-color: var(--phv2-accent-soft);
+    border: 2px dashed var(--phv2-accent-edge);
+    color: var(--phv2-accent-bright);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.fi-sidebar-group:not(:has(> .fi-sidebar-group-btn))
+    > .fi-sidebar-group-items
+    > .fi-sidebar-item.fi-active
+    > .fi-sidebar-item-btn
+    > .fi-icon,
+.fi-sidebar-group.fi-active > .fi-sidebar-group-btn .fi-icon {
+    color: var(--phv2-accent-icon); /* text-orange-600/50 */
+}
+
+/* the collapse chevron sits inside the active group header and must not go accent-dim */
+.fi-sidebar-group.fi-active > .fi-sidebar-group-btn .fi-sidebar-group-collapse-btn .fi-icon {
+    color: var(--phv2-accent-bright);
+}
+
+/* -- active, flavour 2: indented children -- "bg-white/5 text-white shadow" --
+ * and their resting shape: "py-1.5 px-10 text-sm ... rounded-lg mr-2"
+ *
+ * Dead on the app panel now that its nav is flat, and deliberately kept: the admin and
+ * server panels get Theme v2's stylesheet too and build their own grouped navigation, so
+ * this is what styles a child of a real collapsible group there. The 2.5rem inline start
+ * is the indent; the shared 2.75rem min-height above still applies, so a child is a big
+ * button as well — just an indented one.
+ */
+.fi-sidebar-group:has(> .fi-sidebar-group-btn) > .fi-sidebar-group-items > .fi-sidebar-item > .fi-sidebar-item-btn {
+    padding-inline: 2.5rem 0.75rem;
+    margin-inline-end: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.fi-sidebar-group:has(> .fi-sidebar-group-btn)
+    > .fi-sidebar-group-items
+    > .fi-sidebar-item.fi-active
+    > .fi-sidebar-item-btn {
+    background-color: var(--phv2-raise);
+    color: var(--phv2-text);
+    box-shadow:
+        0 1px 3px 0 rgb(0 0 0 / 0.1),
+        0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+/* =============================================================================
+ * Sidebar footer — the avatar row UIExample's header carried
+ * ("flex justify-between border-b border-dashed border-white/5 items-center p-4"),
+ * now that Theme v2 has no topbar to put it in.
+ *
+ * `order: 1` is what puts the balance row above the avatar rather than below it. The
+ * SIDEBAR_FOOTER render hook emits *after* this element (livewire/sidebar.blade.php:206
+ * versus :193), so in DOM order the balance follows the avatar; sorting this element last
+ * in the sidebar's flex column reverses that. The notifications trigger is a *child* of
+ * this element, not a sibling, and is hidden just below.
+ * ============================================================================= */
+
+.fi-sidebar-footer {
+    order: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.125rem;
+    margin: 0;
+    padding: 0 0.5rem 0.5rem;
+}
+
+/* The bell belongs above the nav tree, where UIExample keeps it, and `.phv2-notifications`
+   forwards its click to this one — so the real trigger has to exist and be wired, just not
+   be seen. It is rendered eagerly for Theme v2 (see lazyLoadedDatabaseNotifications in
+   PluggedHostThemeV2Plugin) precisely because a hidden lazy component would never intersect
+   and never hydrate; its modal is `teleport="body"`, so hiding the wrapper here does not
+   hide the panel it opens. */
+.fi-sidebar-footer > .fi-no-database {
+    display: none;
+}
+
+/* the avatar row: "py-2 px-4 rounded-xl transition hover:bg-white/5 hover:scale-95" */
+.fi-sidebar-footer .fi-user-menu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* space-x-2 */
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    background-color: transparent; /* UIExample's row has no resting fill, only hover:bg-white/5 */
+    color: var(--phv2-text);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    --tw-ring-shadow: 0 0 #0000; /* drops the static ring-1; the row does not focus-ring */
+    transition: background-color 150ms ease, transform 100ms ease;
+}
+
+.fi-sidebar-footer .fi-user-menu-trigger:hover {
+    background-color: var(--phv2-raise);
+}
+
+.fi-sidebar-footer .fi-user-menu-trigger:active {
+    transform: scale(0.98);
+}
+
+.fi-sidebar-footer .fi-user-menu-trigger .fi-icon {
+    width: 1.25rem; /* h-5 w-5 */
+    height: 1.25rem;
+    color: var(--phv2-text);
+}
+
+/* Unstyled upstream, and a 16rem sidebar is not wide enough to let a long username
+   push the chevron off the end of the row. */
+.fi-sidebar-footer .fi-user-menu-trigger-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* =============================================================================
+ * Sidebar balance — UIExample's header wallet pill, at the foot of the sidebar.
+ *
+ * Reference (views/components/top.ejs, immediately left of the avatar dropdown):
+ * "text-white py-2 px-4 hover:scale-95 rounded-xl transition hover:bg-white/5
+ * cursor-pointer", wallet glyph "size-6 text-gray-400", then the coin count.
+ *
+ * Injected at SIDEBAR_FOOTER, which emits after `.fi-sidebar-footer`; that element's
+ * `order: 1` above is what lifts this row back above the avatar.
+ *
+ * Every colour is a `--phv2-*` property and never a Tailwind `dark:` variant — see the
+ * header of sidebar/balance.blade.php for why that distinction is the whole reason this
+ * component exists rather than reusing plugged-host-core's chips.
+ * ============================================================================= */
+
+.phv2-balance {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.5rem 0.5rem 0.625rem; /* inline padding matches .fi-sidebar-nav */
+    margin-top: 0.5rem;
+}
+
+/* Clean, basic resources card matching the tokens and credits pill */
+.phv2-resources-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--phv2-hairline);
+    border-radius: 0.75rem;
+    background-color: var(--phv2-sunken);
+    box-shadow: none;
+    transition: all 200ms;
+}
+
+.phv2-resources-card:hover {
+    border-color: var(--phv2-hairline);
+    box-shadow: none;
+}
+
+.phv2-resources-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.125rem;
+}
+
+.phv2-resources-title {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--phv2-text-muted);
+}
+
+.phv2-resource-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.phv2-resource-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.phv2-resource-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+}
+
+.phv2-resource-label-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.phv2-resource-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--phv2-text-muted);
+}
+
+.phv2-resource-icon > svg,
+.phv2-resource-icon .fi-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    stroke-width: 1.5;
+}
+
+.phv2-resource-name {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--phv2-text-nav);
+}
+
+.phv2-resource-metrics {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.phv2-resource-value {
+    font-weight: 600;
+    color: var(--phv2-text);
+}
+
+.phv2-resource-limit {
+    font-size: 0.6875rem;
+    color: var(--phv2-text-muted);
+}
+
+.phv2-resource-track {
+    width: 100%;
+    height: 3px;
+    border-radius: 9999px;
+    background-color: var(--phv2-raise);
+    overflow: hidden;
+}
+
+.phv2-resource-bar {
+    height: 100%;
+    border-radius: 9999px;
+    background-color: var(--phv2-accent-bright);
+    box-shadow: none !important;
+    transition: width 300ms ease;
+}
+
+/* One row holding both currencies, shaped like the reference's single pill. `min-height`
+   rather than `height` so a four-digit balance in a locale that groups with spaces can
+   wrap to two lines instead of overflowing a 16rem column. */
+.phv2-balance-pills {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--phv2-hairline);
+    border-radius: 0.75rem; /* rounded-xl */
+    background-color: var(--phv2-sunken);
+    color: var(--phv2-text);
+    text-decoration: none;
+    transition: all 200ms;
+}
+
+/* hover:bg-white/5 + hover:scale-95, and only when there is actually somewhere to go */
+.phv2-balance-pills-linked {
+    cursor: pointer;
+}
+
+.phv2-balance-pills-linked:hover {
+    background-color: var(--phv2-raise);
+    border-color: var(--phv2-accent-edge);
+}
+
+.phv2-balance-pills-linked:active {
+    transform: scale(0.98);
+}
+
+.phv2-balance-pills-linked:focus-visible {
+    outline: 2px solid var(--phv2-accent-bright);
+    outline-offset: 2px;
+}
+
+.phv2-balance-item {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.3125rem;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+}
+
+/* size-4, not the reference's size-6: two currencies share the width one pill had. */
+.phv2-balance-icon {
+    display: inline-flex;
+    flex: none;
+}
+
+.phv2-balance-icon > svg,
+.phv2-balance-icon .fi-icon {
+    width: 1rem;
+    height: 1rem;
+    /* Tokens are a Tabler glyph and credits a Heroicon, and the two sets ship different stroke
+       widths as an SVG *attribute* (2 and 1.5). A CSS declaration outranks a presentation
+       attribute, so this is what stops the coins looking bolder than the banknotes beside them. */
+    stroke-width: 1.5;
+}
+
+/* The icons are the only thing telling two otherwise identical number-and-word pairs
+   apart, so they are the one place in this row that takes a colour of its own. */
+.phv2-balance-icon-tokens > svg,
+.phv2-balance-icon-tokens .fi-icon {
+    color: var(--phv2-accent-glow);
+}
+
+.phv2-balance-icon-credits > svg,
+.phv2-balance-icon-credits .fi-icon {
+    color: var(--phv2-accent-bright);
+}
+
+.phv2-balance-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums; /* so a polling update does not jiggle the row */
+    color: var(--phv2-text);
+}
+
+.phv2-balance-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--phv2-text-muted);
+}
+
+/* user dropdown — "w-48 bg-[#181a1e] rounded-md overflow-hidden shadow-xl",
+   items "block px-4 py-2 text-sm text-gray-300 hover:bg-white/5" */
+.fi-dropdown-panel {
+    background-color: var(--phv2-dropdown);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    box-shadow:
+        0 20px 25px -5px rgb(0 0 0 / 0.25),
+        0 8px 10px -6px rgb(0 0 0 / 0.25);
+}
+
+/* Allow table filter popovers to display child select dropdowns without clipping */
+.fi-ta-filters-dropdown .fi-dropdown-panel,
+.fi-dropdown-panel:has(.fi-select-input) {
+    overflow: visible !important;
+}
+
+/* Select dropdown scrolling: ensure options list is scrollable and does not overflow screen */
+.fi-dropdown-panel.fi-scrollable,
+.fi-select-input .fi-dropdown-panel {
+    max-height: 16rem !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+}
+
+/* Sticky search input inside select dropdowns */
+.fi-select-input-search-ctn {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+    background-color: var(--phv2-dropdown) !important;
+    padding: 0.375rem !important;
+    border-bottom: 1px solid var(--phv2-hairline) !important;
+}
+
+.fi-select-input-search-ctn .fi-input {
+    background-color: var(--phv2-sunken) !important;
+    border: 1px solid var(--phv2-hairline) !important;
+    border-radius: 0.375rem !important;
+    padding: 0.375rem 0.625rem !important;
+    font-size: 0.8125rem !important;
+    color: var(--phv2-text) !important;
+}
+
+.fi-dropdown-panel:not(.fi-dropdown-list) > :not(:last-child) {
+    border-color: var(--phv2-hairline);
+}
+
+.fi-dropdown-list {
+    gap: 0;
+    padding: 0.25rem;
+}
+
+.fi-dropdown-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    min-height: 2.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--phv2-text-nav);
+}
+
+.fi-dropdown-list-item:not(.fi-disabled):not([disabled]):hover,
+.fi-dropdown-list-item:not(.fi-disabled):not([disabled]):focus-visible {
+    background-color: var(--phv2-raise);
+    color: var(--phv2-text);
+}
+
+.fi-dropdown-list-item-label {
+    color: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+}
+
+.fi-dropdown-list-item > .fi-icon,
+.fi-dropdown-list-item > svg,
+.fi-dropdown-list-item .fi-icon {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    min-width: 1.25rem !important;
+    max-width: 1.25rem !important;
+    max-height: 1.25rem !important;
+    color: var(--phv2-text-faint);
+    flex-shrink: 0;
+}
+
+.fi-dropdown-list-item:not(.fi-disabled):not([disabled]):hover > .fi-icon,
+.fi-dropdown-list-item:not(.fi-disabled):not([disabled]):focus-visible > .fi-icon,
+.fi-dropdown-list-item:not(.fi-disabled):not([disabled]):hover svg,
+.fi-dropdown-list-item:not(.fi-disabled):not([disabled]):focus-visible svg {
+    color: var(--phv2-text);
+}
+
+.fi-dropdown-header,
+.fi-dropdown-header span {
+    color: var(--phv2-text-nav);
+}
+
+.fi-dropdown-header .fi-icon,
+.fi-dropdown-header svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    min-width: 1.25rem !important;
+    max-width: 1.25rem !important;
+    max-height: 1.25rem !important;
+    flex-shrink: 0;
+}
+
+/* =============================================================================
+ * Sidebar notification button — injected at SIDEBAR_NAV_START, directly under the logo.
+ *
+ * This is the whole of what used to be UIExample's search row (a filter field, this bell,
+ * and a cog): the field and the cog were removed by request, so the bell is no longer one
+ * 37.5px square in a row of three and can be the full-width "big notification button" that
+ * was asked for. Shaped like `.phv2-new-server` — same 2.75rem height, same full-bleed
+ * width — but filled from `--phv2-sunken` rather than the accent, because this column has
+ * exactly one primary CTA and it is the New Server button below.
+ *
+ * No inline margin: `.fi-sidebar-nav` already has `padding: 1rem 0.5rem 0.5rem`, so an
+ * extra 0.5rem here would inset this row to 1rem while every nav row below sat at 0.5rem —
+ * two different left edges in one column, which was most of why this end of the sidebar
+ * looked wrong. UIExample's own `mt-7` above the row is dropped for the same reason: there
+ * it separated the search row from the logo block, and here the nav's 1rem top padding
+ * already does that. Keeping both stacked 44px of dead space under the logo.
+ * ============================================================================= */
+
+.phv2-notifications {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    /* the same gap and inline padding as `.fi-sidebar-item-btn`, so the bell sits on the
+       same vertical line as the nav icons directly below it */
+    gap: 0.625rem;
+    min-height: 2.75rem;
+    margin-block: 0 0.25rem;
+    padding: 0.5rem 0.875rem;
+    background-color: var(--phv2-sunken);
+    border: 1px solid var(--phv2-hairline);
+    border-radius: 0.75rem; /* rounded-xl */
+    color: var(--phv2-text);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: start;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+
+.phv2-notifications:hover {
+    background-color: var(--phv2-raise);
+    border-color: var(--phv2-accent-edge);
+}
+
+.phv2-notifications:active {
+    transform: scale(0.98);
+}
+
+.phv2-notifications:focus-visible {
+    outline: 2px solid var(--phv2-accent-bright);
+    outline-offset: 2px;
+}
+
+/* size-6 in UIExample, and the same 1.5rem the nav icons take, so the two agree. Tinted
+   rather than muted: this is the one row above the nav tree that reports something. */
+.phv2-notifications > svg,
+.phv2-notifications .fi-icon {
+    flex: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--phv2-accent-glow);
+}
+
+.phv2-notifications-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Mirrored unread count — the real bell is hidden in the footer, so its own badge is too.
+   Inline at the trailing edge rather than a corner dot, because a full-width row has
+   somewhere sensible to put a number; same position Filament gives a nav item's badge. */
+.phv2-notifications-badge {
+    flex: none;
+    margin-inline-start: auto;
+    min-width: 1.25rem;
+    padding: 0 0.375rem;
+    border-radius: 9999px;
+    background-color: var(--phv2-accent);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    text-align: center;
+}
+
+/* =============================================================================
+ * Sidebar "New Server" call to action — injected at SIDEBAR_NAV_START, directly
+ * under the notification button, in place of the Compute group it replaced.
+ *
+ * Verbatim UIExample's primary button (views/servers.ejs): "hover:scale-95 flex
+ * items-center justify-center h-11 gap-2 px-5 text-sm font-medium text-white rounded-full
+ * shadow bg-orange-600 hover:bg-orange-700 hover:shadow-none" — stretched to the full
+ * 16rem column because it is the sidebar's own CTA rather than one button in a header row.
+ *
+ * This is hand-rolled rather than a .fi-btn: it is an anchor in a render hook, outside any
+ * Filament action, so there is no Action to configure and nothing would give it the
+ * fi-color-primary custom properties .fi-btn's fill depends on.
+ * ============================================================================= */
+
+.phv2-new-server {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem; /* gap-2 */
+    height: 2.75rem; /* h-11 */
+    /* Inline margin deliberately 0 — see .phv2-notifications above. `.fi-sidebar-nav`'s own
+       0.5rem inline padding is the only inset, so the CTA, the notification button and every
+       nav row share one left edge. The old `margin: 0.5rem 0.5rem 0.25rem` pushed this button
+       1rem in and made it read as narrower than the rows under it. */
+    margin-block: 0.25rem 0.5rem;
+    padding-inline: 1.25rem; /* px-5 */
+    border-radius: 9999px; /* rounded-full */
+    background-color: var(--phv2-accent);
+    color: #fff;
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500;
+    text-align: center;
+    box-shadow:
+        0 1px 3px 0 rgb(0 0 0 / 0.1),
+        0 1px 2px -1px rgb(0 0 0 / 0.1);
+    transition: background-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+.phv2-new-server:hover {
+    background-color: var(--phv2-accent-hover);
+    box-shadow: 0 4px 12px 0 rgb(29 78 216 / 0.35);
+}
+
+.phv2-new-server:active {
+    transform: scale(0.97);
+    box-shadow: none;
+}
+
+.phv2-new-server:focus-visible {
+    outline: 2px solid var(--phv2-accent-bright);
+    outline-offset: 2px;
+}
+
+.phv2-new-server .fi-icon,
+.phv2-new-server svg {
+    width: 1rem; /* size-4 */
+    height: 1rem;
+    flex: none;
+    color: currentColor;
+}
+
+/* =============================================================================
+ * Page header — h1 "text-xl font-semibold mb-0.5", subheading "text-gray-400 text-md"
+ * ============================================================================= */
+
+.fi-main {
+    padding-inline: 2rem; /* container mx-auto px-8 */
+    padding-block: 0.5rem 2rem;
+}
+
+.fi-header-heading {
+    font-size: 1.25rem; /* text-xl, not Filament's text-2xl/sm:text-3xl */
+    line-height: 1.75rem;
+    font-weight: 600;
+    letter-spacing: normal;
+    margin-block-end: 0.125rem; /* mb-0.5 */
+    color: var(--phv2-text);
+}
+
+.fi-header-subheading {
+    margin-block-start: 0;
+    font-size: 1rem;
+    color: var(--phv2-text-muted);
+}
+
+/* breadcrumbs: "inline-flex py-2 px-4 rounded-xl bg-white/5" */
+.fi-breadcrumbs {
+    display: inline-flex;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    background-color: var(--phv2-raise);
+    transition: background-color 200ms;
+}
+
+/* Hide breadcrumbs completely when empty or when only a single item exists (e.g. root files page) */
+.fi-breadcrumbs:empty,
+.fi-breadcrumbs:not(:has(.fi-breadcrumbs-item:nth-child(2))),
+.fi-breadcrumbs:has(ol > :only-child),
+.fi-breadcrumbs:has(.fi-breadcrumbs-list > :only-child) {
+    display: none !important;
+}
+
+.fi-breadcrumbs ol li {
+    color: var(--phv2-text-muted);
+    font-weight: 400;
+}
+
+.fi-breadcrumbs ol li:last-child {
+    color: rgb(255 255 255 / 0.8); /* text-white/80 */
+    font-weight: 500;
+}
+
+.fi-breadcrumbs ol li a:hover {
+    color: #e4e4e7; /* hover:text-zinc-200 */
+}
+
+.fi-breadcrumbs ol li .fi-icon {
+    width: 1rem; /* size-4 */
+    height: 1rem;
+    color: var(--phv2-text-muted);
+}
+
+/* =============================================================================
+ * Toggle Switch
+ * ============================================================================= */
+.fi-toggle {
+    transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+.fi-toggle:not(.fi-toggle-on),
+.fi-toggle.fi-toggle-off {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.fi-toggle:not(.fi-toggle-on):hover,
+.fi-toggle.fi-toggle-off:hover {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.fi-toggle.fi-toggle-on {
+    background-color: var(--phv2-accent) !important;
+    border: 1px solid transparent !important;
+}
+
+/* =============================================================================
+ * Buttons & Button Groups
+ * primary: "rounded-full shadow bg-orange-600 hover:bg-orange-700 h-11 px-5 hover:scale-95"
+ * gray:    "bg-white/10 hover:bg-white/15 rounded-b-2xl rounded-t-lg"
+ * ============================================================================= */
+
+.fi-header-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-header-actions .fi-icon-btn {
+    margin: 0 !important;
+}
+
+/* Button groups (e.g. server console power buttons): remove outer box/ring and let each button be a distinct pill */
+.fi-btn-group,
+.fi-header-actions .fi-btn-group {
+    display: inline-flex !important;
+    grid-auto-flow: dense !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: none !important;
+    --tw-shadow: none !important;
+    ring: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    gap: 0.5rem !important;
+}
+
+.fi-btn-group > .fi-btn,
+.fi-header-actions .fi-btn-group > .fi-btn {
+    border-radius: 9999px !important;
+    box-shadow: none !important;
+    --tw-shadow: none !important;
+    margin-inline-end: 0 !important;
+}
+
+.fi-btn-group > .fi-btn:not(:first-child) {
+    box-shadow: none !important;
+    --tw-shadow: none !important;
+    margin-inline-start: 0 !important;
+}
+
+/* Filled buttons already come out blue: .fi-color-primary sets --bg to var(--primary-600),
+   which is #1d4ed8 above. Only the shape, the size and the press feedback need saying.
+
+   min-height rather than a fixed height, and padding-block left to Filament.
+   The shadow goes through --tw-shadow rather than box-shadow so that Filament's
+   focus-visible:ring-2 — which composes into the same box-shadow — still draws. */
+.fi-btn:not(.fi-link) {
+    min-height: 2.75rem; /* h-11 default */
+    width: auto !important;
+    min-width: unset !important;
+    border-radius: 9999px; /* rounded-full */
+    padding-inline: 1.25rem; /* px-5 */
+    --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, #0000001a), 0 1px 2px -1px var(--tw-shadow-color, #0000001a);
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+.fi-btn:not(.fi-disabled):not([disabled]):hover {
+    filter: brightness(1.08);
+}
+
+.fi-btn:not(.fi-disabled):not([disabled]):active {
+    transform: scale(0.97);
+    --tw-shadow: 0 0 #0000;
+}
+
+/* Link buttons: keep them clean text links, not 44px pill buttons */
+.fi-btn.fi-link {
+    min-height: unset !important;
+    border-radius: 0.375rem !important;
+    padding-inline: 0.25rem !important;
+    padding-block: 0.125rem !important;
+    box-shadow: none !important;
+    --tw-shadow: none !important;
+    background-color: transparent !important;
+    transition: color 150ms ease !important;
+}
+
+/* Compact and small button variants: keep table actions and pagination proportional */
+.fi-btn.fi-size-xs:not(.fi-link) {
+    min-height: 1.75rem !important;
+    padding-inline: 0.625rem !important;
+    font-size: 0.75rem !important;
+}
+
+.fi-btn.fi-size-sm:not(.fi-link) {
+    min-height: 2.125rem !important;
+    padding-inline: 0.875rem !important;
+    font-size: 0.8125rem !important;
+}
+
+/* gray / neutral buttons (Cancel, secondary actions): "bg-white/10 hover:bg-white/15 text-white" */
+.fi-btn.fi-color-gray:not(.fi-link):not(.fi-outlined),
+.fi-btn:not(.fi-color):not(.fi-link):not(.fi-outlined) {
+    background-color: var(--phv2-raise-2);
+    color: var(--phv2-text);
+}
+
+.fi-btn.fi-color-gray:not(.fi-link):not(.fi-outlined):not(.fi-disabled):not([disabled]):hover,
+.fi-btn:not(.fi-color):not(.fi-link):not(.fi-outlined):not(.fi-disabled):not([disabled]):hover {
+    background-color: var(--phv2-raise-3);
+    filter: none;
+}
+
+/* Icon buttons: eliminate negative margins globally to prevent collisions & overlaps */
+.fi-icon-btn {
+    width: 2.25rem; /* 36px default */
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    color: var(--phv2-text-muted);
+    background-color: transparent;
+    transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+
+.fi-icon-btn.fi-size-xs {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    border-radius: 0.375rem !important;
+}
+
+.fi-icon-btn.fi-size-sm {
+    width: 2rem !important;
+    height: 2rem !important;
+    border-radius: 0.5rem !important;
+}
+
+.fi-icon-btn.fi-size-md {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    border-radius: 0.5rem !important;
+}
+
+.fi-icon-btn.fi-size-lg {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    border-radius: 0.5rem !important;
+}
+
+.fi-icon-btn.fi-size-xl {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    border-radius: 0.75rem !important;
+}
+
+.fi-icon-btn:not(.fi-disabled):not([disabled]):hover {
+    background-color: var(--phv2-raise);
+    color: var(--phv2-text);
+}
+
+.fi-icon-btn:not(.fi-disabled):not([disabled]):active {
+    transform: scale(0.95);
+}
+
+.fi-icon-btn > .fi-icon,
+.fi-icon-btn svg {
+    color: inherit;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    stroke-width: 1.75 !important;
+    margin: 0 !important;
+}
+
+/* Specific icon button color semantics */
+.fi-icon-btn.fi-color-primary {
+    color: var(--phv2-accent-bright);
+}
+
+.fi-icon-btn.fi-color-primary:not(.fi-disabled):not([disabled]):hover {
+    color: var(--phv2-accent-glow);
+    background-color: var(--phv2-raise);
+}
+
+.fi-icon-btn.fi-color-danger {
+    color: #ef4444;
+}
+
+.fi-icon-btn.fi-color-danger:not(.fi-disabled):not([disabled]):hover {
+    color: #f87171;
+    background-color: rgba(239, 68, 68, 0.12);
+}
+
+.fi-icon-btn.fi-color-success {
+    color: #10b981;
+}
+
+.fi-icon-btn.fi-color-success:not(.fi-disabled):not([disabled]):hover {
+    color: #34d399;
+    background-color: rgba(16, 185, 129, 0.12);
+}
+
+/* Table header toolbar actions harmonization */
+/* =============================================================================
+ * Table header toolbar actions (All Filament Tables & File Explorer)
+ * Flat modern toolbar matching panel aesthetics:
+ * - 100% flat (no borders, no heavy shadows, no 3D sunken background)
+ * - Signature panel blue icons with soft flat hover highlight (var(--phv2-raise))
+ * - Pixel-perfect vertical alignment and zero negative margin collisions
+ * ============================================================================= */
+
+.fi-ta-header-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--phv2-hairline);
+}
+
+.fi-ta-header-toolbar .fi-ta-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.375rem !important;
+    flex-wrap: wrap;
+}
+
+/* Upload wrapper fix: ensure seamless inline-flex alignment with sibling buttons */
+.fi-ta-header-toolbar [x-data*="isUploading"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 2.25rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+}
+
+/* Flat toolbar action buttons across all table header toolbars */
+.fi-ta-header-toolbar .fi-icon-btn,
+.fi-ta-header-toolbar [x-data*="isUploading"] .fi-btn {
+    min-height: 2.25rem !important;
+    height: 2.25rem !important;
+    min-width: 2.25rem !important;
+    width: 2.25rem !important;
+    border-radius: 0.5rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: transparent !important;
+    background: transparent !important;
+    border: none !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: none !important;
+    --tw-shadow: none !important;
+    color: var(--phv2-accent-bright) !important; /* signature panel blue #3b82f6 */
+    scale: 1 !important;
+    transition: background-color 150ms ease, color 150ms ease, transform 100ms ease !important;
+}
+
+/* Centered crisp icons inside toolbar buttons */
+.fi-ta-header-toolbar .fi-icon-btn .fi-icon,
+.fi-ta-header-toolbar .fi-icon-btn > svg,
+.fi-ta-header-toolbar [x-data*="isUploading"] svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    stroke-width: 1.75 !important;
+    color: inherit !important;
+    margin: 0 !important;
+}
+
+/* Flat hover & active states: subtle background tint without heavy borders or shadows */
+.fi-ta-header-toolbar .fi-icon-btn:not(.fi-disabled):not([disabled]):hover,
+.fi-ta-header-toolbar [x-data*="isUploading"] .fi-btn:hover {
+    background-color: var(--phv2-raise) !important;
+    color: var(--phv2-accent-glow) !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    scale: 1 !important;
+}
+
+.fi-ta-header-toolbar .fi-icon-btn:not(.fi-disabled):not([disabled]):active,
+.fi-ta-header-toolbar [x-data*="isUploading"] .fi-btn:active {
+    background-color: rgba(59, 130, 246, 0.18) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: scale(0.95) !important;
+}
+
+/* Optional toolbar button with visible text label */
+.fi-ta-header-toolbar .fi-btn:not(.fi-icon-btn):has(span:not(.fi-btn-icon):not([class*="sr-only"])) {
+    width: auto !important;
+    min-width: unset !important;
+    padding-inline: 1rem !important;
+    border-radius: 9999px !important;
+    background-color: var(--phv2-accent) !important;
+    color: #ffffff !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-ta-header-toolbar .fi-btn:not(.fi-icon-btn):has(span:not(.fi-btn-icon):not([class*="sr-only"])):hover {
+    background-color: var(--phv2-accent-hover) !important;
+    color: #ffffff !important;
+}
+
+.fi-ta-header-toolbar .fi-btn:not(.fi-icon-btn):has(span:not(.fi-btn-icon):not([class*="sr-only"])):active {
+    transform: scale(0.96) !important;
+}
+
+.fi-ta-header-toolbar .fi-btn:not(.fi-icon-btn):has(span:not(.fi-btn-icon):not([class*="sr-only"])) svg {
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+    stroke-width: 2 !important;
+    color: #ffffff !important;
+}
+
+/* Ensure green color overrides never bleed through into file actions */
+.fi-ta-header-toolbar .fi-btn.fi-color-success,
+.fi-ta-header-toolbar .fi-icon-btn.fi-color-success {
+    background-color: transparent !important;
+    color: var(--phv2-accent-bright) !important;
+    border: none !important;
+}
+
+/* Ensure modals and popups in files/actions do not show green buttons: use panel blue */
+.fi-modal .fi-btn.fi-color-success {
+    background-color: var(--phv2-accent) !important;
+    border-color: var(--phv2-accent-bright) !important;
+    color: #ffffff !important;
+}
+
+.fi-modal .fi-btn.fi-color-success:hover {
+    background-color: var(--phv2-accent-hover) !important;
+}
+
+/* Match search field height to the 36px toolbar buttons */
+.fi-ta-header-toolbar .fi-ta-search-field .fi-input-wrp {
+    min-height: 2.25rem !important;
+    height: 2.25rem !important;
+    border-radius: 0.5rem !important;
+}
+
+.fi-ta-header-toolbar .fi-ta-search-field .fi-input {
+    font-size: 0.8125rem !important;
+    padding-block: 0.25rem !important;
+}
+
+/* badges: "px-2 py-1 text-xs font-semibold rounded-lg bg-white/10 text-gray-100".
+   Only the neutral ones are repainted — Pelican leans on coloured badges for server
+   state, and UIExample keeps its status pills coloured too. */
+.fi-badge {
+    border-radius: 0.5rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+}
+
+.fi-badge:not(.fi-color),
+.fi-badge.fi-color-gray {
+    background-color: var(--phv2-raise-2);
+    box-shadow: none; /* drops the ring */
+    color: #f3f4f6;
+}
+
+/* =============================================================================
+ * Cards. Pelican's server list is a content-layout table, so UIExample's server
+ * grid maps onto .fi-ta-record: "bg-white/5 rounded-2xl overflow-hidden shadow-none
+ * hover:shadow-lg transition-shadow duration-300" with a p-6 body and no border.
+ * The container around the grid is transparent — UIExample draws no outer box.
+ * ============================================================================= */
+
+.fi-ta-ctn {
+    background-color: transparent;
+    box-shadow: none; /* shadow-sm + ring-1 */
+}
+
+.fi-ta-header,
+.fi-ta-header-toolbar,
+.fi-ta-filters-above-content-ctn,
+.fi-pagination {
+    border-color: var(--phv2-hairline);
+    padding-inline: 0;
+}
+
+.fi-ta-content-ctn {
+    background-color: transparent;
+}
+
+.fi-ta-content-ctn > :not(:last-child),
+.fi-ta-content > :not(:last-child) {
+    border-color: var(--phv2-hairline);
+}
+
+.fi-ta-content.fi-ta-content-grid {
+    padding: 1rem 0 0;
+}
+
+.fi-ta-record {
+    background-color: var(--phv2-raise);
+    transition: box-shadow 300ms;
+}
+
+.fi-ta-content-grid .fi-ta-record {
+    border-radius: 1rem; /* rounded-2xl */
+    box-shadow: none;
+    overflow: hidden;
+}
+
+.fi-ta-content-grid .fi-ta-record:hover {
+    box-shadow:
+        0 10px 15px -3px rgb(0 0 0 / 0.25),
+        0 4px 6px -4px rgb(0 0 0 / 0.25); /* hover:shadow-lg */
+}
+
+.fi-ta-record-content-ctn {
+    padding: 1.5rem; /* p-6 */
+}
+
+.fi-ta-record-content,
+.fi-ta-record-content-ctn > .fi-ta-actions,
+.fi-ta-table .fi-ta-actions {
+    padding-inline: 0;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+}
+
+.fi-ta-header-heading,
+.fi-ta-filters-heading {
+    font-size: 1rem; /* text-md font-semibold text-white */
+    color: var(--phv2-text);
+}
+
+/* =============================================================================
+ * Sections — same card treatment: "bg-white/5 rounded-2xl", p-6 body, no ring.
+ * ============================================================================= */
+
+.fi-section:not(.fi-section-not-contained):not(.fi-aside) {
+    background-color: var(--phv2-raise);
+    border-radius: 1rem;
+    box-shadow: none;
+}
+
+.fi-section:not(.fi-section-not-contained):not(.fi-aside).fi-secondary {
+    background-color: var(--phv2-raise-2);
+}
+
+.fi-section-content-ctn,
+.fi-section-footer,
+.fi-fieldset {
+    border-color: var(--phv2-hairline);
+}
+
+.fi-section-header-heading {
+    color: var(--phv2-text);
+    font-size: 1rem; /* text-md font-semibold */
+}
+
+.fi-section-header-description {
+    color: var(--phv2-text-muted);
+}
+
+/* =============================================================================
+ * Tabs — "mb-5 bg-gradient-to-r from-white/5 to-transparent rounded-2xl p-2",
+ * items "rounded-xl px-3 py-2 text-sm text-gray-300 hover:bg-white/10", and the
+ * active one is white/10 rather than accent-coloured (components/server.ejs).
+ * ============================================================================= */
+
+.fi-tabs:not(.fi-contained) {
+    background-color: transparent;
+    background-image: linear-gradient(to right, var(--phv2-raise), transparent);
+    border-radius: 1rem;
+    box-shadow: none;
+    margin-inline: 0;
+    margin-block-end: 1.25rem;
+    padding: 0.5rem;
+}
+
+.fi-tabs-item {
+    border-radius: 0.75rem;
+    color: var(--phv2-text-nav);
+}
+
+.fi-tabs-item:hover,
+.fi-tabs-item:focus-visible,
+.fi-tabs-item.fi-active {
+    background-color: var(--phv2-raise-2);
+    color: var(--phv2-text);
+}
+
+.fi-tabs-item .fi-tabs-item-label,
+.fi-tabs-item > .fi-icon {
+    color: inherit;
+}
+
+/* the underlined variant, which is UIExample's "#tabs a" pattern:
+   active = "border-orange-500 text-orange-500 font-medium" (components/bottom.ejs) */
+.fi-tabs.fi-contained {
+    border-color: var(--phv2-hairline);
+}
+
+.fi-tabs.fi-contained .fi-tabs-item.fi-active {
+    background-color: transparent;
+    border-radius: 0;
+    border-block-end: 2px solid var(--phv2-accent-bright);
+    color: var(--phv2-accent-bright);
+}
+
+/* =============================================================================
+ * Inputs — "bg-[#0f1116]/50 border border-white/5 text-white placeholder-zinc-500
+ * focus:ring-2 focus:ring-orange-600". The ring goes through --tw-ring-color so
+ * Filament's focus-within:ring-2 still composes correctly.
+ * ============================================================================= */
+
+.fi-input-wrp {
+    background-color: var(--phv2-sunken);
+    border-radius: 0.5rem;
+    --tw-ring-color: var(--phv2-hairline);
+    --tw-shadow: 0 0 #0000;
+}
+
+.fi-input-wrp:focus-within:not(.fi-disabled) {
+    --tw-ring-color: var(--phv2-accent-bright);
+}
+
+.fi-input-wrp .fi-input,
+.fi-input-wrp input,
+.fi-input-wrp textarea,
+.fi-input-wrp select {
+    color: var(--phv2-text);
+}
+
+.fi-input-wrp .fi-input::placeholder,
+.fi-input-wrp input::placeholder,
+.fi-input-wrp textarea::placeholder {
+    color: var(--phv2-text-faint);
+}
+
+.fi-input-wrp-label,
+.fi-fo-field-wrp-label,
+.fi-fo-field-wrp-label label {
+    color: var(--phv2-text);
+}
+
+.fi-fo-field-wrp-hint,
+.fi-fo-field-wrp-helper-text {
+    color: var(--phv2-text-muted);
+}
+
+/* =============================================================================
+ * Modals — "bg-[#1a1c20] rounded-xl", dropdown-dark not page-dark.
+ * ============================================================================= */
+
+.fi-modal-window {
+    background-color: var(--phv2-modal);
+    box-shadow:
+        0 25px 50px -12px rgb(0 0 0 / 0.5),
+        0 0 0 1px var(--phv2-hairline);
+}
+
+/* =============================================================================
+ * Callouts — "w-full border-l-4 bg-orange-600/15 border-orange-600 rounded-r-2xl"
+ * with a p-6 body, heading "text-white/90 text-lg font-semibold" and body
+ * "text-white/60 text-sm leading-5" (dashboard.ejs). Filament puts --color-* on
+ * any .fi-color element, so one rule covers UIExample's orange/green/amber/blue.
+ * ============================================================================= */
+
+.fi-callout {
+    background-color: var(--phv2-accent-tint);
+    border-inline-start: 4px solid var(--phv2-accent);
+    border-radius: 0 1rem 1rem 0;
+    box-shadow: none;
+    padding: 1.5rem;
+}
+
+.fi-callout.fi-color {
+    background-color: color-mix(in oklab, var(--color-600) 15%, transparent);
+    border-inline-start-color: var(--color-600);
+}
+
+.fi-callout .fi-callout-heading {
+    color: rgb(255 255 255 / 0.9);
+    font-size: 1.125rem; /* text-lg */
+    font-weight: 600;
+}
+
+.fi-callout .fi-callout-description {
+    color: rgb(255 255 255 / 0.6);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.fi-no-notification {
+    background-color: var(--phv2-modal);
+}
+
+/* =============================================================================
+ * Stats — value "text-2xl font-semibold text-orange-500", label "text-base
+ * font-medium text-white", on the same white/5 card as everything else.
+ * ============================================================================= */
+
+.fi-wi-stats-overview-stat {
+    background-color: var(--phv2-raise);
+    border-radius: 1rem;
+    --tw-ring-color: var(--phv2-hairline);
+    --tw-shadow: 0 0 #0000;
+}
+
+.fi-wi-stats-overview-stat .fi-wi-stats-overview-stat-label {
+    color: var(--phv2-text);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.fi-wi-stats-overview-stat .fi-wi-stats-overview-stat-value {
+    color: var(--phv2-accent-bright); /* text-orange-500 */
+    font-size: 1.5rem; /* text-2xl */
+    line-height: 2rem;
+}
+
+.fi-wi-stats-overview-stat .fi-wi-stats-overview-stat-description {
+    color: var(--phv2-text-muted);
+}
+
+/* =============================================================================
+ * Loading bar — ".loadingbar .bar { background:#fb923c; box-shadow: 0px 4px 38px
+ * -15px #fb923c; height: 1.85px }" (components/bottom.ejs). Livewire's navigate
+ * progress bar is nprogress, whose <style> is injected at runtime *after* this
+ * sheet, so !important is the only way to win on equal specificity.
+ * ============================================================================= */
+
+html.fi {
+    --livewire-progress-bar-color: var(--phv2-accent-glow);
+}
+
+#nprogress .bar {
+    background: var(--phv2-accent-glow) !important;
+    box-shadow: 0 4px 38px -15px var(--phv2-accent-glow) !important;
+    height: 1.85px !important;
+}
+
+#nprogress .peg {
+    display: none !important;
+}
+
+/* =============================================================================
+ * Text ramp for the Filament classes this sheet does not otherwise repaint.
+ * Stated unconditionally rather than through dark: variants, because theme v2 is
+ * dark-only and must not go black-on-black if the panel is left in light mode.
+ * ============================================================================= */
+
+.fi-ta-text,
+.fi-ta-header-cell-label,
+.fi-in-entry-label,
+.fi-in-text,
+.fi-modal-heading,
+.fi-fo-repeater-item-label,
+.fi-ta-empty-state-heading {
+    color: var(--phv2-text);
+}
+
+.fi-ta-header-cell-label,
+.fi-in-entry-label {
+    font-weight: 500;
+}
+
+.fi-ta-empty-state-description,
+.fi-modal-description,
+.fi-pagination-overview,
+.fi-ta-selection-indicator > :nth-child(1),
+.fi-in-entry-helper-text {
+    color: var(--phv2-text-muted);
+}
+
+.fi-ta-header-cell,
+.fi-ta-table,
+.fi-ta-table > tbody > tr,
+.fi-ta-empty-state {
+    border-color: var(--phv2-hairline);
+}
+
+/* footer text: "text-neutral-400 uppercase tracking-widest text-sm" — plugged-host-core
+   hides the panel footer, so this only catches a footer put back by a page. */
+.fi-footer {
+    color: #a3a3a3;
+    font-size: 0.875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* =============================================================================
+ * Server Settings Page Redesign (Theme v2 & Cross-Theme Harmonization)
+ * ============================================================================= */
+
+.scroll-mt-24,
+#form section[id] {
+    scroll-margin-top: 5rem;
+}
+
+#form section#danger {
+    border: 1px solid rgba(239, 68, 68, 0.25) !important;
+    background-color: rgba(239, 68, 68, 0.03) !important;
+}
+
+#form section#danger .fi-section-header {
+    border-bottom-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+#form .fi-sc-section {
+    border-radius: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+

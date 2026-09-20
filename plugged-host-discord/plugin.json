@@ -1,0 +1,20 @@
+{
+    "id": "plugged-host-discord",
+    "name": "plugged.host Discord",
+    "author": "plugged.host",
+    "version": "1.2.0",
+    "description": "Discord account linking, Discord server membership verification, the panel Discord Linked role for resource limits, credit rewards for tracked invites and server boosts, and a self-supervising, self-installing gateway daemon",
+    "category": "plugin",
+    "url": null,
+    "update_url": null,
+    "namespace": "PluggedHost\\Discord",
+    "class": "PluggedHostDiscordPlugin",
+    "panels": null,
+    "panel_version": null,
+    "composer_packages": null,
+    "meta": {
+        "status": "enabled",
+        "status_message": null,
+        "load_order": 2
+    }
+}

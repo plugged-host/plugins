@@ -1,0 +1,20 @@
+{
+    "id": "plugged-host-storage",
+    "name": "plugged.host Storage",
+    "author": "plugged.host",
+    "version": "1.2.0",
+    "description": "Storage server: 30-minute delta-mirror replication, a daily panel-visible S3 backup, and automatic node-failure recovery, driven by a signed Node.js agent that runs on the storage box.",
+    "category": "plugin",
+    "url": null,
+    "update_url": null,
+    "namespace": "PluggedHost\\Storage",
+    "class": "PluggedHostStoragePlugin",
+    "panels": ["admin"],
+    "panel_version": null,
+    "composer_packages": null,
+    "meta": {
+        "status": "enabled",
+        "status_message": null,
+        "load_order": 5
+    }
+}

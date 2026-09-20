@@ -1,0 +1,269 @@
+<?php
+
+namespace PluggedHost\Ads\Providers;
+
+use App\Models\User;
+use Filament\Facades\Filament;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\ServiceProvider;
+use App\Filament\App\Resources\Servers\Pages\ListServers;
+use Illuminate\Support\Facades\Blade;
+use PluggedHost\Ads\Filament\Server\Pages\StartGatePage;
+use PluggedHost\Ads\Services\AdDisplayService;
+use PluggedHost\Ads\Services\AdsterraService;
+use Throwable;
+
+class AdsPluginServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(AdsterraService::class);
+        $this->app->singleton(AdDisplayService::class);
+    }
+
+    public function boot(): void
+    {
+        $this->loadViewsFrom(plugin_path('plugged-host-ads', 'resources/views'), 'plugged-host-ads');
+        $this->loadTranslationsFrom(plugin_path('plugged-host-ads', 'lang'), 'plugged-host-ads');
+
+        // WP4: <x-plugged-host-ads::slot name="…" /> → resources/views/components/*.blade.php.
+        // Path-based registration (unambiguous for a plugin, no dependence on view-namespace
+        // component resolution order).
+        Blade::anonymousComponentPath(
+            plugin_path('plugged-host-ads', 'resources/views/components'),
+            'plugged-host-ads',
+        );
+
+        $this->registerSlot();
+        $this->registerPageLevelUnits();
+        $this->registerNamedSlotHooks();
+        $this->registerAdBlockResponse();
+    }
+
+    /**
+     * The two WP4 named slots that live on surfaces no plugin owns a blade for — the app-panel
+     * sidebar and the server list (upstream's ListServers). Everywhere else the placement is a
+     * literal `<x-plugged-host-ads::slot name="…" />` tag in the owning view; here a render hook
+     * emits the same component, so the grant logic (master/panel/exempt/interstitial/cap/
+     * no-zone-twice) stays in exactly one place — AdDisplayService::slot() via the component.
+     *
+     * The tag is rendered through Blade so nothing is duplicated. `sidebar-footer` sits under the
+     * balance at the foot of the sidebar; `server-list-footer` is gated to the ListServers route,
+     * because CONTENT_END fires on every app-panel page. Both no-op instantly when the slot is
+     * disabled or the user is exempt.
+     */
+    protected function registerNamedSlotHooks(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SIDEBAR_FOOTER,
+            fn (): ?Htmlable => $this->renderNamedSlot('sidebar-footer'),
+        );
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::CONTENT_END,
+            function (): ?Htmlable {
+                try {
+                    if (Filament::getCurrentPanel()?->getId() !== 'app'
+                        || !class_exists(ListServers::class)
+                        || !request()->routeIs(ListServers::getRouteName())) {
+                        return null;
+                    }
+                } catch (Throwable) {
+                    return null;
+                }
+
+                return $this->renderNamedSlot('server-list-footer');
+            },
+        );
+    }
+
+    /**
+     * Render one named slot as the same anonymous component a view would, or null on any failure —
+     * a throwing render hook takes the panel down.
+     */
+    protected function renderNamedSlot(string $name): ?Htmlable
+    {
+        try {
+            $html = trim(Blade::render(
+                '<x-plugged-host-ads::slot :name="$name" />',
+                ['name' => $name],
+            ));
+
+            return $html === '' ? null : new HtmlString($html);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The in-content slot: the Adsterra banner and native units, plus the anchor
+     * the ad-block notice renders into.
+     */
+    protected function registerSlot(): void
+    {
+        $render = function (): ?Htmlable {
+            try {
+                $ads = app(AdDisplayService::class);
+                $adsterra = app(AdsterraService::class);
+
+                [$user, $panelId, $isAuthPage] = $this->context();
+
+                if (!$ads->shouldDisplay($user, $panelId, $isAuthPage)) {
+                    return null;
+                }
+
+                // The start gate renders its own unit stack, laid out for a page
+                // whose only purpose is to hold attention. Letting the generic slot
+                // render as well would serve the same Adsterra zone twice in one
+                // document, which splits the fill and is the sort of thing a network
+                // audits for. Other plugins' waiting pages — the start queue's — say
+                // so through AdDisplayService::registerInterstitialRoute().
+                if (StartGatePage::isCurrentRoute() || $ads->onInterstitialRoute()) {
+                    return null;
+                }
+
+                $units = $adsterra->inContentUnits();
+                $notice = $ads->antiBlockMode() === 'notice'
+                    && $ads->shouldRunAntiBlock($user, $panelId, $isAuthPage);
+
+                // Nothing to show is not the same as nothing configured. Since
+                // `hasUnit()` also counts the waiting room's own surfaces — a
+                // starting-page-only popunder, the room's zone, a Direct Link —
+                // shouldDisplay() can legitimately be true here with no in-content
+                // unit to render, and the wrapper's own margins would then leave a
+                // gap on every page in the panel.
+                if ($units === [] && !$notice) {
+                    return null;
+                }
+
+                return new HtmlString(view('plugged-host-ads::filament.slot', [
+                    'zIndex' => $ads->getZIndex(),
+                    'adsterraUnits' => $units,
+                    'sandbox' => $adsterra->frameSandbox(),
+                    'notice' => $notice,
+                ])->render());
+            } catch (Throwable) {
+                return null;
+            }
+        };
+
+        FilamentView::registerRenderHook(PanelsRenderHook::CONTENT_END, $render);
+        FilamentView::registerRenderHook(PanelsRenderHook::SIMPLE_LAYOUT_END, $render);
+    }
+
+    /**
+     * Social Bar and Popunder. These draw outside the slot and are injected at
+     * the end of the body, where a blocking third-party script costs the least.
+     *
+     * Also the single home for the waiting room's top-document scripts. The gate
+     * page could emit its own, but it polls itself every two seconds, and a script
+     * tag inside a Livewire component is re-evaluated on a morph — one Social Bar
+     * per tick. Out here, above the component root, it is written once per page load.
+     *
+     * Which set applies is decided in exactly one place, so no zone can end up in
+     * the document twice. The waiting room's set is not a superset of the panel-wide
+     * one: a format whose `*_panel_wide` switch is off appears only here, which is
+     * how "popunder on the starting page and nowhere else" is configured. Any page
+     * registered through `AdDisplayService::registerInterstitialRoute()` counts as a
+     * waiting room for this decision, which is how the start queue's page gets the
+     * same set without this plugin knowing the class exists.
+     */
+    protected function registerPageLevelUnits(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            function (): ?Htmlable {
+                try {
+                    $ads = app(AdDisplayService::class);
+
+                    [$user, $panelId, $isAuthPage] = $this->context();
+
+                    if (!$ads->shouldDisplay($user, $panelId, $isAuthPage)) {
+                        return null;
+                    }
+
+                    $adsterra = app(AdsterraService::class);
+
+                    $scripts = StartGatePage::isCurrentRoute() || $ads->onInterstitialRoute()
+                        ? $adsterra->gateScripts()
+                        : $adsterra->pageScripts();
+
+                    if ($scripts === []) {
+                        return null;
+                    }
+
+                    return new HtmlString(view('plugged-host-ads::filament.adsterra-page-scripts', [
+                        'scripts' => $scripts,
+                    ])->render());
+                } catch (Throwable) {
+                    return null;
+                }
+            },
+        );
+    }
+
+    protected function registerAdBlockResponse(): void
+    {
+        // Unconditional while the feature is on — see the view for why it cannot
+        // be gated per page the way the detector below is.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::STYLES_AFTER,
+            function (): ?Htmlable {
+                try {
+                    if (!app(AdDisplayService::class)->antiBlockEnabled()) {
+                        return null;
+                    }
+
+                    return new HtmlString(view('plugged-host-ads::filament.styles.adblock')->render());
+                } catch (Throwable) {
+                    return null;
+                }
+            },
+        );
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_AFTER,
+            function (): ?Htmlable {
+                try {
+                    $ads = app(AdDisplayService::class);
+
+                    [$user, $panelId, $isAuthPage] = $this->context();
+
+                    if (!$ads->shouldRunAntiBlock($user, $panelId, $isAuthPage)) {
+                        return null;
+                    }
+
+                    // JSON_HEX_TAG is load-bearing: the payload carries an
+                    // admin-authored message and lands inside a <script>.
+                    $payload = json_encode(
+                        $ads->antiBlockPayload(),
+                        JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                            | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT,
+                    );
+
+                    return new HtmlString(view('plugged-host-ads::filament.scripts.adblock', [
+                        'payload' => $payload,
+                    ])->render());
+                } catch (Throwable) {
+                    return null;
+                }
+            },
+        );
+    }
+
+    /**
+     * @return array{0: ?User, 1: ?string, 2: bool}
+     */
+    protected function context(): array
+    {
+        $panelId = Filament::getCurrentPanel()?->getId();
+
+        /** @var ?User $user */
+        $user = Filament::auth()->user();
+
+        return [$user, $panelId, !Filament::auth()->check()];
+    }
+}

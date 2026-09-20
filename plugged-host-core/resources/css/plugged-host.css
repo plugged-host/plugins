@@ -1,0 +1,156 @@
+/*
+    Utility classes for the plugged.host plugin views.
+
+    Why this file exists: the panel's own Tailwind entry (resources/css/app.css)
+    uses `@import 'tailwindcss'`, whose automatic source detection is based at
+    that file's own directory, and the nord theme entry imports Filament's theme,
+    which is `@import 'tailwindcss' source(none)` and therefore scans nothing.
+    Neither entry has ever looked at plugins/**, so a utility class used only in
+    a plugin view was silently never compiled — the classes that happened to work
+    were the ones Filament's own vendor views also use. This entry scans the
+    plugged.host plugin trees explicitly and emits what they need.
+
+    vite.config.js already globs plugins/*\/resources/css/**\/*.css as build
+    entries, so no core file has to change; CoreRuntimeServiceProvider injects
+    the compiled stylesheet into every panel. Run `yarn build` after editing a
+    plugin view that introduces a utility class not used anywhere before.
+
+    Preflight is deliberately not imported: app.css already ships it, and a
+    second copy would only duplicate the base reset.
+
+    Every plugged.host plugin tree has to be listed below by hand. A missing
+    @source is not an error — it is a view that renders unstyled, which is why
+    adding a plugin means adding its two lines here in the same change.
+*/
+
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+
+@source '../views';
+@source '../../src';
+@source '../../../plugged-host-discord/resources/views';
+@source '../../../plugged-host-discord/src';
+@source '../../../plugged-host-ads/resources/views';
+@source '../../../plugged-host-ads/src';
+@source '../../../plugged-host-economy/resources/views';
+@source '../../../plugged-host-economy/src';
+@source '../../../plugged-host-queue/resources/views';
+@source '../../../plugged-host-queue/src';
+@source '../../../plugged-host-theme-v2/resources/views';
+@source '../../../plugged-host-theme-v2/src';
+@source '../../../plugged-host-status/resources/views';
+@source '../../../plugged-host-status/src';
+@source '../../../plugged-host-servers/resources/views';
+@source '../../../plugged-host-servers/src';
+@source '../../../plugged-host-minecraft/resources/views';
+@source '../../../plugged-host-minecraft/src';
+@source '../../../plugged-host-storage/resources/views';
+@source '../../../plugged-host-storage/src';
+@source '../../../plugged-host-limbo/resources/views';
+@source '../../../plugged-host-limbo/src';
+
+/* Filament toggles dark mode with a class, not a media query. */
+@custom-variant dark (.dark &);
+
+/*
+    Phone topbar: make room for the balance chips.
+
+    `.fi-topbar-end` is `ms-auto flex items-center gap-x-4` upstream — 1rem between
+    items, sized for the two controls Filament puts there. AccountChips adds two more
+    on a bar that below `lg` has already lost the logo and brand text, and on a 360px
+    screen those three 1rem gaps are the difference between fitting and pushing the
+    user menu off the edge. Halved below `sm` only, and only when the chips are
+    actually present, so a panel without them (the admin panel, a signed-out page)
+    keeps upstream's spacing exactly.
+
+    :has() is unsupported in browsers older than Chrome 105 / Safari 15.4 / Firefox
+    121; there the rule is simply dropped and the bar spaces itself as it did before,
+    which is the reason this is a gap tweak rather than something load-bearing.
+*/
+@media (width < 40rem) {
+    .fi-topbar-end:has(.fi-ph-chips) {
+        column-gap: 0.5rem;
+    }
+}
+
+/*
+    Resolve gray/primary/danger/... against the panel's runtime palette, exactly
+    as vendor/filament/support/resources/css/index.css does, so `text-gray-500`
+    written in a plugin view is the same Nord grey a Filament component renders
+    instead of Tailwind's stock palette.
+*/
+@theme inline {
+    --color-danger-50: var(--danger-50);
+    --color-danger-100: var(--danger-100);
+    --color-danger-200: var(--danger-200);
+    --color-danger-300: var(--danger-300);
+    --color-danger-400: var(--danger-400);
+    --color-danger-500: var(--danger-500);
+    --color-danger-600: var(--danger-600);
+    --color-danger-700: var(--danger-700);
+    --color-danger-800: var(--danger-800);
+    --color-danger-900: var(--danger-900);
+    --color-danger-950: var(--danger-950);
+
+    --color-gray-50: var(--gray-50);
+    --color-gray-100: var(--gray-100);
+    --color-gray-200: var(--gray-200);
+    --color-gray-300: var(--gray-300);
+    --color-gray-400: var(--gray-400);
+    --color-gray-500: var(--gray-500);
+    --color-gray-600: var(--gray-600);
+    --color-gray-700: var(--gray-700);
+    --color-gray-800: var(--gray-800);
+    --color-gray-900: var(--gray-900);
+    --color-gray-950: var(--gray-950);
+
+    --color-info-50: var(--info-50);
+    --color-info-100: var(--info-100);
+    --color-info-200: var(--info-200);
+    --color-info-300: var(--info-300);
+    --color-info-400: var(--info-400);
+    --color-info-500: var(--info-500);
+    --color-info-600: var(--info-600);
+    --color-info-700: var(--info-700);
+    --color-info-800: var(--info-800);
+    --color-info-900: var(--info-900);
+    --color-info-950: var(--info-950);
+
+    --color-primary-50: var(--primary-50);
+    --color-primary-100: var(--primary-100);
+    --color-primary-200: var(--primary-200);
+    --color-primary-300: var(--primary-300);
+    --color-primary-400: var(--primary-400);
+    --color-primary-500: var(--primary-500);
+    --color-primary-600: var(--primary-600);
+    --color-primary-700: var(--primary-700);
+    --color-primary-800: var(--primary-800);
+    --color-primary-900: var(--primary-900);
+    --color-primary-950: var(--primary-950);
+
+    --color-success-50: var(--success-50);
+    --color-success-100: var(--success-100);
+    --color-success-200: var(--success-200);
+    --color-success-300: var(--success-300);
+    --color-success-400: var(--success-400);
+    --color-success-500: var(--success-500);
+    --color-success-600: var(--success-600);
+    --color-success-700: var(--success-700);
+    --color-success-800: var(--success-800);
+    --color-success-900: var(--success-900);
+    --color-success-950: var(--success-950);
+
+    --color-warning-50: var(--warning-50);
+    --color-warning-100: var(--warning-100);
+    --color-warning-200: var(--warning-200);
+    --color-warning-300: var(--warning-300);
+    --color-warning-400: var(--warning-400);
+    --color-warning-500: var(--warning-500);
+    --color-warning-600: var(--warning-600);
+    --color-warning-700: var(--warning-700);
+    --color-warning-800: var(--warning-800);
+    --color-warning-900: var(--warning-900);
+    --color-warning-950: var(--warning-950);
+}

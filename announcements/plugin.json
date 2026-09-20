@@ -1,0 +1,19 @@
+{
+    "id": "announcements",
+    "name": "Announcements",
+    "author": "Boy132",
+    "version": "1.1.0",
+    "description": "Create panel wide announcements to inform your users about stuff",
+    "category": "plugin",
+    "url": "https://hub.pelican.dev/plugins/announcements",
+    "update_url": "https://hub.pelican.dev/plugins/announcements/update.json",
+    "namespace": "Boy132\\Announcements",
+    "class": "AnnouncementsPlugin",
+    "panels": null,
+    "panel_version": null,
+    "composer_packages": null,
+    "meta": {
+        "status": "enabled",
+        "status_message": null
+    }
+}

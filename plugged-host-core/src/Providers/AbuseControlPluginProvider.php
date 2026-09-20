@@ -1,0 +1,108 @@
+<?php
+
+namespace PluggedHost\Core\Providers;
+
+use App\Filament\Admin\Resources\Servers\Pages\ListServers;
+use Filament\Actions\EditAction;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use PluggedHost\Core\Console\Commands\ScanAbuseCommand;
+use PluggedHost\Core\Filament\Components\Actions\SuspendServerAction;
+use Throwable;
+
+/**
+ * Abuse control: the daily filesystem scan, and the suspend toggle on the admin
+ * server list.
+ *
+ * Both halves were in-place edits to app/ until 2026-09-05 -- a new
+ * ScanAbuseCommand and SuspendServerAction, a schedule line in app/Console/Kernel.php,
+ * and a recordActions() entry in the admin ListServers page. All four made
+ * check-panel-integrity.sh FAIL and would have been reverted by the next
+ * `panel.tar.gz` extraction with no error. This provider replaces the two edits; the
+ * two new classes moved into the plugin.
+ *
+ * Auto-registered: PluginService registers every class in a plugin's src/Providers/,
+ * so there is no provider list to update.
+ */
+class AbuseControlPluginProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+            $schedule->command(ScanAbuseCommand::class, ['--suspend'])
+                ->daily()
+                ->withoutOverlapping();
+        });
+    }
+
+    /**
+     * Adds the suspend toggle to the admin server list's row actions.
+     *
+     * There is no upstream hook for this. ListServers builds its own table and calls
+     * ->recordActions([...]) inside it, which *resets* the array -- so Table::configureUsing()
+     * is useless here (it runs inside Table::make(), before the page's table() body) and
+     * ServerResource::registerCustomPages() cannot help either, because
+     * CanCustomizePages::getPages() does array_merge($customPages, $defaultPages) and the
+     * defaults therefore win on the 'index' key.
+     *
+     * What is left is the seam plugged-host-core already uses for this page family:
+     * Livewire's mount/hydrate triggers. SupportLifecycleHooks::mount()/hydrate() end with
+     * callTraitHook('booted'), which is what runs bootedInteractsWithTable() and assigns
+     * $component->table -- and Livewire's own listener is registered first (package provider,
+     * before plugins), so by the time this one runs the table exists. hydrate() matters as
+     * much as mount(): on the POST /livewire/update that a click produces, hydrate fires
+     * before 'call', so the action is back in the table before Filament looks it up. Without
+     * it the button would render and then do nothing when pressed.
+     *
+     * Wrapped in a try/catch and guarded for idempotence -- a row action is not worth
+     * 500ing the admin server list over, and a double-fire must not produce two buttons.
+     */
+    public function boot(): void
+    {
+        $attach = function (object $component): void {
+            if (!$component instanceof ListServers) {
+                return;
+            }
+
+            try {
+                $table = $component->getTable();
+
+                if (array_key_exists(SuspendServerAction::getDefaultName(), $table->getFlatRecordActions())) {
+                    return;
+                }
+
+                $table->recordActions($this->withSuspendAction($table->getRecordActions()));
+            } catch (Throwable) {
+                // Leave the table exactly as upstream built it.
+            }
+        };
+
+        Livewire::listen('mount', $attach);
+        Livewire::listen('hydrate', $attach);
+    }
+
+    /**
+     * Upstream's row actions with the suspend toggle spliced in front of Edit, which is
+     * where the in-place edit had it (Console, Suspend, Edit).
+     *
+     * @param  array<mixed>  $actions
+     * @return array<mixed>
+     */
+    private function withSuspendAction(array $actions): array
+    {
+        $suspend = SuspendServerAction::make();
+
+        foreach ($actions as $index => $action) {
+            if ($action instanceof EditAction) {
+                array_splice($actions, $index, 0, [$suspend]);
+
+                return $actions;
+            }
+        }
+
+        $actions[] = $suspend;
+
+        return $actions;
+    }
+}

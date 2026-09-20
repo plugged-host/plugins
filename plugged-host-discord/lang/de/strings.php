@@ -1,0 +1,123 @@
+<?php
+
+return [
+    'discord' => 'Discord',
+    'discord_integration' => 'Discord-Integration',
+    'account' => 'Konto',
+    'profile_section_description' => 'Verknüpfe dein Discord-Konto und tritt unserem Discord-Server bei, um die Discord Linked-Rolle und verbesserte Ressourcenlimits zu erhalten.',
+
+    'discord_account_status' => 'Discord-Kontostatus',
+    'badge_verified' => 'Verifiziertes Server-Mitglied',
+    'badge_not_in_server' => 'Nicht im Discord-Server',
+    'last_checked' => 'Zuletzt geprüft',
+
+    'join_discord_server' => 'Discord-Server beitreten',
+    'verify_membership' => 'Mitgliedschaft prüfen',
+    'unlink_discord' => 'Discord trennen',
+    'unlink_confirm' => 'Möchtest du dein Discord-Konto wirklich trennen? Du verlierst die Discord Linked-Rolle und die zugehörigen Ressourcenlimits.',
+    'link_discord_account' => 'Discord-Konto verbinden',
+    'link_taken_title' => 'Discord-Konto bereits verbunden',
+    'link_taken_body' => 'Dieses Discord-Konto ist bereits mit einem anderen Panel-Konto verbunden. Ein Discord-Konto kann nur mit einem Panel-Konto verbunden sein — trenne es dort zuerst oder melde dich mit dem Konto an, dem es gehört.',
+
+    'action_required' => 'Aktion erforderlich: Server beitreten',
+    'join_server_help' => 'Dein Discord-Konto ist verbunden, aber du bist unserem Discord-Server noch nicht beigetreten. Klicke oben auf "Discord-Server beitreten" und danach auf "Mitgliedschaft prüfen", um die :role-Rolle zu erhalten.',
+
+    'role_active_title' => ':role-Rolle Aktiv',
+    'role_active_body' => 'Du bist ein bestätigtes Mitglied unseres Discord-Servers! Du besitzt derzeit die :role-Rolle im Panel und profitierst von erweiterten Ressourcenlimits.',
+
+    'not_linked_heading' => 'Verbinde dein Discord-Konto',
+    'not_linked_description' => 'Verknüpfe dein Discord-Konto und tritt unserer Community bei, um automatisch die :role-Rolle zu erhalten und höhere Ressourcenlimits für deine Server freizuschalten.',
+
+    'misconfigured_title' => 'Discord-Integration nicht konfiguriert',
+    'misconfigured_body' => 'Der Administrator hat das Discord-Bot-Token oder die Server-ID noch nicht konfiguriert. Die Verifizierung ist vorübergehend nicht verfügbar.',
+
+    'verified_title' => 'Discord verifiziert!',
+    'verified_body' => 'Deine Mitgliedschaft auf unserem Discord-Server wurde bestätigt. Die Rolle ":role" ist jetzt auf deinem Konto aktiv!',
+
+    'not_in_server_title' => 'Nicht im Discord-Server',
+    'not_in_server_body' => 'Dein Discord-Konto wurde gefunden, aber du bist noch kein Mitglied unseres Discord-Servers. Bitte tritt dem Server bei und versuche es erneut.',
+
+    'not_linked_title' => 'Kein Discord-Konto verknüpft',
+    'not_linked_body' => 'Bitte verbinde zuerst dein Discord-Konto, bevor du die Mitgliedschaft prüfst.',
+
+    'error_title' => 'Fehler bei der Verifizierung',
+    'error_body' => 'Die Discord-Mitgliedschaft konnte derzeit nicht überprüft werden. Bitte versuche es später erneut.',
+
+    'unlinked_title' => 'Discord getrennt',
+    'unlinked_body' => 'Dein Discord-Konto wurde erfolgreich getrennt.',
+
+    'need_more_stuff' => 'Mehr Ressourcen nötig? Discord verknüpfen',
+
+    'rewards_section_title' => 'Discord-Belohnungen & Guthaben',
+    'rewards_section_description' => 'Verdiene automatisch Guthaben, indem du Freunde einlädst oder unseren Discord-Server boostest.',
+    'check_and_claim_rewards' => 'Belohnungen abholen & prüfen',
+    'go_to_resource_store' => 'Ressourcen-Shop',
+    'invite_rewards_title' => 'Einladungs-Belohnungen',
+    'credits_per_invite' => 'Guthaben / Einladung',
+    'total_invites' => 'Gezählte Einladungen',
+    'credits_earned' => 'Verdientes Guthaben',
+    'invite_rewards_hint' => 'Erstelle einen persönlichen Einladungslink in Discord und teile ihn mit Freunden. Du erhältst Guthaben für jeden verifizierten Beitritt (eingeladene Konten müssen mindestens :days Tage alt sein, um Multi-Accounts auszuschließen).',
+    'boost_rewards_title' => 'Server-Boost Belohnungen',
+    'boost_tier' => '{1} :count Server-Boost|[2,*] :count Server-Boosts',
+    'boost_active' => 'Boostet (:count Boosts)',
+    'boost_inactive' => 'Kein aktiver Boost',
+    'boost_rewards_hint' => 'Booste unseren Discord-Server für große Guthaben-Boni: 1 Boost = ~10 Einladungen (500 Guthaben), 2 Boosts = ~25 Einladungen (1.250 Guthaben).',
+    'credits' => 'Guthaben',
+    'bot_token_required_title' => 'Bot-Token erforderlich',
+    'bot_token_required_body' => 'Das Discord-Bot-Token muss vom Administrator konfiguriert werden, um Einladungen und Boosts zu erfassen.',
+    'rewards_claimed_title' => 'Belohnungen erhalten!',
+    'rewards_claimed_body' => 'Erfolgreich :credits Guthaben aus Discord-Belohnungen erhalten! Du kannst dieses jetzt im Ressourcen-Shop einlösen.',
+    'rewards_checked_title' => 'Belohnungen geprüft',
+    'rewards_checked_body' => 'Deine Discord-Belohnungen sind aktuell. Derzeit sind keine neuen Belohnungen verfügbar.',
+    'tx_invite_reward' => 'Belohnung für :count Discord-Einladung(en)',
+    'tx_boost_reward' => 'Belohnung für Discord-Server-Boost (Stufe :count)',
+    'tx_invite_debt_settled' => ':credits Guthaben wurden mit deinen offenen Einladungsschulden verrechnet',
+
+    // Escrow / Austritte / Schulden. Eine Einladung zählt nur, solange das eingeladene
+    // Mitglied im Server ist, und wird erst nach Ablauf der Wartezeit ausgezahlt.
+    'pending_invites' => 'Ausstehend',
+    'left_invites' => 'Ausgetreten',
+    'credits_pending' => 'Ausstehendes Guthaben',
+    'invite_debt' => 'Einladungsschulden',
+    'invite_pending_hint' => 'Neue Einladungen werden :hours Stunden zurückgehalten, bevor Guthaben ausgezahlt wird. Verlässt das Mitglied den Server vorher, wird die Einladung nie ausgezahlt.',
+    'invite_left_hint' => 'Mitglieder, die den Discord-Server verlassen haben, zählen nicht mehr zu deinen Einladungen; bereits ausgezahltes Guthaben wird zurückgeholt.',
+    'invite_debt_hint' => 'Guthaben, das beim Austritt eines eingeladenen Mitglieds nicht zurückgeholt werden konnte. Es wird von künftigen Einladungsbelohnungen abgezogen, bevor etwas ausgezahlt wird.',
+
+    // Einladungen aus der Zeit vor der Einladungserfassung. Discord meldet nur, wie oft
+    // ein Link benutzt wurde, nie wer beigetreten ist — daher nicht überprüfbar.
+    'legacy_invites' => 'Alt-Einladungen',
+    'legacy_invites_hint' => 'Alt-Einladungen stammen aus der Zeit vor der Einladungserfassung. Discord meldet nur, wie oft ein Link benutzt wurde, nicht wer beigetreten ist. Sie sind daher nicht überprüfbar und zahlen kein Guthaben aus — sie werden nur zur Anerkennung angezeigt.',
+
+    // Beschriftungen des Admin-Einstellungsformulars für in v1.2.0 ergänzte Optionen.
+    'settings' => [
+        'secret_unchanged' => '(unverändert)',
+        'secret_unset' => 'Nicht gesetzt',
+        'bot_token_set_help' => 'Ein Bot-Token ist gespeichert. Leer lassen, um es zu behalten, oder ein neues eingeben, um es zu ersetzen. Erforderlich zum Lesen der Einladungs-Bestenlisten, zum Erfassen von Beitritten, zum Erkennen von Boosts und für Slash-Befehle.',
+        'bot_token_unset_help' => 'Es ist kein Bot-Token gespeichert. Erforderlich zum Lesen der Einladungs-Bestenlisten, zum Erfassen von Beitritten, zum Erkennen von Boosts und für Slash-Befehle.',
+        'public_key' => 'Discord Public Key (Optional)',
+        'public_key_set_help' => 'Ein Public Key ist gespeichert. Leer lassen, um ihn zu behalten, oder einen neuen eingeben, um ihn zu ersetzen. Wird zur Prüfung von Ed25519-Signaturen verwendet, wenn HTTP-Interaktionen statt des Gateway-WebSocket genutzt werden.',
+        'public_key_unset_help' => 'Es ist kein Public Key gespeichert. Nur nötig, wenn du Discord-HTTP-Interaktionen prüfst, statt den Gateway-WebSocket zu nutzen.',
+
+        'section_daemon' => 'Gateway-Daemon & Überwachung',
+        'section_daemon_hint' => 'Erweiterte Einstellungen für den WebSocket-Gateway-Daemon und die Überwachung, die ihn am Leben hält. Die Standardwerte passen für die meisten Installationen.',
+        'gateway_idle_timeout' => 'Gateway-Leerlauf-Timeout',
+        'gateway_idle_timeout_hint' => 'Sekunden völliger Gateway-Stille, nach denen der Daemon die Verbindung trennt und neu verbindet. Discord bestätigt den Heartbeat etwa alle 41 Sekunden, halte diesen Wert also deutlich darüber (Standard: 90).',
+        'supervisor_enabled' => 'Automatische Neustarts',
+        'supervisor_enabled_hint' => 'Hauptschalter für die Überwachung. Wenn aktiviert, startet der Scheduler den Daemon nach einem Absturz oder Neustart neu. Nur deaktivieren, um den Daemon bewusst zu stoppen.',
+        'supervisor_auto_install_trigger' => 'Scheduler-Eintrag automatisch neu installieren',
+        'supervisor_auto_install_trigger_hint' => 'Die schedule:run-Crontab-Zeile selbstständig neu installieren, wenn einige Minuten lang nichts ausgeführt wurde. Die Crontab ist der einzige Teil dieses Plugins, den ein Server-Neuaufbau verlieren kann.',
+        'supervisor_heartbeat_interval' => 'Heartbeat-Intervall',
+        'supervisor_heartbeat_interval_hint' => 'Wie oft der laufende Daemon festhält, dass er noch aktiv ist (Standard: 15).',
+        'supervisor_heartbeat_timeout' => 'Heartbeat-Timeout',
+        'supervisor_heartbeat_timeout_hint' => 'Stille des Daemons, nach der die Überwachung ihn als hängend betrachtet und ersetzt (Standard: 120).',
+        'supervisor_max_backoff' => 'Maximale Neustart-Wartezeit',
+        'supervisor_max_backoff_hint' => 'Obergrenze für die wachsende Verzögerung zwischen wiederholten fehlgeschlagenen Startversuchen (Standard: 900).',
+        'supervisor_log_max_bytes' => 'Log-Rotationsgröße',
+        'supervisor_log_max_bytes_hint' => 'storage/logs/discord-bot.log rotieren, sobald es diese Größe in Bytes überschreitet (Standard: 8388608, also 8 MiB).',
+        'supervisor_run_as' => 'Daemon ausführen als Benutzer',
+        'supervisor_run_as_hint' => 'Der Systembenutzer, unter dem der Daemon laufen muss. Niemals root; üblicherweise www-data.',
+        'supervisor_php_binary' => 'PHP-Binary überschreiben (Optional)',
+        'supervisor_php_binary_hint' => 'Vollständiger Pfad zum PHP-Interpreter, mit dem der Daemon gestartet wird. Leer lassen für automatische Erkennung.',
+    ],
+];
+
