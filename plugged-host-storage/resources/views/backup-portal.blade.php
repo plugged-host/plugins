@@ -3,22 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Server Backups &mdash; plugged.host</title>
+    <title>Server Backups &bull; plugged.host</title>
     <link rel="icon" type="image/png" href="https://panel.plugged.host/plugged.host_nobg.png">
-    <meta name="description" content="Download backups for your plugged.host game servers.">
+    <meta name="description" content="Download dedicated off-site backups for your plugged.host game servers.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
             --bg-body: #08090c;
             --bg-card: #0f1117;
-            --bg-card-hover: #141720;
+            --bg-card-hover: #141722;
             --bg-input: #12141c;
             --border-subtle: #1e2230;
             --border-focus: #3b82f6;
@@ -29,9 +29,9 @@
             --text-muted: #94a3b8;
             --text-dim: #64748b;
             --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.25);
             --danger: #ef4444;
             --discord: #5865F2;
-            --discord-hover: #4752c4;
         }
 
         * {
@@ -51,34 +51,41 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Subtle background glow effect */
+        /* Subtle background ambient glow */
         .ambient-glow {
             position: fixed;
-            top: -200px;
+            top: -220px;
             left: 50%;
             transform: translateX(-50%);
-            width: 800px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, rgba(8, 9, 12, 0) 70%);
+            width: 850px;
+            height: 450px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.14) 0%, rgba(8, 9, 12, 0) 70%);
             pointer-events: none;
             z-index: 0;
         }
 
         header {
             position: relative;
-            z-index: 10;
+            z-index: 20;
             border-bottom: 1px solid var(--border-subtle);
-            background: rgba(15, 17, 23, 0.7);
-            backdrop-filter: blur(12px);
+            background: rgba(15, 17, 23, 0.75);
+            backdrop-filter: blur(14px);
         }
 
         .nav-container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 1rem 1.5rem;
+            padding: 0.875rem 1.5rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
         }
 
         .brand {
@@ -90,8 +97,8 @@
         }
 
         .brand-logo {
-            width: 32px;
-            height: 32px;
+            width: 34px;
+            height: 34px;
             border-radius: 8px;
             object-fit: contain;
         }
@@ -105,19 +112,63 @@
 
         .brand-badge {
             font-size: 0.75rem;
-            padding: 0.2rem 0.6rem;
+            padding: 0.2rem 0.65rem;
             background: rgba(59, 130, 246, 0.15);
             border: 1px solid rgba(59, 130, 246, 0.3);
             color: var(--accent-blue);
             border-radius: 9999px;
             font-weight: 600;
             letter-spacing: 0.02em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        /* Panel Navigation Tabs */
+        .panel-nav-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(18, 20, 28, 0.6);
+            border: 1px solid var(--border-subtle);
+            padding: 0.25rem;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 820px) {
+            .panel-nav-tabs {
+                display: none;
+            }
+        }
+
+        .nav-tab {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.4rem 0.85rem;
+            border-radius: 7px;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .nav-tab.active {
+            color: #ffffff;
+            background: var(--accent-blue);
+            box-shadow: 0 2px 8px var(--accent-blue-glow);
         }
 
         .auth-actions {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.75rem;
         }
 
         .btn {
@@ -127,22 +178,13 @@
             gap: 0.5rem;
             font-family: inherit;
             font-weight: 600;
-            font-size: 0.875rem;
-            padding: 0.625rem 1.25rem;
+            font-size: 0.85rem;
+            padding: 0.55rem 1.15rem;
             border-radius: 8px;
             border: none;
             cursor: pointer;
             text-decoration: none;
             transition: all 0.15s ease-in-out;
-        }
-
-        .btn-discord {
-            background-color: var(--discord);
-            color: #ffffff;
-        }
-        .btn-discord:hover {
-            background-color: var(--discord-hover);
-            box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35);
         }
 
         .btn-primary {
@@ -152,6 +194,16 @@
         .btn-primary:hover {
             background-color: var(--accent-blue-hover);
             box-shadow: 0 4px 14px var(--accent-blue-glow);
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-main);
+        }
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.09);
+            border-color: var(--text-dim);
         }
 
         .btn-outline {
@@ -165,26 +217,24 @@
             background: var(--bg-card);
         }
 
-        .user-badge {
+        .user-chip {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.375rem 0.875rem 0.375rem 0.375rem;
+            gap: 0.65rem;
+            padding: 0.3rem 0.75rem 0.3rem 0.35rem;
             background: var(--bg-input);
             border: 1px solid var(--border-subtle);
             border-radius: 9999px;
+            font-size: 0.8125rem;
+            font-weight: 600;
         }
 
         .user-avatar {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             background: var(--border-subtle);
-        }
-
-        .user-name {
-            font-size: 0.875rem;
-            font-weight: 600;
+            object-fit: cover;
         }
 
         main {
@@ -194,13 +244,14 @@
             max-width: 1200px;
             margin: 0 auto;
             width: 100%;
-            padding: 3rem 1.5rem;
+            padding: 2.75rem 1.5rem;
         }
 
+        /* Hero Banner */
         .hero {
             text-align: center;
-            max-width: 680px;
-            margin: 0 auto 3rem auto;
+            max-width: 720px;
+            margin: 0 auto 2.5rem auto;
         }
 
         .hero h1 {
@@ -215,30 +266,32 @@
         .hero p {
             color: var(--text-muted);
             font-size: 1.05rem;
+            line-height: 1.6;
         }
 
-        /* Search Box Card */
+        /* Search Card */
         .search-card {
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
             border-radius: 14px;
-            padding: 2rem;
+            padding: 1.75rem 2rem;
             max-width: 680px;
-            margin: 0 auto 3.5rem auto;
+            margin: 0 auto 3rem auto;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            position: relative;
         }
 
         .search-card-title {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
         .search-card-desc {
-            font-size: 0.875rem;
+            font-size: 0.85rem;
             color: var(--text-muted);
             margin-bottom: 1.25rem;
         }
@@ -255,7 +308,7 @@
 
         .search-input {
             width: 100%;
-            padding: 0.875rem 1rem 0.875rem 2.75rem;
+            padding: 0.85rem 1rem 0.85rem 2.75rem;
             background: var(--bg-input);
             border: 1px solid var(--border-subtle);
             border-radius: 8px;
@@ -280,7 +333,7 @@
             pointer-events: none;
         }
 
-        /* Lookup Result Container */
+        /* Result Container */
         .result-box {
             margin-top: 1.5rem;
             padding: 1.25rem;
@@ -355,7 +408,7 @@
             line-height: 1.6;
         }
 
-        /* Server Grid for Authenticated Users */
+        /* Server Grid */
         .servers-section {
             margin-top: 3.5rem;
         }
@@ -365,54 +418,68 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
 
         .section-title {
             font-family: 'Space Grotesk', sans-serif;
             font-size: 1.5rem;
             font-weight: 700;
+            color: #ffffff;
         }
 
         .servers-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 1.25rem;
         }
 
         .server-card {
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 1.5rem;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             transition: all 0.2s ease-in-out;
+            position: relative;
         }
 
         .server-card:hover {
             border-color: rgba(59, 130, 246, 0.4);
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
 
-        .server-card-top {
-            margin-bottom: 1rem;
+        .server-card-focused {
+            border-color: var(--accent-blue) !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35), 0 10px 30px rgba(59, 130, 246, 0.2) !important;
         }
 
         .server-card-name {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             font-weight: 700;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.45rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            color: #ffffff;
         }
 
         .server-card-info {
             font-size: 0.825rem;
             color: var(--text-muted);
-            margin-bottom: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            margin-top: auto;
+            flex-wrap: wrap;
         }
 
         .footer {
@@ -459,13 +526,22 @@
             to { transform: rotate(360deg); }
         }
 
-        @media (max-width: 640px) {
-            .search-form {
-                flex-direction: column;
-            }
-            .hero h1 {
-                font-size: 2rem;
-            }
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #141722;
+            border: 1px solid var(--border-subtle);
+            color: #ffffff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            font-size: 0.875rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 100;
         }
     </style>
 </head>
@@ -474,28 +550,77 @@
 
     <header>
         <div class="nav-container">
-            <a href="/" class="brand">
-                <img src="https://panel.plugged.host/plugged.host_nobg.png" alt="plugged.host" class="brand-logo">
-                <span class="brand-text">plugged.host</span>
-                <span class="brand-badge">Backups</span>
-            </a>
+            <div class="brand-section">
+                <a href="{{ $panelUrl }}" class="brand" title="plugged.host Panel">
+                    <img src="https://panel.plugged.host/plugged.host_nobg.png" alt="plugged.host" class="brand-logo">
+                    <span class="brand-text">plugged.host</span>
+                </a>
+                <span class="brand-badge">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Storage Backups
+                </span>
+            </div>
+
+            <!-- Panel Navigation Tabs -->
+            <nav class="panel-nav-tabs">
+                <a href="{{ $panelUrl }}/" class="nav-tab">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    Servers
+                </a>
+                <a href="#" class="nav-tab active">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                    </svg>
+                    Backups Portal
+                </a>
+                <a href="{{ $panelUrl }}/store" class="nav-tab">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                    </svg>
+                    Store
+                </a>
+                <a href="https://status.plugged.host" target="_blank" class="nav-tab">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Status
+                </a>
+            </nav>
 
             <div class="auth-actions">
                 @if ($user)
-                    <div class="user-badge">
-                        @if ($discordLink && $discordLink->discord_avatar)
-                            <img src="https://cdn.discordapp.com/avatars/{{ $discordLink->discord_id }}/{{ $discordLink->discord_avatar }}.png" alt="Avatar" class="user-avatar">
+                    <div class="user-chip">
+                        @if ($discordLink && $discordLink->avatar)
+                            <img src="{{ $discordLink->avatar }}" alt="{{ $user->username }}" class="user-avatar">
                         @else
-                            <div class="user-avatar" style="display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;color:#94a3b8;">
+                            <div class="user-avatar" style="display:flex;align-items:center;justify-content:center;background:#1e293b;color:#94a3b8;font-size:0.75rem;">
                                 {{ strtoupper(substr($user->username, 0, 1)) }}
                             </div>
                         @endif
-                        <span class="user-name">{{ $user->username }}</span>
+                        <span>{{ $user->username }}</span>
                     </div>
-                    <a href="{{ route('backups.portal.logout') }}" class="btn btn-outline" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;">Log out</a>
+
+                    <a href="{{ $panelUrl }}/" class="btn btn-secondary" title="Return to Panel Dashboard">
+                        <span>Panel</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                        </svg>
+                    </a>
+
+                    <a href="{{ route('backups.portal.logout') }}" class="btn btn-outline" style="padding:0.55rem 0.75rem;" title="Log Out">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                        </svg>
+                    </a>
                 @else
-                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-primary" style="gap:0.5rem;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
                             <polyline points="10 17 15 12 10 7"></polyline>
                             <line x1="15" y1="12" x2="3" y2="12"></line>
@@ -510,7 +635,7 @@
     <main>
         <section class="hero">
             <h1>Game Server Backups</h1>
-            <p>Download full archives of your server files. Backups are deduplicated and stripped of build caches, logs, and unneeded dependencies.</p>
+            <p>Download full archives of your server files. Backups are mirrored directly to our dedicated storage cluster and stripped of build caches, logs, and unneeded dependencies.</p>
         </section>
 
         <!-- Search Form -->
@@ -524,7 +649,7 @@
                 </svg>
                 Find Server Backup
             </h2>
-            <p class="search-card-desc">Enter your 8-character Server ID (e.g. <code style="color:#93c5fd;font-family:'JetBrains Mono'">a1b2c3d4</code>) or full server UUID.</p>
+            <p class="search-card-desc">Enter an 8-character Server ID (e.g. <code style="color:#93c5fd;font-family:'JetBrains Mono'">a1b2c3d4</code>) or full UUID.</p>
 
             <form id="searchForm" class="search-form" onsubmit="handleSearch(event)">
                 <div class="input-group">
@@ -532,7 +657,7 @@
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
-                    <input type="text" id="serverIdInput" class="search-input" placeholder="e.g. a1b2c3d4" autocomplete="off" spellcheck="false" required>
+                    <input type="text" id="serverIdInput" class="search-input" placeholder="e.g. a1b2c3d4" autocomplete="off" spellcheck="false" value="{{ $initialServerId }}" required>
                 </div>
                 <button type="submit" id="searchBtn" class="btn btn-primary">
                     <span id="btnText">Look Up</span>
@@ -546,13 +671,13 @@
             <div id="resultBox" class="result-box">
                 <div class="result-header">
                     <div id="resultName" class="server-title">Server Name</div>
-                    <span id="resultBackupStatus" class="badge" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3)">
+                    <span id="resultBackupStatus" class="badge">
                         ● Backup Available
                     </span>
                 </div>
 
                 <div class="server-badges">
-                    <span id="resultEgg" class="badge badge-egg">Minecraft: Java Edition</span>
+                    <span id="resultEgg" class="badge badge-egg">Game Server</span>
                     <span id="resultNode" class="badge badge-node">Node: storage</span>
                     <span id="resultShortId" class="badge badge-id">ID: a1b2c3d4</span>
                 </div>
@@ -564,14 +689,22 @@
                     </div>
                 </div>
 
-                <a id="resultDownloadBtn" href="#" class="btn btn-primary" style="width:100%;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Download Backup Archive (.tar.gz)
-                </a>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <a id="resultDownloadBtn" href="#" class="btn btn-primary" style="flex: 1;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download Backup (.tar.gz)
+                    </a>
+                    <a id="resultManageBtn" href="#" class="btn btn-secondary" style="display:none;" target="_blank">
+                        <span>Open in Panel</span>
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -580,59 +713,83 @@
             <section class="servers-section">
                 <div class="section-header">
                     <div>
-                        <h2 class="section-title">Your Servers</h2>
-                        <p style="color:var(--text-muted);font-size:0.9rem;">Quickly download backups for all servers linked to your account.</p>
+                        <h2 class="section-title">Your Game Servers</h2>
+                        <p style="color:var(--text-muted);font-size:0.9rem;">View live storage mirror status and download archives directly from our storage cluster.</p>
                     </div>
                 </div>
 
                 @if ($userServers->isNotEmpty())
                     <div class="servers-grid">
                         @foreach ($userServers as $srv)
-                            <div class="server-card">
+                            <div class="server-card" id="server-card-{{ $srv['uuid_short'] }}">
                                 <div class="server-card-top">
                                     <div class="server-card-name" title="{{ $srv['name'] }}">{{ $srv['name'] }}</div>
                                     <div class="server-badges" style="margin-bottom: 0.75rem;">
                                         <span class="badge badge-egg">{{ $srv['egg'] }}</span>
-                                        <span class="badge badge-id">{{ $srv['uuid_short'] }}</span>
+                                        <span class="badge badge-id" onclick="copyId('{{ $srv['uuid_short'] }}')" style="cursor:pointer;" title="Click to copy ID">
+                                            #{{ $srv['uuid_short'] }}
+                                        </span>
                                         <span class="badge badge-node">{{ $srv['node'] }}</span>
                                     </div>
                                     <div class="server-card-info">
                                         @if ($srv['has_backup'])
-                                            <span style="color:#10b981;font-weight:600;">● Backup Ready</span>
+                                            <span style="color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:0.35rem;">
+                                                <span style="width:7px;height:7px;border-radius:50%;background:#10b981;"></span>
+                                                Backup Ready
+                                            </span>
                                             @if ($srv['bytes'])
                                                 &bull; {{ number_format($srv['bytes'] / (1024 * 1024), 1) }} MB
                                             @endif
+                                            @if (!empty($srv['mtime']))
+                                                &bull; {{ \Carbon\Carbon::parse($srv['mtime'])->diffForHumans() }}
+                                            @endif
                                         @else
-                                            <span style="color:var(--text-dim);">○ Backup syncing soon</span>
+                                            <span style="color:var(--text-dim);display:inline-flex;align-items:center;gap:0.35rem;">
+                                                <span style="width:7px;height:7px;border-radius:50%;background:var(--text-dim);"></span>
+                                                Sync scheduled from node
+                                            </span>
                                         @endif
                                     </div>
                                 </div>
 
-                                @if ($srv['has_backup'])
-                                    <a href="{{ $srv['download_url'] }}" class="btn btn-primary" style="font-size:0.85rem;padding:0.5rem 1rem;">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                            <polyline points="7 10 12 15 17 10"></polyline>
-                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                <div class="card-actions">
+                                    @if ($srv['has_backup'])
+                                        <a href="{{ $srv['download_url'] }}" class="btn btn-primary" style="font-size:0.825rem;padding:0.5rem 0.9rem;">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                <polyline points="7 10 12 15 17 10"></polyline>
+                                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                                            </svg>
+                                            Download (.tar.gz)
+                                        </a>
+                                    @else
+                                        <button class="btn btn-outline" disabled style="font-size:0.825rem;padding:0.5rem 0.9rem;opacity:0.6;cursor:not-allowed;" title="Sync pending from node">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <polyline points="12 6 12 12 16 14"></polyline>
+                                            </svg>
+                                            Sync Pending
+                                        </button>
+                                    @endif
+
+                                    <a href="{{ $srv['manage_url'] }}" class="btn btn-secondary" style="font-size:0.825rem;padding:0.5rem 0.75rem;" title="Manage Server in Panel">
+                                        <span>Manage</span>
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                                         </svg>
-                                        Download (.tar.gz)
                                     </a>
-                                @else
-                                    <button class="btn btn-outline" disabled style="font-size:0.85rem;padding:0.5rem 1rem;opacity:0.6;cursor:not-allowed;" title="Sync pending from node">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <polyline points="12 6 12 12 16 14"></polyline>
-                                        </svg>
-                                        Sync Pending
-                                    </button>
-                                @endif
+
+                                    <a href="{{ $srv['backups_url'] }}" class="btn btn-outline" style="font-size:0.825rem;padding:0.5rem 0.75rem;" title="View in Server Backups Tab">
+                                        Backups
+                                    </a>
+                                </div>
                             </div>
                         @endforeach
                     </div>
                 @else
                     <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:12px;padding:2.5rem;text-align:center;">
                         <p style="color:var(--text-muted);margin-bottom:0.75rem;">No active servers found on this account.</p>
-                        <p style="font-size:0.85rem;color:var(--text-dim);">If you have a server ID from a shared server or previous snapshot, use the search box above to download it!</p>
+                        <p style="font-size:0.85rem;color:var(--text-dim);">If you have a server ID from a previous snapshot or another node, use the search box above to download it!</p>
                     </div>
                 @endif
             </section>
@@ -640,12 +797,28 @@
     </main>
 
     <footer class="footer">
-        <p>&copy; {{ date('Y') }} plugged.host &bull; Game Server Hosting &bull; <a href="https://panel.plugged.host" target="_blank">Panel</a> &bull; <a href="https://status.plugged.host" target="_blank">Status</a> &bull; <a href="https://discord.gg/TYUrdQbYFt" target="_blank">Discord Support</a></p>
+        <p>&copy; {{ date('Y') }} plugged.host &bull; Game Server Hosting &bull; <a href="{{ $panelUrl }}" target="_blank">Panel Dashboard</a> &bull; <a href="https://status.plugged.host" target="_blank">System Status</a> &bull; <a href="https://discord.gg/TYUrdQbYFt" target="_blank">Discord Support</a></p>
     </footer>
 
+    <div id="toast" class="toast">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+        <span id="toastMsg">Copied to clipboard!</span>
+    </div>
+
     <script>
+        function copyId(id) {
+            navigator.clipboard.writeText(id).then(() => {
+                const toast = document.getElementById('toast');
+                document.getElementById('toastMsg').textContent = 'Server ID #' + id + ' copied!';
+                toast.style.display = 'flex';
+                setTimeout(() => { toast.style.display = 'none'; }, 2000);
+            });
+        }
+
         async function handleSearch(e) {
-            e.preventDefault();
+            if (e) e.preventDefault();
             const input = document.getElementById('serverIdInput');
             const errorBox = document.getElementById('searchError');
             const resultBox = document.getElementById('resultBox');
@@ -689,6 +862,7 @@
 
                 const statusBadge = document.getElementById('resultBackupStatus');
                 const dlBtn = document.getElementById('resultDownloadBtn');
+                const manageBtn = document.getElementById('resultManageBtn');
 
                 if (srv.has_backup) {
                     statusBadge.style.background = 'rgba(16,185,129,0.15)';
@@ -711,6 +885,13 @@
                     dlBtn.style.display = 'none';
                 }
 
+                if (srv.manage_url) {
+                    manageBtn.href = srv.manage_url;
+                    manageBtn.style.display = 'inline-flex';
+                } else {
+                    manageBtn.style.display = 'none';
+                }
+
                 resultBox.classList.add('active');
             } catch (err) {
                 errorBox.textContent = 'An error occurred while looking up the server. Please try again.';
@@ -720,7 +901,21 @@
                 btnSpinner.style.display = 'none';
             }
         }
+
+        // Deep-linking handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const initialServer = "{{ $initialServerId }}";
+            if (initialServer) {
+                const targetCard = document.getElementById('server-card-' + initialServer);
+                if (targetCard) {
+                    targetCard.classList.add('server-card-focused');
+                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    // Auto-execute search if card not in user's immediate list
+                    handleSearch();
+                }
+            }
+        });
     </script>
 </body>
 </html>
-

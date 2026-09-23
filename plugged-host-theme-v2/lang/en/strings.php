@@ -6,6 +6,7 @@ return [
         'home' => 'Home',
         'new_server' => 'New Server',
         'store' => 'Store',
+        'backups' => 'Backups',
         'profile_settings' => 'Profile Settings',
         'admin_panel' => 'Admin Panel',
     ],

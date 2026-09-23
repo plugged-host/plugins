@@ -2,8 +2,17 @@
 
 namespace PluggedHost\Storage\Providers;
 
+use App\Enums\HeaderActionPosition;
+use App\Enums\TablerIcon;
+use App\Filament\Server\Resources\Backups\Pages\ListBackups;
+use Filament\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Storage\Services\FailoverService;
@@ -37,6 +46,43 @@ class StoragePluginProvider extends ServiceProvider
         $this->registerAgentRoutes();
         $this->registerClientApi();
         $this->registerBackupPortalRoutes();
+        $this->registerPanelIntegration();
+    }
+
+    private function registerPanelIntegration(): void
+    {
+        if (class_exists(FilamentView::class) && class_exists(ListBackups::class)) {
+            FilamentView::registerRenderHook(
+                PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE,
+                function (): Htmlable {
+                    try {
+                        return new HtmlString((string) view('plugged-host-storage::filament.server.server-backups-banner')->render());
+                    } catch (Throwable) {
+                        return new HtmlString('');
+                    }
+                },
+                scopes: ListBackups::class,
+            );
+
+            try {
+                ListBackups::registerCustomHeaderActions(
+                    HeaderActionPosition::Before,
+                    Action::make('offsite_storage_backups')
+                        ->label('Off-site Backups')
+                        ->icon(TablerIcon::CloudDownload)
+                        ->color('primary')
+                        ->url(function () {
+                            $server = Filament::getTenant();
+                            $portalBaseUrl = env('BACKUPS_PORTAL_URL', 'https://backups.plugged.host');
+
+                            return $server ? "{$portalBaseUrl}/?server={$server->uuid_short}" : $portalBaseUrl;
+                        })
+                        ->openUrlInNewTab(true)
+                );
+            } catch (Throwable) {
+                // Ignore if method not supported in context
+            }
+        }
     }
 
 

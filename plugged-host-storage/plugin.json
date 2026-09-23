@@ -9,7 +9,7 @@
     "update_url": null,
     "namespace": "PluggedHost\\Storage",
     "class": "PluggedHostStoragePlugin",
-    "panels": ["admin"],
+    "panels": ["admin", "app", "server"],
     "panel_version": null,
     "composer_packages": null,
     "meta": {

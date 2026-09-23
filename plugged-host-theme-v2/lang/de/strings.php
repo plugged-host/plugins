@@ -6,6 +6,7 @@ return [
         'home' => 'Startseite',
         'new_server' => 'Neuer Server',
         'store' => 'Shop',
+        'backups' => 'Backups',
         'profile_settings' => 'Profileinstellungen',
         'admin_panel' => 'Admin-Bereich',
     ],

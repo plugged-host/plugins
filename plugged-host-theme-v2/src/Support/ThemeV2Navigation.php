@@ -86,6 +86,14 @@ class ThemeV2Navigation
                 ->isActiveWhen(fn () => request()->is('store*'));
         }
 
+        // Storage Backups Portal
+        $backupsPortalUrl = env('BACKUPS_PORTAL_URL', 'https://backups.plugged.host');
+        $items[] = NavigationItem::make(trans('plugged-host-theme-v2::strings.nav.backups'))
+            ->icon(Heroicon::OutlinedArchiveBoxArrowDown)
+            ->url($backupsPortalUrl)
+            ->openUrlInNewTab(false)
+            ->isActiveWhen(fn () => request()->is('backups*'));
+
         // Profile Settings inherits the user-circle its Account group used to carry. It is
         // also the only route to the Customization tab now that that row is gone, and the
         // active test is deliberately loose about the tab for it — landing on the profile
