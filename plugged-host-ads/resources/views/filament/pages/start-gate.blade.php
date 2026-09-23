@@ -80,11 +80,12 @@
              probes: @js($probes),
              base: @js($elapsed),
              max: @js($maxDwell),
+             released: @js($released),
              ticks: 0,
              nudged: false,
-             get elapsed() { return Math.min(this.max, this.base + this.ticks) },
-             get remaining() { return Math.max(0, this.max - this.elapsed) },
-             get percent() { return this.max > 0 ? Math.min(100, this.elapsed / this.max * 100) : 100 },
+             get elapsed() { return this.released ? this.max : Math.min(this.max, this.base + this.ticks) },
+             get remaining() { return this.released ? 0 : Math.max(0, this.max - this.elapsed) },
+             get percent() { return this.released ? 100 : (this.max > 0 ? Math.min(100, this.elapsed / this.max * 100) : 100) },
              refreshAds() {
                  document.querySelectorAll('.ph-gate-unit').forEach((container) => {
                      const iframe = container.querySelector('iframe');
@@ -92,7 +93,7 @@
                          const srcdoc = iframe.getAttribute('srcdoc') || iframe.srcdoc;
                          if (srcdoc) {
                              const cacheBuster = '_t=' + Date.now();
-                             const refreshedSrcdoc = srcdoc.replace(/(\.js(?:\?[^"]*)?)/g, (match) => {
+                             const refreshedSrcdoc = srcdoc.replace(/(\.js(?:\?[^\s\x27\x22>]*)?)/g, (match) => {
                                  const clean = match.split('?')[0];
                                  return clean + '?' + cacheBuster;
                              });
@@ -105,13 +106,31 @@
              },
          }"
          x-effect="
+             if ($wire.released) { released = true }
              if (typeof $wire.maxSeconds === 'number') { max = $wire.maxSeconds }
              if (typeof $wire.elapsedSeconds === 'number') { base = $wire.elapsedSeconds; ticks = 0 }
          "
          x-init="
+             if (window.Livewire) {
+                 if (typeof Livewire.interceptRequest === 'function') {
+                     Livewire.interceptRequest(({ onRedirect }) => {
+                         onRedirect(() => { released = true; });
+                     });
+                 }
+                 if (typeof Livewire.hook === 'function') {
+                     Livewire.hook('request', ({ succeed }) => {
+                         succeed(({ json }) => {
+                             if (json?.effects?.redirect || json?.components?.some(c => c?.effects?.redirect)) {
+                                 released = true;
+                             }
+                         });
+                     });
+                 }
+             }
+
              // Refresh ad units every 3 seconds while waiting to display new ads
              setInterval(() => {
-                 if (remaining > 0 && document.visibilityState === 'visible') {
+                 if (! released && remaining > 0 && document.visibilityState === 'visible') {
                      refreshAds();
                  }
              }, 3000);
@@ -119,14 +138,14 @@
              // Trap back button while wait is active
              history.pushState(null, '', window.location.href);
              window.addEventListener('popstate', () => {
-                 if (remaining > 0) {
+                 if (! released && remaining > 0) {
                      history.pushState(null, '', window.location.href);
                  }
              });
 
              // Prevent leaving via SPA navigation while waiting
              document.addEventListener('livewire:navigate', (e) => {
-                 if (remaining > 0) {
+                 if (! released && remaining > 0) {
                      e.preventDefault();
                  }
              });
@@ -134,7 +153,7 @@
              // Intercept link clicks within the server panel while waiting
              document.addEventListener('click', (e) => {
                  let link = e.target.closest('a');
-                 if (link && remaining > 0 && link.href && !link.target && !link.hasAttribute('download')) {
+                 if (link && ! released && remaining > 0 && link.href && ! link.target && ! link.hasAttribute('download')) {
                      let url = new URL(link.href, window.location.origin);
                      if (url.origin === window.location.origin && url.pathname.includes('/server/')) {
                          e.preventDefault();
@@ -145,6 +164,9 @@
 
              // Warn before accidental page reload / close while wait is active
              window.addEventListener('beforeunload', (e) => {
+                 if (released || $wire.released || $wire?.__instance?.effects?.redirect) {
+                     return;
+                 }
                  if (remaining > 0) {
                      e.preventDefault();
                      e.returnValue = '';
@@ -152,12 +174,12 @@
              });
 
              document.addEventListener('visibilitychange', () => {
-                 if (document.visibilityState === 'visible' && remaining === 0) {
+                 if (! released && document.visibilityState === 'visible' && remaining === 0) {
                      $wire.tick();
                  }
              });
              window.addEventListener('focus', () => {
-                 if (remaining === 0) {
+                 if (! released && remaining === 0) {
                      $wire.tick();
                  }
              });
@@ -169,7 +191,7 @@
                       rather than up to POLL_INTERVAL later, so reaching zero and leaving are
                       the same moment. attemptRelease() is idempotent, and if the server does
                       not agree yet the ordinary poll picks it up. --}}
-                 if (remaining === 0 && ! nudged) {
+                 if (! released && remaining === 0 && ! nudged) {
                      nudged = true;
                      $wire.tick();
                  }

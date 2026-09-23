@@ -42,7 +42,7 @@ const CFG = {
   mirrorIntervalMin: parseInt(process.env.PH_MIRROR_INTERVAL_MIN || '30', 10),
   updateIntervalMin: parseInt(process.env.PH_UPDATE_INTERVAL_MIN || '15', 10),
   releaseDir: process.env.PH_RELEASE_DIR || '/opt/plugged-host-storage',
-  version: process.env.PH_VERSION || '1.2.1',
+  version: process.env.PH_VERSION || '1.2.2',
   // How to turn a plan entry (host + path + uuid) into an rsync source. The pull credential
   // lives HERE, on the storage box, never on the panel. Placeholders: %HOST% %PATH% %UUID%.
   // Default is the SSH form; set to an rsync:// module URL if using an rsync daemon instead.
@@ -65,6 +65,9 @@ const EXCLUDES = [
   '.tmp',
   'tmp',
   'temp',
+  '*.tmp',
+  '*.temp',
+
   // Node.js generic (Egg 12)
   'node_modules',
   '.npm',
@@ -73,6 +76,7 @@ const EXCLUDES = [
   'npm-debug.log*',
   'yarn-debug.log*',
   'yarn-error.log*',
+
   // Python generic (Egg 4)
   '__pycache__',
   '*.py[cod]',
@@ -83,23 +87,32 @@ const EXCLUDES = [
   'venv',
   '.venv',
   'env',
+  '.env.bak',
+
   // FiveM / RedM (Egg 9)
   'server-data/cache',
+  'alpine',
+
   // Minecraft Java / Velocity / Bedrock (Eggs 1, 7, 14)
   '.fabric',
   '.quilt',
+
   // Multi Theft Auto (Egg 13)
   'dumps',
+
   // Logs & crashes across all eggs
   'logs',
   'crash-reports',
   '*.log',
   '*.log.gz',
+  '*.log.[0-9]*',
+
   // Core dumps & system clutter
   'core',
   'core.[0-9]*',
   '.DS_Store',
   'Thumbs.db',
+  '.directory',
 ];
 
 function log(level, msg, extra) {
@@ -220,16 +233,16 @@ function run(cmd, args, opts = {}) {
 
 // ---- Server Directory Resolution --------------------------------------------
 
-// Resolve a UUID or short server ID (e.g. a1b2c3d4) to an existing directory
-// Checks configured archiveSource (e.g. /mnt/storage/download), then mirror, then download.
+// Resolve a UUID or short server ID (e.g. a1b2c3d4) to an existing non-empty directory.
+// Checks DIRS.mirror (current servers), then download (legacy backups), then CFG.archiveSource.
 async function resolveServerDir(id) {
   const safeId = String(id || '').trim().toLowerCase();
   if (!safeId || !/^[a-f0-9-]{6,}$/i.test(safeId)) return null;
 
   const candidateBases = Array.from(new Set([
-    path.join(CFG.root, CFG.archiveSource),
     DIRS.mirror,
     path.join(CFG.root, 'download'),
+    path.join(CFG.root, CFG.archiveSource),
   ]));
 
   for (const base of candidateBases) {
@@ -241,7 +254,10 @@ async function resolveServerDir(id) {
       if (fs.existsSync(exactPath)) {
         const st = await fsp.stat(exactPath);
         if (st.isDirectory()) {
-          return { dir: exactPath, uuid: safeId, source: path.basename(base) };
+          const files = await fsp.readdir(exactPath).catch(() => []);
+          if (files.length > 0) {
+            return { dir: exactPath, uuid: safeId, source: path.basename(base) };
+          }
         }
       }
 
@@ -249,7 +265,11 @@ async function resolveServerDir(id) {
       const entries = await fsp.readdir(base, { withFileTypes: true }).catch(() => []);
       for (const entry of entries) {
         if (entry.isDirectory() && entry.name.toLowerCase().startsWith(safeId)) {
-          return { dir: path.join(base, entry.name), uuid: entry.name, source: path.basename(base) };
+          const dirPath = path.join(base, entry.name);
+          const files = await fsp.readdir(dirPath).catch(() => []);
+          if (files.length > 0) {
+            return { dir: dirPath, uuid: entry.name, source: path.basename(base) };
+          }
         }
       }
     } catch { /* proceed to next directory */ }
@@ -306,7 +326,7 @@ async function mirrorServer(entry) {
   const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
 
   const rsyncArgs = [
-    '-a', '--delete', '--partial', '--timeout=120',
+    '-a', '--delete', '--delete-excluded', '--partial', '--timeout=120',
     ...sshArgs,
     ...excludeArgs,
     ...linkDestArgs,
@@ -398,10 +418,12 @@ async function buildArchive(uuidOrShortId) {
     }
   } catch { /* not built yet */ }
 
+  const tmpOut = path.join(DIRS.archives, `${fullUuid}.${Date.now()}.tmp.tar.gz`);
   const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
-  const tarArgs = ['-czf', out, ...excludeArgs, '-C', src, '.'];
+  const tarArgs = ['-czf', tmpOut, ...excludeArgs, '-C', src, '.'];
 
   await run('tar', tarArgs);
+  await fsp.rename(tmpOut, out);
   return { path: out, uuid: fullUuid };
 }
 
@@ -460,7 +482,7 @@ function startServer() {
         }));
       }
 
-      // GET /archive/<uuid>?expires=..&sig=..  -> streams the on-demand tar for wings to pull.
+      // GET /archive/<uuid>?expires=..&sig=..&filename=..  -> streams the on-demand tar directly
       if (url.pathname.startsWith('/archive/')) {
         const id = decodeURIComponent(url.pathname.slice('/archive/'.length));
         if (!/^[a-f0-9-]{6,}$/i.test(id) || !verifySignedRequest('archive', id, q.get('expires'), q.get('sig'))) {
@@ -469,9 +491,18 @@ function startServer() {
         const archive = await buildArchive(id);
         if (!archive) { res.writeHead(404); return res.end('no mirror'); }
         const st = await fsp.stat(archive.path).catch(() => null);
+
+        const customFilename = q.get('filename')
+          ? q.get('filename').replace(/[^a-zA-Z0-9_.-]/g, '_')
+          : `backup-${archive.uuid.slice(0, 8)}.tar.gz`;
+
         const headers = {
           'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${customFilename}"`,
           'Accept-Ranges': 'bytes',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'X-Content-Type-Options': 'nosniff',
         };
         if (st && st.size) {
           headers['Content-Length'] = st.size;

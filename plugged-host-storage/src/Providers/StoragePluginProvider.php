@@ -181,10 +181,17 @@ class StoragePluginProvider extends ServiceProvider
 
     private function registerBackupPortalRoutes(): void
     {
+        // 1. SSO Handshake Route on panel.plugged.host (accessible from main panel domain)
+        Route::middleware(['web'])
+            ->get('/auth/backups-sso', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'panelSso'])
+            ->name('backups.panel.sso');
+
+        // 2. Backups Portal Routes on backups.plugged.host
         Route::domain('backups.plugged.host')
             ->middleware(['web'])
             ->group(function (): void {
                 Route::get('/', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'index'])->name('backups.portal.index');
+                Route::get('/auth/sso', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'portalSsoCallback'])->name('backups.portal.sso');
                 Route::get('/auth/discord', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'authRedirect'])->name('backups.portal.discord');
                 Route::get('/auth/discord/callback', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'authCallback'])->name('backups.portal.discord.callback');
                 Route::get('/auth/logout', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'logout'])->name('backups.portal.logout');

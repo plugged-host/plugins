@@ -98,6 +98,8 @@ class StartGatePage extends Page
 
     public int $maxSeconds = 0;
 
+    public bool $released = false;
+
     public static function canAccess(): bool
     {
         return Filament::getTenant() instanceof Server && parent::canAccess();
@@ -205,6 +207,12 @@ class StartGatePage extends Page
         $gate = $this->gate();
 
         $this->maxSeconds = $gate->maxDwell();
+        if ($this->released) {
+            $this->elapsedSeconds = $this->maxSeconds;
+
+            return;
+        }
+
         $this->elapsedSeconds = $user instanceof User
             ? min($this->maxSeconds, $gate->elapsed($user, $this->getServer()))
             : 0;
@@ -266,6 +274,9 @@ class StartGatePage extends Page
      */
     protected function finish(User $user, Server $server, string $outcome, array $metadata = []): void
     {
+        $this->released = true;
+        $this->elapsedSeconds = $this->maxSeconds;
+
         $this->gate()->releaseFromHold($user, $server, $outcome, $metadata);
 
         // A full navigation rather than a Livewire swap: the console needs a fresh
@@ -316,6 +327,7 @@ class StartGatePage extends Page
             'server' => $server,
             'poll' => self::POLL_INTERVAL,
             'minDwell' => $gate->minDwell(),
+            'released' => $this->released,
             // The same numbers as $this->maxSeconds / $this->elapsedSeconds, kept as view data
             // because they are the server-rendered first paint: the client clock only exists
             // once Alpine has booted, and a wait that renders "in 0 s" for a frame reads as a

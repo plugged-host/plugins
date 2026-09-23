@@ -61,17 +61,16 @@ class StorageService
             return null;
         }
 
-        $uuid = $server->uuid;
-        $expires = time() + (int) config('plugged-host-storage.signed_ttl', 900);
-        $sig = hash_hmac('sha256', "archive:$uuid:$expires", $this->secret());
+        $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $server->name);
+        $filename = "backup-{$cleanName}-{$server->uuid_short}.tar.gz";
 
-        return $this->archiveUrlForIdentifier($server->uuid);
+        return $this->archiveUrlForIdentifier($server->uuid, $filename);
     }
 
     /**
      * Generate signed archive URL for a server UUID or short ID.
      */
-    public function archiveUrlForIdentifier(string $identifier): ?string
+    public function archiveUrlForIdentifier(string $identifier, ?string $filename = null): ?string
     {
         if (!$this->configured() || empty($identifier)) {
             return null;
@@ -80,7 +79,12 @@ class StorageService
         $expires = time() + (int) config('plugged-host-storage.signed_ttl', 900);
         $sig = hash_hmac('sha256', "archive:$identifier:$expires", $this->secret());
 
-        return $this->agentUrl() . '/archive/' . rawurlencode($identifier) . "?expires=$expires&sig=$sig";
+        $url = $this->agentUrl() . '/archive/' . rawurlencode($identifier) . "?expires=$expires&sig=$sig";
+        if ($filename) {
+            $url .= '&filename=' . rawurlencode($filename);
+        }
+
+        return $url;
     }
 
     /**

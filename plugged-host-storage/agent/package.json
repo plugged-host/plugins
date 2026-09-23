@@ -1,6 +1,6 @@
 {
   "name": "plugged-host-storage-agent",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "type": "module",
   "description": "plugged.host storage agent: delta-mirror replication, signed archive service, node reachability probe, and signed self-update. Runs on the storage box.",
