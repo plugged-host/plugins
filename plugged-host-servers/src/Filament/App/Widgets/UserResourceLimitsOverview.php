@@ -55,9 +55,7 @@ class UserResourceLimitsOverview extends StatsOverviewWidget
         $roleName = config('plugged-host-discord.role_name', 'Discord Linked');
         $canUpgradeWithDiscord = $anyExhausted && !$user->roles()->where('name', $roleName)->exists();
 
-        $discordProfileUrl = class_exists(EditProfile::class)
-            ? EditProfile::getUrl(['tab' => 'discord::data::tab'], panel: 'app')
-            : null;
+        $discordProfileUrl = env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space') . '/dashboard';
 
         // Both the store page and the balance live in plugged-host-economy, which is a
         // separate plugin and may be uninstalled. Everything credit-shaped here is

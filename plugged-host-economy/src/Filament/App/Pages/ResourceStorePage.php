@@ -321,9 +321,7 @@ class ResourceStorePage extends Page
         $userCredits = $user ? UserCredits::forUser($user) : null;
         $transactions = $userCredits ? $userCredits->transactions()->take(10)->get() : collect([]);
 
-        $discordProfileUrl = class_exists(EditProfile::class)
-            ? EditProfile::getUrl(['tab' => 'discord::data::tab'], panel: 'app')
-            : null;
+        $discordProfileUrl = env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space') . '/dashboard';
 
         $memoryUnit = config('panel.use_binary_prefix') ? 'MiB' : 'MB';
 

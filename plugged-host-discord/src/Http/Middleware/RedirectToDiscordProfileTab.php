@@ -17,8 +17,8 @@ class RedirectToDiscordProfileTab
         $isDiscordCallback = ($request->routeIs('auth.oauth.callback') || $request->is('auth/oauth/callback/discord'))
             && ($request->route('driver') === 'discord' || $request->is('*discord*'));
 
-        if ($isDiscordCallback && auth()->check() && class_exists(EditProfile::class)) {
-            return redirect()->to(EditProfile::getUrl(['tab' => 'discord::data::tab'], panel: 'app'));
+        if ($isDiscordCallback && auth()->check()) {
+            return redirect()->away(env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space') . '/dashboard');
         }
 
         return $response;

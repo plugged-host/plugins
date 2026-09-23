@@ -85,20 +85,9 @@ class ConfigureServerPage extends Page
         ];
     }
 
-    public function mount(string $game): void
+    public function mount(string $game): mixed
     {
-        $this->game = $game;
-
-        // Resolves through GameCatalog, so an egg outside allowed_eggs 404s rather
-        // than becoming creatable via a hand-typed URL.
-        $egg = $this->egg();
-
-        $this->form->fill([
-            'name' => (new RandomWordService())->word(),
-            'advanced' => false,
-            'variables' => $this->eggVariables($egg),
-            'eula_accepted' => true,
-        ]);
+        return redirect()->to(CreateServerPage::getUrl(['game' => $game]));
     }
 
     public function egg(): Egg

@@ -299,10 +299,6 @@ class PerkDiscovery
 
     private function profileDiscordUrl(): ?string
     {
-        if (!class_exists(EditProfile::class)) {
-            return null;
-        }
-
-        return EditProfile::getUrl(['tab' => 'discord::data::tab'], panel: 'app');
+        return env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space') . '/dashboard';
     }
 }

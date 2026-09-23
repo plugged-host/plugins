@@ -144,35 +144,8 @@ class DiscordPluginServiceProvider extends ServiceProvider
             });
         }
 
-        // 6. Register custom Discord tab in EditProfile (Profile Settings)
-        if (class_exists(EditProfile::class)) {
-            EditProfile::registerCustomTabs(
-                TabPosition::After,
-                Tab::make('discord')
-                    ->label(trans('plugged-host-discord::strings.discord'))
-                    ->icon(TablerIcon::BrandDiscordFilled)
-                    ->schema([
-                        View::make('plugged-host-discord::filament.profile.discord-profile-tab'),
-                    ])
-            );
-
-            // Hide the generic Discord action button from the generic OAuth tab so it only lives in the dedicated Discord tab.
-            // Injected into the page body rather than STYLES_BEFORE: with ->spa() enabled, wire:navigate keeps every <style>
-            // it finds in <head> for the rest of the session, so a page-scoped style with a global selector follows the user
-            // onto every later page. See PluggedHost\Core\Providers\CoreRuntimeServiceProvider for the same fix and the detail.
-            FilamentView::registerRenderHook(
-                PanelsRenderHook::PAGE_START,
-                fn (): Htmlable => new HtmlString(<<<'HTML'
-                    <style>
-                        button[wire\:click*="oauth_discord"],
-                        button[wire\:click*='oauth_discord'] {
-                            display: none !important;
-                        }
-                    </style>
-                    HTML),
-                EditProfile::class,
-            );
-        }
+        // 6. Discord linking is now managed centrally on noprofit.space accounts dashboard.
+        // The profile tab in Pelican panel is disabled.
 
         // 7. Automatically sync Discord membership upon user login in background
         Event::listen(Login::class, function (Login $event): void {
