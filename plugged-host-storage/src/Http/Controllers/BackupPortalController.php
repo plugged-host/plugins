@@ -141,7 +141,7 @@ class BackupPortalController extends Controller
     }
 
     /**
-     * AJAX/POST lookup for a server by short ID (e.g. a1b2c3d4) or full UUID.
+     * AJAX/POST lookup for a server by short ID (e.g. 5e5de4be) or full UUID.
      */
     public function lookup(Request $request): JsonResponse
     {
@@ -151,7 +151,7 @@ class BackupPortalController extends Controller
         if (empty($cleanId) || strlen($cleanId) < 6) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Please provide a valid Server ID (at least 6 characters, e.g. a1b2c3d4).',
+                'message' => 'Please provide a valid Server ID (at least 6 characters, e.g. 5e5de4be).',
             ], 422);
         }
 
@@ -231,9 +231,13 @@ class BackupPortalController extends Controller
 
         return response('', 200, [
             'X-Accel-Redirect' => $internalUri,
-            'Content-Type' => 'application/gzip',
+            'Content-Type' => 'application/octet-stream',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 }
+
+

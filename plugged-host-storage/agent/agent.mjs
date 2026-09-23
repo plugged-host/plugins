@@ -220,7 +220,7 @@ function run(cmd, args, opts = {}) {
 
 // ---- Server Directory Resolution --------------------------------------------
 
-// Resolve a UUID or short server ID (e.g. a1b2c3d4) to an existing directory
+// Resolve a UUID or short server ID (e.g. 5e5de4be) to an existing directory
 // Checks configured archiveSource (e.g. /mnt/storage/download), then mirror, then download.
 async function resolveServerDir(id) {
   const safeId = String(id || '').trim().toLowerCase();
@@ -245,7 +245,7 @@ async function resolveServerDir(id) {
         }
       }
 
-      // 2. Prefix match (e.g. 8-character short ID like a1b2c3d4)
+      // 2. Prefix match (e.g. 8-character short ID like 5e5de4be)
       const entries = await fsp.readdir(base, { withFileTypes: true }).catch(() => []);
       for (const entry of entries) {
         if (entry.isDirectory() && entry.name.toLowerCase().startsWith(safeId)) {
@@ -468,10 +468,15 @@ function startServer() {
         }
         const archive = await buildArchive(id);
         if (!archive) { res.writeHead(404); return res.end('no mirror'); }
-        res.writeHead(200, {
-          'Content-Type': 'application/gzip',
-          'Content-Disposition': `attachment; filename="backup-${archive.uuid.slice(0, 8)}.tar.gz"`,
-        });
+        const st = await fsp.stat(archive.path).catch(() => null);
+        const headers = {
+          'Content-Type': 'application/octet-stream',
+          'Accept-Ranges': 'bytes',
+        };
+        if (st && st.size) {
+          headers['Content-Length'] = st.size;
+        }
+        res.writeHead(200, headers);
         return pipeline(fs.createReadStream(archive.path), res).catch(() => res.destroy());
       }
 
