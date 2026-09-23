@@ -12,6 +12,7 @@
 //   PH_PANEL_URL           e.g. https://panel.plugged.host
 //   PH_AGENT_SECRET        shared HMAC secret (STORAGE_AGENT_SECRET on the panel)
 //   PH_STORAGE_ROOT        default /mnt/storage
+//   PH_ARCHIVE_SOURCE      default download (source directory for downloads; can be 'mirror' or 'download')
 //   PH_LISTEN_PORT         default 8687  (inbound: archives + reachability + health)
 //   PH_MIN_FREE_PERCENT    default 10    (refuse a pass below this)
 //   PH_SNAPSHOTS           default 3     (rotating --link-dest snapshots kept)
@@ -34,13 +35,14 @@ const CFG = {
   panelUrl: (process.env.PH_PANEL_URL || '').replace(/\/+$/, ''),
   secret: process.env.PH_AGENT_SECRET || '',
   root: process.env.PH_STORAGE_ROOT || '/mnt/storage',
+  archiveSource: process.env.PH_ARCHIVE_SOURCE || 'download',
   port: parseInt(process.env.PH_LISTEN_PORT || '8687', 10),
   minFreePercent: parseFloat(process.env.PH_MIN_FREE_PERCENT || '10'),
   snapshots: parseInt(process.env.PH_SNAPSHOTS || '3', 10),
   mirrorIntervalMin: parseInt(process.env.PH_MIRROR_INTERVAL_MIN || '30', 10),
   updateIntervalMin: parseInt(process.env.PH_UPDATE_INTERVAL_MIN || '15', 10),
   releaseDir: process.env.PH_RELEASE_DIR || '/opt/plugged-host-storage',
-  version: process.env.PH_VERSION || 'dev',
+  version: process.env.PH_VERSION || '1.2.1',
   // How to turn a plan entry (host + path + uuid) into an rsync source. The pull credential
   // lives HERE, on the storage box, never on the panel. Placeholders: %HOST% %PATH% %UUID%.
   // Default is the SSH form; set to an rsync:// module URL if using an rsync daemon instead.
@@ -54,6 +56,51 @@ const DIRS = {
   snapshots: path.join(CFG.root, 'snapshots'),
   archives: path.join(CFG.root, 'archives'),
 };
+
+// Patterns excluded from replication & on-demand archives tailored to plugged.host eggs
+const EXCLUDES = [
+  // Caches & temp files
+  '.cache',
+  'cache',
+  '.tmp',
+  'tmp',
+  'temp',
+  // Node.js generic (Egg 12)
+  'node_modules',
+  '.npm',
+  '.yarn',
+  '.pnpm-store',
+  'npm-debug.log*',
+  'yarn-debug.log*',
+  'yarn-error.log*',
+  // Python generic (Egg 4)
+  '__pycache__',
+  '*.py[cod]',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.ruff_cache',
+  '.tox',
+  'venv',
+  '.venv',
+  'env',
+  // FiveM / RedM (Egg 9)
+  'server-data/cache',
+  // Minecraft Java / Velocity / Bedrock (Eggs 1, 7, 14)
+  '.fabric',
+  '.quilt',
+  // Multi Theft Auto (Egg 13)
+  'dumps',
+  // Logs & crashes across all eggs
+  'logs',
+  'crash-reports',
+  '*.log',
+  '*.log.gz',
+  // Core dumps & system clutter
+  'core',
+  'core.[0-9]*',
+  '.DS_Store',
+  'Thumbs.db',
+];
 
 function log(level, msg, extra) {
   const line = JSON.stringify({ ts: new Date().toISOString(), level, msg, ...(extra || {}) });
@@ -171,6 +218,46 @@ function run(cmd, args, opts = {}) {
   });
 }
 
+// ---- Server Directory Resolution --------------------------------------------
+
+// Resolve a UUID or short server ID (e.g. 5e5de4be) to an existing directory
+// Checks configured archiveSource (e.g. /mnt/storage/download), then mirror, then download.
+async function resolveServerDir(id) {
+  const safeId = String(id || '').trim().toLowerCase();
+  if (!safeId || !/^[a-f0-9-]{6,}$/i.test(safeId)) return null;
+
+  const candidateBases = Array.from(new Set([
+    path.join(CFG.root, CFG.archiveSource),
+    DIRS.mirror,
+    path.join(CFG.root, 'download'),
+  ]));
+
+  for (const base of candidateBases) {
+    try {
+      if (!fs.existsSync(base)) continue;
+
+      // 1. Direct exact match
+      const exactPath = path.join(base, safeId);
+      if (fs.existsSync(exactPath)) {
+        const st = await fsp.stat(exactPath);
+        if (st.isDirectory()) {
+          return { dir: exactPath, uuid: safeId, source: path.basename(base) };
+        }
+      }
+
+      // 2. Prefix match (e.g. 8-character short ID like 5e5de4be)
+      const entries = await fsp.readdir(base, { withFileTypes: true }).catch(() => []);
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name.toLowerCase().startsWith(safeId)) {
+          return { dir: path.join(base, entry.name), uuid: entry.name, source: path.basename(base) };
+        }
+      }
+    } catch { /* proceed to next directory */ }
+  }
+
+  return null;
+}
+
 // ---- replication ------------------------------------------------------------
 
 // One delta-mirror pass for a single server.
@@ -216,9 +303,12 @@ async function mirrorServer(entry) {
     ? ['-e', `ssh -i ${CFG.rsyncSshKey} -o StrictHostKeyChecking=accept-new -o BatchMode=yes`]
     : [];
 
+  const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
+
   const rsyncArgs = [
     '-a', '--delete', '--partial', '--timeout=120',
     ...sshArgs,
+    ...excludeArgs,
     ...linkDestArgs,
     source,
     dest + '/',
@@ -290,19 +380,29 @@ async function replicationTick() {
   }
 }
 
-// ---- inbound HTTP: archives, reachability, health ---------------------------
+// ---- inbound HTTP: archives, reachability, health, info ---------------------
 
-async function buildArchive(uuid) {
-  const src = path.join(DIRS.mirror, uuid);
-  if (!fs.existsSync(src)) return null;
-  const out = path.join(DIRS.archives, `${uuid}.tar.gz`);
+async function buildArchive(uuidOrShortId) {
+  const resolved = await resolveServerDir(uuidOrShortId);
+  if (!resolved) return null;
+
+  const src = resolved.dir;
+  const fullUuid = resolved.uuid;
+  const out = path.join(DIRS.archives, `${fullUuid}.tar.gz`);
+
   // Rebuild if older than 5 min or absent, so a restore gets a fresh point-in-time tar.
   try {
     const st = await fsp.stat(out);
-    if (Date.now() - st.mtimeMs < 5 * 60 * 1000) return out;
+    if (Date.now() - st.mtimeMs < 5 * 60 * 1000) {
+      return { path: out, uuid: fullUuid };
+    }
   } catch { /* not built yet */ }
-  await run('tar', ['-czf', out, '-C', src, '.']);
-  return out;
+
+  const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
+  const tarArgs = ['-czf', out, ...excludeArgs, '-C', src, '.'];
+
+  await run('tar', tarArgs);
+  return { path: out, uuid: fullUuid };
 }
 
 function probeTcp(host, port, timeoutMs = 3000) {
@@ -328,19 +428,51 @@ function startServer() {
       if (url.pathname === '/health') {
         const free = await freePercent();
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ ok: true, version: CFG.version, free_percent: free }));
+        return res.end(JSON.stringify({
+          ok: true,
+          version: CFG.version,
+          archive_source: CFG.archiveSource,
+          free_percent: free,
+        }));
+      }
+
+      // GET /info/<id>?expires=..&sig=.. -> inspect backup existence, size, last mod
+      if (url.pathname.startsWith('/info/')) {
+        const id = decodeURIComponent(url.pathname.slice('/info/'.length));
+        if (!/^[a-f0-9-]{6,}$/i.test(id) || !verifySignedRequest('info', id, q.get('expires'), q.get('sig'))) {
+          res.writeHead(403); return res.end('forbidden');
+        }
+        const resolved = await resolveServerDir(id);
+        if (!resolved) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ ok: true, exists: false }));
+        }
+        const st = await fsp.stat(resolved.dir).catch(() => null);
+        const bytes = await dirSizeBytes(resolved.dir);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          ok: true,
+          exists: true,
+          uuid: resolved.uuid,
+          source: resolved.source,
+          bytes,
+          mtime: st ? st.mtime.toISOString() : null,
+        }));
       }
 
       // GET /archive/<uuid>?expires=..&sig=..  -> streams the on-demand tar for wings to pull.
       if (url.pathname.startsWith('/archive/')) {
-        const uuid = decodeURIComponent(url.pathname.slice('/archive/'.length));
-        if (!/^[a-f0-9-]{8,}$/i.test(uuid) || !verifySignedRequest('archive', uuid, q.get('expires'), q.get('sig'))) {
+        const id = decodeURIComponent(url.pathname.slice('/archive/'.length));
+        if (!/^[a-f0-9-]{6,}$/i.test(id) || !verifySignedRequest('archive', id, q.get('expires'), q.get('sig'))) {
           res.writeHead(403); return res.end('forbidden');
         }
-        const tar = await buildArchive(uuid);
-        if (!tar) { res.writeHead(404); return res.end('no mirror'); }
-        res.writeHead(200, { 'Content-Type': 'application/gzip' });
-        return pipeline(fs.createReadStream(tar), res).catch(() => res.destroy());
+        const archive = await buildArchive(id);
+        if (!archive) { res.writeHead(404); return res.end('no mirror'); }
+        res.writeHead(200, {
+          'Content-Type': 'application/gzip',
+          'Content-Disposition': `attachment; filename="backup-${archive.uuid.slice(0, 8)}.tar.gz"`,
+        });
+        return pipeline(fs.createReadStream(archive.path), res).catch(() => res.destroy());
       }
 
       // GET /reachable?host=..&port=..&expires=..&sig=..  -> second-witness node probe.
@@ -367,7 +499,6 @@ function startServer() {
 // ---- self-update (pull, verify signature + digest, swap symlink) ------------
 
 async function fetchSigned(apiPath) {
-  // Returns { buffer, headers } for a panel-signed static file.
   return new Promise((resolve, reject) => {
     const url = new URL(CFG.panelUrl + apiPath);
     const lib = url.protocol === 'http:' ? http : https;
@@ -383,12 +514,11 @@ async function fetchSigned(apiPath) {
 async function updateTick() {
   try {
     const { buffer, headers } = await fetchSigned('/plugged-host/storage/agent/manifest.json');
-    // manifest is signed with hmac over its own JSON body, in X-PH-Signature.
     if (!safeEqual(headers['x-ph-signature'] || '', hmac(buffer.toString()))) {
       log('error', 'manifest signature mismatch, ignoring'); return;
     }
     const manifest = JSON.parse(buffer.toString());
-    if (!manifest.version || manifest.version === CFG.version) return; // up to date
+    if (!manifest.version || manifest.version === CFG.version) return;
 
     const { buffer: bundle } = await fetchSigned('/plugged-host/storage/agent/bundle.tar.gz');
     const digest = crypto.createHash('sha256').update(bundle).digest('hex');
@@ -403,7 +533,6 @@ async function updateTick() {
     await run('tar', ['-xzf', tmpTar, '-C', releaseDir]);
     await fsp.unlink(tmpTar).catch(() => {});
 
-    // Atomically swap current -> the new release; the previous stays for rollback.
     const currentLink = path.join(CFG.releaseDir, 'current');
     const tmpLink = currentLink + '.new';
     await fsp.rm(tmpLink, { force: true }).catch(() => {});
@@ -411,7 +540,7 @@ async function updateTick() {
     await fsp.rename(tmpLink, currentLink);
 
     log('info', 'updated, restarting for new version', { version: manifest.version });
-    process.exit(0); // systemd Restart=always brings us back on the new symlink
+    process.exit(0);
   } catch (e) {
     log('error', 'update tick failed', { err: e.message });
   }
@@ -424,14 +553,17 @@ async function main() {
   await ensureDirs();
   startServer();
 
-  // Kick immediately, then on interval. Replication checks the per-server stagger each minute.
   const everyMinute = 60 * 1000;
   setInterval(() => replicationTick(), everyMinute);
   setInterval(() => updateTick(), CFG.updateIntervalMin * everyMinute);
   replicationTick();
   updateTick();
 
-  log('info', 'plugged.host storage agent started', { version: CFG.version, root: CFG.root });
+  log('info', 'plugged.host storage agent started', {
+    version: CFG.version,
+    root: CFG.root,
+    archiveSource: CFG.archiveSource,
+  });
 }
 
 main().catch((e) => { log('error', 'fatal', { err: e.message }); process.exit(1); });

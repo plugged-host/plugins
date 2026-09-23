@@ -65,8 +65,67 @@ class StorageService
         $expires = time() + (int) config('plugged-host-storage.signed_ttl', 900);
         $sig = hash_hmac('sha256', "archive:$uuid:$expires", $this->secret());
 
-        return $this->agentUrl() . '/archive/' . rawurlencode($uuid) . "?expires=$expires&sig=$sig";
+        return $this->archiveUrlForIdentifier($server->uuid);
     }
+
+    /**
+     * Generate signed archive URL for a server UUID or short ID.
+     */
+    public function archiveUrlForIdentifier(string $identifier): ?string
+    {
+        if (!$this->configured() || empty($identifier)) {
+            return null;
+        }
+
+        $expires = time() + (int) config('plugged-host-storage.signed_ttl', 900);
+        $sig = hash_hmac('sha256', "archive:$identifier:$expires", $this->secret());
+
+        return $this->agentUrl() . '/archive/' . rawurlencode($identifier) . "?expires=$expires&sig=$sig";
+    }
+
+    /**
+     * Relative URI for Nginx X-Accel-Redirect streaming.
+     */
+    public function internalArchiveUri(string $identifier): ?string
+    {
+        if (!$this->configured() || empty($identifier)) {
+            return null;
+        }
+
+        $expires = time() + (int) config('plugged-host-storage.signed_ttl', 900);
+        $sig = hash_hmac('sha256', "archive:$identifier:$expires", $this->secret());
+
+        return '/internal-storage/archive/' . rawurlencode($identifier) . "?expires=$expires&sig=$sig";
+    }
+
+    /**
+     * Query storage agent for backup existence, size, and last modified date.
+     *
+     * @return array{ok: bool, exists: bool, uuid?: string, source?: string, bytes?: int, mtime?: string}|null
+     */
+    public function backupInfo(string $identifier): ?array
+    {
+        if (!$this->configured() || empty($identifier)) {
+            return null;
+        }
+
+        $expires = time() + 300;
+        $sig = hash_hmac('sha256', "info:$identifier:$expires", $this->secret());
+
+        try {
+            $response = Http::timeout(6)->connectTimeout(3)->get($this->agentUrl() . '/info/' . rawurlencode($identifier), [
+                'expires' => $expires,
+                'sig' => $sig,
+            ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+        } catch (\Throwable) {}
+
+        return null;
+    }
+
 
     /**
      * Second witness: ask the agent, over its own path to the node, whether the node's wings

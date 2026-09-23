@@ -49,5 +49,6 @@ return [
     'failover_max_per_run' => (int) env('STORAGE_FAILOVER_MAX_PER_RUN', 5),
 
     // Agent auto-update bundle version currently served by the panel.
-    'agent_version' => env('STORAGE_AGENT_VERSION', '1.2.0'),
+    'agent_version' => env('STORAGE_AGENT_VERSION', '1.2.1'),
 ];
+
