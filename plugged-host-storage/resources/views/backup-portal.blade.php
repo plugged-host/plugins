@@ -522,7 +522,7 @@
                 </svg>
                 Find Server Backup
             </h2>
-            <p class="search-card-desc">Enter your 8-character Server ID (e.g. <code style="color:#93c5fd;font-family:'JetBrains Mono'">5e5de4be</code>) or full server UUID.</p>
+            <p class="search-card-desc">Enter your 8-character Server ID (e.g. <code style="color:#93c5fd;font-family:'JetBrains Mono'">a1b2c3d4</code>) or full server UUID.</p>
 
             <form id="searchForm" class="search-form" onsubmit="handleSearch(event)">
                 <div class="input-group">
@@ -530,7 +530,7 @@
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
-                    <input type="text" id="serverIdInput" class="search-input" placeholder="e.g. 5e5de4be" autocomplete="off" spellcheck="false" required>
+                    <input type="text" id="serverIdInput" class="search-input" placeholder="e.g. a1b2c3d4" autocomplete="off" spellcheck="false" required>
                 </div>
                 <button type="submit" id="searchBtn" class="btn btn-primary">
                     <span id="btnText">Look Up</span>
@@ -552,7 +552,7 @@
                 <div class="server-badges">
                     <span id="resultEgg" class="badge badge-egg">Minecraft: Java Edition</span>
                     <span id="resultNode" class="badge badge-node">Node: storage</span>
-                    <span id="resultShortId" class="badge badge-id">ID: 5e5de4be</span>
+                    <span id="resultShortId" class="badge badge-id">ID: a1b2c3d4</span>
                 </div>
 
                 <div class="result-meta">

@@ -220,7 +220,7 @@ function run(cmd, args, opts = {}) {
 
 // ---- Server Directory Resolution --------------------------------------------
 
-// Resolve a UUID or short server ID (e.g. 5e5de4be) to an existing directory
+// Resolve a UUID or short server ID (e.g. a1b2c3d4) to an existing directory
 // Checks configured archiveSource (e.g. /mnt/storage/download), then mirror, then download.
 async function resolveServerDir(id) {
   const safeId = String(id || '').trim().toLowerCase();
@@ -245,7 +245,7 @@ async function resolveServerDir(id) {
         }
       }
 
-      // 2. Prefix match (e.g. 8-character short ID like 5e5de4be)
+      // 2. Prefix match (e.g. 8-character short ID like a1b2c3d4)
       const entries = await fsp.readdir(base, { withFileTypes: true }).catch(() => []);
       for (const entry of entries) {
         if (entry.isDirectory() && entry.name.toLowerCase().startsWith(safeId)) {
