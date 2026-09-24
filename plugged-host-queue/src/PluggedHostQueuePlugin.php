@@ -39,6 +39,12 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
         $id = str($panel->getId())->title();
 
         $panel->discoverPages(plugin_path($this->getId(), "src/Filament/$id/Pages"), "PluggedHost\\Queue\\Filament\\$id\\Pages");
+
+        if ($panel->getId() === 'server') {
+            $panel->tenantMiddleware([
+                \PluggedHost\Queue\Http\Middleware\RedirectToStartQueuePage::class,
+            ]);
+        }
     }
 
     public function boot(Panel $panel): void {}

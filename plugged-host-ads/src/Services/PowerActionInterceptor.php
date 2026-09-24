@@ -5,6 +5,7 @@ namespace PluggedHost\Ads\Services;
 use App\Enums\ContainerStatus;
 use App\Filament\App\Resources\Servers\Pages\ListServers;
 use App\Filament\Server\Pages\Console;
+use App\Livewire\ServerEntry;
 use App\Models\Server;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -277,23 +278,96 @@ class PowerActionInterceptor
         }
 
         if ($component instanceof ListServers) {
-            if ($method !== '__dispatch' || ($params[0] ?? null) !== 'powerAction') {
+            // Case A: Dispatched event via __dispatch('powerAction', ...)
+            if ($method === '__dispatch' && ($params[0] ?? null) === 'powerAction') {
+                $payload = $params[1] ?? [];
+
+                if (is_array($payload) && isset($payload[0]) && is_array($payload[0])) {
+                    $payload = $payload[0];
+                }
+
+                if (is_array($payload) && isset($payload[0], $payload[1]) && !isset($payload['server'], $payload['action'])) {
+                    $server = $this->resolveServer($payload[0]);
+                    $action = is_string($payload[1]) ? $payload[1] : null;
+
+                    if ($server instanceof Server && in_array($action, self::GATED_ACTIONS, true)) {
+                        return [$server, $action];
+                    }
+                }
+
+                if (!is_array($payload)) {
+                    return [null, null];
+                }
+
+                $action = is_string($payload['action'] ?? null) ? $payload['action'] : null;
+
+                if (!in_array($action, self::GATED_ACTIONS, true)) {
+                    return [null, null];
+                }
+
+                return [$this->resolveServer($payload['server'] ?? null), $action];
+            }
+
+            // Case B: Direct method call powerAction(...)
+            if ($method === 'powerAction') {
+                if (isset($params[0], $params[1])) {
+                    $server = $this->resolveServer($params[0]);
+                    $action = is_string($params[1]) ? $params[1] : null;
+
+                    if ($server instanceof Server && in_array($action, self::GATED_ACTIONS, true)) {
+                        return [$server, $action];
+                    }
+                }
+
+                $payload = $params[0] ?? $params;
+                if (is_array($payload)) {
+                    $action = is_string($payload['action'] ?? null) ? $payload['action'] : null;
+                    if (in_array($action, self::GATED_ACTIONS, true)) {
+                        return [$this->resolveServer($payload['server'] ?? null), $action];
+                    }
+                }
+
                 return [null, null];
             }
 
-            $payload = $params[1] ?? [];
-
-            if (!is_array($payload)) {
-                return [null, null];
+            // Case C: Filament table or page actions
+            if (in_array($method, ['mountAction', 'callMountedAction', 'mountTableAction', 'callMountedTableAction'], true)) {
+                $action = is_string($params[0] ?? null) ? $params[0] : null;
+                if (in_array($action, self::GATED_ACTIONS, true)) {
+                    $server = $this->resolveServer($params[1] ?? null);
+                    if ($server instanceof Server) {
+                        return [$server, $action];
+                    }
+                }
             }
 
-            $action = is_string($payload['action'] ?? null) ? $payload['action'] : null;
+            return [null, null];
+        }
 
-            if (!in_array($action, self::GATED_ACTIONS, true)) {
-                return [null, null];
+        if ($component instanceof ServerEntry) {
+            $server = $component->server ?? null;
+
+            if ($server instanceof Server) {
+                if ($method === 'powerAction' || in_array($method, ['mountAction', 'callMountedAction'], true)) {
+                    $action = is_string($params[1] ?? null) ? $params[1] : (is_string($params[0] ?? null) ? $params[0] : null);
+                    if (in_array($action, self::GATED_ACTIONS, true)) {
+                        return [$server, $action];
+                    }
+                }
+
+                if ($method === '__dispatch' && ($params[0] ?? null) === 'powerAction') {
+                    $payload = $params[1] ?? [];
+                    if (is_array($payload) && isset($payload[0]) && is_array($payload[0])) {
+                        $payload = $payload[0];
+                    }
+                    $action = is_string($payload['action'] ?? null) ? $payload['action'] : (is_string($payload[1] ?? null) ? $payload[1] : null);
+                    if (in_array($action, self::GATED_ACTIONS, true)) {
+                        return [$server, $action];
+                    }
+                }
             }
 
-            return [$this->resolveServer($payload['server'] ?? null), $action];
+            return [null, null];
         }
 
         return [null, null];
@@ -313,7 +387,8 @@ class PowerActionInterceptor
 
             if (is_int($value) || (is_string($value) && $value !== '')) {
                 return Server::query()->find($value)
-                    ?? Server::query()->where('uuid', $value)->first();
+                    ?? Server::query()->where('uuid', $value)->first()
+                    ?? Server::query()->where('uuid_short', $value)->first();
             }
 
             if (!is_array($value)) {
