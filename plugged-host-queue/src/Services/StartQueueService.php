@@ -168,30 +168,6 @@ class StartQueueService
             return null;
         }
 
-        // WP11: does this start have to wait? Reasons, in order —
-        //  (a) boot-slot pacing: a start went out on this node within release_interval, so the
-        //      node's boot slot is still occupied (this was never checked on entry before, which
-        //      is the main reason ten simultaneous starts all bypassed the queue);
-        //  (b) line preservation: a queue has already formed for this node, so a fresh click
-        //      joins the back of the line instead of jumping ahead of who is already waiting;
-        //  (c) node pressure: measured over the queue's OWN threshold (85%), decoupled from the
-        //      allocator's 95% ceiling that normal fleet load almost never crossed.
-        $mustWait = !$this->nodeSlotFree((int) $node->getKey())
-            || $this->hasWaitingQueue($node)
-            || $this->pressure->isUnderPressure($node);
-
-        if (!$mustWait) {
-            // Immediate pass-through: stamp the node slot so the very next start on this node
-            // within release_interval is held. This sequences concurrent clicks across tabs and
-            // users even on an empty queue, and is the paced fallback for an unmeasurable node
-            // (unless paced-on-unavailable is switched off).
-            if ($this->pressure->measurable($node) || $this->pacedOnUnavailable()) {
-                $this->markNodeReleased((int) $node->getKey());
-            }
-
-            return null;
-        }
-
         $url = $this->pageUrl($server);
 
         if ($url === null) {
