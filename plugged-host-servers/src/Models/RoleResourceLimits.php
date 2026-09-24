@@ -335,10 +335,12 @@ class RoleResourceLimits extends Model
             return false;
         }
 
-        // WP13: a paid-tier location is only deployable by a user who has unlocked the tier. This
-        // is the server-side authority — the create page's card state is only presentation.
+        // WP13: a paid-tier (Plus/Premium) location is only deployable by a user who has made the
+        // paid unlock. This is the server-side authority — the create page's card state is only
+        // presentation.
         if ($location !== null
-            && !\PluggedHost\Servers\Support\TierAccess::isUnlocked($user, app(LocationCatalog::class)->resolve($location)[1])) {
+            && app(LocationCatalog::class)->resolve($location)[1] !== LocationCatalog::FREE
+            && !\PluggedHost\Servers\Support\PremiumAccess::isUnlocked($user)) {
             return false;
         }
 

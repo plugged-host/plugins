@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\Deployment\FindViableNodesService;
 use Illuminate\Support\Collection;
 use PluggedHost\Core\Support\Countries;
-use PluggedHost\Servers\Support\TierAccess;
+use PluggedHost\Servers\Support\PremiumAccess;
 
 /**
  * Resolves the deployable "locations" offered during server creation.
@@ -20,9 +20,21 @@ use PluggedHost\Servers\Support\TierAccess;
  * (`plus:pl`, `premium:de` — a distinct card from the free `<cc>`), while their flag and name still
  * come from the `<cc>` half. Each tier derives ONLY from its own nodes — the tiers never bleed into
  * each other.
+ *
+ * Plus and Premium are two labels over one entitlement: a single token purchase
+ * (UCS_PREMIUM_COST, PremiumAccess) unlocks every paid location in both tiers.
  */
 class LocationCatalog
 {
+    public const FREE = 'free';
+
+    public const PLUS = 'plus';
+
+    public const PREMIUM = 'premium';
+
+    /** Paid tiers, lowest first. */
+    public const PAID_TIERS = [self::PLUS, self::PREMIUM];
+
     private static array $flagCache = [];
 
     /** @return string The node tag that marks a paid tier's hardware. */
@@ -31,14 +43,10 @@ class LocationCatalog
         return strtolower(trim((string) config("plugged-host-servers.user-creatable-servers.{$tier}.tag", $tier)));
     }
 
-    /** Tokens to unlock a paid tier; 0 for free. */
-    public function tierCost(string $tier): int
+    /** Tokens for the one unlock that opens every paid tier. */
+    public function premiumCost(): int
     {
-        if (!TierAccess::isPaidTier($tier)) {
-            return 0;
-        }
-
-        return (int) config("plugged-host-servers.user-creatable-servers.{$tier}.cost", 0);
+        return (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 25);
     }
 
     /**
@@ -52,19 +60,19 @@ class LocationCatalog
             ->filter(fn ($t) => is_string($t) || is_numeric($t))
             ->map(fn ($t) => strtolower(trim((string) $t)));
 
-        foreach (array_reverse(TierAccess::paidTiers()) as $tier) {
+        foreach (array_reverse(self::PAID_TIERS) as $tier) {
             if ($tags->contains($this->tierTag($tier))) {
                 return $tier;
             }
         }
 
-        return TierAccess::FREE;
+        return self::FREE;
     }
 
     /**
-     * Every location, every tier: free first, then each paid tier cheapest first. Each entry
-     * carries its tier, unlocked (one value for the whole tier) and cost. A paid tier whose
-     * <tier>_unlocked_at column is absent (migration unrun) is omitted entirely.
+     * Every location, every tier: free first, then Plus, then Premium. Each entry carries its
+     * tier, unlocked (one value for all paid locations) and cost. When the premium_unlocked_at
+     * column is absent (migration unrun) paid locations are omitted entirely.
      *
      * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, tier: string, unlocked: bool, cost: int}>
      */
@@ -81,16 +89,16 @@ class LocationCatalog
             $allNodes->map(fn (Node $n) => (int) $n->getKey())->all(),
         );
 
-        $locations = $this->tier($allNodes, $viableNodes, $latencyByNode, TierAccess::FREE);
+        $locations = $this->tier($allNodes, $viableNodes, $latencyByNode, self::FREE);
 
-        foreach (TierAccess::paidTiers() as $tier) {
-            if (!TierAccess::supported($tier)) {
-                continue;
-            }
+        if (!PremiumAccess::supported()) {
+            return $locations;
+        }
 
-            $unlocked = TierAccess::isUnlocked($user, $tier);
-            $cost = $this->tierCost($tier);
+        $unlocked = PremiumAccess::isUnlocked($user);
+        $cost = $this->premiumCost();
 
+        foreach (self::PAID_TIERS as $tier) {
             $locations = $locations->concat(
                 $this->tier($allNodes, $viableNodes, $latencyByNode, $tier)
                     ->map(function (array $loc) use ($tier, $unlocked, $cost) {
@@ -146,7 +154,7 @@ class LocationCatalog
 
     /**
      * True when the code is offered to this user. A paid `<tier>:*` code is valid only when the
-     * user has unlocked that tier — this is the real gate (a card's disabled flag is
+     * user has made the paid unlock — this is the real gate (a card's disabled flag is
      * presentation), the same reason save() re-resolves location server-side.
      */
     public function isValid(?string $code, ?User $user = null): bool
@@ -157,7 +165,7 @@ class LocationCatalog
 
         $code = strtolower($code);
 
-        if (!TierAccess::isUnlocked($user, $this->resolve($code)[1])) {
+        if ($this->resolve($code)[1] !== self::FREE && !PremiumAccess::isUnlocked($user)) {
             return false;
         }
 
@@ -174,13 +182,13 @@ class LocationCatalog
     {
         $code = strtolower($code);
 
-        foreach (TierAccess::paidTiers() as $tier) {
+        foreach (self::PAID_TIERS as $tier) {
             if (str_starts_with($code, $tier . ':')) {
                 return [substr($code, strlen($tier) + 1), $tier];
             }
         }
 
-        return [$code, TierAccess::FREE];
+        return [$code, self::FREE];
     }
 
     /**

@@ -32,8 +32,6 @@ use PluggedHost\Minecraft\Models\ServerOnboarding;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
-use PluggedHost\Servers\Services\TierUnlockService;
-use PluggedHost\Servers\Support\TierAccess;
 
 /**
  * Step two of server creation: configure the game picked on CreateServerPage.
@@ -199,7 +197,7 @@ class ConfigureServerPage extends Page
                                         ? null
                                         : trans('plugged-host-servers::strings.location_unavailable'),
                                     // A paid-tier card must not be a plain disabled radio.
-                                    'disabled' => !$location['available'] && $location['tier'] === TierAccess::FREE,
+                                    'disabled' => !$location['available'] && $location['tier'] === LocationCatalog::FREE,
                                 ])
                                 ->all())
                             ->required()
@@ -372,23 +370,23 @@ class ConfigureServerPage extends Page
     }
 
     /**
-     * WP13: unlock a whole paid tier (Plus or Premium). The location field is ->live(), so on
-     * success every card of that tier flips to selectable in the same re-render (available()
-     * re-reads the user).
+     * WP13: the one paid unlock, behind every Plus and Premium card. The location field is
+     * ->live(), so on success every paid card flips to selectable in the same re-render
+     * (available() re-reads the user).
      */
-    public function unlockTier(string $tier): void
+    public function unlockPremium(): void
     {
         $user = auth()->user();
 
-        if ($user === null || !TierAccess::isPaidTier($tier)) {
+        if ($user === null) {
             return;
         }
 
-        $result = app(TierUnlockService::class)->unlock($user, $tier);
+        $result = app(\PluggedHost\Servers\Services\PremiumLocationService::class)->unlock($user);
 
         if ($result['ok'] ?? false) {
-            Notification::make()
-                ->title(trans("plugged-host-servers::strings.{$tier}.unlocked"))
+            \Filament\Notifications\Notification::make()
+                ->title(trans('plugged-host-servers::strings.premium.unlocked'))
                 ->success()
                 ->send();
 
@@ -396,10 +394,10 @@ class ConfigureServerPage extends Page
         }
 
         $reason = $result['reason'] ?? 'error';
-        Notification::make()
+        \Filament\Notifications\Notification::make()
             ->title($reason === 'insufficient_tokens'
-                ? trans("plugged-host-servers::strings.{$tier}.insufficient", ['cost' => $result['cost'] ?? 0])
-                : trans("plugged-host-servers::strings.{$tier}.failed"))
+                ? trans('plugged-host-servers::strings.premium.insufficient', ['cost' => $result['cost'] ?? 0])
+                : trans('plugged-host-servers::strings.premium.failed'))
             ->danger()
             ->send();
     }

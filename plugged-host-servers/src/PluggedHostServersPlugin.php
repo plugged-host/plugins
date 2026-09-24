@@ -59,9 +59,8 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
 
         // Paid tiers (WP13) live in nested config arrays; flatten them for the form fields.
         $data['premium_tag'] = config('plugged-host-servers.user-creatable-servers.premium.tag', 'premium');
-        $data['premium_cost'] = (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 40);
+        $data['premium_cost'] = (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 25);
         $data['plus_tag'] = config('plugged-host-servers.user-creatable-servers.plus.tag', 'plus');
-        $data['plus_cost'] = (int) config('plugged-host-servers.user-creatable-servers.plus.cost', 20);
 
         return $data;
     }
@@ -219,25 +218,12 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
                         ->numeric()
                         ->minValue(0)
                         ->maxValue(1000000)
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.premium.cost', 40)),
-                ]),
-            Section::make(trans('plugged-host-servers::strings.settings.section_plus'))
-                ->description(trans('plugged-host-servers::strings.settings.section_plus_hint'))
-                ->columns()
-                ->schema([
+                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.premium.cost', 25)),
                     TextInput::make('plus_tag')
                         ->label(trans('plugged-host-servers::strings.settings.plus_tag'))
                         ->helperText(trans('plugged-host-servers::strings.settings.plus_tag_hint'))
                         ->required()
                         ->default(fn () => config('plugged-host-servers.user-creatable-servers.plus.tag', 'plus')),
-                    TextInput::make('plus_cost')
-                        ->label(trans('plugged-host-servers::strings.settings.plus_cost'))
-                        ->helperText(trans('plugged-host-servers::strings.settings.plus_cost_hint'))
-                        ->required()
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(1000000)
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.plus.cost', 20)),
                 ]),
         ];
     }
@@ -262,9 +248,8 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
             'NODES_STORAGE_PERCENT' => $data['storage_percent'] ?? '90',
             'NODES_STORAGE_GUARD_STRICT' => !empty($data['storage_guard_strict']) ? 'true' : 'false',
             'UCS_PREMIUM_TAG' => trim((string) ($data['premium_tag'] ?? '')) !== '' ? trim((string) $data['premium_tag']) : 'premium',
-            'UCS_PREMIUM_COST' => (string) max(0, min(1000000, (int) ($data['premium_cost'] ?? 40))),
+            'UCS_PREMIUM_COST' => (string) max(0, min(1000000, (int) ($data['premium_cost'] ?? 25))),
             'UCS_PLUS_TAG' => trim((string) ($data['plus_tag'] ?? '')) !== '' ? trim((string) $data['plus_tag']) : 'plus',
-            'UCS_PLUS_COST' => (string) max(0, min(1000000, (int) ($data['plus_cost'] ?? 20))),
         ]);
 
         Notification::make()

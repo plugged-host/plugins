@@ -42,31 +42,22 @@ return [
         'premium' => '99.99% uptime',
     ],
 
-    'plus' => [
-        'unlocked' => 'Plus locations unlocked.',
-        'insufficient' => 'You need :cost tokens to unlock Plus locations.',
-        'failed' => 'Could not unlock Plus locations. No tokens were spent.',
-    ],
-
+    // The one paid unlock, covering both Plus and Premium.
     'premium' => [
-        'unlocked' => 'Premium locations unlocked.',
-        'insufficient' => 'You need :cost tokens to unlock premium locations.',
-        'failed' => 'Could not unlock premium locations. No tokens were spent.',
+        'unlocked' => 'Plus and Premium locations unlocked.',
+        'insufficient' => 'You need :cost tokens to unlock Plus and Premium locations.',
+        'failed' => 'Could not unlock Plus and Premium locations. No tokens were spent.',
     ],
 
     'settings' => [
-        'section_premium' => 'Premium locations',
-        'section_premium_hint' => 'Nodes tagged with the premium tag form the premium tier. A one-time token purchase unlocks every premium location for a user, permanently — and every Plus location too.',
+        'section_premium' => 'Plus & Premium locations',
+        'section_premium_hint' => 'Nodes tagged with the plus or premium tag form the paid tiers. Plus and Premium are two labels over one unlock: a single token purchase opens every paid location for a user, permanently.',
         'premium_tag' => 'Premium node tag',
         'premium_tag_hint' => 'A node carrying this tag (alongside its country code and a deployment tag) is treated as a premium node.',
         'premium_cost' => 'Unlock cost',
-        'premium_cost_hint' => 'Tokens a user spends once to unlock the whole premium tier.',
-        'section_plus' => 'Plus locations',
-        'section_plus_hint' => 'Nodes tagged with the plus tag form the Plus tier, between free and premium. A one-time token purchase unlocks every Plus location for a user, permanently.',
+        'premium_cost_hint' => 'Tokens a user spends once to unlock every Plus and Premium location.',
         'plus_tag' => 'Plus node tag',
         'plus_tag_hint' => 'A node carrying this tag (alongside its country code and a deployment tag) is treated as a Plus node. A node also tagged premium counts as premium.',
-        'plus_cost' => 'Unlock cost',
-        'plus_cost_hint' => 'Tokens a user spends once to unlock the whole Plus tier.',
     ],
     // Shared server-domain strings, copied from plugged-host-core in the 1.2.0 lang partition (WP1).
     'advanced_resources' => 'Advanced',

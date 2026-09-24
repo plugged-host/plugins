@@ -10,8 +10,6 @@ use PluggedHost\Servers\Models\RoleResourceLimits;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
-use PluggedHost\Servers\Services\TierUnlockService;
-use PluggedHost\Servers\Support\TierAccess;
 
 /**
  * Client-API provisioning endpoints (WP7): the read side of the create page plus a create call,
@@ -52,20 +50,18 @@ class ServersApiProvider extends ServiceProvider
                                 'latency' => $l['latency'],
                                 'available' => $l['available'],
                                 'tier' => $l['tier'],
-                                'premium' => $l['tier'] === TierAccess::PREMIUM,
+                                'premium' => $l['tier'] === LocationCatalog::PREMIUM,
                                 'unlocked' => $l['unlocked'],
                                 'cost' => $l['cost'],
                             ])]);
                     })->name('api:client:servers.provision.locations');
 
-                    // POST /provision/plus/unlock, /provision/premium/unlock.
-                    foreach (TierAccess::paidTiers() as $tier) {
-                        Route::post("/{$tier}/unlock", function (Request $request) use ($tier) {
-                            $result = app(TierUnlockService::class)->unlock($request->user(), $tier);
+                    // The one paid unlock: opens every Plus and Premium location.
+                    Route::post('/premium/unlock', function (Request $request) {
+                        $result = app(\PluggedHost\Servers\Services\PremiumLocationService::class)->unlock($request->user());
 
-                            return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
-                        })->name("api:client:servers.{$tier}.unlock");
-                    }
+                        return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
+                    })->name('api:client:servers.premium.unlock');
 
                     // POST /provision/servers — create via API. A dedicated FormRequest +
                     // controller rather than a closure, because it must reproduce

@@ -135,7 +135,8 @@
                         @if ($tierPill)
                             {{-- WP13 tier pill. Stays on unlocked Plus/Premium cards too, so the
                                  tier remains visible. The (i) shows the tier's uptime on hover or
-                                 focus; clicking it does not select the card. --}}
+                                 focus; clicking it does not select the card. Every paid card's
+                                 unlock button is the same one purchase covering both tiers. --}}
                             <div class="mt-2 flex flex-wrap items-center gap-2">
                                 <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide"
                                       style="{{ $tierPill['style'] }}">
@@ -161,7 +162,7 @@
                                 @if ($isLocked)
                                     <button
                                         type="button"
-                                        wire:click="unlockTier('{{ $tier }}')"
+                                        wire:click="unlockPremium"
                                         class="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-primary-600"
                                     >
                                         <x-filament::icon icon="tabler-lock-open" class="h-3.5 w-3.5" />
