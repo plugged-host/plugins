@@ -7,40 +7,66 @@ use App\Models\User;
 use App\Services\Deployment\FindViableNodesService;
 use Illuminate\Support\Collection;
 use PluggedHost\Core\Support\Countries;
-use PluggedHost\Servers\Support\PremiumAccess;
+use PluggedHost\Servers\Support\TierAccess;
 
 /**
  * Resolves the deployable "locations" offered during server creation.
  *
  * A location is a node tag that is a valid ISO 3166-1 alpha-2 country code (fr, nl, pl, ...).
  *
- * WP13 premium: a node also tagged `premium` (UCS_PREMIUM_TAG) is a premium node. Because a
- * country can be offered both free and premium at once, premium locations take a namespaced code
- * `premium:<cc>` (a distinct card from the free `<cc>`), while their flag and name still come from
- * the `<cc>` half. Free locations derive ONLY from non-premium nodes; premium ONLY from
- * premium-tagged nodes — the two tiers never bleed into each other.
+ * Paid tiers (WP13): a node also tagged `premium` (UCS_PREMIUM_TAG) is a Premium node, one tagged
+ * `plus` (UCS_PLUS_TAG) a Plus node; a node carrying both counts as Premium. Because a country can
+ * be offered in several tiers at once, paid locations take a namespaced code `<tier>:<cc>`
+ * (`plus:pl`, `premium:de` — a distinct card from the free `<cc>`), while their flag and name still
+ * come from the `<cc>` half. Each tier derives ONLY from its own nodes — the tiers never bleed into
+ * each other.
  */
 class LocationCatalog
 {
     private static array $flagCache = [];
 
-    /** @return string The premium node tag. */
-    public function premiumTag(): string
+    /** @return string The node tag that marks a paid tier's hardware. */
+    public function tierTag(string $tier): string
     {
-        return strtolower(trim((string) config('plugged-host-servers.user-creatable-servers.premium.tag', 'premium')));
+        return strtolower(trim((string) config("plugged-host-servers.user-creatable-servers.{$tier}.tag", $tier)));
     }
 
-    public function premiumCost(): int
+    /** Tokens to unlock a paid tier; 0 for free. */
+    public function tierCost(string $tier): int
     {
-        return (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 50);
+        if (!TierAccess::isPaidTier($tier)) {
+            return 0;
+        }
+
+        return (int) config("plugged-host-servers.user-creatable-servers.{$tier}.cost", 0);
     }
 
     /**
-     * Every location, both tiers. Premium entries carry premium => true, unlocked (one value for
-     * the whole tier) and cost. When the premium_unlocked_at column is absent (migration unrun)
-     * premium locations are omitted entirely.
+     * The tier a node's hardware belongs to, from its tags. The highest paid tier tagged wins.
      *
-     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, premium: bool, unlocked: bool, cost: int}>
+     * @param  iterable<mixed>  $tags
+     */
+    public function nodeTier(iterable $tags): string
+    {
+        $tags = collect($tags)
+            ->filter(fn ($t) => is_string($t) || is_numeric($t))
+            ->map(fn ($t) => strtolower(trim((string) $t)));
+
+        foreach (array_reverse(TierAccess::paidTiers()) as $tier) {
+            if ($tags->contains($this->tierTag($tier))) {
+                return $tier;
+            }
+        }
+
+        return TierAccess::FREE;
+    }
+
+    /**
+     * Every location, every tier: free first, then each paid tier cheapest first. Each entry
+     * carries its tier, unlocked (one value for the whole tier) and cost. A paid tier whose
+     * <tier>_unlocked_at column is absent (migration unrun) is omitted entirely.
+     *
+     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, tier: string, unlocked: bool, cost: int}>
      */
     public function available(int $cpu = 0, int $memory = 0, int $disk = 0, ?User $user = null): Collection
     {
@@ -55,26 +81,29 @@ class LocationCatalog
             $allNodes->map(fn (Node $n) => (int) $n->getKey())->all(),
         );
 
-        // Free tier: non-premium nodes only.
-        $free = $this->tier($allNodes, $viableNodes, $latencyByNode, premium: false);
+        $locations = $this->tier($allNodes, $viableNodes, $latencyByNode, TierAccess::FREE);
 
-        // Premium tier: premium-tagged nodes only, and only when the entitlement column exists.
-        $premium = collect();
-        if (PremiumAccess::supported()) {
-            $unlocked = PremiumAccess::isUnlocked($user);
-            $cost = $this->premiumCost();
-            $premium = $this->tier($allNodes, $viableNodes, $latencyByNode, premium: true)
-                ->map(function (array $loc) use ($unlocked, $cost) {
-                    $loc['code'] = 'premium:' . $loc['code'];
-                    $loc['premium'] = true;
-                    $loc['unlocked'] = $unlocked;
-                    $loc['cost'] = $cost;
+        foreach (TierAccess::paidTiers() as $tier) {
+            if (!TierAccess::supported($tier)) {
+                continue;
+            }
 
-                    return $loc;
-                });
+            $unlocked = TierAccess::isUnlocked($user, $tier);
+            $cost = $this->tierCost($tier);
+
+            $locations = $locations->concat(
+                $this->tier($allNodes, $viableNodes, $latencyByNode, $tier)
+                    ->map(function (array $loc) use ($tier, $unlocked, $cost) {
+                        $loc['code'] = $tier . ':' . $loc['code'];
+                        $loc['unlocked'] = $unlocked;
+                        $loc['cost'] = $cost;
+
+                        return $loc;
+                    }),
+            );
         }
 
-        return $free->concat($premium)->values();
+        return $locations->values();
     }
 
     /**
@@ -83,10 +112,10 @@ class LocationCatalog
      * @param  array<int, ?int>  $latencyByNode
      * @return Collection<int, array<string, mixed>>
      */
-    private function tier(Collection $allNodes, Collection $viableNodes, array $latencyByNode, bool $premium): Collection
+    private function tier(Collection $allNodes, Collection $viableNodes, array $latencyByNode, string $tier): Collection
     {
-        $nodeIds = $this->nodeIdsByCode($allNodes, $premium);
-        $viableCodes = $this->nodeIdsByCode($viableNodes, $premium);
+        $nodeIds = $this->nodeIdsByCode($allNodes, $tier);
+        $viableCodes = $this->nodeIdsByCode($viableNodes, $tier);
 
         return $nodeIds->map(fn (Collection $ids, string $code) => [
             'code' => $code,
@@ -95,7 +124,7 @@ class LocationCatalog
             'node_count' => $ids->count(),
             'latency' => $this->reduceLatency($ids, $latencyByNode),
             'available' => $viableCodes->has($code),
-            'premium' => false,
+            'tier' => $tier,
             'unlocked' => true,
             'cost' => 0,
         ])->sortBy('name')->values();
@@ -116,9 +145,9 @@ class LocationCatalog
     }
 
     /**
-     * True when the code is offered to this user. A `premium:*` code is valid only when the user
-     * has unlocked the tier — this is the real gate (a card's disabled flag is presentation), the
-     * same reason save() re-resolves location server-side.
+     * True when the code is offered to this user. A paid `<tier>:*` code is valid only when the
+     * user has unlocked that tier — this is the real gate (a card's disabled flag is
+     * presentation), the same reason save() re-resolves location server-side.
      */
     public function isValid(?string $code, ?User $user = null): bool
     {
@@ -128,42 +157,41 @@ class LocationCatalog
 
         $code = strtolower($code);
 
-        if (str_starts_with($code, 'premium:')) {
-            if (!PremiumAccess::isUnlocked($user)) {
-                return false;
-            }
+        if (!TierAccess::isUnlocked($user, $this->resolve($code)[1])) {
+            return false;
         }
 
         return $this->available(user: $user)->contains('code', $code);
     }
 
     /**
-     * The bare country code a (possibly premium-namespaced) location code deploys to, and whether
-     * the deployment must target premium hardware. Used by the deployment gate.
+     * The bare country code a (possibly tier-namespaced) location code deploys to, and the tier
+     * whose hardware the deployment must target. Used by the deployment gate.
      *
-     * @return array{0: string, 1: bool}  [country code, is premium]
+     * @return array{0: string, 1: string}  [country code, tier]
      */
     public function resolve(string $code): array
     {
         $code = strtolower($code);
 
-        if (str_starts_with($code, 'premium:')) {
-            return [substr($code, strlen('premium:')), true];
+        foreach (TierAccess::paidTiers() as $tier) {
+            if (str_starts_with($code, $tier . ':')) {
+                return [substr($code, strlen($tier) + 1), $tier];
+            }
         }
 
-        return [$code, false];
+        return [$code, TierAccess::FREE];
     }
 
     /**
-     * Node IDs per location code, filtered to one tier: premium=true → only premium-tagged nodes;
-     * premium=false → only nodes WITHOUT the premium tag.
+     * Node IDs per location code, filtered to one tier: only the nodes whose tags place them in
+     * exactly that tier (see nodeTier()).
      *
      * @param  Collection<int, Node>  $nodes
      * @return Collection<string, Collection<int, int>>
      */
-    private function nodeIdsByCode(Collection $nodes, bool $premium): Collection
+    private function nodeIdsByCode(Collection $nodes, string $tier): Collection
     {
-        $premiumTag = $this->premiumTag();
         $map = [];
 
         foreach ($nodes as $node) {
@@ -172,9 +200,7 @@ class LocationCatalog
                 (array) ($node->tags ?? []),
             )));
 
-            $isPremiumNode = in_array($premiumTag, $tags, true);
-
-            if ($isPremiumNode !== $premium) {
+            if ($this->nodeTier($tags) !== $tier) {
                 continue; // wrong tier
             }
 

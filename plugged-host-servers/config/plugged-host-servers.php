@@ -36,13 +36,20 @@ return [
         'allowed_eggs' => env('UCS_ALLOWED_EGGS', ''),
 
         /*
-         * Premium locations (WP13). A node tagged with `tag` (alongside its country code and a
-         * deployment tag) is a premium node; one token purchase of `cost` unlocks the whole
-         * premium tier for a user, permanently. Both defaults are safe, so neither is required.
+         * Paid location tiers (WP13). A node tagged with a tier's `tag` (alongside its country
+         * code and a deployment tag) belongs to that tier; one token purchase of `cost` unlocks
+         * the whole tier for a user, permanently. Premium ranks above Plus: a node tagged with
+         * both is premium, and unlocking premium also unlocks Plus. All defaults are safe, so
+         * none is required.
          */
+        'plus' => [
+            'tag' => env('UCS_PLUS_TAG', 'plus'),
+            'cost' => (int) env('UCS_PLUS_COST', 20),
+        ],
+
         'premium' => [
             'tag' => env('UCS_PREMIUM_TAG', 'premium'),
-            'cost' => (int) env('UCS_PREMIUM_COST', 50),
+            'cost' => (int) env('UCS_PREMIUM_COST', 40),
         ],
 
         /*

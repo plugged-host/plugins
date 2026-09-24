@@ -32,6 +32,8 @@ use PluggedHost\Minecraft\Models\ServerOnboarding;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
+use PluggedHost\Servers\Services\TierUnlockService;
+use PluggedHost\Servers\Support\TierAccess;
 
 /**
  * Step two of server creation: configure the game picked on CreateServerPage.
@@ -187,17 +189,17 @@ class ConfigureServerPage extends Page
                                     // "panel → node" latency as a stepped signal meter;
                                     // absent (not zero bars) when the latency is unread.
                                     'signal' => $this->latencySignal($location['latency']),
-                                    // WP13 premium: a locked premium card is not selectable but
-                                    // carries its own unlock affordance; unlocked premium is a
-                                    // normal selectable card that keeps the pill.
-                                    'premium' => $location['premium'] ?? false,
-                                    'locked' => ($location['premium'] ?? false) && !($location['unlocked'] ?? false),
-                                    'cost' => $location['cost'] ?? 0,
+                                    // WP13 tiers: a locked Plus/Premium card is not selectable
+                                    // but carries its own unlock affordance; an unlocked one is a
+                                    // normal selectable card that keeps its tier pill.
+                                    'tier' => $location['tier'],
+                                    'locked' => !$location['unlocked'],
+                                    'cost' => $location['cost'],
                                     'description' => $location['available']
                                         ? null
                                         : trans('plugged-host-servers::strings.location_unavailable'),
-                                    // A locked premium card must not be a plain disabled radio.
-                                    'disabled' => !$location['available'] && !($location['premium'] ?? false),
+                                    // A paid-tier card must not be a plain disabled radio.
+                                    'disabled' => !$location['available'] && $location['tier'] === TierAccess::FREE,
                                 ])
                                 ->all())
                             ->required()
@@ -370,22 +372,23 @@ class ConfigureServerPage extends Page
     }
 
     /**
-     * WP13: unlock the whole premium tier. The location field is ->live(), so on success every
-     * premium card flips to selectable in the same re-render (available() re-reads the user).
+     * WP13: unlock a whole paid tier (Plus or Premium). The location field is ->live(), so on
+     * success every card of that tier flips to selectable in the same re-render (available()
+     * re-reads the user).
      */
-    public function unlockPremium(): void
+    public function unlockTier(string $tier): void
     {
         $user = auth()->user();
 
-        if ($user === null) {
+        if ($user === null || !TierAccess::isPaidTier($tier)) {
             return;
         }
 
-        $result = app(\PluggedHost\Servers\Services\PremiumLocationService::class)->unlock($user);
+        $result = app(TierUnlockService::class)->unlock($user, $tier);
 
         if ($result['ok'] ?? false) {
-            \Filament\Notifications\Notification::make()
-                ->title(trans('plugged-host-servers::strings.premium.unlocked'))
+            Notification::make()
+                ->title(trans("plugged-host-servers::strings.{$tier}.unlocked"))
                 ->success()
                 ->send();
 
@@ -393,10 +396,10 @@ class ConfigureServerPage extends Page
         }
 
         $reason = $result['reason'] ?? 'error';
-        \Filament\Notifications\Notification::make()
+        Notification::make()
             ->title($reason === 'insufficient_tokens'
-                ? trans('plugged-host-servers::strings.premium.insufficient', ['cost' => $result['cost'] ?? 0])
-                : trans('plugged-host-servers::strings.premium.failed'))
+                ? trans("plugged-host-servers::strings.{$tier}.insufficient", ['cost' => $result['cost'] ?? 0])
+                : trans("plugged-host-servers::strings.{$tier}.failed"))
             ->danger()
             ->send();
     }

@@ -10,6 +10,8 @@ use PluggedHost\Servers\Models\RoleResourceLimits;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
+use PluggedHost\Servers\Services\TierUnlockService;
+use PluggedHost\Servers\Support\TierAccess;
 
 /**
  * Client-API provisioning endpoints (WP7): the read side of the create page plus a create call,
@@ -39,7 +41,8 @@ class ServersApiProvider extends ServiceProvider
                     })->name('api:client:servers.provision.plans');
 
                     Route::get('/locations', function (Request $request) {
-                        // Includes flag presence, latency, and premium/unlocked/cost per WP3/WP13.
+                        // Includes flag presence, latency, and tier/unlocked/cost per WP3/WP13.
+                        // `premium` is kept for older clients: true only for the premium tier.
                         return response()->json(['data' => app(LocationCatalog::class)
                             ->available(user: $request->user())
                             ->map(fn (array $l) => [
@@ -48,17 +51,21 @@ class ServersApiProvider extends ServiceProvider
                                 'node_count' => $l['node_count'],
                                 'latency' => $l['latency'],
                                 'available' => $l['available'],
-                                'premium' => $l['premium'],
+                                'tier' => $l['tier'],
+                                'premium' => $l['tier'] === TierAccess::PREMIUM,
                                 'unlocked' => $l['unlocked'],
                                 'cost' => $l['cost'],
                             ])]);
                     })->name('api:client:servers.provision.locations');
 
-                    Route::post('/premium/unlock', function (Request $request) {
-                        $result = app(\PluggedHost\Servers\Services\PremiumLocationService::class)->unlock($request->user());
+                    // POST /provision/plus/unlock, /provision/premium/unlock.
+                    foreach (TierAccess::paidTiers() as $tier) {
+                        Route::post("/{$tier}/unlock", function (Request $request) use ($tier) {
+                            $result = app(TierUnlockService::class)->unlock($request->user(), $tier);
 
-                        return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
-                    })->name('api:client:servers.premium.unlock');
+                            return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
+                        })->name("api:client:servers.{$tier}.unlock");
+                    }
 
                     // POST /provision/servers — create via API. A dedicated FormRequest +
                     // controller rather than a closure, because it must reproduce

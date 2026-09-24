@@ -22,10 +22,17 @@
         @foreach ($options as $option)
             @php
                 $isLocked = $option['locked'] ?? false;
-                $isPremium = ($option['premium'] ?? null) === true;
-                $hasTier = ($option['premium'] ?? null) !== null;
-                // A locked premium card is inert (its own unlock button drives selection later),
-                // not a plain disabled option; everything else follows the normal disabled rule.
+                $tier = $option['tier'];
+                // WP13 tier pill: an icon and colour per tier, inline so it renders without a
+                // Tailwind rebuild. Premium keeps the WP2 accent-tint style.
+                $tierPill = match ($tier) {
+                    'premium' => ['icon' => 'tabler-star', 'style' => 'color: var(--phv2-accent-bright, #3b82f6); background: var(--phv2-accent-tint, rgb(29 78 216 / .12));'],
+                    'plus' => ['icon' => 'tabler-bolt', 'style' => 'color: #a78bfa; background: rgb(139 92 246 / .12);'],
+                    'free' => ['icon' => 'tabler-circle-check', 'style' => 'color: #34d399; background: rgb(16 185 129 / .12);'],
+                    default => null,
+                };
+                // A locked Plus/Premium card is inert (its own unlock button drives selection
+                // later), not a plain disabled option; everything else follows the normal rule.
                 $optionDisabled = $isDisabled || $option['disabled'];
                 $radioDisabled = $optionDisabled || $isLocked;
                 $isSelected = (string) $state === $option['value'];
@@ -125,20 +132,36 @@
                             </span>
                         @endif
 
-                        @if ($isPremium)
-                            {{-- WP13 Premium pill, in the WP2 accent-tint style. Stays on unlocked
-                                 premium cards too, so the tier remains visible. --}}
+                        @if ($tierPill)
+                            {{-- WP13 tier pill. Stays on unlocked Plus/Premium cards too, so the
+                                 tier remains visible. The (i) shows the tier's uptime on hover or
+                                 focus; clicking it does not select the card. --}}
                             <div class="mt-2 flex flex-wrap items-center gap-2">
                                 <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide"
-                                      style="color: var(--phv2-accent-bright, #3b82f6); background: var(--phv2-accent-tint, rgb(29 78 216 / .12));">
-                                    <x-filament::icon icon="tabler-star" class="h-3 w-3" />
-                                    Premium
+                                      style="{{ $tierPill['style'] }}">
+                                    <x-filament::icon :icon="$tierPill['icon']" class="h-3 w-3" />
+                                    {{ trans("plugged-host-servers::strings.tiers.{$tier}") }}
+                                    <span
+                                        x-data
+                                        x-tooltip="{
+                                            content: @js(trans("plugged-host-servers::strings.uptime.{$tier}")),
+                                            theme: $store.theme,
+                                        }"
+                                        x-on:click.prevent
+                                        tabindex="0"
+                                        role="img"
+                                        aria-label="{{ trans("plugged-host-servers::strings.uptime.{$tier}") }}"
+                                        class="inline-flex"
+                                        style="cursor: help; opacity: .75;"
+                                    >
+                                        <x-filament::icon icon="tabler-info-circle" class="h-3 w-3" />
+                                    </span>
                                 </span>
 
                                 @if ($isLocked)
                                     <button
                                         type="button"
-                                        wire:click="unlockPremium"
+                                        wire:click="unlockTier('{{ $tier }}')"
                                         class="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-primary-600"
                                     >
                                         <x-filament::icon icon="tabler-lock-open" class="h-3.5 w-3.5" />
@@ -148,18 +171,11 @@
                                             <span class="tabular-nums">{{ $option['cost'] }}</span>
                                         </span>
                                     </button>
+                                @elseif ($tier === 'free')
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ trans('plugged-host-servers::strings.free_tier_desc') }}
+                                    </span>
                                 @endif
-                            </div>
-                        @elseif ($hasTier)
-                            <div class="mt-2 flex flex-wrap items-center gap-2">
-                                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide"
-                                      style="color: #34d399; background: rgb(16 185 129 / .12);">
-                                    <x-filament::icon icon="tabler-circle-check" class="h-3 w-3" />
-                                    {{ trans('plugged-host-servers::strings.free') }}
-                                </span>
-                                <span class="text-xs text-gray-500 dark:text-gray-400">
-                                    {{ trans('plugged-host-servers::strings.free_tier_desc') }}
-                                </span>
                             </div>
                         @endif
                     </span>
