@@ -51,6 +51,16 @@ class RegisterPluginProvider extends ServiceProvider
         User::updated(function (User $user): void {
             if ($user->wasChanged('password')) {
                 OAuthPasswordGate::clear($user);
+
+                // If the user whose password was changed is currently authenticated,
+                // re-issue their recaller cookie with the new password hash HMAC so
+                // AuthenticateSession does not log them out when their session expires.
+                if (auth()->check() && auth()->id() === $user->id) {
+                    $guard = auth()->guard();
+                    if ($guard instanceof \Illuminate\Auth\SessionGuard) {
+                        $guard->login($user, true);
+                    }
+                }
             }
         });
     }
