@@ -101,6 +101,12 @@ class Login extends PanelLogin
         return $component->hint(null);
     }
 
+    protected function getRememberFormComponent(): Component
+    {
+        return parent::getRememberFormComponent()
+            ->default(true);
+    }
+
     protected function getPasskeyFormComponent(): Component
     {
         return Actions::make([

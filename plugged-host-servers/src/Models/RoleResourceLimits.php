@@ -335,9 +335,11 @@ class RoleResourceLimits extends Model
             return false;
         }
 
-        // WP13: a premium location is only deployable by a user who has unlocked the tier. This
-        // is the server-side authority — the create page's card state is only presentation.
-        if ($location !== null && str_starts_with(strtolower($location), 'premium:')
+        // WP13: a paid-tier (Plus/Premium) location is only deployable by a user who has made the
+        // paid unlock. This is the server-side authority — the create page's card state is only
+        // presentation.
+        if ($location !== null
+            && app(LocationCatalog::class)->resolve($location)[1] !== LocationCatalog::FREE
             && !\PluggedHost\Servers\Support\PremiumAccess::isUnlocked($user)) {
             return false;
         }
@@ -440,19 +442,19 @@ class RoleResourceLimits extends Model
             return $nodes;
         }
 
-        [$country, $isPremium] = app(LocationCatalog::class)->resolve($location);
-        $premiumTag = app(LocationCatalog::class)->premiumTag();
+        $catalog = app(LocationCatalog::class);
+        [$country, $tier] = $catalog->resolve($location);
 
-        return $nodes->filter(function (Node $node) use ($country, $isPremium, $premiumTag) {
+        return $nodes->filter(function (Node $node) use ($country, $tier, $catalog) {
             $tags = collect($node->tags ?? [])->map(fn ($tag) => strtolower(trim((string) $tag)));
 
             if (!$tags->contains($country)) {
                 return false;
             }
 
-            // WP13: the two tiers never bleed into each other — a free `de` deploy never lands on
-            // premium hardware, and a premium `premium:de` deploy only lands on premium nodes.
-            return $tags->contains($premiumTag) === $isPremium;
+            // WP13: the tiers never bleed into each other — a free `pl` deploy never lands on
+            // paid hardware, and a `plus:pl` / `premium:de` deploy only lands on that tier's nodes.
+            return $catalog->nodeTier($tags) === $tier;
         })->values();
     }
 

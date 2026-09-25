@@ -187,17 +187,17 @@ class ConfigureServerPage extends Page
                                     // "panel → node" latency as a stepped signal meter;
                                     // absent (not zero bars) when the latency is unread.
                                     'signal' => $this->latencySignal($location['latency']),
-                                    // WP13 premium: a locked premium card is not selectable but
-                                    // carries its own unlock affordance; unlocked premium is a
-                                    // normal selectable card that keeps the pill.
-                                    'premium' => $location['premium'] ?? false,
-                                    'locked' => ($location['premium'] ?? false) && !($location['unlocked'] ?? false),
-                                    'cost' => $location['cost'] ?? 0,
+                                    // WP13 tiers: a locked Plus/Premium card is not selectable
+                                    // but carries its own unlock affordance; an unlocked one is a
+                                    // normal selectable card that keeps its tier pill.
+                                    'tier' => $location['tier'],
+                                    'locked' => !$location['unlocked'],
+                                    'cost' => $location['cost'],
                                     'description' => $location['available']
                                         ? null
                                         : trans('plugged-host-servers::strings.location_unavailable'),
-                                    // A locked premium card must not be a plain disabled radio.
-                                    'disabled' => !$location['available'] && !($location['premium'] ?? false),
+                                    // A paid-tier card must not be a plain disabled radio.
+                                    'disabled' => !$location['available'] && $location['tier'] === LocationCatalog::FREE,
                                 ])
                                 ->all())
                             ->required()
@@ -370,8 +370,9 @@ class ConfigureServerPage extends Page
     }
 
     /**
-     * WP13: unlock the whole premium tier. The location field is ->live(), so on success every
-     * premium card flips to selectable in the same re-render (available() re-reads the user).
+     * WP13: the one paid unlock, behind every Plus and Premium card. The location field is
+     * ->live(), so on success every paid card flips to selectable in the same re-render
+     * (available() re-reads the user).
      */
     public function unlockPremium(): void
     {

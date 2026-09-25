@@ -164,6 +164,10 @@ class SetPasswordPage extends Page implements HasForms
         // forceFill keeps this write immune to an upstream change of that list.
         $user->forceFill(['password' => $password])->save();
 
+        // Re-authenticate and queue recaller cookie with the new password hash HMAC
+        // so AuthenticateSession middleware does not log the user out when session expires.
+        auth()->guard()->login($user, true);
+
         // Keep AuthenticateSession middleware from logging the user out immediately on the
         // next request: this action runs on /livewire/update (which does not execute panel
         // middleware), so the session still holds the user's old password hash unless we

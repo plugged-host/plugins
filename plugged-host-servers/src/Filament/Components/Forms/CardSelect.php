@@ -45,7 +45,7 @@ class CardSelect extends Field
      * Normalised card definitions. Every key the view reads is guaranteed present
      * here so the blade template stays free of null juggling.
      *
-     * @return array<int, array{value: string, label: string, description: ?string, meta: ?string, image: ?string, svg: ?string, icon: ?string, badge: ?string, disabled: bool}>
+     * @return array<int, array{value: string, label: string, description: ?string, meta: ?string, image: ?string, svg: ?string, icon: ?string, badge: ?string, signal: ?array, tier: ?string, locked: bool, cost: int, disabled: bool}>
      */
     public function getCardOptions(): array
     {
@@ -72,10 +72,11 @@ class CardSelect extends Field
                 // plain "N ms" badge for latency). Shape: ['ms' => int, 'bars' => 1..4,
                 // 'level' => 'great'|'good'|'ok'|'poor']. Null when latency is unknown.
                 'signal' => (isset($option['signal']) && is_array($option['signal'])) ? $option['signal'] : null,
-                // WP13 premium: a locked premium card is inert with its own unlock button rather
-                // than a plain disabled radio; an unlocked premium card is selectable and keeps
-                // the "Premium" pill.
-                'premium' => array_key_exists('premium', $option) ? (bool) $option['premium'] : null,
+                // WP13 location tier ('free' | 'plus' | 'premium'), shown as a pill with an uptime
+                // tooltip. A locked Plus/Premium card is inert with its own unlock button rather
+                // than a plain disabled radio; an unlocked one is selectable and keeps the pill.
+                // Null for cards that are not locations.
+                'tier' => isset($option['tier']) ? (string) $option['tier'] : null,
                 'locked' => (bool) ($option['locked'] ?? false),
                 'cost' => isset($option['cost']) ? (int) $option['cost'] : 0,
                 'disabled' => (bool) ($option['disabled'] ?? false),
