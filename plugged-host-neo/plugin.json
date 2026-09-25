@@ -1,0 +1,20 @@
+{
+    "id": "plugged-host-neo",
+    "name": "plugged.host neo",
+    "author": "plugged.host",
+    "version": "1.2.1",
+    "description": "neo, the plugged.host support AI: chat with console, file and power tools, per-user controls, and usage limits metered by noprofit.space",
+    "category": "plugin",
+    "url": null,
+    "update_url": null,
+    "namespace": "PluggedHost\\Neo",
+    "class": "PluggedHostNeoPlugin",
+    "panels": ["app", "server"],
+    "panel_version": null,
+    "composer_packages": null,
+    "meta": {
+        "status": "enabled",
+        "status_message": null,
+        "load_order": 7
+    }
+}
