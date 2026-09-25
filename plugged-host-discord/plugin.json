@@ -2,7 +2,7 @@
     "id": "plugged-host-discord",
     "name": "plugged.host Discord",
     "author": "plugged.host",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "Discord account linking, Discord server membership verification, the panel Discord Linked role for resource limits, credit rewards for tracked invites and server boosts, and a self-supervising, self-installing gateway daemon",
     "category": "plugin",
     "url": null,

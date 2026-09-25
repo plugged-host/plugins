@@ -35,6 +35,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
         $id = str($panel->getId())->title();
 
         $panel->discoverPages(plugin_path($this->getId(), "src/Filament/$id/Pages"), "PluggedHost\\Discord\\Filament\\$id\\Pages");
+        $panel->discoverResources(plugin_path($this->getId(), "src/Filament/$id/Resources"), "PluggedHost\\Discord\\Filament\\$id\\Resources");
         $panel->discoverWidgets(plugin_path($this->getId(), "src/Filament/$id/Widgets"), "PluggedHost\\Discord\\Filament\\$id\\Widgets");
     }
 
