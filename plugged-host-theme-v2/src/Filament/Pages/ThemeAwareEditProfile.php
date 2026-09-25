@@ -3,6 +3,7 @@
 namespace PluggedHost\ThemeV2\Filament\Pages;
 
 use App\Filament\Pages\Auth\EditProfile;
+use Filament\Facades\Filament;
 
 /**
  * The panel profile page. It used to add a Theme switcher to the Customization tab; with
@@ -16,4 +17,14 @@ use App\Filament\Pages\Auth\EditProfile;
  */
 class ThemeAwareEditProfile extends EditProfile
 {
+    public function mount(): void
+    {
+        if (Filament::getCurrentPanel()?->getId() !== 'app') {
+            $this->redirect(static::getUrl(panel: 'app'));
+
+            return;
+        }
+
+        parent::mount();
+    }
 }

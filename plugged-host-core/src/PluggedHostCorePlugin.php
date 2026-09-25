@@ -10,6 +10,7 @@ use PluggedHost\Core\Filament\App\Pages\WelcomeTourPage;
 use PluggedHost\Core\Filament\HiddenNavigationManager;
 use PluggedHost\Core\Filament\Pages\Auth\Login;
 use PluggedHost\Core\Filament\Pages\Auth\Register;
+use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
 use PluggedHost\Core\Http\Middleware\RequirePasswordForOAuthSignup;
 use Filament\Actions\Action;
@@ -73,6 +74,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
          */
         $panel->authMiddleware([
             RequirePasswordForOAuthSignup::class,
+            EnsureRememberMeCookie::class,
         ]);
 
         if ($panel->getId() === 'app') {

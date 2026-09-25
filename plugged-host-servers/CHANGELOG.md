@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- **Plus location tier** alongside Premium. Nodes tagged `plus` (`UCS_PLUS_TAG`) offer `plus:<cc>`
+  locations. Plus and Premium are two labels over one unlock: the existing premium purchase
+  (`UCS_PREMIUM_COST`, default now 25) opens every paid location, so existing premium holders keep
+  everything they had. `LocationCatalog::resolve()` now returns the tier name, and location
+  entries carry `tier` instead of `premium`.
+- Each location card's tier pill (Free / Plus / Premium) has an (i) with an uptime tooltip:
+  "No uptime guarantee" / "95% uptime" / "99.99% uptime".
+- Client API: `GET /provision/locations` adds `tier` (`premium` is kept, true for premium only).
+
 ## 1.2.0
 
 - **New plugin**, extracted from `plugged-host-core` in the v2 re-division: the create/configure

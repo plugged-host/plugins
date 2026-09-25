@@ -57,9 +57,10 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
         $data['deployment_ports'] = array_filter(explode(',', $data['deployment_ports'] ?? ''));
         $data['allowed_eggs'] = array_filter(explode(',', $data['allowed_eggs'] ?? ''));
 
-        // Premium tier (WP13) lives in a nested config array; flatten it for the form fields.
+        // Paid tiers (WP13) live in nested config arrays; flatten them for the form fields.
         $data['premium_tag'] = config('plugged-host-servers.user-creatable-servers.premium.tag', 'premium');
-        $data['premium_cost'] = (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 50);
+        $data['premium_cost'] = (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 25);
+        $data['plus_tag'] = config('plugged-host-servers.user-creatable-servers.plus.tag', 'plus');
 
         return $data;
     }
@@ -217,7 +218,12 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
                         ->numeric()
                         ->minValue(0)
                         ->maxValue(1000000)
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.premium.cost', 50)),
+                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.premium.cost', 25)),
+                    TextInput::make('plus_tag')
+                        ->label(trans('plugged-host-servers::strings.settings.plus_tag'))
+                        ->helperText(trans('plugged-host-servers::strings.settings.plus_tag_hint'))
+                        ->required()
+                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.plus.tag', 'plus')),
                 ]),
         ];
     }
@@ -242,7 +248,8 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
             'NODES_STORAGE_PERCENT' => $data['storage_percent'] ?? '90',
             'NODES_STORAGE_GUARD_STRICT' => !empty($data['storage_guard_strict']) ? 'true' : 'false',
             'UCS_PREMIUM_TAG' => trim((string) ($data['premium_tag'] ?? '')) !== '' ? trim((string) $data['premium_tag']) : 'premium',
-            'UCS_PREMIUM_COST' => (string) max(0, min(1000000, (int) ($data['premium_cost'] ?? 50))),
+            'UCS_PREMIUM_COST' => (string) max(0, min(1000000, (int) ($data['premium_cost'] ?? 25))),
+            'UCS_PLUS_TAG' => trim((string) ($data['plus_tag'] ?? '')) !== '' ? trim((string) $data['plus_tag']) : 'plus',
         ]);
 
         Notification::make()

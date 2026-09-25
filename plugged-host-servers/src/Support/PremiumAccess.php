@@ -7,13 +7,15 @@ use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * The per-user "premium tier unlocked" flag (WP13), same shape as Support\OAuthPasswordGate /
- * Support\PanelTour: reads and writes users.premium_unlocked_at behind a memoised
- * Schema::hasColumn guard, using forceFill(...)->saveQuietly() since the column cannot live in
- * upstream User::$fillable (and users.customization is off-limits — EditProfile rebuilds it).
+ * The per-user "paid locations unlocked" flag (WP13) — one purchase covers both the Plus and
+ * Premium tiers, which are two labels over this single entitlement. Same shape as
+ * Support\OAuthPasswordGate / Support\PanelTour: reads and writes users.premium_unlocked_at behind
+ * a memoised Schema::hasColumn guard, using forceFill(...)->saveQuietly() since the column cannot
+ * live in upstream User::$fillable (and users.customization is off-limits — EditProfile rebuilds
+ * it).
  *
  * When the column does not exist yet (migration unrun) everything reports "locked" and unlock()
- * is a no-op, so premium locations are simply omitted — the plan's standard dark-until-migration
+ * is a no-op, so paid locations are simply omitted — the plan's standard dark-until-migration
  * degrade.
  */
 class PremiumAccess

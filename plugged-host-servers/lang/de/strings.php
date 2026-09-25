@@ -29,19 +29,35 @@ return [
         ],
     ],
 
+    // WP13 location tiers: pill labels, and the uptime each promises (the pill's (i) tooltip).
+    'tiers' => [
+        'free' => 'Kostenlos',
+        'plus' => 'Plus',
+        'premium' => 'Premium',
+    ],
+
+    'uptime' => [
+        'free' => 'Keine Verfügbarkeitsgarantie',
+        'plus' => '95 % Verfügbarkeit',
+        'premium' => '99,99 % Verfügbarkeit',
+    ],
+
+    // The one paid unlock, covering both Plus and Premium.
     'premium' => [
-        'unlocked' => 'Premium-Standorte freigeschaltet.',
-        'insufficient' => 'Du benötigst :cost Tokens, um Premium-Standorte freizuschalten.',
-        'failed' => 'Premium-Standorte konnten nicht freigeschaltet werden. Es wurden keine Tokens abgebucht.',
+        'unlocked' => 'Plus- und Premium-Standorte freigeschaltet.',
+        'insufficient' => 'Du benötigst :cost Tokens, um Plus- und Premium-Standorte freizuschalten.',
+        'failed' => 'Plus- und Premium-Standorte konnten nicht freigeschaltet werden. Es wurden keine Tokens abgebucht.',
     ],
 
     'settings' => [
-        'section_premium' => 'Premium-Standorte',
-        'section_premium_hint' => 'Nodes mit dem Premium-Tag bilden die Premium-Stufe. Ein einmaliger Token-Kauf schaltet für einen Benutzer dauerhaft alle Premium-Standorte frei.',
+        'section_premium' => 'Plus- & Premium-Standorte',
+        'section_premium_hint' => 'Nodes mit dem Plus- oder Premium-Tag bilden die kostenpflichtigen Stufen. Plus und Premium sind zwei Bezeichnungen für eine Freischaltung: Ein einmaliger Token-Kauf schaltet für einen Benutzer dauerhaft alle kostenpflichtigen Standorte frei.',
         'premium_tag' => 'Premium-Node-Tag',
         'premium_tag_hint' => 'Eine Node mit diesem Tag (zusätzlich zu ihrem Ländercode und einem Deployment-Tag) wird als Premium-Node behandelt.',
         'premium_cost' => 'Freischaltkosten',
-        'premium_cost_hint' => 'Tokens, die ein Benutzer einmalig ausgibt, um die gesamte Premium-Stufe freizuschalten.',
+        'premium_cost_hint' => 'Tokens, die ein Benutzer einmalig ausgibt, um alle Plus- und Premium-Standorte freizuschalten.',
+        'plus_tag' => 'Plus-Node-Tag',
+        'plus_tag_hint' => 'Eine Node mit diesem Tag (zusätzlich zu ihrem Ländercode und einem Deployment-Tag) wird als Plus-Node behandelt. Eine Node, die auch den Premium-Tag trägt, gilt als Premium.',
     ],
     // Shared server-domain strings, copied from plugged-host-core in the 1.2.0 lang partition (WP1).
     'advanced_resources' => 'Erweitert',
@@ -86,7 +102,6 @@ return [
     'left' => 'übrig',
     'location_unavailable' => 'Keine Kapazität für die gewählten Ressourcen',
     'unlock' => 'Freischalten',
-    'free' => 'Kostenlos',
     'free_tier_desc' => 'In jedem Paket enthalten',
     'memory' => 'RAM',
     'minecraft_version' => 'Minecraft Version',

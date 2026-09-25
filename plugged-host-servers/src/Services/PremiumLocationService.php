@@ -9,15 +9,15 @@ use PluggedHost\Servers\Support\PremiumAccess;
 use Throwable;
 
 /**
- * The premium-tier unlock (WP13). One flat price unlocks every premium location for a user,
- * permanently. Follows limbo's charge-then-refund idiom against economy's TokenService by
+ * The paid-location unlock (WP13). One flat price unlocks every Plus and Premium location for a
+ * user, permanently. Follows limbo's charge-then-refund idiom against economy's TokenService by
  * class-string, so servers does not hard-depend on economy.
  */
 class PremiumLocationService
 {
     public function cost(): int
     {
-        return (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 50);
+        return app(LocationCatalog::class)->premiumCost();
     }
 
     public function isUnlocked(?User $user): bool
@@ -93,7 +93,7 @@ class PremiumLocationService
         }
 
         try {
-            Notification::make()->title('Premium locations unlocked')->success()->sendToDatabase($user);
+            Notification::make()->title('Plus and Premium locations unlocked')->success()->sendToDatabase($user);
         } catch (Throwable) {
             //
         }

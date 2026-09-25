@@ -39,7 +39,8 @@ class ServersApiProvider extends ServiceProvider
                     })->name('api:client:servers.provision.plans');
 
                     Route::get('/locations', function (Request $request) {
-                        // Includes flag presence, latency, and premium/unlocked/cost per WP3/WP13.
+                        // Includes flag presence, latency, and tier/unlocked/cost per WP3/WP13.
+                        // `premium` is kept for older clients: true only for the premium tier.
                         return response()->json(['data' => app(LocationCatalog::class)
                             ->available(user: $request->user())
                             ->map(fn (array $l) => [
@@ -48,12 +49,14 @@ class ServersApiProvider extends ServiceProvider
                                 'node_count' => $l['node_count'],
                                 'latency' => $l['latency'],
                                 'available' => $l['available'],
-                                'premium' => $l['premium'],
+                                'tier' => $l['tier'],
+                                'premium' => $l['tier'] === LocationCatalog::PREMIUM,
                                 'unlocked' => $l['unlocked'],
                                 'cost' => $l['cost'],
                             ])]);
                     })->name('api:client:servers.provision.locations');
 
+                    // The one paid unlock: opens every Plus and Premium location.
                     Route::post('/premium/unlock', function (Request $request) {
                         $result = app(\PluggedHost\Servers\Services\PremiumLocationService::class)->unlock($request->user());
 
