@@ -14,6 +14,7 @@ A Pelican Panel plugin providing Discord account linking, guild membership verif
 - **Resource Limits Synergy**: Assigning the panel role grants the user the resource limits configured on that role under **Admin Area → Roles → Role Resource Limits**.
 - **Automated Revocation**: Automatically revokes the panel role if a user unlinks their Discord account or leaves the Discord server.
 - **Invite Escrow & Clawback**: An invite counts on join but only pays after the invited member has stayed for the hold period, and is uncounted (with credits recovered) if they leave. A departure is only ever recorded on an affirmative Discord `404` — a timeout, a rate limit or a revoked token leaves the row alone and retries, because uncounting on a maybe silently deletes an inviter's credit. `--restore` re-checks rows marked as gone and puts back any member Discord still reports as present.
+- **Giveaway Rewards**: Admin page (**Admin → Users → Giveaway Rewards**) that pays a list of Discord user ids a prize in credits or tokens. Unlinked winners are recorded and paid by **Retry unpaid** once they link their Discord.
 - **Sync on Login & Hourly Cron**: Continuously verifies members upon panel login and via scheduled hourly artisan tasks.
 - **User Dashboard & Server Banner**: Beautiful user dashboard at `/discord` and server list banner encouraging users to link their Discord account.
 
