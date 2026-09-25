@@ -113,7 +113,7 @@ return [
         'driver_openai' => 'OpenAI-kompatibel (Chat Completions)',
         'driver_anthropic' => 'Anthropic Messages',
         'endpoint' => 'Endpunkt-URL',
-        'endpoint_hint' => 'Die vollständige POST-URL, z. B. https://api.groq.com/openai/v1/chat/completions',
+        'endpoint_hint' => 'Die API-Basis (z. B. https://api.groq.com/openai/v1) oder die vollständige URL; /chat/completions bzw. /messages wird bei Bedarf ergänzt.',
         'api_key' => 'API-Schlüssel',
         'clear_api_key' => 'Gespeicherten Schlüssel entfernen',
         'model' => 'Modell',

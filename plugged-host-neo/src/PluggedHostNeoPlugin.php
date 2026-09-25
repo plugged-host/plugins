@@ -378,9 +378,13 @@ class PluggedHostNeoPlugin implements HasPluginSettings, Plugin
         return $result;
     }
 
+    /**
+     * Filament evaluates a closure given to rule() with its own dependency injection, so the
+     * Laravel closure rule is returned from one instead of being passed directly.
+     */
     private static function jsonObjectRule(\Closure $t): \Closure
     {
-        return static function (string $attribute, mixed $value, \Closure $fail) use ($t): void {
+        return static fn (): \Closure => static function (string $attribute, mixed $value, \Closure $fail) use ($t): void {
             if (trim((string) $value) === '') {
                 return;
             }
