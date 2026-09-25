@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- Version bump to 1.2.1 (plugged.host 2.1).
+
 ## 1.2.0
 
 - **New plugin**, extracted from `plugged-host-core` in the v2 re-division. Contains the status

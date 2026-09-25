@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- Version bump to 1.2.1 (plugged.host 2.1).
+
 ## 1.3.0
 
 - **Giveaway Rewards** (Admin → Users → Giveaway Rewards): paste a giveaway's winners by Discord

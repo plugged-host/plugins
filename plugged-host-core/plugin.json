@@ -2,7 +2,7 @@
     "id": "plugged-host-core",
     "name": "plugged.host Core",
     "author": "plugged.host",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "Core features for plugged.host, including legal acceptance, public status, registration, node capacity, user-created servers, and allocation enforcement",
     "category": "plugin",
     "url": null,

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.1
+
+- **noprofit.space SSO hardening (account takeover).** `/sso/callback` finds the panel user only by the stored noprofit account id (`users.noprofit_account_id`, migration `011_add_noprofit_account_id_to_users`, operator-run) or by the plugged.host id noprofit.space linked through a password-proven migration; never by email or username. An email already used by an unlinked panel account shows a "connect your account" page instead of signing in.
+- Tokens are audience-scoped (`plugged-host:sso` / `noprofit:migrate`) with separate secrets (`NOPROFIT_SSO_SECRET`, `NOPROFIT_MIGRATION_SECRET`), `iat`/`exp` and single-use nonces. Committed secret defaults removed.
+- The panel's own 2FA (authenticator app with recovery codes, email codes) is now enforced after SSO and before `/migrate` issues a token; SSO sign-ins bypassed it before.
+- `/migrate`: throttled, fixed callback target, no password hash in the token. New `/sso/link` for signed-in users.
+- New shared `Services\NoprofitClient` (HMAC-signed calls to noprofit.space's internal API) and `Support\NoprofitLink`.
+- Version bump to 1.2.1.
+
 ## 1.2.0
 
 - **Split into focused plugins.** The monolith went from 141 to 44 src files: server

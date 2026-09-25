@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- Version bump to 1.2.1 (plugged.host 2.1).
+
 ## 1.2.0
 
 - **New plugin (WP9).** Storage-server replication, backup and failover, driven by a signed

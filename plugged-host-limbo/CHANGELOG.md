@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Fix: the idle stop called a `DaemonPowerRepository` that does not exist in this Pelican, so it never stopped anything; it now uses `DaemonServerRepository::power('stop')` and records the stopped state only after Wings accepted it.
+- Version bump to 1.2.1.
+
 ## 1.2.0
 
 - **New plugin (WP5). Ships dark** (`LIMBO_ENABLED=false`).

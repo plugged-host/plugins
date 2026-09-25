@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- Fix: the post-install Geyser restart used the nonexistent `DaemonPowerRepository`; it now uses `DaemonServerRepository::power('restart')`.
+- Security: the client-API routes now check subuser permissions like the ServerContent page (`file.read` for `/mods` and `/content`, `file.create` for modpack installs, `file.create` + `control.restart` for Geyser). Any subuser could trigger installs before.
+- Version bump to 1.2.1.
+
 ## 1.2.0
 
 - **New plugin**, extracted from `plugged-host-core` in the v2 re-division: the onboarding

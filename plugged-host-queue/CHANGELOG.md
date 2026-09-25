@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- Version bump to 1.2.1 (plugged.host 2.1).
+
 ## 1.2.0
 
 - **WP11 — start queue repair.** `interceptStart` now checks `nodeSlotFree()` and

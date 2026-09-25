@@ -2,7 +2,7 @@
     "id": "plugged-host-status",
     "name": "plugged.host Status",
     "author": "plugged.host",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "Public status pipeline: per-minute node and endpoint probing, incident and node admin resources, and JSON/RSS export for a static status site. Runs standalone.",
     "category": "plugin",
     "url": null,
