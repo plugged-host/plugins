@@ -149,12 +149,15 @@ class LimboService
         }
 
         try {
+            // Stop first, record second: a stop wings refused must not leave a running server
+            // marked as stopped. (DaemonPowerRepository does not exist in this Pelican; power
+            // lives on DaemonServerRepository and throws on a refused call.)
+            app(\App\Repositories\Daemon\DaemonServerRepository::class)->setServer($server)->power('stop');
+
             ServerLimboState::query()->updateOrCreate(
                 ['server_id' => $server->getKey()],
                 ['state' => 'stopped', 'idle_since' => $this->lastActivityAt($server), 'stopped_at' => now()],
             );
-
-            app(\App\Repositories\Daemon\DaemonPowerRepository::class)->setServer($server)->send('stop');
 
             Activity::event('server:limbo.stop')->subject($server)->log();
 
