@@ -77,6 +77,7 @@ return [
         'limited_long' => 'Du hast dein Wochenlimit für neo erreicht. Es wird :time zurückgesetzt.',
         'unlinked' => 'neo braucht ein verbundenes noprofit.space-Konto. Nutze „neo aktivieren“ und versuche es erneut.',
         'unavailable' => 'neo ist gerade nicht verfügbar. Bitte versuche es gleich noch einmal.',
+        'conversation_gone' => 'Diese Unterhaltung wurde gelöscht, daher hat neo eine neue begonnen. Bitte sende deine Nachricht erneut.',
         'refused' => 'neo konnte bei dieser Anfrage nicht helfen.',
     ],
 

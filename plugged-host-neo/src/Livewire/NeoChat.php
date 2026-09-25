@@ -6,6 +6,7 @@ use App\Models\Server;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Route;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -103,13 +104,15 @@ class NeoChat extends Component
      */
     public function send(): array
     {
-        $result = $this->agent()->send($this->conversation(), $this->user(), $this->draft);
+        return $this->guarded(function (): StepResult {
+            $result = $this->agent()->send($this->conversation(), $this->user(), $this->draft);
 
-        if ($result->state === StepResult::CONTINUE) {
-            $this->draft = '';
-        }
+            if ($result->state === StepResult::CONTINUE) {
+                $this->draft = '';
+            }
 
-        return $this->respond($result);
+            return $result;
+        });
     }
 
     /**
@@ -117,7 +120,7 @@ class NeoChat extends Component
      */
     public function step(): array
     {
-        return $this->respond($this->agent()->step($this->conversation(), $this->user()));
+        return $this->guarded(fn (): StepResult => $this->agent()->step($this->conversation(), $this->user()));
     }
 
     /**
@@ -125,7 +128,7 @@ class NeoChat extends Component
      */
     public function approve(int $messageId): array
     {
-        return $this->respond($this->agent()->approve($this->conversation(), $this->user(), $messageId));
+        return $this->guarded(fn (): StepResult => $this->agent()->approve($this->conversation(), $this->user(), $messageId));
     }
 
     /**
@@ -133,7 +136,7 @@ class NeoChat extends Component
      */
     public function approveAll(): array
     {
-        return $this->respond($this->agent()->approve($this->conversation(), $this->user()));
+        return $this->guarded(fn (): StepResult => $this->agent()->approve($this->conversation(), $this->user()));
     }
 
     /**
@@ -141,7 +144,7 @@ class NeoChat extends Component
      */
     public function deny(int $messageId): array
     {
-        return $this->respond($this->agent()->deny($this->conversation(), $this->user(), $messageId));
+        return $this->guarded(fn (): StepResult => $this->agent()->deny($this->conversation(), $this->user(), $messageId));
     }
 
     /**
@@ -149,7 +152,7 @@ class NeoChat extends Component
      */
     public function cancel(): array
     {
-        return $this->respond($this->agent()->cancel($this->conversation()));
+        return $this->guarded(fn (): StepResult => $this->agent()->cancel($this->conversation()));
     }
 
     /**
@@ -157,7 +160,7 @@ class NeoChat extends Component
      */
     public function retry(): array
     {
-        return $this->respond($this->agent()->retry($this->conversation(), $this->user()));
+        return $this->guarded(fn (): StepResult => $this->agent()->retry($this->conversation(), $this->user()));
     }
 
     public function newChat(): void
@@ -194,6 +197,29 @@ class NeoChat extends Component
     }
 
     /**
+     * Run an agent call, surviving the conversation being deleted underneath it (history
+     * cleared in another tab, retention prune): the chat moves on to a fresh conversation
+     * instead of failing the request.
+     *
+     * @param  callable(): StepResult  $call
+     * @return array<string, mixed>
+     */
+    private function guarded(callable $call): array
+    {
+        try {
+            return $this->respond($call());
+        } catch (QueryException $e) {
+            if ($this->conversationId !== null && NeoConversation::query()->whereKey($this->conversationId)->exists()) {
+                throw $e;
+            }
+
+            $this->conversationId = $this->agent()->conversationFor($this->user(), $this->server())->id;
+
+            return StepResult::of(StepResult::ERROR, trans('plugged-host-neo::strings.errors.conversation_gone'))->toArray();
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function respond(StepResult $result): array
@@ -218,12 +244,20 @@ class NeoChat extends Component
 
     private function conversation(): NeoConversation
     {
+        $user = $this->user();
         $conversation = $this->conversationId === null ? null : NeoConversation::query()
             ->whereKey($this->conversationId)
-            ->where('user_id', $this->user()->id)
+            ->where('user_id', $user->id)
             ->first();
 
-        abort_if($conversation === null, 404);
+        if ($conversation === null) {
+            // Gone (deleted history, prune) or never opened: continue in the current one.
+            $server = $this->server();
+            abort_if($server !== null && !ServerGuard::canUse($user, $server), 403);
+
+            $conversation = $this->agent()->conversationFor($user, $server);
+            $this->conversationId = $conversation->id;
+        }
 
         return $conversation;
     }

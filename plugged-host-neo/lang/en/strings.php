@@ -77,6 +77,7 @@ return [
         'limited_long' => 'You have reached your weekly neo limit. It resets :time.',
         'unlinked' => 'neo needs your noprofit.space account to be connected. Use "Activate neo" and try again.',
         'unavailable' => 'neo is unavailable right now. Please try again in a moment.',
+        'conversation_gone' => 'That conversation was deleted, so neo started a new one. Please send your message again.',
         'refused' => 'neo could not help with that request.',
     ],
 
