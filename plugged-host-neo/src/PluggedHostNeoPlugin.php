@@ -24,7 +24,7 @@ use stdClass;
 use Throwable;
 
 /**
- * neo's Filament registration (no pages of its own; the chat and the profile tab are wired by
+ * neo's Filament registration (no pages of its own; the chat and its settings are wired by
  * NeoPluginProvider) and its settings tab.
  *
  * The settings tab edits two places at once:

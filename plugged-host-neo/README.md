@@ -26,9 +26,10 @@ Admin → Plugins → neo → Settings edits both: panel values go to this panel
 (`NEO_ENABLED`, `NEO_GATEWAY_SECRET`, `NEO_MAX_STEPS`, …); providers and limits are saved on
 noprofit.space. Use "Test provider" after saving to check a slot answers and can call tools.
 
-## Per-user controls (profile → neo)
+## Per-user controls (the gear in the chat)
 
-- **Enable neo** (default on): off hides neo and refuses every request for that user.
+- **Enable neo** (default on): off refuses every request for that user and shrinks the launcher
+  to a small dimmed button that only offers "Turn neo on".
 - **Let neo make changes without asking** (default off): while off, writes, deletes, console
   commands and power actions wait for Approve / Decline in the chat. Reads never ask.
 

@@ -32,7 +32,12 @@
     };
 
     $tz = auth()->user()?->timezone ?: config('app.timezone');
-    $suggestions = (array) trans('plugged-host-neo::strings.chat.suggestions.' . ($serverName ?? null ? 'server' : 'app'));
+    $resetsAt = fn (?array $window, string $format): string => filled($window['resets_at'] ?? null)
+        ? \Carbon\Carbon::parse($window['resets_at'])->setTimezone($tz)->isoFormat($format)
+        : $s('profile.not_started');
+    $barClass = fn (int $percent): string => $percent >= 95 ? 'neo-bar-full' : ($percent >= 80 ? 'neo-bar-warn' : '');
+    $suggestions = (array) trans('plugged-host-neo::strings.chat.suggestions.' . (($serverName ?? null) ? 'server' : 'app'));
+    $enabled ??= true;
 @endphp
 <div class="neo-root"
      x-data="{
@@ -40,8 +45,10 @@
         working: false,
         pendingLog: null,
         flash: null,
+        attention: null,
         init() {
             try { this.open = localStorage.getItem('plugged-host-neo.open') === '1'; } catch (e) {}
+            try { this.applySize(JSON.parse(localStorage.getItem('plugged-host-neo.size') || 'null')); } catch (e) {}
             this.$watch('open', () => this.lock());
             this.lock();
             if (this.open) { this.load(); }
@@ -53,10 +60,46 @@
         toggle() {
             this.open = !this.open;
             try { localStorage.setItem('plugged-host-neo.open', this.open ? '1' : '0'); } catch (e) {}
-            if (this.open) { this.load(); } else { $wire.close(); }
+            if (this.open) { this.attention = null; this.load(); } else { $wire.close(); }
         },
         load() {
             $wire.open().then((r) => { if (r && r.resume) { this.run(() => $wire.step()); } });
+        },
+        {{-- The size lives on <html>, outside Livewire's DOM, so re-renders never reset it. --}}
+        applySize(size) {
+            const root = document.documentElement.style;
+            if (size && size.w && size.h) {
+                root.setProperty('--neo-w', size.w + 'px');
+                root.setProperty('--neo-h', size.h + 'px');
+            } else {
+                root.removeProperty('--neo-w');
+                root.removeProperty('--neo-h');
+            }
+        },
+        startResize(e) {
+            const rect = this.$refs.panel.getBoundingClientRect();
+            const start = { x: e.clientX, y: e.clientY, w: rect.width, h: rect.height };
+            let size = null;
+            const move = (ev) => {
+                size = {
+                    w: Math.round(Math.min(window.innerWidth - 32, Math.max(300, start.w + start.x - ev.clientX))),
+                    h: Math.round(Math.min(window.innerHeight - 96, Math.max(320, start.h + start.y - ev.clientY))),
+                };
+                this.applySize(size);
+            };
+            const up = () => {
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', up);
+                document.documentElement.classList.remove('neo-resizing');
+                try { if (size) { localStorage.setItem('plugged-host-neo.size', JSON.stringify(size)); } } catch (err) {}
+            };
+            document.documentElement.classList.add('neo-resizing');
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', up);
+        },
+        resetSize() {
+            this.applySize(null);
+            try { localStorage.removeItem('plugged-host-neo.size'); } catch (e) {}
         },
         {{-- 'Ask neo' on a mclo.gs upload (dispatched from OfferNeoForMclogsUpload's notification). --}}
         async ask(detail) {
@@ -78,6 +121,9 @@
         },
         acknowledge() {
             $wire.acknowledge().then(() => { if (this.pendingLog) { this.ask({ log: this.pendingLog }); } });
+        },
+        turnOn() {
+            $wire.setPreference('enabled', true).then(() => this.load());
         },
         submit() {
             if (this.working) { return; }
@@ -101,8 +147,9 @@
             if (this.working) { return; }
             this.working = true;
             this.flash = null;
+            let r = null;
             try {
-                let r = await first();
+                r = await first();
                 if (flashErrors && r && r.message && (r.state === 'error' || r.state === 'blocked')) {
                     this.flash = r.message;
                     setTimeout(() => { this.flash = null; }, 6000);
@@ -117,15 +164,108 @@
             } catch (e) {
             } finally {
                 this.working = false;
+                {{-- Minimized while it worked: say on the launcher how it ended. --}}
+                if (!this.open && r) {
+                    this.attention = r.state === 'awaiting_approval' ? 'approve' : 'done';
+                }
             }
         },
      }"
      x-on:plugged-host-neo-ask.window="ask($event.detail)"
      x-cloak>
-    <div class="neo-panel" x-show="open"
+    <div class="neo-panel" x-ref="panel" x-show="open"
          x-transition:enter="neo-t" x-transition:enter-start="neo-t-from" x-transition:enter-end="neo-t-to"
          x-transition:leave="neo-t" x-transition:leave-start="neo-t-to" x-transition:leave-end="neo-t-from">
-        @if($conversation)
+        <div class="neo-grip" x-on:pointerdown.prevent="startResize($event)" x-on:dblclick="resetSize()" title="{{ $s('chat.resize') }}"></div>
+
+        @if(!$enabled)
+            <div class="neo-head">
+                <div class="neo-mark neo-mark-off">{!! $icon('tabler-sparkles') !!}</div>
+                <div class="neo-head-text">
+                    <div class="neo-title">neo</div>
+                    <div class="neo-sub">{{ $s('chat.off_title') }}</div>
+                </div>
+                <button type="button" class="neo-iconbtn" x-on:click="toggle()" title="{{ $s('chat.close') }}" aria-label="{{ $s('chat.close') }}">{!! $icon('tabler-chevron-down') !!}</button>
+            </div>
+            <div class="neo-empty">
+                <div class="neo-mark neo-mark-off">{!! $icon('tabler-sparkles') !!}</div>
+                <div>
+                    <div class="neo-greet">{{ $s('chat.off_title') }}</div>
+                    <div>{{ $s('chat.off_body') }}</div>
+                </div>
+                <button type="button" class="neo-btn neo-btn-primary" x-on:click="turnOn()">{!! $icon('tabler-power', 'neo-i-sm') !!}{{ $s('chat.turn_on') }}</button>
+            </div>
+        @elseif($settings)
+            <div class="neo-head">
+                <button type="button" class="neo-iconbtn" wire:click="showChat" title="{{ $s('chat.back') }}" aria-label="{{ $s('chat.back') }}">{!! $icon('tabler-arrow-left') !!}</button>
+                <div class="neo-head-text">
+                    <div class="neo-title">neo</div>
+                    <div class="neo-sub">{{ $s('chat.settings') }}</div>
+                </div>
+                <button type="button" class="neo-iconbtn" x-on:click="toggle()" title="{{ $s('chat.minimize') }}" aria-label="{{ $s('chat.minimize') }}">{!! $icon('tabler-chevron-down') !!}</button>
+            </div>
+            <div class="neo-settings">
+                <div class="neo-set-card">
+                    @foreach(['enabled' => 'tabler-sparkles', 'auto_approve' => 'tabler-bolt'] as $key => $keyIcon)
+                        <div class="neo-set-row">
+                            {!! $icon($keyIcon) !!}
+                            <div class="neo-set-text">
+                                <div class="neo-set-title">{{ $s('profile.' . $key) }}</div>
+                                <div class="neo-set-hint">{{ $s('profile.' . $key . '_hint') }}</div>
+                            </div>
+                            <button type="button" class="neo-switch" role="switch" aria-checked="{{ $settings[$key] ? 'true' : 'false' }}" aria-label="{{ $s('profile.' . $key) }}"
+                                    wire:click="setPreference('{{ $key }}', {{ $settings[$key] ? 'false' : 'true' }})"></button>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="neo-set-card">
+                    <div class="neo-set-row">
+                        {!! $icon('tabler-gauge') !!}
+                        <div class="neo-set-text">
+                            <div class="neo-set-title">{{ $s('profile.usage') }}</div>
+                            <div class="neo-set-hint">{{ $s('profile.usage_hint') }}</div>
+                        </div>
+                    </div>
+                    @if(!$settings['linked'])
+                        <div class="neo-set-hint">{{ $s('profile.unlinked') }}</div>
+                        <a class="neo-btn neo-btn-primary" href="{{ route('plugged-host.sso.link') }}">{!! $icon('tabler-link', 'neo-i-sm') !!}{{ $s('profile.link') }}</a>
+                    @elseif(!is_array($settings['limits']))
+                        <div class="neo-set-hint">{{ $s('profile.unavailable') }}</div>
+                    @else
+                        @foreach(['short' => [$s('profile.short_window'), 'HH:mm'], 'long' => [$s('profile.long_window'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
+                            @php $percent = max(0, min(100, (int) ($settings['limits'][$window]['percent'] ?? 0))); @endphp
+                            <div class="neo-usage">
+                                <div class="neo-usage-head">
+                                    <span>{{ $windowLabel }}</span>
+                                    <span>{{ $percent }}% · {{ $s('profile.resets', ['time' => $resetsAt($settings['limits'][$window] ?? null, $format)]) }}</span>
+                                </div>
+                                <div class="neo-bar neo-bar-lg {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
+                            </div>
+                        @endforeach
+                    @endif
+                </div>
+
+                <div class="neo-set-card">
+                    <div class="neo-set-row">
+                        {!! $icon('tabler-history') !!}
+                        <div class="neo-set-text">
+                            <div class="neo-set-title">{{ $s('profile.history') }}</div>
+                            <div class="neo-set-hint">{{ $s('profile.history_hint', ['days' => $settings['retention_days']]) }}</div>
+                        </div>
+                    </div>
+                    <div x-data="{ sure: false }">
+                        <button type="button" class="neo-btn neo-btn-danger"
+                                x-on:click="if (sure) { sure = false; $wire.deleteHistory(); } else { sure = true; setTimeout(() => sure = false, 4000); }">
+                            {!! $icon('tabler-trash', 'neo-i-sm') !!}
+                            <span x-text="sure ? @js($s('chat.confirm_delete')) : @js($s('profile.delete_history'))"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <p class="neo-small">{!! $icon('tabler-lock', 'neo-i-sm') !!} {{ $s('profile.privacy') }}</p>
+            </div>
+        @elseif($conversation)
             <div class="neo-head">
                 <div class="neo-mark">{!! $icon('tabler-sparkles') !!}</div>
                 <div class="neo-head-text">
@@ -139,10 +279,8 @@
                     </div>
                 </div>
                 <button type="button" class="neo-iconbtn" wire:click="newChat" x-bind:disabled="working" title="{{ $s('chat.new_chat') }}" aria-label="{{ $s('chat.new_chat') }}">{!! $icon('tabler-message-plus') !!}</button>
-                @if($profileUrl)
-                    <a class="neo-iconbtn" href="{{ $profileUrl }}" title="{{ $s('chat.settings') }}" aria-label="{{ $s('chat.settings') }}">{!! $icon('tabler-settings') !!}</a>
-                @endif
-                <button type="button" class="neo-iconbtn" x-on:click="toggle()" title="{{ $s('chat.close') }}" aria-label="{{ $s('chat.close') }}">{!! $icon('tabler-x') !!}</button>
+                <button type="button" class="neo-iconbtn" wire:click="showSettings" title="{{ $s('chat.settings') }}" aria-label="{{ $s('chat.settings') }}">{!! $icon('tabler-settings') !!}</button>
+                <button type="button" class="neo-iconbtn" x-on:click="toggle()" title="{{ $s('chat.minimize') }}" aria-label="{{ $s('chat.minimize') }}">{!! $icon('tabler-chevron-down') !!}</button>
             </div>
 
             @if(!$acknowledged)
@@ -251,16 +389,11 @@
 
                     @if($usage)
                         <div class="neo-meter">
-                            @foreach(['short' => $s('chat.window_short'), 'long' => $s('chat.window_long')] as $window => $windowLabel)
-                                @php
-                                    $percent = max(0, min(100, (int) ($usage[$window]['percent'] ?? 0)));
-                                    $resets = filled($usage[$window]['resets_at'] ?? null)
-                                        ? \Carbon\Carbon::parse($usage[$window]['resets_at'])->setTimezone($tz)->isoFormat($window === 'short' ? 'HH:mm' : 'ddd HH:mm')
-                                        : $s('profile.not_started');
-                                @endphp
-                                <div class="neo-meter-item" title="{{ $s('chat.usage_title', ['window' => $windowLabel, 'percent' => $percent, 'time' => $resets]) }}">
+                            @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
+                                @php $percent = max(0, min(100, (int) ($usage[$window]['percent'] ?? 0))); @endphp
+                                <div class="neo-meter-item" title="{{ $s('chat.usage_title', ['window' => $windowLabel, 'percent' => $percent, 'time' => $resetsAt($usage[$window] ?? null, $format)]) }}">
                                     <span>{{ $windowLabel }}</span>
-                                    <div class="neo-bar {{ $percent >= 95 ? 'neo-bar-full' : ($percent >= 80 ? 'neo-bar-warn' : '') }}"><i style="width: {{ $percent }}%"></i></div>
+                                    <div class="neo-bar {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
                                     <span>{{ $percent }}%</span>
                                 </div>
                             @endforeach
@@ -284,9 +417,14 @@
         @endif
     </div>
 
-    <button type="button" class="neo-launcher" x-on:click="toggle()" x-show="!open" title="{{ $s('chat.open') }}" aria-label="{{ $s('chat.open') }}">
-        {!! $icon('tabler-sparkles') !!}
-        <span class="neo-launcher-label">{{ $s('chat.open') }}</span>
-        <span class="neo-launcher-busy" x-show="working" x-cloak></span>
+    <button type="button" class="neo-launcher {{ $enabled ? '' : 'neo-launcher-off' }}" x-on:click="toggle()" x-show="!open"
+            title="{{ $enabled ? $s('chat.open') : $s('chat.off_title') }}" aria-label="{{ $enabled ? $s('chat.open') : $s('chat.off_title') }}">
+        <span x-show="!working">{!! $icon('tabler-sparkles') !!}</span>
+        <span x-show="working" x-cloak>{!! $icon('tabler-loader-2', 'neo-i neo-spin') !!}</span>
+        @if($enabled)
+            <span class="neo-launcher-label"
+                  x-text="working ? @js($s('chat.status_working')) : (attention === 'approve' ? @js($s('chat.status_approve')) : (attention === 'done' ? @js($s('chat.status_done')) : @js($s('chat.open'))))">{{ $s('chat.open') }}</span>
+            <span class="neo-launcher-dot" x-show="attention && !working" x-bind:class="attention === 'approve' ? 'neo-dot-approve' : 'neo-dot-done'" x-cloak></span>
+        @endif
     </button>
 </div>

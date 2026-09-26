@@ -8,9 +8,9 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\Route;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Neo\Agent\NeoAgent;
 use PluggedHost\Neo\Agent\ServerGuard;
 use PluggedHost\Neo\Agent\StepResult;
@@ -44,6 +44,12 @@ class NeoChat extends Component
     public string $draft = '';
 
     /**
+     * chat | settings (the gear in the header). A user who switched neo off only ever gets the
+     * small "turn neo back on" view.
+     */
+    public string $view = 'chat';
+
+    /**
      * Whether the launcher should exist on this page at all.
      */
     public static function shouldMount(): bool
@@ -52,7 +58,9 @@ class NeoChat extends Component
             $user = Filament::auth()->user();
             $panel = Filament::getCurrentPanel()?->getId();
 
-            if (!$user instanceof User || !in_array($panel, self::PANELS, true) || !NeoAccess::enabledFor($user)) {
+            // Still mounted for a user who switched neo off: the settings now live in the chat
+            // itself, so it stays as a small dimmed button to switch it back on.
+            if (!$user instanceof User || !in_array($panel, self::PANELS, true) || !NeoAccess::ready()) {
                 return false;
             }
 
@@ -83,6 +91,12 @@ class NeoChat extends Component
      */
     public function open(): array
     {
+        if (!NeoPreferences::enabled($this->account())) {
+            $this->opened = true;
+
+            return ['resume' => false];
+        }
+
         $user = $this->user();
         $server = $this->server();
 
@@ -214,10 +228,58 @@ class NeoChat extends Component
         NeoPreferences::set($this->user(), ['acknowledged_at' => now()]);
     }
 
+    public function showSettings(): void
+    {
+        $this->view = 'settings';
+    }
+
+    public function showChat(): void
+    {
+        $this->view = 'chat';
+    }
+
+    /**
+     * The two per-user switches, saved the moment they are flipped. Works while neo is off,
+     * since this is how it is switched back on.
+     */
+    public function setPreference(string $key, bool $value): void
+    {
+        abort_unless(in_array($key, ['enabled', 'auto_approve'], true), 422);
+
+        NeoPreferences::set($this->account(), [$key => $value]);
+
+        if ($key === 'enabled' && $value) {
+            $this->view = 'chat';
+            $this->conversationId = null;
+        }
+    }
+
+    public function deleteHistory(): void
+    {
+        $user = $this->account();
+
+        NeoConversation::query()->where('user_id', $user->id)->delete();
+        $this->conversationId = NeoPreferences::enabled($user) ? $this->agent()->conversationFor($user, $this->server())->id : null;
+
+        Notification::make()->title(trans('plugged-host-neo::strings.profile.deleted'))->success()->send();
+    }
+
     public function render(): View
     {
+        $account = $this->account();
+        $enabled = NeoPreferences::enabled($account);
+
+        if (!$enabled || ($this->opened && $this->view === 'settings')) {
+            return view('plugged-host-neo::livewire.chat', [
+                'conversation' => null,
+                'enabled' => $enabled,
+                'settings' => $this->opened ? $this->settings($account, $enabled) : null,
+                'serverName' => $this->server()?->name,
+            ]);
+        }
+
         if (!$this->opened || $this->conversationId === null) {
-            return view('plugged-host-neo::livewire.chat', ['conversation' => null]);
+            return view('plugged-host-neo::livewire.chat', ['conversation' => null, 'enabled' => true, 'settings' => null]);
         }
 
         $user = $this->user();
@@ -232,8 +294,27 @@ class NeoChat extends Component
             'usage' => $acknowledged ? $this->usage($user) : null,
             'serverName' => $conversation->server?->name,
             'pending' => $conversation->messages()->where('role', NeoMessage::TOOL)->where('status', NeoMessage::PENDING_APPROVAL)->count(),
-            'profileUrl' => Route::has('filament.app.auth.profile') ? route('filament.app.auth.profile', ['tab' => 'neo::data::tab']) : null,
+            'enabled' => true,
+            'settings' => null,
         ]);
+    }
+
+    /**
+     * What the settings view shows.
+     *
+     * @return array<string, mixed>
+     */
+    private function settings(User $user, bool $enabled): array
+    {
+        $usage = $enabled ? app(NeoGateway::class)->usage($user) : null;
+
+        return [
+            'enabled' => $enabled,
+            'auto_approve' => NeoPreferences::autoApprove($user),
+            'limits' => is_array($usage['limits'] ?? null) ? $usage['limits'] : null,
+            'linked' => NoprofitLink::accountId($user) !== null || ($usage['linked'] ?? false),
+            'retention_days' => (int) config('plugged-host-neo.retention_days', 30),
+        ];
     }
 
     /**
@@ -309,8 +390,25 @@ class NeoChat extends Component
 
     private function user(): User
     {
+        $user = $this->account();
+        abort_unless(NeoAccess::enabledFor($user), 403);
+
+        return $user;
+    }
+
+    /**
+     * The signed-in user while neo is available on this panel at all, whether or not they have
+     * it switched on (the settings view works in both states).
+     */
+    private function account(): User
+    {
         $user = auth()->user();
-        abort_unless($user instanceof User && NeoAccess::enabledFor($user), 403);
+        abort_unless($user instanceof User && NeoAccess::ready(), 403);
+
+        if ($this->serverId !== null) {
+            $server = $this->server();
+            abort_unless($server !== null && ServerGuard::canUse($user, $server), 403);
+        }
 
         return $user;
     }

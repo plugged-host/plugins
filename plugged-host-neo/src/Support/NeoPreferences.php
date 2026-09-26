@@ -6,8 +6,8 @@ use App\Models\User;
 use PluggedHost\Neo\Models\NeoUserSetting;
 
 /**
- * The per-user profile toggles ("Enable neo", "Let neo make changes without asking") and
- * consent, in neo_user_settings. A missing row reads as the defaults: on, asks first,
+ * The per-user switches in the chat's settings ("Enable neo", "Let neo make changes without
+ * asking") and consent, in neo_user_settings. A missing row reads as the defaults: on, asks first,
  * not yet acknowledged.
  */
 final class NeoPreferences

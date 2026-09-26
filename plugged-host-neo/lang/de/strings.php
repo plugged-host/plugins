@@ -39,6 +39,16 @@ return [
         'window_long' => 'Woche',
         'usage_title' => ':window: :percent% genutzt · zurückgesetzt :time',
         'show_change' => 'Änderung anzeigen',
+        'minimize' => 'Minimieren (neo arbeitet weiter)',
+        'resize' => 'Zum Ändern der Größe ziehen, Doppelklick setzt zurück',
+        'back' => 'Zurück zum Chat',
+        'status_working' => 'Arbeitet…',
+        'status_approve' => 'Braucht dich',
+        'status_done' => 'Fertig',
+        'off_title' => 'neo ist aus',
+        'off_body' => 'Schalte neo wieder ein, um zu chatten und es an deinen Servern arbeiten zu lassen.',
+        'turn_on' => 'neo einschalten',
+        'confirm_delete' => 'Zum Löschen erneut tippen',
         'suggestions' => [
             'server' => [
                 ['icon' => 'tabler-alert-triangle', 'label' => 'Absturz beheben', 'prompt' => 'Mein Server ist abgestürzt oder startet nicht. Finde die Ursache und behebe sie.'],
@@ -57,7 +67,7 @@ return [
     'consent' => [
         'title' => 'Bevor es losgeht',
         'body' => 'neo ist ein agentischer KI-Assistent: Es beantwortet nicht nur Fragen, sondern erledigt Aufgaben auf deinen Servern und in deinem Konto für dich. Dafür wird das, was du schreibst, und das, was neo von deinem Server liest (Konsolenausgabe, Dateiinhalte), an unsere KI-Anbieter gesendet: Groq und, als Ausweichlösung, Claude von Anthropic über einen Drittanbieter-Proxy. Passwörter und Tokens werden vor dem Senden maskiert.',
-        'approvals' => 'neo fragt, bevor es etwas auf deinem Server ändert. In deinen Profileinstellungen kannst du neo ausschalten oder ohne Nachfrage handeln lassen.',
+        'approvals' => 'neo fragt, bevor es etwas auf deinem Server ändert. Unter dem Zahnrad kannst du neo ausschalten oder ohne Nachfrage handeln lassen.',
         'accept' => 'Verstanden, los',
     ],
 

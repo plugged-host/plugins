@@ -39,6 +39,16 @@ return [
         'window_long' => 'Week',
         'usage_title' => ':window: :percent% used · resets :time',
         'show_change' => 'Show change',
+        'minimize' => 'Minimize (neo keeps working)',
+        'resize' => 'Drag to resize, double-click to reset',
+        'back' => 'Back to the chat',
+        'status_working' => 'Working…',
+        'status_approve' => 'Needs you',
+        'status_done' => 'Done',
+        'off_title' => 'neo is off',
+        'off_body' => 'Turn it back on to chat and let it work on your servers.',
+        'turn_on' => 'Turn neo on',
+        'confirm_delete' => 'Tap again to delete',
         'suggestions' => [
             'server' => [
                 ['icon' => 'tabler-alert-triangle', 'label' => 'Fix a crash', 'prompt' => 'My server crashed or will not start. Find out why and fix it.'],
@@ -57,7 +67,7 @@ return [
     'consent' => [
         'title' => 'Before you start',
         'body' => 'neo is an agentic AI assistant: it doesn\'t just answer, it carries out tasks on your servers and account for you. To do that, what you type and what neo reads from your server (console output, file contents) is sent to our AI providers: Groq, and Anthropic\'s Claude through a third-party proxy as a fallback. Passwords and tokens are masked before anything is sent.',
-        'approvals' => 'neo asks before it changes anything on your server. You can turn neo off, or let it act without asking, in your profile settings.',
+        'approvals' => 'neo asks before it changes anything on your server. You can turn neo off, or let it act without asking, under the gear icon.',
         'accept' => 'Got it, start',
     ],
 

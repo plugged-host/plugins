@@ -3,11 +3,7 @@
 namespace PluggedHost\Neo\Providers;
 
 use App\Enums\TablerIcon;
-use App\Enums\TabPosition;
-use App\Filament\Pages\Auth\EditProfile;
 use App\Models\Subuser;
-use Filament\Schemas\Components\Livewire as LivewireComponent;
-use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Console\Scheduling\Schedule;
@@ -21,13 +17,12 @@ use Livewire\Livewire;
 use PluggedHost\Neo\Console\Commands\NeoPruneCommand;
 use PluggedHost\Neo\Listeners\OfferNeoForMclogsUpload;
 use PluggedHost\Neo\Livewire\NeoChat;
-use PluggedHost\Neo\Livewire\NeoProfileSettings;
-use PluggedHost\Neo\Support\NeoAccess;
 use Throwable;
 
 /**
- * Wires neo into the panel: the profile tab, the floating chat on the app and server panels,
- * the activity-log sentences, "Ask neo" on mclo.gs log uploads, and the daily retention prune.
+ * Wires neo into the panel: the floating chat on the app and server panels (its settings live
+ * inside it), the activity-log sentences, "Ask neo" on mclo.gs log uploads, and the daily
+ * retention prune.
  * Everything is inert until NEO_ENABLED is on and the migrations have run (NeoAccess::ready()).
  */
 class NeoPluginProvider extends ServiceProvider
@@ -47,24 +42,11 @@ class NeoPluginProvider extends ServiceProvider
                 ->withoutOverlapping(30)
                 ->name('plugged-host-neo:prune');
         });
-
-        // After core's danger zone: plugins load in load_order and neo is 7.
-        EditProfile::registerCustomTabs(
-            TabPosition::After,
-            Tab::make('neo')
-                ->label(fn () => trans('plugged-host-neo::strings.profile.tab'))
-                ->icon('tabler-sparkles')
-                ->visible(fn (): bool => NeoAccess::ready())
-                ->schema([
-                    LivewireComponent::make(NeoProfileSettings::class)->key('plugged-host-neo-profile'),
-                ]),
-        );
     }
 
     public function boot(): void
     {
         Livewire::component('plugged-host-neo.chat', NeoChat::class);
-        Livewire::component('plugged-host-neo.profile-settings', NeoProfileSettings::class);
 
         $this->injectActivityDescriptions();
 
