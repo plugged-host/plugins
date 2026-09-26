@@ -11,4 +11,8 @@ return [
     'activity.server.neo.software' => 'neo switched the server from <b>:from</b> to <b>:to</b> (reinstall)',
     'activity.server.neo.modpack' => 'neo started a modpack install (<b>:project</b>)',
     'activity.server.neo.geyser' => 'neo installed Geyser and Floodgate',
+    'activity.server.minecraft.world.recreate' => 'started a new world <b>:world</b>',
+    'activity.server.minecraft.world.import' => 'uploaded a world as <b>:world</b>',
+    'activity.server.minecraft.world.activate' => 'switched to the world <b>:world</b>',
+    'activity.server.minecraft.world.delete' => 'deleted the world <b>:world</b>',
 ];
