@@ -4,7 +4,6 @@ namespace PluggedHost\Storage\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Server;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -41,7 +40,8 @@ class BackupPortalController extends Controller
         $user = auth()->user();
         $panelUrl = $this->panelBaseUrl();
         $portalUrl = $this->portalBaseUrl();
-        $initialServerId = strtolower(trim((string) ($request->query('server') ?? $request->query('s') ?? '')));
+        // Only used to highlight one of the signed-in owner's own server cards.
+        $initialServerId = preg_replace('/[^a-f0-9]/', '', strtolower(trim((string) ($request->query('server') ?? $request->query('s') ?? ''))));
 
         // Auto-SSO handshake: if not logged in on backups and hasn't checked panel yet in this browser session,
         // do a fast silent handshake with the panel to auto-get panel session.
@@ -85,9 +85,10 @@ class BackupPortalController extends Controller
                     'has_backup' => $hasBackup,
                     'bytes' => $info['bytes'] ?? null,
                     'mtime' => $info['mtime'] ?? null,
+                    // Signed, short-lived storage link; only ever built for the owner's own servers.
                     'download_url' => $hasBackup
                         ? $this->storageService->archiveUrlForIdentifier($server->uuid, $filename)
-                        : route('backups.portal.download', ['identifier' => $server->uuid_short]),
+                        : null,
                     'manage_url' => "{$panelUrl}/server/{$server->uuid_short}",
                     'backups_url' => "{$panelUrl}/server/{$server->uuid_short}/backups",
                 ];
@@ -210,106 +211,5 @@ class BackupPortalController extends Controller
         $request->session()->put('sso_checked', true);
 
         return redirect("{$portalUrl}/?guest=1");
-    }
-
-    /**
-     * AJAX/POST lookup for a server by short ID (e.g. a1b2c3d4) or full UUID.
-     */
-    public function lookup(Request $request): JsonResponse
-    {
-        $input = strtolower(trim((string) $request->input('server_id', '')));
-        $cleanId = preg_replace('/[^a-f0-9-]/i', '', $input);
-
-        if (empty($cleanId) || strlen($cleanId) < 6) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Please provide a valid Server ID (at least 6 characters, e.g. a1b2c3d4).',
-            ], 422);
-        }
-
-        $panelUrl = $this->panelBaseUrl();
-
-        // 1. Search in Pelican database
-        $server = Server::query()
-            ->where('uuid_short', $cleanId)
-            ->orWhere('uuid', $cleanId)
-            ->orWhere('uuid', 'like', "$cleanId%")
-            ->with(['egg', 'node'])
-            ->first();
-
-        $lookupKey = $server ? $server->uuid : $cleanId;
-
-        // 2. Query storage agent
-        $info = $this->storageService->backupInfo($lookupKey);
-
-        if (!$server && (!$info || empty($info['exists']))) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'No server or backup found matching ID "' . htmlspecialchars($cleanId) . '".',
-            ], 404);
-        }
-
-        $fullUuid = $server ? $server->uuid : ($info['uuid'] ?? $cleanId);
-        $shortId = $server ? $server->uuid_short : substr($fullUuid, 0, 8);
-        $hasBackup = (bool) ($info['exists'] ?? false);
-
-        $cleanName = $server ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $server->name) : 'server';
-        $filename = "backup-{$cleanName}-{$shortId}.tar.gz";
-        $directDownloadUrl = $hasBackup ? $this->storageService->archiveUrlForIdentifier($fullUuid, $filename) : null;
-
-        return response()->json([
-            'ok' => true,
-            'server' => [
-                'name' => $server?->name ?? 'Server (' . $shortId . ')',
-                'uuid' => $fullUuid,
-                'uuid_short' => $shortId,
-                'egg' => $server?->egg?->name ?? 'Game Server',
-                'node' => $server?->node?->name ?? 'storage',
-                'has_backup' => $hasBackup,
-                'bytes' => $info['bytes'] ?? null,
-                'mtime' => $info['mtime'] ?? null,
-                'download_url' => route('backups.portal.download', ['identifier' => $shortId]),
-                'direct_download_url' => $directDownloadUrl,
-                'manage_url' => $server ? "{$panelUrl}/server/{$shortId}" : null,
-                'backups_url' => $server ? "{$panelUrl}/server/{$shortId}/backups" : null,
-            ],
-        ]);
-    }
-
-    /**
-     * Download the backup tar.gz archive via direct storage redirect.
-     */
-    public function download(Request $request, string $identifier): RedirectResponse
-    {
-        $safeId = preg_replace('/[^a-f0-9-]/i', '', strtolower(trim($identifier)));
-
-        if (empty($safeId) || strlen($safeId) < 6) {
-            abort(404, 'Invalid Server ID.');
-        }
-
-        $server = Server::query()
-            ->where('uuid_short', $safeId)
-            ->orWhere('uuid', $safeId)
-            ->first();
-
-        $lookupKey = $server ? $server->uuid : $safeId;
-        $info = $this->storageService->backupInfo($lookupKey);
-
-        if (!$info || empty($info['exists'])) {
-            abort(404, 'Backup not found or still syncing on the storage server.');
-        }
-
-        $fullUuid = $info['uuid'] ?? ($server ? $server->uuid : $safeId);
-        $shortId = $server ? $server->uuid_short : substr($fullUuid, 0, 8);
-
-        $cleanName = $server ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $server->name) : 'server';
-        $filename = "backup-{$cleanName}-{$shortId}.tar.gz";
-
-        $directUrl = $this->storageService->archiveUrlForIdentifier($fullUuid, $filename);
-        if (!$directUrl) {
-            abort(500, 'Unable to generate storage download URL.');
-        }
-
-        return redirect()->away($directUrl);
     }
 }

@@ -241,26 +241,12 @@ class StoragePluginProvider extends ServiceProvider
                 Route::get('/auth/discord', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'authRedirect'])->name('backups.portal.discord');
                 Route::get('/auth/discord/callback', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'authCallback'])->name('backups.portal.discord.callback');
                 Route::get('/auth/logout', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'logout'])->name('backups.portal.logout');
-                Route::match(['get', 'post'], '/lookup', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'lookup'])
-                    ->withoutMiddleware([
-                        \App\Http\Middleware\PreventRequestForgery::class,
-                        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
-                    ])
-                    ->name('backups.portal.lookup');
-                Route::get('/download/{identifier}', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'download'])->name('backups.portal.download');
             });
 
         Route::prefix('/backups')
             ->middleware(['web'])
             ->group(function (): void {
                 Route::get('/', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'index'])->name('backups.fallback.index');
-                Route::match(['get', 'post'], '/lookup', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'lookup'])
-                    ->withoutMiddleware([
-                        \App\Http\Middleware\PreventRequestForgery::class,
-                        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
-                    ])
-                    ->name('backups.fallback.lookup');
-                Route::get('/download/{identifier}', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'download'])->name('backups.fallback.download');
             });
     }
 }

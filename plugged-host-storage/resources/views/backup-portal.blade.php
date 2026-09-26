@@ -638,75 +638,17 @@
             <p>Download full archives of your server files. Backups are mirrored directly to our dedicated storage cluster and stripped of build caches, logs, and unneeded dependencies.</p>
         </section>
 
-        <!-- Search Form -->
-        <div class="search-card">
-            <h2 class="search-card-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-blue)">
-                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-                    <line x1="6" y1="6" x2="6.01" y2="6"></line>
-                    <line x1="6" y1="18" x2="6.01" y2="18"></line>
-                </svg>
-                Find Server Backup
-            </h2>
-            <p class="search-card-desc">Enter an 8-character Server ID (e.g. <code style="color:#93c5fd;font-family:'JetBrains Mono'">a1b2c3d4</code>) or full UUID.</p>
-
-            <form id="searchForm" class="search-form" onsubmit="handleSearch(event)">
-                <div class="input-group">
-                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <input type="text" id="serverIdInput" class="search-input" placeholder="e.g. a1b2c3d4" autocomplete="off" spellcheck="false" value="{{ $initialServerId }}" required>
-                </div>
-                <button type="submit" id="searchBtn" class="btn btn-primary">
-                    <span id="btnText">Look Up</span>
-                    <span id="btnSpinner" class="spinner" style="display:none;"></span>
-                </button>
-            </form>
-
-            <div id="searchError" class="alert-error"></div>
-
-            <!-- Dynamic Result Card -->
-            <div id="resultBox" class="result-box">
-                <div class="result-header">
-                    <div id="resultName" class="server-title">Server Name</div>
-                    <span id="resultBackupStatus" class="badge">
-                        ● Backup Available
-                    </span>
-                </div>
-
-                <div class="server-badges">
-                    <span id="resultEgg" class="badge badge-egg">Game Server</span>
-                    <span id="resultNode" class="badge badge-node">Node: storage</span>
-                    <span id="resultShortId" class="badge badge-id">ID: a1b2c3d4</span>
-                </div>
-
-                <div class="result-meta">
-                    <div id="resultMetaDetails">Size: ~150 MB &bull; Filtered cache & node_modules excluded</div>
-                    <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem;">
-                        UUID: <span id="resultFullUuid" style="font-family:'JetBrains Mono'"></span>
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                    <a id="resultDownloadBtn" href="#" class="btn btn-primary" style="flex: 1;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Download Backup (.tar.gz)
-                    </a>
-                    <a id="resultManageBtn" href="#" class="btn btn-secondary" style="display:none;" target="_blank">
-                        <span>Open in Panel</span>
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                    </a>
+        @unless ($user)
+            <!-- Backups are only listed for the signed-in owner; there is no lookup by server ID. -->
+            <div class="search-card">
+                <h2 class="search-card-title">Sign in to download your backups</h2>
+                <p class="search-card-desc">Your servers and their latest off-site snapshots appear here once you sign in with the account that owns them.</p>
+                <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+                    <a href="{{ $panelUrl }}/auth/backups-sso" class="btn btn-primary">Sign in with plugged.host</a>
+                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-secondary">Sign in with Discord</a>
                 </div>
             </div>
-        </div>
+        @endunless
 
         <!-- Authenticated User Server Grid -->
         @if ($user)
@@ -817,102 +759,14 @@
             });
         }
 
-        async function handleSearch(e) {
-            if (e) e.preventDefault();
-            const input = document.getElementById('serverIdInput');
-            const errorBox = document.getElementById('searchError');
-            const resultBox = document.getElementById('resultBox');
-            const btnText = document.getElementById('btnText');
-            const btnSpinner = document.getElementById('btnSpinner');
-
-            const query = input.value.trim();
-            if (!query) return;
-
-            errorBox.style.display = 'none';
-            resultBox.classList.remove('active');
-            btnText.style.display = 'none';
-            btnSpinner.style.display = 'inline-block';
-
-            try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const response = await fetch('/lookup', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ server_id: query })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok || !data.ok) {
-                    errorBox.textContent = data.message || 'No backup found for this server ID.';
-                    errorBox.style.display = 'block';
-                    return;
-                }
-
-                const srv = data.server;
-                document.getElementById('resultName').textContent = srv.name;
-                document.getElementById('resultEgg').textContent = srv.egg;
-                document.getElementById('resultNode').textContent = 'Node: ' + srv.node;
-                document.getElementById('resultShortId').textContent = 'ID: ' + srv.uuid_short;
-                document.getElementById('resultFullUuid').textContent = srv.uuid;
-
-                const statusBadge = document.getElementById('resultBackupStatus');
-                const dlBtn = document.getElementById('resultDownloadBtn');
-                const manageBtn = document.getElementById('resultManageBtn');
-
-                if (srv.has_backup) {
-                    statusBadge.style.background = 'rgba(16,185,129,0.15)';
-                    statusBadge.style.color = '#6ee7b7';
-                    statusBadge.style.border = '1px solid rgba(16,185,129,0.3)';
-                    statusBadge.textContent = '● Backup Ready';
-
-                    const sizeMb = srv.bytes ? (srv.bytes / (1024 * 1024)).toFixed(1) + ' MB' : 'Available';
-                    document.getElementById('resultMetaDetails').textContent = 'Size: ~' + sizeMb + ' • Excluded logs, node_modules & caches';
-
-                    dlBtn.href = srv.direct_download_url || srv.download_url;
-                    dlBtn.style.display = 'inline-flex';
-                } else {
-                    statusBadge.style.background = 'rgba(148, 163, 184, 0.1)';
-                    statusBadge.style.color = 'var(--text-dim)';
-                    statusBadge.style.border = '1px solid var(--border-subtle)';
-                    statusBadge.textContent = '○ Backup syncing soon';
-
-                    document.getElementById('resultMetaDetails').textContent = 'This server is scheduled for replication. Once the node sync completes, the backup will be ready for download.';
-                    dlBtn.style.display = 'none';
-                }
-
-                if (srv.manage_url) {
-                    manageBtn.href = srv.manage_url;
-                    manageBtn.style.display = 'inline-flex';
-                } else {
-                    manageBtn.style.display = 'none';
-                }
-
-                resultBox.classList.add('active');
-            } catch (err) {
-                errorBox.textContent = 'An error occurred while looking up the server. Please try again.';
-                errorBox.style.display = 'block';
-            } finally {
-                btnText.style.display = 'inline';
-                btnSpinner.style.display = 'none';
-            }
-        }
-
         // Deep-linking handler
         document.addEventListener('DOMContentLoaded', () => {
-            const initialServer = "{{ $initialServerId }}";
+            const initialServer = @js($initialServerId);
             if (initialServer) {
                 const targetCard = document.getElementById('server-card-' + initialServer);
                 if (targetCard) {
                     targetCard.classList.add('server-card-focused');
                     targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    // Auto-execute search if card not in user's immediate list
-                    handleSearch();
                 }
             }
         });
