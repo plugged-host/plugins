@@ -83,7 +83,11 @@ class MinecraftPluginProvider extends ServiceProvider
                         \Illuminate\Support\Facades\Route::get('/mods', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {
                             abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::FileRead, $server), 403);
 
-                            return response()->json(['data' => app(\PluggedHost\Minecraft\Services\ModDetectionService::class)->list($server)]);
+                            $detection = app(\PluggedHost\Minecraft\Services\ModDetectionService::class);
+                            // One batch per call; rows still being identified say "pending".
+                            $detection->identifyPending($server, 4);
+
+                            return response()->json(['data' => $detection->list($server)]);
                         })->name('api:client:minecraft.mods');
 
                         \Illuminate\Support\Facades\Route::post('/mods/geyser', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {

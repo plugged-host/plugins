@@ -45,8 +45,24 @@ final class ListInstalledContentTool extends MinecraftTool
         $directory = $this->contentDirectory($context);
 
         if (!empty($arguments['identify'])) {
-            $rows = app(ModDetectionService::class)->list($context->server);
-            $lines = array_map(static fn (array $row): string => '- ' . $row['file'] . ($row['disabled'] ? ' [disabled]' : '') . (isset($row['title']) ? " = {$row['title']} ({$row['platform']} {$row['project_id']})" : ''), $rows);
+            $detection = app(ModDetectionService::class);
+            // Up to three batches here; anything left stays "not identified yet".
+            for ($i = 0; $i < 3 && $detection->identifyPending($context->server, 6) > 0; $i++) {
+                //
+            }
+
+            $lines = array_map(static function (array $row): string {
+                $facts = array_filter([
+                    $row['version'] ? 'v' . $row['version'] : null,
+                    $row['platform'] ? "{$row['platform']} " . ($row['confidence'] === 'name' ? '(by name)' : '') : null,
+                    $row['disabled'] ? 'disabled' : null,
+                    $row['update'] ? "update available: {$row['update']['number']}" : null,
+                    $row['missing'] !== [] ? 'MISSING dependencies: ' . implode(', ', $row['missing']) : null,
+                    $row['pending'] ? 'not identified yet' : null,
+                ]);
+
+                return "- {$row['file']}: {$row['name']}" . ($facts !== [] ? ' [' . implode('; ', array_map('trim', $facts)) . ']' : '');
+            }, $detection->list($context->server));
         } else {
             $entries = (array) $context->files()->getDirectory('/' . $directory);
             $jars = array_filter($entries, static fn ($entry): bool => is_array($entry) && !($entry['directory'] ?? false) && preg_match('/\.jar(\.disabled)?$/i', (string) ($entry['name'] ?? '')) === 1);

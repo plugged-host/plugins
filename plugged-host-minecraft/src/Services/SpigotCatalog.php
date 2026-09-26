@@ -119,6 +119,32 @@ class SpigotCatalog
     }
 
     /**
+     * The free SpigotMC resource a plugin most likely is, by its plugin.yml name: the most
+     * downloaded one whose title starts with that name as a whole word ("Vault" matches
+     * "Vault", not "VaultChatFormatter").
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByName(string $name): ?array
+    {
+        $name = trim($name);
+
+        if ($name === '' || !$this->enabled()) {
+            return null;
+        }
+
+        $pattern = '/^[^\p{L}\p{N}]*' . preg_quote($name, '/') . '(?![\p{L}\p{N}])/iu';
+
+        foreach ($this->search($name, 10)['hits'] as $hit) {
+            if (preg_match($pattern, (string) $hit['title']) === 1) {
+                return $hit;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * A resource's metadata, or null when unknown, premium or not a Paper plugin.
      *
      * @return array<string, mixed>|null

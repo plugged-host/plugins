@@ -289,6 +289,70 @@ class ModrinthCatalog
     }
 
     /**
+     * The newest version each jar could update to on this loader and Minecraft version.
+     *
+     * @param  list<string>  $hashes
+     * @param  list<string>  $loaders
+     * @return array<string, array<string, mixed>> SHA-1 => normalised version
+     */
+    public function latestFromHashes(array $hashes, array $loaders, ?string $gameVersion): array
+    {
+        $hashes = array_values(array_unique(array_filter($hashes)));
+
+        if ($hashes === [] || $loaders === []) {
+            return [];
+        }
+
+        sort($hashes);
+        $body = array_filter([
+            'hashes' => $hashes,
+            'algorithm' => 'sha1',
+            'loaders' => array_values($loaders),
+            'game_versions' => filled($gameVersion) ? [$gameVersion] : null,
+        ]);
+
+        $payload = $this->cached('updates:' . md5(json_encode($body)), self::TTL, fn () => $this->post(self::BASE . '/version_files/update', $body));
+
+        $versions = [];
+        foreach ($payload as $hash => $version) {
+            if (is_string($hash) && is_array($version) && isset($version['id'])) {
+                $versions[$hash] = $this->normaliseVersion($version);
+            }
+        }
+
+        return $versions;
+    }
+
+    /**
+     * Several projects by id in one request.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, array<string, mixed>> id => normalised project
+     */
+    public function projects(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter($ids)));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        sort($ids);
+        $payload = $this->cached('projects:' . md5(implode(',', $ids)), self::TTL, fn () => $this->json(self::BASE . '/projects', [
+            'ids' => json_encode($ids),
+        ]));
+
+        $projects = [];
+        foreach ($payload as $project) {
+            if (is_array($project) && isset($project['id'])) {
+                $projects[(string) $project['id']] = $this->normaliseHit($project);
+            }
+        }
+
+        return $projects;
+    }
+
+    /**
      * The file a version installs: its primary file, else its first.
      *
      * @param  array<string, mixed>  $version
@@ -393,6 +457,23 @@ class ModrinthCatalog
         });
 
         return is_array($cached) ? $cached : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     * @return array<array-key, mixed>
+     */
+    protected function post(string $url, array $body): array
+    {
+        $response = Http::timeout(self::TIMEOUT)
+            ->connectTimeout(4)
+            ->withHeaders(['User-Agent' => 'plugged.host-panel/1.0 (support@plugged.host)'])
+            ->asJson()
+            ->post($url, $body)
+            ->throw()
+            ->json();
+
+        return is_array($response) ? $response : [];
     }
 
     /**

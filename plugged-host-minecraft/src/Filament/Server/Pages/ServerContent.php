@@ -10,6 +10,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\View;
@@ -21,10 +22,12 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
+use InvalidArgumentException;
 use PluggedHost\Minecraft\Services\ContentInstallService;
 use PluggedHost\Minecraft\Services\ContentSearchService;
 use PluggedHost\Minecraft\Services\CurseForgeCatalog;
 use PluggedHost\Minecraft\Services\GeyserService;
+use PluggedHost\Minecraft\Services\InstalledContentService;
 use PluggedHost\Minecraft\Services\MinecraftVersionCatalog;
 use PluggedHost\Minecraft\Services\ModDetectionService;
 use PluggedHost\Minecraft\Services\ModrinthCatalog;
@@ -91,6 +94,12 @@ class ServerContent extends MinecraftPage implements HasTable
 
     /** install | update | unavailable — drives the "Add Bedrock support" (Geyser) header button. */
     public string $geyserStatus = 'unavailable';
+
+    /**
+     * Bumped after every identification batch: the installed list keys its "keep going" trigger
+     * on it, so each re-render starts the next batch until nothing is pending.
+     */
+    public int $identifyRound = 0;
 
     public function mount(): void
     {
@@ -182,6 +191,152 @@ class ServerContent extends MinecraftPage implements HasTable
         }
     }
 
+    /**
+     * Identify the next few jars nobody has looked at yet (ModDetectionService downloads each
+     * one), then refresh the list. The view calls this again while rows are still pending.
+     */
+    public function identifyPending(): void
+    {
+        $server = Filament::getTenant();
+
+        if (!$server instanceof Server) {
+            return;
+        }
+
+        try {
+            app(ModDetectionService::class)->identifyPending($server, 4);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        $this->identifyRound++;
+        $this->refreshList();
+    }
+
+    public function deleteJarAction(): Action
+    {
+        return Action::make('deleteJar')
+            ->iconButton()
+            ->icon(TablerIcon::Trash)
+            ->color('danger')
+            ->tooltip(trans('plugged-host-minecraft::strings.mods.delete'))
+            ->visible(fn (): bool => (bool) user()?->can(SubuserPermission::FileDelete, $this->getServer()))
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.delete_heading', ['name' => $this->rowFor($arguments)['name'] ?? '?']))
+            ->modalDescription(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.delete_body', [
+                'file' => $this->rowFor($arguments)['file'] ?? '?',
+                'directory' => app(ModDetectionService::class)->directory($this->getServer()),
+            ]))
+            ->schema(fn (array $arguments): array => filled($this->rowFor($arguments)['data_folder'] ?? null) ? [
+                Toggle::make('with_data')
+                    ->label(trans('plugged-host-minecraft::strings.mods.delete_data', ['folder' => $this->rowFor($arguments)['data_folder']]))
+                    ->helperText(trans('plugged-host-minecraft::strings.mods.delete_data_hint')),
+            ] : [])
+            ->modalSubmitActionLabel(trans('plugged-host-minecraft::strings.mods.delete'))
+            ->action(function (array $arguments, array $data): void {
+                $server = $this->getServer();
+                abort_unless((bool) user()?->can(SubuserPermission::FileDelete, $server), 403);
+
+                try {
+                    $deleted = app(InstalledContentService::class)->delete($server, (string) ($arguments['file'] ?? ''), (bool) ($data['with_data'] ?? false));
+                } catch (InvalidArgumentException) {
+                    $this->failed(trans('plugged-host-minecraft::strings.mods.gone'));
+
+                    return;
+                }
+
+                Activity::event('server:file.delete')
+                    ->property('directory', '/' . app(ModDetectionService::class)->directory($server))
+                    ->property('files', $deleted)
+                    ->log();
+
+                Notification::make()->success()->title(trans('plugged-host-minecraft::strings.mods.deleted', ['name' => $deleted[0]]))->body(trans('plugged-host-minecraft::strings.mods.restart_hint'))->send();
+                $this->refreshList();
+            });
+    }
+
+    public function toggleJarAction(): Action
+    {
+        return Action::make('toggleJar')
+            ->iconButton()
+            ->icon(fn (array $arguments): TablerIcon => ($this->rowFor($arguments)['disabled'] ?? false) ? TablerIcon::PlayerPlay : TablerIcon::PlayerPause)
+            ->color('gray')
+            ->tooltip(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.' . (($this->rowFor($arguments)['disabled'] ?? false) ? 'enable' : 'disable')))
+            ->visible(fn (): bool => (bool) user()?->can(SubuserPermission::FileUpdate, $this->getServer()))
+            ->action(function (array $arguments): void {
+                $server = $this->getServer();
+                abort_unless((bool) user()?->can(SubuserPermission::FileUpdate, $server), 403);
+
+                $row = $this->rowFor($arguments);
+
+                try {
+                    $name = app(InstalledContentService::class)->toggle($server, (string) ($arguments['file'] ?? ''), (bool) ($row['disabled'] ?? false));
+                } catch (InvalidArgumentException) {
+                    $this->failed(trans('plugged-host-minecraft::strings.mods.gone'));
+
+                    return;
+                }
+
+                Activity::event('server:file.rename')
+                    ->property('directory', '/' . app(ModDetectionService::class)->directory($server))
+                    ->property('files', [['from' => $arguments['file'], 'to' => $name]])
+                    ->log();
+
+                Notification::make()->success()->title(trans('plugged-host-minecraft::strings.mods.' . (($row['disabled'] ?? false) ? 'enabled' : 'disabled_done'), ['name' => $row['name'] ?? $name]))->body(trans('plugged-host-minecraft::strings.mods.restart_hint'))->send();
+                $this->refreshList();
+            });
+    }
+
+    public function updateJarAction(): Action
+    {
+        return Action::make('updateJar')
+            ->iconButton()
+            ->icon(TablerIcon::Download)
+            ->color('primary')
+            ->tooltip(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.update', ['version' => $this->rowFor($arguments)['update']['number'] ?? '']))
+            ->visible(fn (array $arguments): bool => ($this->rowFor($arguments)['update'] ?? null) !== null
+                && (bool) user()?->can(SubuserPermission::FileCreate, $this->getServer())
+                && (bool) user()?->can(SubuserPermission::FileDelete, $this->getServer()))
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.update_heading', [
+                'name' => $this->rowFor($arguments)['name'] ?? '?',
+                'version' => $this->rowFor($arguments)['update']['number'] ?? '?',
+            ]))
+            ->modalDescription(trans('plugged-host-minecraft::strings.mods.update_body'))
+            ->action(function (array $arguments): void {
+                $server = $this->getServer();
+                abort_unless((bool) user()?->can(SubuserPermission::FileCreate, $server) && (bool) user()?->can(SubuserPermission::FileDelete, $server), 403);
+
+                try {
+                    $file = app(InstalledContentService::class)->update($server, (string) ($arguments['file'] ?? ''));
+                } catch (InvalidArgumentException) {
+                    $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
+
+                    return;
+                }
+
+                Activity::event('server:file.pull')
+                    ->property('directory', '/' . app(ModDetectionService::class)->directory($server))
+                    ->property('file', $file)
+                    ->log();
+
+                Notification::make()->success()->title(trans('plugged-host-minecraft::strings.mods.updated', ['file' => $file]))->body(trans('plugged-host-minecraft::strings.mods.restart_hint'))->send();
+                $this->refreshList();
+            });
+    }
+
+    /**
+     * The listed row an action's "file" argument names (from the last refresh; the service
+     * re-checks against the live folder before changing anything).
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    protected function rowFor(array $arguments): array
+    {
+        return collect($this->rows)->firstWhere('file', (string) ($arguments['file'] ?? '')) ?? [];
+    }
+
     public function identify(string $file): void
     {
         $server = Filament::getTenant();
@@ -191,18 +346,12 @@ class ServerContent extends MinecraftPage implements HasTable
         }
 
         $result = app(ModDetectionService::class)->identifyExact($server, $file);
-
-        foreach ($this->rows as $i => $row) {
-            if (($row['file'] ?? null) === $file) {
-                $this->rows[$i] = array_merge($row, $result);
-                break;
-            }
-        }
+        $this->refreshList();
 
         Notification::make()
             ->title(($result['confidence'] ?? 'unknown') === 'unknown'
                 ? trans('plugged-host-minecraft::strings.mods.identify_unknown')
-                : trans('plugged-host-minecraft::strings.mods.identify_ok', ['name' => $result['title'] ?? $file]))
+                : trans('plugged-host-minecraft::strings.mods.identify_ok', ['name' => $result['name'] ?? $file]))
             ->send();
     }
 
