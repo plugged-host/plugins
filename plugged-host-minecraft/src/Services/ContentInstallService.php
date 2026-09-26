@@ -8,7 +8,7 @@ use Illuminate\Http\Client\RequestException;
 use Throwable;
 
 /**
- * Installing one plugin or mod from Modrinth or CurseForge onto a server, without a page.
+ * Installing one plugin or mod from Modrinth, CurseForge or SpigotMC onto a server, without a page.
  *
  * Extracted from the ServerContent page so the page and plugged-host-neo resolve versions and
  * place files exactly the same way. Callers own permissions, notifications and the activity
@@ -17,7 +17,7 @@ use Throwable;
  */
 class ContentInstallService
 {
-    public const SOURCES = ['modrinth', 'curseforge'];
+    public const SOURCES = ['modrinth', 'curseforge', 'spigotmc'];
 
     /**
      * Loaders a modpack install can switch the server to (the modpack jobs support these).
@@ -28,6 +28,7 @@ class ContentInstallService
         protected ContentSearchService $search,
         protected ModrinthCatalog $modrinth,
         protected CurseForgeCatalog $curseForge,
+        protected SpigotCatalog $spigot,
     ) {}
 
     /**
@@ -41,6 +42,14 @@ class ContentInstallService
     {
         $software = $this->loaderFilter($server, $kind);
         $gameVersion = $this->search->gameVersion($server);
+
+        if ($source === 'spigotmc') {
+            // Only ever the latest build (see SpigotCatalog); loose when its tested versions
+            // do not include the server's.
+            return $this->spigot->supports($software) && $kind !== 'modpack'
+                ? $this->spigot->versions((int) $project, $gameVersion)
+                : ['versions' => [], 'loose' => false];
+        }
 
         if ($source === 'curseforge') {
             $versions = $this->curseForge->files((int) $project, $gameVersion, $software);
@@ -70,6 +79,10 @@ class ContentInstallService
      */
     public function find(Server $server, string $project, string $versionId, string $source = 'modrinth', ?string $kind = null): ?array
     {
+        if ($source === 'spigotmc') {
+            return collect($this->versions($server, $project, $source, $kind)['versions'])->firstWhere('id', $versionId);
+        }
+
         $software = $this->loaderFilter($server, $kind);
         $loaders = $kind === 'modpack' ? self::MODPACK_LOADERS : $this->modrinth->loaders($software);
 
@@ -107,6 +120,10 @@ class ContentInstallService
             return ['ok' => false, 'error' => 'curseforge_not_configured'];
         }
 
+        if ($source === 'spigotmc' && !$this->spigot->supports($this->search->software($server))) {
+            return ['ok' => false, 'error' => 'spigotmc_unsupported'];
+        }
+
         if ($kind === 'modpack') {
             return ['ok' => false, 'error' => 'modpack'];
         }
@@ -120,12 +137,16 @@ class ContentInstallService
         }
 
         if ($version === null) {
-            return ['ok' => false, 'error' => 'no_compatible_version'];
+            return ['ok' => false, 'error' => $source === 'spigotmc' ? $this->spigotError($server, $project) : 'no_compatible_version'];
         }
 
         $software = $this->search->software($server);
 
-        if ($source === 'curseforge') {
+        if ($source === 'spigotmc') {
+            $url = $version['download_url'] ?? null;
+            $filename = (string) ($version['file_name'] ?? '');
+            $directory = 'plugins';
+        } elseif ($source === 'curseforge') {
             $url = $this->curseForge->downloadUrl((int) $project, (int) $version['id']);
             $filename = (string) ($version['file_name'] ?? '');
             $directory = $this->curseForge->directoryFor($software);
@@ -201,6 +222,19 @@ class ContentInstallService
         }
 
         return 'pull_busy';
+    }
+
+    /**
+     * Why a SpigotMC resource has no build to install: unknown (or premium / not a Paper
+     * plugin), hosted where it cannot be fetched from, or a build other than the latest asked for.
+     */
+    protected function spigotError(Server $server, string $project): string
+    {
+        if ($this->spigot->project((int) $project) === null) {
+            return 'no_compatible_version';
+        }
+
+        return $this->versions($server, $project, 'spigotmc')['versions'] === [] ? 'not_downloadable' : 'spigotmc_latest_only';
     }
 
     /**

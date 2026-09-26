@@ -26,7 +26,7 @@ final class ContentVersionsTool extends MinecraftTool
             'type' => 'object',
             'properties' => [
                 'project' => ['type' => 'string', 'description' => 'Project id from search_content.'],
-                'source' => ['type' => 'string', 'enum' => ['modrinth', 'curseforge']],
+                'source' => ['type' => 'string', 'enum' => ContentInstallService::SOURCES],
                 'kind' => ['type' => 'string', 'enum' => ['plugin', 'mod', 'modpack'], 'description' => 'Use "modpack" for modpacks (their builds are not limited to the server\'s current loader).'],
             ],
             'required' => ['project'],

@@ -6,6 +6,7 @@
 - Tokens are audience-scoped (`plugged-host:sso` / `noprofit:migrate`) with separate secrets (`NOPROFIT_SSO_SECRET`, `NOPROFIT_MIGRATION_SECRET`), `iat`/`exp` and single-use nonces. Committed secret defaults removed.
 - The panel's own 2FA (authenticator app with recovery codes, email codes) is now enforced after SSO and before `/migrate` issues a token; SSO sign-ins bypassed it before.
 - `/migrate`: throttled, fixed callback target, no password hash in the token. New `/sso/link` for signed-in users.
+- Fix: a "403 | Forbidden" modal no longer covers the console when a server stops or crashes with the page open (Pelican's charts 403 their own poll once `canView()` turns false; `ConsoleResiliencePluginProvider` lets that poll pass).
 - New shared `Services\NoprofitClient` (HMAC-signed calls to noprofit.space's internal API) and `Support\NoprofitLink`.
 - Version bump to 1.2.1.
 

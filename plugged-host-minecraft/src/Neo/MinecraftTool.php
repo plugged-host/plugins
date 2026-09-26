@@ -3,6 +3,7 @@
 namespace PluggedHost\Minecraft\Neo;
 
 use InvalidArgumentException;
+use PluggedHost\Minecraft\Services\ContentInstallService;
 use PluggedHost\Minecraft\Services\ContentSearchService;
 use PluggedHost\Minecraft\Services\ModDetectionService;
 use PluggedHost\Neo\Tools\BaseServerTool;
@@ -43,7 +44,9 @@ abstract class MinecraftTool extends BaseServerTool
 
     protected function source(array $arguments): string
     {
-        return ($arguments['source'] ?? 'modrinth') === 'curseforge' ? 'curseforge' : 'modrinth';
+        $source = $arguments['source'] ?? 'modrinth';
+
+        return in_array($source, ContentInstallService::SOURCES, true) ? $source : 'modrinth';
     }
 
     /**

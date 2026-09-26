@@ -5,6 +5,7 @@ namespace PluggedHost\Minecraft\Neo\Tools;
 use App\Enums\SubuserPermission;
 use Illuminate\Support\Str;
 use PluggedHost\Minecraft\Neo\MinecraftTool;
+use PluggedHost\Minecraft\Services\ContentInstallService;
 use PluggedHost\Minecraft\Services\ContentSearchService;
 use PluggedHost\Neo\Tools\ToolContext;
 use PluggedHost\Neo\Tools\ToolResult;
@@ -18,7 +19,7 @@ final class SearchContentTool extends MinecraftTool
 
     public function description(): string
     {
-        return 'Search Modrinth (default) or CurseForge for plugins, mods or modpacks that fit this server\'s software and Minecraft version. Returns project ids to use with content_versions and install_content.';
+        return 'Search Modrinth (default), CurseForge or SpigotMC for plugins, mods or modpacks that fit this server\'s software and Minecraft version. SpigotMC is for plugins on Paper/Purpur servers only, cannot filter by version, and only its latest builds install; prefer Modrinth when a project is on both. Returns project ids to use with content_versions and install_content (with the same source).';
     }
 
     public function parameters(): array
@@ -28,7 +29,7 @@ final class SearchContentTool extends MinecraftTool
             'properties' => [
                 'query' => ['type' => 'string', 'description' => 'What to look for, e.g. "EssentialsX" or "world edit".'],
                 'kind' => ['type' => 'string', 'enum' => ['plugin', 'mod', 'modpack'], 'description' => 'Defaults to what the server takes.'],
-                'source' => ['type' => 'string', 'enum' => ['modrinth', 'curseforge']],
+                'source' => ['type' => 'string', 'enum' => ContentInstallService::SOURCES],
                 'any_version' => ['type' => 'boolean', 'description' => 'Search all Minecraft versions instead of only the server\'s.'],
                 'page' => ['type' => 'integer', 'minimum' => 1],
             ],
@@ -65,6 +66,8 @@ final class SearchContentTool extends MinecraftTool
         $lines = ["{$result['source']} results (software {$result['software']}, version " . ($result['game_version'] ?: 'any') . ", page {$result['page']}/{$result['pages']}):"];
         foreach (array_slice($result['hits'], 0, 10) as $hit) {
             $side = ($hit['server_side'] ?? '') === 'unsupported' ? ' [CLIENT-ONLY: not for servers]' : '';
+            $side .= ($hit['installable'] ?? true) === false ? ' [cannot be installed automatically: premium or hosted elsewhere]' : '';
+            $side .= ($hit['tested_versions'] ?? []) !== [] ? ' [tested on ' . implode(', ', array_slice($hit['tested_versions'], -3)) . ']' : '';
             $lines[] = "- {$hit['title']} (id {$hit['id']}, " . ($hit['kind'] ?? $result['kind'] ?? '?') . ', ' . number_format((int) ($hit['downloads'] ?? 0)) . " downloads){$side}: " . Str::limit((string) ($hit['description'] ?? ''), 120);
         }
 

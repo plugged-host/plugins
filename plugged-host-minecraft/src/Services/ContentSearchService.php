@@ -32,11 +32,12 @@ class ContentSearchService
         protected ModrinthCatalog $modrinth,
         protected CurseForgeCatalog $curseForge,
         protected MinecraftVersionCatalog $versions,
+        protected SpigotCatalog $spigot,
     ) {}
 
     /**
-     * One page of content for this server, from Modrinth (default) or CurseForge (when a key is
-     * configured and requested). Mirrors ServerContent::fetch(): the loader and version filters
+     * One page of content for this server, from Modrinth (default), CurseForge (when a key is
+     * configured and requested) or SpigotMC (Paper-family servers, when requested). Mirrors ServerContent::fetch(): the loader and version filters
      * default to what the server runs, and either can be overridden by the caller.
      *
      * @param  array{q?: string, kind?: ?string, game_version?: ?string, source?: ?string, page?: int}  $filters
@@ -48,9 +49,14 @@ class ContentSearchService
         $query = trim((string) ($filters['q'] ?? ''));
         $page = max(1, (int) ($filters['page'] ?? 1));
         $gameVersion = $this->resolveVersion($server, $filters);
-        $source = $this->sourceFrom($filters);
+        $source = $this->sourceFrom($filters, $software);
 
-        if ($source === 'curseforge') {
+        if ($source === 'spigotmc') {
+            // SpigotMC cannot filter by version; compatibility shows on each build instead.
+            $result = $this->spigot->search($query, SpigotCatalog::PAGE_SIZE, $page);
+            $kind = 'plugin';
+            $gameVersion = null;
+        } elseif ($source === 'curseforge') {
             $result = $this->curseForge->search(
                 software: $software,
                 mcVersion: $gameVersion,
@@ -210,15 +216,30 @@ class ContentSearchService
     }
 
     /**
-     * Which platform to search: Modrinth by default, CurseForge only when requested and a key is
-     * configured. Same rule as ServerContent::sourceFrom().
+     * The platforms this server can browse, Modrinth first: CurseForge when a key is configured,
+     * SpigotMC on Paper-family servers.
+     *
+     * @return list<string>
+     */
+    public function sources(?string $software): array
+    {
+        return array_values(array_filter([
+            'modrinth',
+            $this->curseForge->configured() ? 'curseforge' : null,
+            $this->spigot->supports($software) ? 'spigotmc' : null,
+        ]));
+    }
+
+    /**
+     * Which platform to search: the requested one when this server can browse it, else Modrinth.
+     * Same rule as ServerContent::sourceFrom().
      *
      * @param  array<string, mixed>  $filters
      */
-    protected function sourceFrom(array $filters): string
+    protected function sourceFrom(array $filters, ?string $software): string
     {
-        return ($filters['source'] ?? null) === 'curseforge' && $this->curseForge->configured()
-            ? 'curseforge'
-            : 'modrinth';
+        $source = $filters['source'] ?? null;
+
+        return is_string($source) && in_array($source, $this->sources($software), true) ? $source : 'modrinth';
     }
 }

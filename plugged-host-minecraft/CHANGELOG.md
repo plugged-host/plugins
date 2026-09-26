@@ -4,6 +4,8 @@
 
 - Fix: the post-install Geyser restart used the nonexistent `DaemonPowerRepository`; it now uses `DaemonServerRepository::power('restart')`.
 - Security: the client-API routes now check subuser permissions like the ServerContent page (`file.read` for `/mods` and `/content`, `file.create` for modpack installs, `file.create` + `control.restart` for Geyser). Any subuser could trigger installs before.
+- **SpigotMC** as a third content source on Paper/Purpur servers (new `Services\SpigotCatalog`, read through Spiget; no key, `MINECRAFT_SPIGOTMC_ENABLED` / settings toggle). Free plugins only; installs the latest build from Spiget's CDN, or the linked GitHub release jar for externally hosted ones; others show "External download" with a link. Also available to neo's `search_content` / `install_content` / `content_versions` and the client API (`source=spigotmc`).
+- Fix: the content page's search box and "View on …" link follow the selected source; CurseForge modpacks install through the CurseForge job, and modpack builds are no longer limited to the server's current loader.
 - Version bump to 1.2.1.
 
 ## 1.2.0

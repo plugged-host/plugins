@@ -38,6 +38,7 @@ return [
       'filter_source' => 'Quelle',
       'source_modrinth' => 'Modrinth',
       'source_curseforge' => 'CurseForge',
+      'source_spigotmc' => 'SpigotMC',
       'kind_mod' => 'Mods',
       'kind_modpack' => 'Modpacks',
       'kind_plugin' => 'Plugins',
@@ -55,6 +56,11 @@ return [
       'view' => 'Auf Modrinth ansehen',
       'search_curseforge' => 'CurseForge durchsuchen...',
       'view_curseforge' => 'Auf CurseForge ansehen',
+      'search_spigotmc' => 'SpigotMC durchsuchen...',
+      'view_spigotmc' => 'Auf SpigotMC ansehen',
+      'spigot_latest_only' => 'SpigotMC bietet nur die neueste Version zum Download an.',
+      'spigot_external' => 'Externer Download',
+      'spigot_external_hint' => 'Dieses Plugin ist kostenpflichtig oder wird außerhalb von SpigotMC gehostet und kann deshalb nicht von hier installiert werden. Öffne es auf SpigotMC oder suche es auf Modrinth.',
       'modpack_warning' => 'Der Server wird auf den Loader und die Minecraft Version umgestellt, die dieses Pack benötigt, neu installiert, und danach werden die Pack Dateien abgelegt. Deine Welt bleibt erhalten. Der exakte Loader Build des Packs kann nicht festgelegt werden, daher kann ein Pack, das genau einen Build verlangt, weiterhin Nacharbeit brauchen.',
       'client_only_warning' => 'Der Autor markiert dieses Projekt als rein clientseitig, auf einem Server tut es daher möglicherweise nichts.',
       'modpack_queued' => 'Modpack Installation gestartet',
@@ -253,6 +259,8 @@ return [
         'secret_unset_help' => 'Kein Schlüssel gesetzt. CurseForge-Funktionen sind deaktiviert, bis einer hinterlegt wird.',
         'overrides_limit' => 'Dateilimit für Modpack-Overrides',
         'overrides_limit_hint' => 'Maximale Anzahl an Dateien, die aus dem overrides/-Verzeichnis eines Modpacks extrahiert werden — ein Schutz gegen ein bösartiges Archiv.',
+        'spigotmc_enabled' => 'SpigotMC-Plugins',
+        'spigotmc_enabled_hint' => 'SpigotMC als Quelle auf Paper-/Purpur-Servern anbieten (gelesen über Spiget, kein Schlüssel nötig). Installiert werden kann nur die jeweils neueste Version; kostenpflichtige Plugins werden ausgeblendet.',
     ],
 
 ];

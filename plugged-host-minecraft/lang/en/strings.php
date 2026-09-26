@@ -38,6 +38,7 @@ return [
       'filter_source' => 'Source',
       'source_modrinth' => 'Modrinth',
       'source_curseforge' => 'CurseForge',
+      'source_spigotmc' => 'SpigotMC',
       'kind_mod' => 'Mods',
       'kind_modpack' => 'Modpacks',
       'kind_plugin' => 'Plugins',
@@ -55,6 +56,11 @@ return [
       'view' => 'View on Modrinth',
       'search_curseforge' => 'Search CurseForge...',
       'view_curseforge' => 'View on CurseForge',
+      'search_spigotmc' => 'Search SpigotMC...',
+      'view_spigotmc' => 'View on SpigotMC',
+      'spigot_latest_only' => 'SpigotMC only offers the latest build for download.',
+      'spigot_external' => 'External download',
+      'spigot_external_hint' => 'This plugin is premium or hosted outside SpigotMC, so it cannot be installed from here. Open it on SpigotMC, or look for it on Modrinth.',
       'modpack_warning' => 'The server is switched to the loader and Minecraft version this pack needs, reinstalled, and then the pack files are placed. Your world is kept. The exact loader build of the pack cannot be pinned, so a pack that demands one specific build may still need manual work.',
       'client_only_warning' => 'The author marks this project as client-side only, so it may do nothing on a server.',
       'modpack_queued' => 'Modpack installation started',
@@ -253,6 +259,8 @@ return [
         'secret_unset_help' => 'No key set. CurseForge features are off until one is added.',
         'overrides_limit' => 'Modpack overrides file limit',
         'overrides_limit_hint' => 'Maximum number of files extracted from a modpack\'s overrides/ tree — a guard against a hostile archive.',
+        'spigotmc_enabled' => 'SpigotMC plugins',
+        'spigotmc_enabled_hint' => 'Offer SpigotMC as a source on Paper/Purpur servers (read through Spiget, no key needed). Only each plugin\'s latest build can be installed; premium plugins are hidden.',
     ],
 
 ];

@@ -28,11 +28,12 @@ use PluggedHost\Minecraft\Services\GeyserService;
 use PluggedHost\Minecraft\Services\MinecraftVersionCatalog;
 use PluggedHost\Minecraft\Services\ModDetectionService;
 use PluggedHost\Minecraft\Services\ModrinthCatalog;
+use PluggedHost\Minecraft\Services\SpigotCatalog;
 use Throwable;
 
 /**
- * Browse and install Modrinth content: plugins on a Paper-family server, mods and modpacks
- * on a Fabric/Forge/NeoForge one.
+ * Browse and install Modrinth content (or CurseForge's, or SpigotMC's for plugins): plugins on
+ * a Paper-family server, mods and modpacks on a Fabric/Forge/NeoForge one.
  *
  * Without this page, installing anything means finding a jar in a browser, downloading it,
  * and uploading it through the file manager into the right directory — which is also the
@@ -239,8 +240,12 @@ class ServerContent extends MinecraftPage implements HasTable
             ->filters($this->filterBar())
             ->recordActions($this->rowActions())
             ->searchable()
-            // Follows the Source filter, so the box never says Modrinth while CurseForge is shown.
-            ->searchPlaceholder(fn (): string => trans('plugged-host-minecraft::strings.content.' . ($this->sourceFrom($this->tableFilters ?? []) === 'curseforge' ? 'search_curseforge' : 'search')))
+            // Follows the Source filter, so the box never names a platform that is not shown.
+            ->searchPlaceholder(fn (): string => trans('plugged-host-minecraft::strings.content.' . match ($this->sourceFrom($this->tableFilters ?? [])) {
+                'curseforge' => 'search_curseforge',
+                'spigotmc' => 'search_spigotmc',
+                default => 'search',
+            }))
             // Every keystroke is a Modrinth request; 600ms is long enough that typing a
             // project name costs one call rather than one per letter.
             ->searchDebounce('600ms')
@@ -287,9 +292,15 @@ class ServerContent extends MinecraftPage implements HasTable
             TextColumn::make('status')
                 ->label('')
                 ->badge()
-                ->color('success')
-                ->icon(TablerIcon::Check)
-                ->state(fn (array $record): ?string => $this->isProjectInstalled($record) ? trans('plugged-host-minecraft::strings.content.installed_badge') : null),
+                ->color(fn (array $record): string => $this->isProjectInstalled($record) ? 'success' : 'gray')
+                ->icon(fn (array $record): TablerIcon => $this->isProjectInstalled($record) ? TablerIcon::Check : TablerIcon::ExternalLink)
+                ->tooltip(fn (array $record): ?string => ($record['installable'] ?? true) === false ? trans('plugged-host-minecraft::strings.content.spigot_external_hint') : null)
+                ->state(fn (array $record): ?string => match (true) {
+                    $this->isProjectInstalled($record) => trans('plugged-host-minecraft::strings.content.installed_badge'),
+                    // SpigotMC resources that are premium or hosted elsewhere can only be viewed.
+                    ($record['installable'] ?? true) === false => trans('plugged-host-minecraft::strings.content.spigot_external'),
+                    default => null,
+                }),
         ];
     }
 
@@ -308,22 +319,22 @@ class ServerContent extends MinecraftPage implements HasTable
         $software = $this->software();
         $types = app(ModrinthCatalog::class)->projectTypes($software);
         $versions = $software !== null ? app(MinecraftVersionCatalog::class)->versions($software) : [];
+        $sources = app(ContentSearchService::class)->sources($software);
 
         return [
             // WP12: the content source. Modrinth is the keyless default; CurseForge only
-            // appears when a Core API key is configured (CurseForgeCatalog::configured()),
-            // and it browses that platform's mods/plugins for this server's software. The
-            // records carry their own `platform`, so per-row install/version lookups branch
-            // on the record rather than on this filter — see versionOptions()/pullFile().
+            // appears when a Core API key is configured (CurseForgeCatalog::configured()), and
+            // SpigotMC on Paper-family servers (SpigotCatalog::supports()). The records carry
+            // their own `platform`, so per-row install/version lookups branch on the record
+            // rather than on this filter — see versionOptions()/pullFile().
             SelectFilter::make('source')
                 ->label(trans('plugged-host-minecraft::strings.content.filter_source'))
-                ->options([
-                    'modrinth' => trans('plugged-host-minecraft::strings.content.source_modrinth'),
-                    'curseforge' => trans('plugged-host-minecraft::strings.content.source_curseforge'),
-                ])
+                ->options(collect($sources)->mapWithKeys(fn (string $source): array => [
+                    $source => trans("plugged-host-minecraft::strings.content.source_$source"),
+                ])->all())
                 ->default('modrinth')
                 ->selectablePlaceholder(false)
-                ->hidden(!app(CurseForgeCatalog::class)->configured()),
+                ->hidden(count($sources) < 2),
             SelectFilter::make('kind')
                 ->label(trans('plugged-host-minecraft::strings.content.filter_kind'))
                 ->options(array_combine($types, array_map(
@@ -389,7 +400,11 @@ class ServerContent extends MinecraftPage implements HasTable
                 // Nothing to offer means the project has no build for this loader at all.
                 ->disabled(fn (array $record): bool => $this->versionOptions($record) === []),
             Action::make('modrinth')
-                ->label(fn (array $record): string => trans('plugged-host-minecraft::strings.content.' . ($this->isCurseForge($record) ? 'view_curseforge' : 'view')))
+                ->label(fn (array $record): string => trans('plugged-host-minecraft::strings.content.' . match ($this->platformOf($record)) {
+                    'curseforge' => 'view_curseforge',
+                    'spigotmc' => 'view_spigotmc',
+                    default => 'view',
+                }))
                 ->icon(TablerIcon::ExternalLink)
                 ->color('gray')
                 ->url(fn (array $record): string => (string) $record['url'], true),
@@ -409,6 +424,10 @@ class ServerContent extends MinecraftPage implements HasTable
     {
         if ($this->sourceFrom($filters) === 'curseforge') {
             return $this->fetchCurseForge($search, $filters, $page, $recordsPerPage);
+        }
+
+        if ($this->sourceFrom($filters) === 'spigotmc') {
+            return $this->fetchSpigot($search, $page, $recordsPerPage);
         }
 
         $catalog = app(ModrinthCatalog::class);
@@ -467,8 +486,27 @@ class ServerContent extends MinecraftPage implements HasTable
     }
 
     /**
-     * Which content platform the table is browsing. Defaults to Modrinth, and can only be
-     * CurseForge when a key is configured — the filter that sets it is hidden otherwise.
+     * The SpigotMC branch of fetch(): free Paper-family plugins, most downloaded first. SpigotMC
+     * cannot filter by Minecraft version, so the version filter does not apply here; each
+     * build's tested versions show in the install modal instead.
+     */
+    protected function fetchSpigot(string $search, int $page, int|string $recordsPerPage): LengthAwarePaginator
+    {
+        $perPage = is_numeric($recordsPerPage) ? max(1, (int) $recordsPerPage) : SpigotCatalog::PAGE_SIZE;
+        $result = app(SpigotCatalog::class)->search($search, $perPage, $page);
+
+        return new LengthAwarePaginator(
+            items: collect($result['hits'])->keyBy('id'),
+            total: min($result['total'], 10000),
+            perPage: $perPage,
+            currentPage: $result['page'],
+            options: ['pageName' => $this->getTablePaginationPageName()],
+        );
+    }
+
+    /**
+     * Which content platform the table is browsing: Modrinth by default, otherwise one this
+     * server can browse (the filter only offers those).
      *
      * @param  array<string, array<string, mixed>>  $filters
      */
@@ -476,20 +514,30 @@ class ServerContent extends MinecraftPage implements HasTable
     {
         $source = $filters['source']['value'] ?? null;
 
-        return $source === 'curseforge' && app(CurseForgeCatalog::class)->configured()
-            ? 'curseforge'
+        return is_string($source) && in_array($source, app(ContentSearchService::class)->sources($this->software()), true)
+            ? $source
             : 'modrinth';
     }
 
     /**
-     * Whether a given record came from CurseForge. Records carry their own platform, so an
-     * install started before the source filter changed still resolves against the right API.
+     * Which platform a record came from. Records carry their own platform, so an install
+     * started before the source filter changed still resolves against the right API.
      *
+     * @param  array<string, mixed>  $record
+     */
+    protected function platformOf(array $record): string
+    {
+        $platform = $record['platform'] ?? null;
+
+        return in_array($platform, ContentInstallService::SOURCES, true) ? $platform : 'modrinth';
+    }
+
+    /**
      * @param  array<string, mixed>  $record
      */
     protected function isCurseForge(array $record): bool
     {
-        return ($record['platform'] ?? null) === 'curseforge';
+        return $this->platformOf($record) === 'curseforge';
     }
 
     /**
@@ -534,9 +582,9 @@ class ServerContent extends MinecraftPage implements HasTable
         }
 
         $kind = is_string($record['kind'] ?? null) ? $record['kind'] : null;
-        $versions = $this->isCurseForge($record)
-            ? $this->curseForgeVersions($id, $kind)
-            : $this->modrinthVersions($id, $kind);
+        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, $this->platformOf($record), $kind);
+        $this->looseVersions[$id] = $result['loose'];
+        $versions = $result['versions'];
 
         $options = [];
 
@@ -545,35 +593,6 @@ class ServerContent extends MinecraftPage implements HasTable
         }
 
         return $this->projectVersions[$id] = $options;
-    }
-
-    /**
-     * Modrinth's builds for a project, with the loose-version fallback flagged. See the
-     * class docblock on versionOptions() for why the unfiltered second pass exists.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    protected function modrinthVersions(string $id, ?string $kind = null): array
-    {
-        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'modrinth', $kind);
-        $this->looseVersions[$id] = $result['loose'];
-
-        return $result['versions'];
-    }
-
-    /**
-     * CurseForge's files for a mod, filtered to this server's loader/version, with the same
-     * loose fallback Modrinth gets. CurseForge files carry no `number`, so versionLabel falls
-     * back to the display name.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    protected function curseForgeVersions(string $id, ?string $kind = null): array
-    {
-        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'curseforge', $kind);
-        $this->looseVersions[$id] = $result['loose'];
-
-        return $result['versions'];
     }
 
     /**
@@ -604,13 +623,19 @@ class ServerContent extends MinecraftPage implements HasTable
     {
         $this->versionOptions($record);
 
-        if (!($this->looseVersions[(string) ($record['id'] ?? '')] ?? false)) {
-            return null;
+        $help = [];
+
+        if ($this->platformOf($record) === 'spigotmc') {
+            $help[] = trans('plugged-host-minecraft::strings.content.spigot_latest_only');
         }
 
-        return trans('plugged-host-minecraft::strings.content.version_loose', [
-            'version' => (string) $this->gameVersion(),
-        ]);
+        if ($this->looseVersions[(string) ($record['id'] ?? '')] ?? false) {
+            $help[] = trans('plugged-host-minecraft::strings.content.version_loose', [
+                'version' => (string) $this->gameVersion(),
+            ]);
+        }
+
+        return $help === [] ? null : implode(' ', $help);
     }
 
     /**
@@ -637,7 +662,7 @@ class ServerContent extends MinecraftPage implements HasTable
             $this->getServer(),
             (string) ($record['id'] ?? ''),
             $versionId,
-            $this->isCurseForge($record) ? 'curseforge' : 'modrinth',
+            $this->platformOf($record),
             is_string($record['kind'] ?? null) ? $record['kind'] : null,
         );
     }
@@ -722,7 +747,17 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function pullFile(array $record, array $version): void
     {
-        if ($this->isCurseForge($record)) {
+        if ($this->platformOf($record) === 'spigotmc') {
+            // SpigotCatalog already resolved where the jar can be fetched and a safe name for it.
+            $file = ['url' => (string) ($version['download_url'] ?? ''), 'filename' => (string) ($version['file_name'] ?? '')];
+            $directory = 'plugins';
+
+            if ($file['url'] === '' || $file['filename'] === '') {
+                $this->failed(trans('plugged-host-minecraft::strings.content.no_file'));
+
+                return;
+            }
+        } elseif ($this->isCurseForge($record)) {
             $cf = app(CurseForgeCatalog::class);
             $url = $cf->downloadUrl((int) ($record['id'] ?? 0), (int) ($version['id'] ?? 0));
 
