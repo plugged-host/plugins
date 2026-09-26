@@ -127,6 +127,14 @@
     .neo-btn-danger { color: #fda4af; border-color: rgba(244,63,94,.35); }
     .neo-btn-danger:hover { background: rgba(244,63,94,.12); }
     .neo-small { display: flex; gap: .4rem; font-size: .72rem; line-height: 1.5; color: var(--neo-faint); padding: 0 .2rem; }
+    .neo-hist { display: flex; align-items: center; gap: .25rem; border-radius: .8rem; border: 1px solid var(--neo-line); background: var(--neo-raise); transition: border-color .12s; }
+    .neo-hist:hover { border-color: var(--phv2-accent-edge, rgba(59,130,246,.45)); }
+    .neo-hist-current { border-color: var(--phv2-accent-edge, rgba(59,130,246,.55)); background: rgba(59,130,246,.08); }
+    .neo-hist-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: .6rem; padding: .6rem .7rem; text-align: left; }
+    .neo-hist-open > .neo-i { color: #60a5fa; }
+    .neo-hist-text { min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
+    .neo-hist-title { font-size: .82rem; font-weight: 600; color: var(--neo-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .neo-hist-meta { font-size: .7rem; color: var(--neo-faint); }
     .neo-consent { flex: 1; overflow-y: auto; padding: 1.4rem 1.1rem; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .85rem; font-size: .8125rem; color: var(--neo-muted); }
     .neo-consent h3 { font-weight: 800; font-size: 1.05rem; color: var(--neo-text); }
     .neo-consent ul { display: flex; flex-direction: column; gap: .55rem; text-align: left; }

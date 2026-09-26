@@ -8,6 +8,7 @@
 - Tools: server status, console read, send command, power (via ads' `interceptFor()` start
   chain), list / read / search / write / edit / create folder / move / delete / compress /
   extract files, and list servers on the app panel. `NeoToolRegistry::register()` for plugins.
+- Chat history (clock icon): earlier chats of this server (or the dashboard), newest first; reopen one to continue it, or delete it.
 - Settings inside the chat (gear icon): enable neo, let neo act without asking, usage with reset times, delete history. No profile tab; with neo off, a small dimmed launcher turns it back on.
 - Settings tab edits panel values and noprofit.space's provider slots and limits.
 - neo is an agentic assistant: it plans, acts with its tools, verifies the result and reports,

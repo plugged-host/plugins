@@ -49,6 +49,11 @@ return [
         'off_body' => 'Turn it back on to chat and let it work on your servers.',
         'turn_on' => 'Turn neo on',
         'confirm_delete' => 'Tap again to delete',
+        'history' => 'Earlier chats',
+        'history_empty' => 'No earlier chats here yet. When you start a new chat, the old one is kept here.',
+        'untitled' => 'Untitled chat',
+        'messages_count' => '{1} :count message|[0,*] :count messages',
+        'delete_chat' => 'Delete this chat',
         'suggestions' => [
             'server' => [
                 ['icon' => 'tabler-alert-triangle', 'label' => 'Fix a crash', 'prompt' => 'My server crashed or will not start. Find out why and fix it.'],

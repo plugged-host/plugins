@@ -49,6 +49,11 @@ return [
         'off_body' => 'Schalte neo wieder ein, um zu chatten und es an deinen Servern arbeiten zu lassen.',
         'turn_on' => 'neo einschalten',
         'confirm_delete' => 'Zum Löschen erneut tippen',
+        'history' => 'Frühere Chats',
+        'history_empty' => 'Hier gibt es noch keine früheren Chats. Wenn du einen neuen Chat beginnst, bleibt der alte hier erhalten.',
+        'untitled' => 'Chat ohne Titel',
+        'messages_count' => '{1} :count Nachricht|[0,*] :count Nachrichten',
+        'delete_chat' => 'Diesen Chat löschen',
         'suggestions' => [
             'server' => [
                 ['icon' => 'tabler-alert-triangle', 'label' => 'Absturz beheben', 'prompt' => 'Mein Server ist abgestürzt oder startet nicht. Finde die Ursache und behebe sie.'],

@@ -44,8 +44,8 @@ class NeoChat extends Component
     public string $draft = '';
 
     /**
-     * chat | settings (the gear in the header). A user who switched neo off only ever gets the
-     * small "turn neo back on" view.
+     * chat | settings (the gear) | history (earlier chats). A user who switched neo off only
+     * ever gets the small "turn neo back on" view.
      */
     public string $view = 'chat';
 
@@ -221,6 +221,7 @@ class NeoChat extends Component
     {
         $this->conversationId = $this->agent()->newConversation($this->conversation(), $this->user())->id;
         $this->draft = '';
+        $this->view = 'chat';
     }
 
     public function acknowledge(): void
@@ -236,6 +237,53 @@ class NeoChat extends Component
     public function showChat(): void
     {
         $this->view = 'chat';
+    }
+
+    public function showHistory(): void
+    {
+        $this->view = 'history';
+    }
+
+    /**
+     * Continue an earlier chat from the history: it becomes the open conversation again (and
+     * the current one, if it has anything in it, goes to the history in its place).
+     *
+     * @return array{resume: bool}
+     */
+    public function openConversation(int $id): array
+    {
+        $user = $this->user();
+        $target = $this->ownConversation($user, $id);
+        $current = $this->conversation();
+
+        if ($current->id !== $target->id) {
+            if (in_array($current->status, [NeoConversation::RUNNING, NeoConversation::AWAITING_APPROVAL], true)) {
+                $this->agent()->cancel($current);
+            }
+
+            if ($current->messages()->exists()) {
+                $current->update(['archived_at' => now()]);
+            } else {
+                $current->delete();
+            }
+
+            $target->update(['archived_at' => null, 'last_activity_at' => now()]);
+            $this->conversationId = $target->id;
+        }
+
+        $this->view = 'chat';
+
+        return ['resume' => $target->fresh()?->status === NeoConversation::RUNNING];
+    }
+
+    public function deleteConversation(int $id): void
+    {
+        $user = $this->user();
+        $this->ownConversation($user, $id)->delete();
+
+        if ($this->conversationId === $id) {
+            $this->conversationId = $this->agent()->conversationFor($user, $this->server())->id;
+        }
     }
 
     /**
@@ -269,6 +317,16 @@ class NeoChat extends Component
         $account = $this->account();
         $enabled = NeoPreferences::enabled($account);
 
+        if ($enabled && $this->opened && $this->view === 'history') {
+            return view('plugged-host-neo::livewire.chat', [
+                'conversation' => null,
+                'enabled' => true,
+                'settings' => null,
+                'history' => $this->history($this->user()),
+                'serverName' => $this->server()?->name,
+            ]);
+        }
+
         if (!$enabled || ($this->opened && $this->view === 'settings')) {
             return view('plugged-host-neo::livewire.chat', [
                 'conversation' => null,
@@ -297,6 +355,32 @@ class NeoChat extends Component
             'enabled' => true,
             'settings' => null,
         ]);
+    }
+
+    /**
+     * This place's chats (this server, or the app panel), newest first.
+     *
+     * @return \Illuminate\Support\Collection<int, NeoConversation>
+     */
+    private function history(User $user): \Illuminate\Support\Collection
+    {
+        return NeoConversation::query()
+            ->where('user_id', $user->id)
+            ->where('server_id', $this->serverId)
+            ->whereHas('messages', fn ($query) => $query->where('role', NeoMessage::USER))
+            ->withCount(['messages as user_messages_count' => fn ($query) => $query->where('role', NeoMessage::USER)])
+            ->orderByDesc('last_activity_at')
+            ->limit(50)
+            ->get();
+    }
+
+    private function ownConversation(User $user, int $id): NeoConversation
+    {
+        return NeoConversation::query()
+            ->whereKey($id)
+            ->where('user_id', $user->id)
+            ->where('server_id', $this->serverId)
+            ->firstOrFail();
     }
 
     /**

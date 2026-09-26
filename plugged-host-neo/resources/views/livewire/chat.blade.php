@@ -38,6 +38,7 @@
     $barClass = fn (int $percent): string => $percent >= 95 ? 'neo-bar-full' : ($percent >= 80 ? 'neo-bar-warn' : '');
     $suggestions = (array) trans('plugged-host-neo::strings.chat.suggestions.' . (($serverName ?? null) ? 'server' : 'app'));
     $enabled ??= true;
+    $history ??= null;
 @endphp
 <div class="neo-root"
      x-data="{
@@ -195,6 +196,43 @@
                 </div>
                 <button type="button" class="neo-btn neo-btn-primary" x-on:click="turnOn()">{!! $icon('tabler-power', 'neo-i-sm') !!}{{ $s('chat.turn_on') }}</button>
             </div>
+        @elseif($history !== null)
+            <div class="neo-head">
+                <button type="button" class="neo-iconbtn" wire:click="showChat" title="{{ $s('chat.back') }}" aria-label="{{ $s('chat.back') }}">{!! $icon('tabler-arrow-left') !!}</button>
+                <div class="neo-head-text">
+                    <div class="neo-title">neo</div>
+                    <div class="neo-sub">{{ $s('chat.history') }}</div>
+                </div>
+                <button type="button" class="neo-iconbtn" wire:click="newChat" x-bind:disabled="working" title="{{ $s('chat.new_chat') }}" aria-label="{{ $s('chat.new_chat') }}">{!! $icon('tabler-message-plus') !!}</button>
+                <button type="button" class="neo-iconbtn" x-on:click="toggle()" title="{{ $s('chat.minimize') }}" aria-label="{{ $s('chat.minimize') }}">{!! $icon('tabler-chevron-down') !!}</button>
+            </div>
+            <div class="neo-settings">
+                @forelse($history as $item)
+                    <div class="neo-hist {{ $item->id === $this->conversationId ? 'neo-hist-current' : '' }}" wire:key="neo-hist-{{ $item->id }}">
+                        <button type="button" class="neo-hist-open" x-bind:disabled="working"
+                                x-on:click="$wire.openConversation({{ $item->id }}).then((r) => { if (r && r.resume) { run(() => $wire.step()); } })">
+                            {!! $icon($item->id === $this->conversationId ? 'tabler-message-circle-check' : 'tabler-message-circle') !!}
+                            <span class="neo-hist-text">
+                                <span class="neo-hist-title">{{ $item->title ?: $s('chat.untitled') }}</span>
+                                <span class="neo-hist-meta">{{ optional($item->last_activity_at)->locale(app()->getLocale())->diffForHumans() }} · {{ trans_choice('plugged-host-neo::strings.chat.messages_count', $item->user_messages_count, ['count' => $item->user_messages_count]) }}</span>
+                            </span>
+                        </button>
+                        <span x-data="{ sure: false }">
+                            <button type="button" class="neo-iconbtn" x-bind:class="sure ? 'neo-bad' : ''" x-bind:disabled="working"
+                                    x-bind:title="sure ? @js($s('chat.confirm_delete')) : @js($s('chat.delete_chat'))"
+                                    x-on:click="if (sure) { $wire.deleteConversation({{ $item->id }}); } else { sure = true; setTimeout(() => sure = false, 4000); }">
+                                <span x-show="!sure">{!! $icon('tabler-trash') !!}</span>
+                                <span x-show="sure" x-cloak>{!! $icon('tabler-trash-x') !!}</span>
+                            </button>
+                        </span>
+                    </div>
+                @empty
+                    <div class="neo-empty">
+                        <div class="neo-mark neo-mark-off">{!! $icon('tabler-history') !!}</div>
+                        <div>{{ $s('chat.history_empty') }}</div>
+                    </div>
+                @endforelse
+            </div>
         @elseif($settings)
             <div class="neo-head">
                 <button type="button" class="neo-iconbtn" wire:click="showChat" title="{{ $s('chat.back') }}" aria-label="{{ $s('chat.back') }}">{!! $icon('tabler-arrow-left') !!}</button>
@@ -278,6 +316,7 @@
                         @endif
                     </div>
                 </div>
+                <button type="button" class="neo-iconbtn" wire:click="showHistory" title="{{ $s('chat.history') }}" aria-label="{{ $s('chat.history') }}">{!! $icon('tabler-history') !!}</button>
                 <button type="button" class="neo-iconbtn" wire:click="newChat" x-bind:disabled="working" title="{{ $s('chat.new_chat') }}" aria-label="{{ $s('chat.new_chat') }}">{!! $icon('tabler-message-plus') !!}</button>
                 <button type="button" class="neo-iconbtn" wire:click="showSettings" title="{{ $s('chat.settings') }}" aria-label="{{ $s('chat.settings') }}">{!! $icon('tabler-settings') !!}</button>
                 <button type="button" class="neo-iconbtn" x-on:click="toggle()" title="{{ $s('chat.minimize') }}" aria-label="{{ $s('chat.minimize') }}">{!! $icon('tabler-chevron-down') !!}</button>
