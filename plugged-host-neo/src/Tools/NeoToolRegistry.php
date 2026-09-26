@@ -3,6 +3,7 @@
 namespace PluggedHost\Neo\Tools;
 
 use PluggedHost\Neo\Agent\ServerGuard;
+use PluggedHost\Neo\Tools\Any\ReadMclogsTool;
 use PluggedHost\Neo\Tools\App\ListServersTool;
 use PluggedHost\Neo\Tools\Server as ServerTools;
 
@@ -41,6 +42,7 @@ final class NeoToolRegistry
         ServerTools\RestoreBackupTool::class,
         ServerTools\DeleteBackupTool::class,
         ListServersTool::class,
+        ReadMclogsTool::class,
     ];
 
     /**

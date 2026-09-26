@@ -6,13 +6,13 @@ return [
         'close' => 'Schließen',
         'new_chat' => 'Neuer Chat',
         'subtitle_server' => 'auf :server',
-        'subtitle_app' => 'plugged.host Support',
-        'placeholder' => 'Frag neo zu deinem Server…',
+        'subtitle_app' => 'dein plugged.host-Assistent',
+        'placeholder' => 'Frag neo oder sag, was es tun soll…',
         'send' => 'Senden',
         'stop' => 'Stopp',
         'working' => 'neo arbeitet…',
-        'empty_server' => 'Frag zu Abstürzen, Lags, Konfigurationen oder Plugins. neo kann Konsole und Dateien lesen und mit deiner Zustimmung Änderungen vornehmen.',
-        'empty_app' => 'Frag alles rund um plugged.host. Um an einem Server zu arbeiten, öffne neo auf den Seiten dieses Servers.',
+        'empty_server' => 'Sag neo, was du brauchst, z. B. „behebe den Absturz“, „installiere ein Shop-Plugin“ oder „mach ein Backup und update auf 1.21“. neo arbeitet es Schritt für Schritt ab: liest Konsole und Dateien, nimmt die Änderungen vor und prüft, ob alles funktioniert.',
+        'empty_app' => 'neo ist dein Assistent für alles auf plugged.host: Es kann Server erstellen und anpassen, dein Konto prüfen und Fragen beantworten. Um in einem Server zu arbeiten, öffne neo auf den Seiten dieses Servers.',
         'needs_approval' => 'Braucht deine Zustimmung',
         'approve' => 'Zulassen',
         'deny' => 'Ablehnen',
@@ -37,15 +37,15 @@ return [
 
     'consent' => [
         'title' => 'Bevor es losgeht',
-        'body' => 'neo ist ein KI-Assistent. Damit neo helfen kann, wird das, was du schreibst, und das, was neo von deinem Server liest (Konsolenausgabe, Dateiinhalte), an unsere KI-Anbieter gesendet: Groq und, als Ausweichlösung, Claude von Anthropic über einen Drittanbieter-Proxy. Passwörter und Tokens werden vor dem Senden maskiert.',
+        'body' => 'neo ist ein agentischer KI-Assistent: Es beantwortet nicht nur Fragen, sondern erledigt Aufgaben auf deinen Servern und in deinem Konto für dich. Dafür wird das, was du schreibst, und das, was neo von deinem Server liest (Konsolenausgabe, Dateiinhalte), an unsere KI-Anbieter gesendet: Groq und, als Ausweichlösung, Claude von Anthropic über einen Drittanbieter-Proxy. Passwörter und Tokens werden vor dem Senden maskiert.',
         'approvals' => 'neo fragt, bevor es etwas auf deinem Server ändert. In deinen Profileinstellungen kannst du neo ausschalten oder ohne Nachfrage handeln lassen.',
         'accept' => 'Verstanden, los',
     ],
 
     'profile' => [
         'tab' => 'neo',
-        'section' => 'neo Support-Assistent',
-        'section_hint' => 'neo kann Konsole und Dateien deines Servers lesen und beim Beheben von Problemen helfen.',
+        'section' => 'neo, dein agentischer Assistent',
+        'section_hint' => 'neo erledigt Aufgaben für dich: behebt Probleme, installiert Plugins und Mods, bearbeitet Dateien und erstellt oder ändert Server, immer mit deinen eigenen Berechtigungen.',
         'enabled' => 'neo aktivieren',
         'enabled_hint' => 'Ausgeschaltet ist neo überall ausgeblendet und handelt nicht mehr auf deinen Servern.',
         'auto_approve' => 'neo Änderungen ohne Nachfrage erlauben',
@@ -65,6 +65,18 @@ return [
         'delete_history' => 'Meinen neo-Verlauf löschen',
         'deleted' => 'Dein neo-Verlauf wurde gelöscht.',
         'privacy' => 'Was du schreibst und was neo von deinen Servern liest, wird an KI-Anbieter gesendet (Groq; Claude von Anthropic über einen Proxy als Ausweichlösung). Geheimnisse werden vorher maskiert.',
+    ],
+
+    'mclogs' => [
+        'problems_title' => '{1} mclo.gs hat ein Problem im Log gefunden|[2,*] mclo.gs hat :count Probleme im Log gefunden',
+        'errors_title' => '{1} Das Log enthält einen Fehler|[2,*] Das Log enthält :count Fehler',
+        'errors_body' => 'mclo.gs hat kein bekanntes Problem erkannt, aber neo kann die Fehler lesen und die Ursache beheben.',
+        'more' => '…und :count weitere',
+        'ask' => 'neo beheben lassen',
+        'view' => 'Log ansehen',
+        'expired' => 'Dieses Log ist für neo nicht mehr verfügbar. Lade die Logs erneut hoch.',
+        'ask_problems' => '{1} mclo.gs hat ein Problem in meinem Server-Log gefunden (:url). Bitte finde die Ursache und behebe es.|[2,*] mclo.gs hat :count Probleme in meinem Server-Log gefunden (:url). Bitte finde die Ursachen und behebe sie.',
+        'ask_errors' => 'Mein Server-Log (:url) enthält Fehler. Bitte finde die Ursache und behebe sie.',
     ],
 
     'permissions' => [

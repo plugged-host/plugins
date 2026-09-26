@@ -72,7 +72,54 @@ final class NeoAgent
         return $this->conversationFor($user, $conversation->server);
     }
 
-    public function send(NeoConversation $conversation, User $user, string $text): StepResult
+    /**
+     * Start a turn whose first step, a read tool, is already decided (e.g. "Ask neo" on an
+     * uploaded log starts with read_mclogs). The call is stored as if the model had made it, so
+     * the model starts from the result, fenced as untrusted like any tool output, instead of
+     * log text being pasted into the user's message. Read tools only: this skips no approval.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    public function sendStartingWith(NeoConversation $conversation, User $user, string $text, string $toolName, array $arguments): StepResult
+    {
+        $tool = $this->tools->available(new ToolContext($user, $conversation->server, $conversation))[$toolName] ?? null;
+
+        if ($tool === null || $tool->risk($arguments) !== ToolRisk::Read) {
+            throw new InvalidArgumentException("{$toolName} cannot start a turn here.");
+        }
+
+        return $this->send($conversation, $user, $text, function () use ($conversation, $tool, $arguments): void {
+            $id = 'call_' . Str::lower(Str::random(24));
+
+            $this->append($conversation, NeoMessage::ASSISTANT, [
+                'content' => null,
+                'tool_calls' => [[
+                    'id' => $id,
+                    'type' => 'function',
+                    'function' => ['name' => $tool->name(), 'arguments' => (string) json_encode($arguments, JSON_UNESCAPED_SLASHES)],
+                ]],
+                'meta' => ['seeded' => true],
+            ]);
+
+            $this->append($conversation, NeoMessage::TOOL, [
+                'tool_call_id' => $id,
+                'tool_name' => $tool->name(),
+                'status' => NeoMessage::QUEUED,
+                'meta' => [
+                    'arguments' => $arguments,
+                    'summary' => $tool->summarize($arguments),
+                    'risk' => ToolRisk::Read->value,
+                    'approval' => null,
+                    'preview' => null,
+                ],
+            ]);
+        });
+    }
+
+    /**
+     * @param  (callable(): void)|null  $then  Runs inside the transaction, after the user message is stored.
+     */
+    public function send(NeoConversation $conversation, User $user, string $text, ?callable $then = null): StepResult
     {
         if (($blocked = $this->blockedReason($conversation, $user)) !== null) {
             return StepResult::of(StepResult::BLOCKED, $blocked);
@@ -95,7 +142,7 @@ final class NeoAgent
         }
         RateLimiter::hit($key, 60);
 
-        DB::transaction(function () use ($conversation, $text): void {
+        DB::transaction(function () use ($conversation, $text, $then): void {
             // Anything still waiting belongs to the previous request: answer it so every tool
             // call keeps a result (providers reject a transcript with an unanswered call).
             $conversation->messages()
@@ -107,6 +154,10 @@ final class NeoAgent
                 ]);
 
             $this->append($conversation, NeoMessage::USER, ['content' => $text]);
+
+            if ($then !== null) {
+                $then();
+            }
 
             $conversation->update([
                 'title' => $conversation->title ?? Str::limit($text, 60),

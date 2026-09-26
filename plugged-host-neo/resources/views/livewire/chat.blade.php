@@ -5,6 +5,7 @@
      x-data="{
         open: false,
         working: false,
+        pendingLog: null,
         init() {
             try { this.open = localStorage.getItem('plugged-host-neo.open') === '1'; } catch (e) {}
             if (this.open) { this.load(); }
@@ -16,6 +17,27 @@
         },
         load() {
             $wire.open().then((r) => { if (r && r.resume) { this.run(() => $wire.step()); } });
+        },
+        {{-- 'Ask neo' on a mclo.gs upload (dispatched from OfferNeoForMclogsUpload's notification). --}}
+        async ask(detail) {
+            const log = detail && typeof detail.log === 'string' ? detail.log : null;
+            if (!log) { return; }
+            this.pendingLog = log;
+            this.open = true;
+            try { localStorage.setItem('plugged-host-neo.open', '1'); } catch (e) {}
+            await $wire.open();
+            const start = async () => {
+                const r = await $wire.askAboutLog(log);
+                if (!r || r.state !== 'blocked') { this.pendingLog = null; }
+                return r;
+            };
+            if (!this.working) { return this.run(start); }
+            {{-- A turn is still looping: it picks the new chat up on its next step. --}}
+            const r = await start();
+            if (!this.working && r && r.state === 'continue') { this.run(() => $wire.step()); }
+        },
+        acknowledge() {
+            $wire.acknowledge().then(() => { if (this.pendingLog) { this.ask({ log: this.pendingLog }); } });
         },
         async run(first) {
             if (this.working) { return; }
@@ -34,6 +56,7 @@
             }
         },
      }"
+     x-on:plugged-host-neo-ask.window="ask($event.detail)"
      x-cloak>
     <div class="neo-panel" x-show="open" x-transition.opacity>
         @if($conversation)
@@ -56,7 +79,7 @@
                     <h3>{{ $s('consent.title') }}</h3>
                     <p>{{ $s('consent.body') }}</p>
                     <p>{{ $s('consent.approvals') }}</p>
-                    <div><button type="button" class="neo-btn neo-btn-primary" wire:click="acknowledge">{{ $s('consent.accept') }}</button></div>
+                    <div><button type="button" class="neo-btn neo-btn-primary" x-on:click="acknowledge()">{{ $s('consent.accept') }}</button></div>
                 </div>
             @else
                 @if($usage)

@@ -12,11 +12,14 @@ use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Http\Client\Events\ResponseReceived;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use PluggedHost\Neo\Console\Commands\NeoPruneCommand;
+use PluggedHost\Neo\Listeners\OfferNeoForMclogsUpload;
 use PluggedHost\Neo\Livewire\NeoChat;
 use PluggedHost\Neo\Livewire\NeoProfileSettings;
 use PluggedHost\Neo\Support\NeoAccess;
@@ -24,11 +27,13 @@ use Throwable;
 
 /**
  * Wires neo into the panel: the profile tab, the floating chat on the app and server panels,
- * the activity-log sentences, and the daily retention prune. Everything is inert until
- * NEO_ENABLED is on and the migrations have run (NeoAccess::ready()).
+ * the activity-log sentences, "Ask neo" on mclo.gs log uploads, and the daily retention prune.
+ * Everything is inert until NEO_ENABLED is on and the migrations have run (NeoAccess::ready()).
  */
 class NeoPluginProvider extends ServiceProvider
 {
+    private const MCLOGS_UPLOAD_ACTION = 'Boy132\\MclogsUploader\\Filament\\Components\\Actions\\UploadLogsAction';
+
     public function register(): void
     {
         // "neo" tab in the subuser editor: owners decide which subusers may use neo on their
@@ -62,6 +67,11 @@ class NeoPluginProvider extends ServiceProvider
         Livewire::component('plugged-host-neo.profile-settings', NeoProfileSettings::class);
 
         $this->injectActivityDescriptions();
+
+        // "Ask neo" on console logs uploaded with the mclogs-uploader plugin, when it is installed.
+        if (class_exists(self::MCLOGS_UPLOAD_ACTION)) {
+            Event::listen(ResponseReceived::class, [OfferNeoForMclogsUpload::class, 'handle']);
+        }
 
         // Unscoped and filtered inside, like every plugged.host body hook; rendered inside the
         // try so a failure costs the launcher, never the page.

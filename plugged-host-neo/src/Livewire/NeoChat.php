@@ -5,6 +5,7 @@ namespace PluggedHost\Neo\Livewire;
 use App\Models\Server;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,7 @@ use PluggedHost\Neo\Agent\StepResult;
 use PluggedHost\Neo\Models\NeoConversation;
 use PluggedHost\Neo\Models\NeoMessage;
 use PluggedHost\Neo\Services\NeoGateway;
+use PluggedHost\Neo\Support\MclogsHandoff;
 use PluggedHost\Neo\Support\NeoAccess;
 use PluggedHost\Neo\Support\NeoPreferences;
 use Throwable;
@@ -161,6 +163,44 @@ class NeoChat extends Component
     public function retry(): array
     {
         return $this->guarded(fn (): StepResult => $this->agent()->retry($this->conversation(), $this->user()));
+    }
+
+    /**
+     * "Ask neo" on the notification neo adds to a mclo.gs upload: a fresh chat that starts with
+     * the log's analysis and asks neo to fix what it found. Only uploads this user made from
+     * this server in the last hours are accepted, so "my server's log" is true.
+     *
+     * @return array<string, mixed>
+     */
+    public function askAboutLog(string $log): array
+    {
+        $user = $this->user();
+        $upload = MclogsHandoff::find($user, $log);
+
+        if ($upload === null || $this->serverId === null || (int) $upload['server_id'] !== $this->serverId) {
+            Notification::make()->title(trans('plugged-host-neo::strings.mclogs.expired'))->warning()->send();
+
+            return StepResult::of(StepResult::DONE)->toArray();
+        }
+
+        return $this->guarded(function () use ($user, $upload): StepResult {
+            $conversation = $this->conversation();
+
+            if ($conversation->messages()->exists()) {
+                if (in_array($conversation->status, [NeoConversation::RUNNING, NeoConversation::AWAITING_APPROVAL], true)) {
+                    $this->agent()->cancel($conversation);
+                }
+
+                $conversation = $this->agent()->newConversation($conversation, $user);
+                $this->conversationId = $conversation->id;
+            }
+
+            $text = $upload['problems'] > 0
+                ? trans_choice('plugged-host-neo::strings.mclogs.ask_problems', $upload['problems'], ['count' => $upload['problems'], 'url' => $upload['url']])
+                : trans('plugged-host-neo::strings.mclogs.ask_errors', ['url' => $upload['url']]);
+
+            return $this->agent()->sendStartingWith($conversation, $user, $text, 'read_mclogs', ['log' => $upload['id']]);
+        });
     }
 
     public function newChat(): void

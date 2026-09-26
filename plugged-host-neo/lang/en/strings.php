@@ -6,13 +6,13 @@ return [
         'close' => 'Close',
         'new_chat' => 'New chat',
         'subtitle_server' => 'on :server',
-        'subtitle_app' => 'plugged.host support',
-        'placeholder' => 'Ask neo about your server…',
+        'subtitle_app' => 'your plugged.host assistant',
+        'placeholder' => 'Ask neo, or tell it what to do…',
         'send' => 'Send',
         'stop' => 'Stop',
         'working' => 'neo is working…',
-        'empty_server' => 'Ask about crashes, lag, configs or plugins. neo can read the console and files, and change things with your approval.',
-        'empty_app' => 'Ask anything about plugged.host. To work on a server, open neo from that server\'s pages.',
+        'empty_server' => 'Tell neo what you need, like "fix the crash", "install a shop plugin" or "make a backup and update to 1.21". It works through it step by step: it reads the console and files, makes the changes and checks they worked.',
+        'empty_app' => 'neo is your assistant for everything on plugged.host: it can create and resize servers, check your account, and answer questions. To work inside a server, open neo from that server\'s pages.',
         'needs_approval' => 'Needs your approval',
         'approve' => 'Approve',
         'deny' => 'Decline',
@@ -37,15 +37,15 @@ return [
 
     'consent' => [
         'title' => 'Before you start',
-        'body' => 'neo is an AI assistant. To help you, what you type and what neo reads from your server (console output, file contents) is sent to our AI providers: Groq, and Anthropic\'s Claude through a third-party proxy as a fallback. Passwords and tokens are masked before anything is sent.',
+        'body' => 'neo is an agentic AI assistant: it doesn\'t just answer, it carries out tasks on your servers and account for you. To do that, what you type and what neo reads from your server (console output, file contents) is sent to our AI providers: Groq, and Anthropic\'s Claude through a third-party proxy as a fallback. Passwords and tokens are masked before anything is sent.',
         'approvals' => 'neo asks before it changes anything on your server. You can turn neo off, or let it act without asking, in your profile settings.',
         'accept' => 'Got it, start',
     ],
 
     'profile' => [
         'tab' => 'neo',
-        'section' => 'neo support assistant',
-        'section_hint' => 'neo can read your server\'s console and files and help fix problems.',
+        'section' => 'neo, your agentic assistant',
+        'section_hint' => 'neo carries out tasks for you: it fixes problems, installs plugins and mods, edits files, and creates or resizes servers, all with your own permissions.',
         'enabled' => 'Enable neo',
         'enabled_hint' => 'Turning this off hides neo everywhere and stops it acting on your servers.',
         'auto_approve' => 'Let neo make changes without asking',
@@ -65,6 +65,18 @@ return [
         'delete_history' => 'Delete my neo history',
         'deleted' => 'Your neo history was deleted.',
         'privacy' => 'What you type and what neo reads from your servers is sent to AI providers (Groq; Anthropic\'s Claude through a proxy as a fallback). Secrets are masked first.',
+    ],
+
+    'mclogs' => [
+        'problems_title' => '{1} mclo.gs found a problem in the log|[2,*] mclo.gs found :count problems in the log',
+        'errors_title' => '{1} The log has an error in it|[2,*] The log has :count errors in it',
+        'errors_body' => 'mclo.gs did not recognise a known problem, but neo can read the errors and fix the cause.',
+        'more' => '…and :count more',
+        'ask' => 'Ask neo to fix it',
+        'view' => 'View log',
+        'expired' => 'That log is no longer available to neo. Upload the logs again.',
+        'ask_problems' => '{1} mclo.gs found a problem in my server log (:url). Please find the cause and fix it.|[2,*] mclo.gs found :count problems in my server log (:url). Please find the causes and fix them.',
+        'ask_errors' => 'My server log (:url) has errors in it. Please find the cause and fix it.',
     ],
 
     'permissions' => [

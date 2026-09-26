@@ -1,9 +1,16 @@
 # plugged.host neo
 
-neo (always lowercase) is plugged.host's support AI. It chats with users on the app and server
-panels and can act on a server with that user's own permissions: read the console, list, read,
-search, write, edit, move, delete, compress and extract files, send console commands, and
-start/stop/restart (through the same start queue / waiting room / limbo chain as the Start button).
+neo (always lowercase) is plugged.host's agentic assistant. Users give it a task in the chat on the
+app and server panels and it carries the task out with that user's own permissions: it looks
+(console, files, status, account), acts through its tools, checks the result and reports back.
+
+- **On a server:** console and commands, files (list, read, search, write, edit, move, delete,
+  compress, extract), power (through the same start queue / waiting room / limbo chain as the
+  Start button), startup variables and Docker image, reinstall, backups.
+- **Anywhere:** account overview, create / resize / rename / delete servers (plugged-host-servers),
+  and reading logs shared on mclo.gs.
+- **Minecraft servers:** plugins, mods and modpacks from Modrinth / CurseForge, Geyser, switching
+  software (plugged-host-minecraft).
 
 ## Where things live
 
@@ -27,9 +34,19 @@ noprofit.space. Use "Test provider" after saving to check a slot answers and can
 
 ## Safety
 
-Owners and subusers only (admin override access does not enable neo); permissions re-checked
-right before each action; secrets masked before anything reaches a provider; tool output is
-treated as untrusted; every change is written to the server's activity log as `server:neo.*`.
+Owners, and subusers the owner gave the **neo → access** permission (admin override access does
+not enable neo); permissions re-checked right before each action; secrets masked before anything
+reaches a provider; tool output is treated as untrusted; every change is written to the server's
+activity log as `server:neo.*`.
+
+## mclo.gs logs ("Ask neo")
+
+With the upstream `mclogs-uploader` plugin installed, neo watches for its "Upload logs" console
+action (Laravel's HTTP `ResponseReceived` event, so that plugin stays byte-for-byte upstream).
+When mclo.gs finds problems or errors in the upload, the user also gets a notification listing
+them with **Ask neo to fix it**. That opens a new chat which starts with `read_mclogs` already run
+on the upload (fenced as untrusted tool output, never pasted into the user's message). Only
+uploads the user made from that server in the last two hours can be handed over.
 
 ## Extending
 

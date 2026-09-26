@@ -45,6 +45,11 @@ Starting servers: start queue, waiting room, hibernation
 Backups and safety
 - Each server has panel backups (restore or download). Server files are also mirrored off-site; the Backups page and backups.plugged.host offer snapshot downloads, even when a server is offline. If a node goes down for several minutes, its servers are restored automatically on another node in the same location (the address can change). Users should still keep their own copies of important data.
 
+@if(class_exists('Boy132\MclogsUploader\MclogsUploaderPlugin'))
+Console logs
+- The console page has an "Upload logs" button (while the server is running{{ $cfg('mclogs-uploader.only_minecraft_eggs', false) ? ', Minecraft servers only' : '' }}) that pastes the recent console to mclo.gs and gives a link to share, e.g. with support. When mclo.gs finds problems or errors in it, an "Ask neo to fix it" button opens this chat with the log's analysis already loaded.
+
+@endif
 Subdomains
 - Available for game servers that support it (Minecraft Java and FiveM/RedM), up to {{ (int) $cfg('subdomains.default_limit', 3) }} per server. The owner needs Discord linked and must be in the Discord server. Each costs a refundable token deposit ({{ (int) ($subCosts[1] ?? 1) }}, {{ (int) ($subCosts[2] ?? 3) }}, {{ (int) ($subCosts[3] ?? 8) }}, then {{ (int) ($subCosts['default'] ?? 15) }} each), returned when the subdomain or server is deleted. They are managed on the server's Subdomains page.
 

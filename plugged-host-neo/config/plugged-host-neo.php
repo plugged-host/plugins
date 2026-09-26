@@ -1,7 +1,7 @@
 <?php
 
 /*
- * neo, the plugged.host support AI.
+ * neo, the plugged.host agentic assistant.
  *
  * Only panel-side settings live here. Provider keys, the failover chain and the 5-hour /
  * weekly usage limits belong to noprofit.space and are edited through this plugin's
