@@ -4,6 +4,9 @@ namespace PluggedHost\Core\Providers;
 
 use App\Enums\ContainerStatus;
 use App\Filament\Server\Pages\Console;
+use App\Filament\Server\Widgets\ServerCpuChart;
+use App\Filament\Server\Widgets\ServerMemoryChart;
+use App\Filament\Server\Widgets\ServerNetworkChart;
 use App\Models\Server;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
@@ -11,13 +14,15 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Component;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 /**
- * Two reasons the server console goes blank and the power buttons stop meaning anything,
- * and they compound: one kills the page's only connection to the daemon, the other lets the
- * header keep claiming a state it has no way of knowing.
+ * Why the server console goes blank, the power buttons stop meaning anything, or an error
+ * modal covers it. The first three compound: one kills the page's only connection to the
+ * daemon, the others let the header keep claiming a state it has no way of knowing.
  *
  * 1. **One renderer takes the whole page with it.**
  *    `resources/views/filament/components/server-console.blade.php` loads the WebGL addon
@@ -46,10 +51,18 @@ use Throwable;
  *    polling `$server->condition` once a second, so the top of the screen contradicts the
  *    header while both look authoritative.
  *
+ * 4. **A stopping server throws a "403 | Forbidden" over the console.** The CPU, memory and
+ *    network charts poll every second, and Filament re-checks a widget's `canView()` on every
+ *    hydrate (`CanAuthorizeAccess`). Theirs is `!isInConflictState() && !isOffline()`, a
+ *    status check rather than a permission, so the first poll after a crash or a stop, before
+ *    the page's own `console-status` re-render drops the charts, aborts with a bare 403 and
+ *    Livewire shows it as an error modal.
+ *
  * The script fixes (1) and (2) in the browser, without a fork: it makes the WebGL addon
  * unable to throw (xterm then keeps the DOM renderer it used before WebGL was an option)
  * and swaps `window.WebSocket` for a reconnecting facade, but only for the daemon's console
- * URL. The listeners below fix (3) by seeding `$status` from the daemon.
+ * URL. The listeners below fix (3) by seeding `$status` from the daemon, and (4) by letting
+ * that one poll pass without a render.
  */
 class ConsoleResiliencePluginProvider extends ServiceProvider
 {
@@ -74,6 +87,27 @@ class ConsoleResiliencePluginProvider extends ServiceProvider
                 $this->seedStatus($component);
             }
         });
+
+        Livewire::listen('exception', function (object $component, Throwable $exception, callable $stopPropagation): void {
+            if ($this->isStaleChartPoll($component, $exception)) {
+                $stopPropagation();
+                $component->skipRender();
+            }
+        });
+    }
+
+    /**
+     * A console chart whose `canView()` just turned false on its own poll (see 4). Only these
+     * three widgets and only their bare 403: the tenant itself is authorised by Filament's
+     * tenant middleware on the same request, so nothing is let through that the user could
+     * not already see.
+     */
+    protected function isStaleChartPoll(object $component, Throwable $exception): bool
+    {
+        return $component instanceof Component
+            && ($component instanceof ServerCpuChart || $component instanceof ServerMemoryChart || $component instanceof ServerNetworkChart)
+            && $exception instanceof HttpExceptionInterface
+            && $exception->getStatusCode() === 403;
     }
 
     /**
