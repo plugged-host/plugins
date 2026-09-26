@@ -3,6 +3,7 @@
 namespace PluggedHost\Core\Support;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -66,6 +67,46 @@ final class NoprofitLink
         } catch (Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * Has this account been converted into a noprofit.space account? From then on its sign-in
+     * details (username, email, password) live on noprofit.space only: the panel keeps no
+     * password, the profile fields are locked, and /migrate refuses it.
+     */
+    public static function isConverted(?User $user): bool
+    {
+        return $user !== null && $user->is_managed_externally && self::accountId($user) !== null;
+    }
+
+    /**
+     * Finish a conversion: link the account, hand its credentials to noprofit.space for good
+     * and delete the panel password.
+     *
+     * The password column is NOT NULL upstream, so "deleted" is the empty string, which
+     * neither Hash::check() nor password_verify() ever accepts. It is written through the
+     * query builder so no model event or cast can turn it back into a hash. Remember-me
+     * tokens and pending password resets are dropped with it; AuthenticateSession signs out
+     * any panel session that still carries the old password hash.
+     */
+    public static function convert(User $user, int $accountId): void
+    {
+        DB::transaction(function () use ($user, $accountId): void {
+            self::remember($user, $accountId);
+
+            $user->forceFill(['is_managed_externally' => true])->saveQuietly();
+
+            DB::table('users')->where('id', $user->getKey())->update([
+                'password' => '',
+                'remember_token' => null,
+            ]);
+
+            DB::table((string) config('auth.passwords.users.table', 'password_reset_tokens'))
+                ->where('email', $user->email)
+                ->delete();
+        });
+
+        $user->setRawAttributes(array_merge($user->getAttributes(), ['password' => '', 'remember_token' => null]), true);
     }
 
     /**

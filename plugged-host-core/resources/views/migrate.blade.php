@@ -34,6 +34,7 @@
 
         <form method="POST" action="{{ route('plugged-host.migrate.submit') }}">
             @csrf
+            <input type="hidden" name="state" value="{{ $state }}">
 
             <div class="field-group">
                 <label for="identifier" class="field-label">
@@ -68,6 +69,11 @@
                         &larr; Cancel and return
                     </a>
                 </div>
+
+                <p style="text-align: center; margin: 0.25rem 0 0; font-size: 0.75rem; line-height: 1.5; color: #71717a;">
+                    Already moved your account to noprofit.space? Your plugged.host password was moved with it &mdash;
+                    <a href="{{ $accountsUrl }}/login" style="color: #9ca3af;">sign in there instead</a>.
+                </p>
             </div>
         </form>
     </div>

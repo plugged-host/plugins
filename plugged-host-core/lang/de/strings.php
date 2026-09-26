@@ -569,4 +569,11 @@ return [
         'status_page' => 'Öffentlicher Status',
         'service_unavailable' => '503 • Dienst vorübergehend nicht verfügbar',
     ],
+
+    'noprofit' => [
+        'manage_account' => 'Auf noprofit.space verwalten',
+        'managed_hint' => 'Benutzername, E-Mail und Passwort werden auf noprofit.space verwaltet.',
+        'reset_moved' => 'Konto zu noprofit.space umgezogen? Dein Passwort liegt jetzt dort.',
+        'reset_moved_link' => 'accounts.noprofit.space öffnen',
+    ],
 ];

@@ -21,17 +21,23 @@ final class NoprofitToken
     private const MIN_SECRET_LENGTH = 32;
 
     /**
+     * A caller may pass its own 'nonce' claim when it needs to remember the token it issued
+     * (the migration hand-off does, so noprofit.space can later prove which migration it is
+     * finishing); otherwise a random one is generated.
+     *
      * @param  array<string, mixed>  $claims
      */
     public static function encode(array $claims, string $secret, string $audience, int $ttlSeconds): string
     {
         self::assertSecret($secret);
 
+        $nonce = $claims['nonce'] ?? null;
+
         $claims = array_merge($claims, [
             'aud' => $audience,
             'iat' => time(),
             'exp' => time() + $ttlSeconds,
-            'nonce' => bin2hex(random_bytes(16)),
+            'nonce' => is_string($nonce) && $nonce !== '' ? $nonce : bin2hex(random_bytes(16)),
         ]);
 
         $payload = rtrim(strtr(base64_encode((string) json_encode($claims)), '+/', '-_'), '=');

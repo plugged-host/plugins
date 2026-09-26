@@ -568,4 +568,11 @@ return [
         'status_page' => 'Public Status',
         'service_unavailable' => '503 • Service Temporarily Unavailable',
     ],
+
+    'noprofit' => [
+        'manage_account' => 'Manage on noprofit.space',
+        'managed_hint' => 'Your username, email and password are managed on noprofit.space.',
+        'reset_moved' => 'Moved your account to noprofit.space? Your password lives there now.',
+        'reset_moved_link' => 'Open accounts.noprofit.space',
+    ],
 ];

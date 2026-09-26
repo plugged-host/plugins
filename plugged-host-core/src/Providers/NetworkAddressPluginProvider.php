@@ -6,6 +6,7 @@ use App\Filament\Server\Resources\Allocations\AllocationResource;
 use App\Models\Allocation;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 
@@ -56,21 +57,83 @@ class NetworkAddressPluginProvider extends ServiceProvider
     }
 
     /**
-     * The hostname exactly as upstream showed it, followed by the numeric IP — unless the node
-     * sets no alias, in which case the column already is the numeric IP and repeating it would
-     * only be noise. Compared by value rather than through `has_alias` so an alias that merely
-     * duplicates the IP is treated the same way.
+     * The hostname exactly as upstream showed it, followed by the resolved IP (or numeric IP)
+     * — unless the node sets no alias or resolution matches the alias, in which case repeating it
+     * would only be noise.
      */
     private static function address(Allocation $allocation): HtmlString|string
     {
-        if ($allocation->alias === $allocation->ip) {
-            return $allocation->ip;
+        $alias = (string) $allocation->alias;
+        $ip = self::resolveIp($allocation);
+
+        if ($ip === null || $alias === $ip) {
+            return $alias;
         }
 
         return new HtmlString(sprintf(
             '%s <span class="font-mono text-xs text-gray-500 dark:text-gray-400">(%s)</span>',
-            e($allocation->alias),
-            e($allocation->ip),
+            e($alias),
+            e($ip),
         ));
+    }
+
+    private static function resolveIp(Allocation $allocation): ?string
+    {
+        $resolved = self::resolveDns((string) $allocation->alias);
+        if ($resolved !== null) {
+            return $resolved;
+        }
+
+        if (!empty($allocation->node?->fqdn)) {
+            $resolved = self::resolveDns((string) $allocation->node->fqdn);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        $rawIp = (string) $allocation->ip;
+        if (is_ip($rawIp) && !in_array($rawIp, ['0.0.0.0', '::'], true)) {
+            return $rawIp;
+        }
+
+        return null;
+    }
+
+    private static function resolveDns(string $hostname): ?string
+    {
+        $hostname = trim($hostname);
+
+        if ($hostname === '' || in_array($hostname, ['0.0.0.0', '::'], true)) {
+            return null;
+        }
+
+        if (is_ip($hostname)) {
+            return $hostname;
+        }
+
+        try {
+            $resolved = Cache::remember("dns_ip:{$hostname}", 300, function () use ($hostname): string {
+                $ip = get_ip_from_hostname($hostname);
+
+                if (!is_string($ip) || !is_ip($ip)) {
+                    $ip = @gethostbyname($hostname);
+                }
+
+                return is_string($ip) && is_ip($ip) && !in_array($ip, ['0.0.0.0', '::'], true)
+                    ? $ip
+                    : '';
+            });
+
+            return $resolved !== '' ? $resolved : null;
+        } catch (\Throwable) {
+            $ip = get_ip_from_hostname($hostname);
+            if (!is_string($ip) || !is_ip($ip)) {
+                $ip = @gethostbyname($hostname);
+            }
+
+            return is_string($ip) && is_ip($ip) && !in_array($ip, ['0.0.0.0', '::'], true)
+                ? $ip
+                : null;
+        }
     }
 }
