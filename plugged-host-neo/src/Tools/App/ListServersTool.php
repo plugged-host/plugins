@@ -83,6 +83,9 @@ final class ListServersTool implements Tool
             }
 
             $role = (int) $server->owner_id === (int) $user->id ? 'owner' : 'subuser';
+            if (!\PluggedHost\Neo\Agent\ServerGuard::canUse($user, $server)) {
+                $role .= ', neo not enabled for you here';
+            }
 
             return "- {$server->name} (id {$server->uuid_short}, {$role}): " . ($server->egg?->name ?? '?') . ' on ' . ($server->node?->name ?? '?') . ", {$state}";
         });

@@ -21,6 +21,7 @@ use PluggedHost\Neo\Support\NeoAccess;
 use PluggedHost\Neo\Support\NeoPreferences;
 use PluggedHost\Neo\Support\SecretRedactor;
 use PluggedHost\Neo\Tools\NeoToolRegistry;
+use PluggedHost\Neo\Tools\Tool;
 use PluggedHost\Neo\Tools\ToolContext;
 use PluggedHost\Neo\Tools\ToolResult;
 use PluggedHost\Neo\Tools\ToolRisk;
@@ -248,7 +249,7 @@ final class NeoAgent
                 $result = ToolResult::error("There is no tool called {$row->tool_name}.");
             } elseif (!$this->tools->permitted($tool, $context, $arguments)) {
                 $result = ToolResult::error("The user does not have permission for {$tool->name()} on this server.");
-            } elseif ($context->server !== null && $tool->name() !== 'server_status' && ($reason = ServerGuard::blockedReason($context->server)) !== null) {
+            } elseif ($context->server !== null && $tool->scope() === Tool::SCOPE_SERVER && $tool->name() !== 'server_status' && ($reason = ServerGuard::blockedReason($context->server)) !== null) {
                 $result = ToolResult::error("This cannot be done right now: {$reason}.");
             } else {
                 $result = $tool->execute($context, $arguments);
@@ -392,7 +393,7 @@ final class NeoAgent
 
     private function runsWithoutAsking(User $user, ToolRisk $risk): bool
     {
-        if (!NeoPreferences::autoApprove($user)) {
+        if ($risk === ToolRisk::Critical || !NeoPreferences::autoApprove($user)) {
             return false;
         }
 

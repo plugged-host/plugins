@@ -67,6 +67,12 @@ return [
         'privacy' => 'What you type and what neo reads from your servers is sent to AI providers (Groq; Anthropic\'s Claude through a proxy as a fallback). Secrets are masked first.',
     ],
 
+    'permissions' => [
+        'neo_title' => 'neo',
+        'neo_desc' => 'Whether this user may use neo, the AI assistant, on this server.',
+        'neo_access' => 'Allows the user to chat with neo on this server. neo still only does what their other permissions allow.',
+    ],
+
     'errors' => [
         'disabled' => 'neo is turned off.',
         'consent' => 'Please read and accept the notice first.',

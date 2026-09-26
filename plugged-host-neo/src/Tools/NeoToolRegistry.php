@@ -32,6 +32,14 @@ final class NeoToolRegistry
         ServerTools\CompressFilesTool::class,
         ServerTools\DecompressFileTool::class,
         ServerTools\DeleteFilesTool::class,
+        ServerTools\GetStartupTool::class,
+        ServerTools\SetStartupVariableTool::class,
+        ServerTools\SetDockerImageTool::class,
+        ServerTools\ReinstallServerTool::class,
+        ServerTools\ListBackupsTool::class,
+        ServerTools\CreateBackupTool::class,
+        ServerTools\RestoreBackupTool::class,
+        ServerTools\DeleteBackupTool::class,
         ListServersTool::class,
     ];
 
@@ -91,7 +99,7 @@ final class NeoToolRegistry
                 return false;
             }
 
-            $permissions = $tool->offeredWith();
+            $permissions = $tool->scope() === Tool::SCOPE_SERVER ? $tool->offeredWith() : [];
 
             return $permissions === [] || collect($permissions)->contains(fn ($permission): bool => $context->user->can($permission, $context->server));
         });
@@ -106,6 +114,10 @@ final class NeoToolRegistry
     {
         if (!$this->inScope($tool, $context)) {
             return false;
+        }
+
+        if ($tool->scope() !== Tool::SCOPE_SERVER) {
+            return true;
         }
 
         foreach ($tool->requires($arguments) as $permission) {
@@ -135,6 +147,10 @@ final class NeoToolRegistry
 
     private function inScope(Tool $tool, ToolContext $context): bool
     {
+        if ($tool->scope() === Tool::SCOPE_ANY) {
+            return true;
+        }
+
         if ($tool->scope() === Tool::SCOPE_APP) {
             return $context->server === null;
         }

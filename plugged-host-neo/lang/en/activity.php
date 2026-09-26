@@ -13,4 +13,10 @@ return [
     'activity.server.neo.file.delete' => 'neo deleted <b>:files</b>',
     'activity.server.neo.file.compress' => 'neo created the archive <b>:file</b>',
     'activity.server.neo.file.decompress' => 'neo extracted <b>:file</b>',
+    'activity.server.neo.startup.variable' => 'neo set <b>:variable</b> to <b>:new</b>',
+    'activity.server.neo.startup.image' => 'neo changed the docker image from <b>:old</b> to <b>:new</b>',
+    'activity.server.neo.reinstall' => 'neo reinstalled the server',
+    'activity.server.neo.backup.create' => 'neo started the backup <b>:name</b>',
+    'activity.server.neo.backup.restore' => 'neo restored the backup <b>:name</b>',
+    'activity.server.neo.backup.delete' => 'neo deleted the backup <b>:name</b>',
 ];

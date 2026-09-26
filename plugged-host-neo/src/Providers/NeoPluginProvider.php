@@ -2,8 +2,10 @@
 
 namespace PluggedHost\Neo\Providers;
 
+use App\Enums\TablerIcon;
 use App\Enums\TabPosition;
 use App\Filament\Pages\Auth\EditProfile;
+use App\Models\Subuser;
 use Filament\Schemas\Components\Livewire as LivewireComponent;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Support\Facades\FilamentView;
@@ -29,6 +31,11 @@ class NeoPluginProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // "neo" tab in the subuser editor: owners decide which subusers may use neo on their
+        // server. Registered unconditionally and never hidden -- a group with no form field is
+        // silently stripped from the subuser the next time the owner saves them.
+        Subuser::registerCustomPermissions('neo', ['access'], 'plugged-host-neo::strings.permissions', TablerIcon::Sparkles);
+
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             $schedule->command(NeoPruneCommand::class)
                 ->dailyAt('03:40')

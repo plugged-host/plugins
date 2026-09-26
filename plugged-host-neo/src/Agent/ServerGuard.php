@@ -8,19 +8,29 @@ use App\Models\User;
 /**
  * Who may use neo on a server, and whether the server can be acted on right now.
  *
- * Only owners and subusers: an administrator's override access does not count, so an admin
- * looking at a customer's server never sends that customer's console or files to an AI
- * provider. Individual actions are still checked against the user's subuser permissions.
+ * Only the owner and subusers holding "neo access": an administrator's override access does
+ * not count, so an admin looking at a customer's server never sends that customer's console
+ * or files to an AI provider. Individual actions are still checked against the user's
+ * subuser permissions.
  */
 final class ServerGuard
 {
+    public const PERMISSION = 'neo.access';
+
+    /**
+     * The owner, or a subuser the owner gave the "neo access" permission. Checked against the
+     * subuser row itself rather than User::can(): can() is true for every root admin and every
+     * admin with "update server", which must not switch neo on for other people's servers.
+     */
     public static function canUse(User $user, Server $server): bool
     {
         if ((int) $server->owner_id === (int) $user->id) {
             return true;
         }
 
-        return $server->subusers()->where('user_id', $user->id)->exists();
+        $subuser = $server->subusers()->where('user_id', $user->id)->first();
+
+        return $subuser !== null && in_array(self::PERMISSION, (array) $subuser->permissions, true);
     }
 
     /**

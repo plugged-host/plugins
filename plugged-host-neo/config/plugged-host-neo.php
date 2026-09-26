@@ -17,8 +17,8 @@ return [
 
     // Agent loop and context budget. Every model call re-sends the context, so these two
     // decide what one question costs against the user's limits.
-    'max_steps' => (int) env('NEO_MAX_STEPS', 10),
-    'context_tokens' => (int) env('NEO_CONTEXT_TOKENS', 16000),
+    'max_steps' => (int) env('NEO_MAX_STEPS', 25),
+    'context_tokens' => (int) env('NEO_CONTEXT_TOKENS', 24000),
     'max_message_chars' => 4000,
 
     // Tool limits.

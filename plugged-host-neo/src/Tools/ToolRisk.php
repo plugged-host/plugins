@@ -12,4 +12,8 @@ enum ToolRisk: string
 
     // Hard to undo (delete, kill): same as Write, plus the admin can force a prompt.
     case Destructive = 'destructive';
+
+    // Irreversible or paid at account level (delete a server, spend tokens): always asks,
+    // even when the user turned approvals off.
+    case Critical = 'critical';
 }

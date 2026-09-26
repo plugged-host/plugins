@@ -67,6 +67,12 @@ return [
         'privacy' => 'Was du schreibst und was neo von deinen Servern liest, wird an KI-Anbieter gesendet (Groq; Claude von Anthropic über einen Proxy als Ausweichlösung). Geheimnisse werden vorher maskiert.',
     ],
 
+    'permissions' => [
+        'neo_title' => 'neo',
+        'neo_desc' => 'Ob dieser Nutzer neo, den KI-Assistenten, auf diesem Server nutzen darf.',
+        'neo_access' => 'Erlaubt dem Nutzer, auf diesem Server mit neo zu chatten. neo kann trotzdem nur, was seine anderen Berechtigungen erlauben.',
+    ],
+
     'errors' => [
         'disabled' => 'neo ist ausgeschaltet.',
         'consent' => 'Bitte lies und bestätige zuerst den Hinweis.',

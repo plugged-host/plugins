@@ -14,6 +14,9 @@ interface Tool
 
     public const SCOPE_APP = 'app';
 
+    // Account-level tools (create a server, account overview) usable from any chat.
+    public const SCOPE_ANY = 'any';
+
     /**
      * Unique, [A-Za-z0-9_-]{1,64}.
      */
