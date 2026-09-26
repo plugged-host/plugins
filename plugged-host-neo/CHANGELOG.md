@@ -16,5 +16,6 @@
   server management (plugged-host-servers). Subusers need the new "neo → access" permission.
 - mclo.gs: `read_mclogs` reads a shared log with its analysis; with the `mclogs-uploader` plugin
   installed, uploads with problems or errors get an "Ask neo to fix it" notification.
+- Chat redesign: mobile-first (full-screen sheet on phones, safe areas, touch-friendly targets, Enter makes a new line on touch screens), icon buttons, compact tool tiles without descriptions (changes waiting for approval keep a collapsible preview), send button that turns into a stop button, 5-hour / weekly usage bars above the message box, and suggestion chips on an empty chat.
 - Migrations `012_create_neo_conversations_table`, `013_create_neo_messages_table`,
   `014_create_neo_user_settings_table` (operator-run).
