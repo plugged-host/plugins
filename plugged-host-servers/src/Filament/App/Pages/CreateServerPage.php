@@ -2,14 +2,10 @@
 
 namespace PluggedHost\Servers\Filament\App\Pages;
 
-use App\Exceptions\Service\Deployment\NoViableAllocationException;
-use App\Exceptions\Service\Deployment\NoViableNodeException;
 use App\Filament\Server\Pages\Console;
 use App\Models\Egg;
-use App\Repositories\Daemon\DaemonFileRepository;
 use App\Services\Servers\RandomWordService;
 use BackedEnum;
-use Exception;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\TextInput;
@@ -26,11 +22,12 @@ use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
-use PluggedHost\Minecraft\Models\ServerOnboarding;
 use PluggedHost\Servers\Filament\App\Widgets\UserResourceLimitsOverview;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
 use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Services\GameCatalog;
+use PluggedHost\Servers\Services\ServerProvisioner;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
 use PluggedHost\Servers\Services\PremiumLocationService;
@@ -467,61 +464,13 @@ class CreateServerPage extends Page
             return 'You must be logged in to create a server.';
         }
 
-        $resourceLimits = RoleResourceLimits::forUser($user);
-        if (!$resourceLimits) {
-            return trans('plugged-host-servers::strings.notifications.resource_limit_exceeded');
+        $reason = app(ServerProvisioner::class)->check($user, $this->provisioningInput($this->data ?? []));
+        if ($reason !== null) {
+            return $this->reasonMessage($reason);
         }
 
-        $usage = RoleResourceLimits::getUsage($user);
-        if ($resourceLimits->server_limit !== null && $usage['count'] >= $resourceLimits->server_limit) {
-            return trans('plugged-host-servers::strings.notifications.resource_limit_exceeded');
-        }
-
-        $cpu = (int) ($this->data['cpu'] ?? 0);
-        $memory = (int) ($this->data['memory'] ?? 0);
-        $disk = (int) ($this->data['disk'] ?? 0);
-
-        if ($resourceLimits->cpu > 0 && $cpu <= 0) {
-            return trans('plugged-host-servers::strings.notifications.resource_limit_exceeded');
-        }
-
-        if ($resourceLimits->memory > 0 && $memory <= 0) {
-            return trans('plugged-host-servers::strings.notifications.resource_limit_exceeded');
-        }
-
-        if ($resourceLimits->disk > 0 && $disk <= 0) {
-            return trans('plugged-host-servers::strings.notifications.resource_limit_exceeded');
-        }
-
-        if (!$resourceLimits->canCreateServer($user, $cpu, $memory, $disk)) {
-            return trans('plugged-host-servers::strings.notifications.resource_limit_exceeded');
-        }
-
-        $gameId = $this->data['game'] ?? $this->game;
-        $egg = $this->egg($gameId);
-        if (!$egg) {
-            return 'Please select a game.';
-        }
-
-        $location = is_string($this->data['location'] ?? null) ? $this->data['location'] : null;
-        if (!$location || !app(LocationCatalog::class)->isValid($location, $user)) {
-            return trans('plugged-host-servers::strings.notifications.invalid_location');
-        }
-
-        $availableLocations = $this->getAvailableLocations($cpu, $memory, $disk);
-        $selectedLoc = $availableLocations->firstWhere('code', $location);
-        if (!$selectedLoc || !($selectedLoc['available'] ?? false) || ($selectedLoc['locked'] ?? false)) {
-            return trans('plugged-host-servers::strings.notifications.invalid_location');
-        }
-
-        $name = trim((string) ($this->data['name'] ?? ''));
-        if ($name === '') {
-            return trans('plugged-host-servers::strings.name') . ' is required.';
-        }
-
-        $catalog = app(GameCatalog::class);
-        $types = $catalog->typesFor($egg);
-        if ($types !== null && !($this->data['eula_accepted'] ?? false)) {
+        $egg = $this->egg($this->data['game'] ?? $this->game);
+        if ($egg && app(GameCatalog::class)->typesFor($egg) !== null && !($this->data['eula_accepted'] ?? false)) {
             return trans('plugged-host-servers::strings.eula_agree');
         }
 
@@ -540,113 +489,50 @@ class CreateServerPage extends Page
             return;
         }
 
-        $data = $this->form->getState();
-
         try {
-            $user = auth()->user();
-            $resourceLimits = RoleResourceLimits::forUser($user);
-
-            abort_if(!$resourceLimits, 403);
-
-            $gameId = $data['game'] ?? $this->game;
-            $egg = $this->egg($gameId);
-
-            if (!$egg) {
-                Notification::make()
-                    ->title(trans('plugged-host-servers::strings.notifications.server_creation_failed'))
-                    ->body('Invalid game selected.')
-                    ->danger()
-                    ->send();
-
-                return;
-            }
-
-            $catalog = app(GameCatalog::class);
-            $types = $catalog->typesFor($egg);
-
-            // Software variant + hidden variant variable: Purpur (first variant) by default.
-            // Environment variables are not exposed to or configurable by users here.
-            $variables = [];
-            $type = $types['types'][0]['value'] ?? null;
-
-            if ($types && $types['variable'] !== '' && $type !== null) {
-                $variables[$types['variable']] = $type;
-            }
-
-            $runtime = $catalog->resolveRuntime($egg, $type);
-            $location = is_string($data['location'] ?? null) ? $data['location'] : null;
-
-            if (!app(LocationCatalog::class)->isValid($location, $user)) {
-                Notification::make()
-                    ->title(trans('plugged-host-servers::strings.notifications.server_creation_failed'))
-                    ->body(trans('plugged-host-servers::strings.notifications.invalid_location'))
-                    ->danger()
-                    ->send();
-
-                return;
-            }
-
-            $cpu = (int) ($data['cpu'] ?? 0);
-            $memory = (int) ($data['memory'] ?? 0);
-            $disk = (int) ($data['disk'] ?? 0);
-
-            $server = $resourceLimits->createServer(
-                $user,
-                $data['name'],
-                $egg,
-                $cpu,
-                $memory,
-                $disk,
-                $variables,
-                $location,
-                $runtime['startup'],
-                $runtime['image'],
-            );
-
-            if ($server) {
-                if ($types !== null) {
-                    ServerOnboarding::markRequired($server);
-
-                    try {
-                        app(DaemonFileRepository::class)->setServer($server)->putContent('eula.txt', "eula=true\n");
-                    } catch (\Throwable) {
-                        // Will also be written upon ServerInstalled event
-                    }
-                }
-
-                $redirectUrl = Console::getUrl(panel: 'server', tenant: $server);
-                $this->redirect($redirectUrl, navigate: FilamentView::hasSpaMode($redirectUrl));
-
-                return;
-            }
-
+            $server = app(ServerProvisioner::class)->create(auth()->user(), $this->provisioningInput($this->form->getState()));
+        } catch (ProvisioningException $exception) {
             Notification::make()
                 ->title(trans('plugged-host-servers::strings.notifications.server_creation_failed'))
-                ->body(trans('plugged-host-servers::strings.notifications.resource_limit_exceeded'))
+                ->body($this->reasonMessage($exception->reason))
                 ->danger()
                 ->send();
-        } catch (Exception $exception) {
-            report($exception);
 
-            if ($exception instanceof NoViableNodeException) {
-                Notification::make()
-                    ->title(trans('plugged-host-servers::strings.notifications.server_creation_failed'))
-                    ->body(trans('plugged-host-servers::strings.notifications.no_viable_node_found'))
-                    ->danger()
-                    ->send();
-            } elseif ($exception instanceof NoViableAllocationException) {
-                Notification::make()
-                    ->title(trans('plugged-host-servers::strings.notifications.server_creation_failed'))
-                    ->body(trans('plugged-host-servers::strings.notifications.no_viable_allocation_found'))
-                    ->danger()
-                    ->send();
-            } else {
-                Notification::make()
-                    ->title(trans('plugged-host-servers::strings.notifications.server_creation_failed'))
-                    ->body(trans('plugged-host-servers::strings.notifications.unknown_server_creation_error'))
-                    ->danger()
-                    ->send();
-            }
+            return;
         }
+
+        $redirectUrl = Console::getUrl(panel: 'server', tenant: $server);
+        $this->redirect($redirectUrl, navigate: FilamentView::hasSpaMode($redirectUrl));
+    }
+
+    /**
+     * The form state as ServerProvisioner input (raw cpu/memory/disk; plan tiles only pre-fill).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function provisioningInput(array $data): array
+    {
+        return [
+            'name' => (string) ($data['name'] ?? ''),
+            'game' => $data['game'] ?? $this->game,
+            'location' => is_string($data['location'] ?? null) ? $data['location'] : null,
+            'cpu' => (int) ($data['cpu'] ?? 0),
+            'memory' => (int) ($data['memory'] ?? 0),
+            'disk' => (int) ($data['disk'] ?? 0),
+        ];
+    }
+
+    protected function reasonMessage(string $reason): string
+    {
+        return match ($reason) {
+            'unknown_game' => 'Please select a game.',
+            'invalid_location', 'location_locked', 'location_unavailable' => trans('plugged-host-servers::strings.notifications.invalid_location'),
+            'name_required', 'name_too_long' => trans('plugged-host-servers::strings.name') . ' is required (max ' . ServerProvisioner::NAME_MAX . ' characters).',
+            'no_viable_node' => trans('plugged-host-servers::strings.notifications.no_viable_node_found'),
+            'no_viable_allocation' => trans('plugged-host-servers::strings.notifications.no_viable_allocation_found'),
+            'creation_failed' => trans('plugged-host-servers::strings.notifications.unknown_server_creation_error'),
+            default => trans('plugged-host-servers::strings.notifications.resource_limit_exceeded'),
+        };
     }
 }
