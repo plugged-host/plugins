@@ -53,6 +53,8 @@ return [
       'version_loose' => 'No build lists Minecraft :version, so all builds are shown. Take the newest one and test it - most work anyway.',
       'version_gone' => 'That version is no longer available on Modrinth.',
       'view' => 'View on Modrinth',
+      'search_curseforge' => 'Search CurseForge...',
+      'view_curseforge' => 'View on CurseForge',
       'modpack_warning' => 'The server is switched to the loader and Minecraft version this pack needs, reinstalled, and then the pack files are placed. Your world is kept. The exact loader build of the pack cannot be pinned, so a pack that demands one specific build may still need manual work.',
       'client_only_warning' => 'The author marks this project as client-side only, so it may do nothing on a server.',
       'modpack_queued' => 'Modpack installation started',

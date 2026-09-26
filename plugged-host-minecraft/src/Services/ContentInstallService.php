@@ -19,6 +19,11 @@ class ContentInstallService
 {
     public const SOURCES = ['modrinth', 'curseforge'];
 
+    /**
+     * Loaders a modpack install can switch the server to (the modpack jobs support these).
+     */
+    public const MODPACK_LOADERS = ['fabric', 'forge', 'neoforge'];
+
     public function __construct(
         protected ContentSearchService $search,
         protected ModrinthCatalog $modrinth,
@@ -32,9 +37,9 @@ class ContentInstallService
      *
      * @return array{versions: list<array<string, mixed>>, loose: bool}
      */
-    public function versions(Server $server, string $project, string $source = 'modrinth'): array
+    public function versions(Server $server, string $project, string $source = 'modrinth', ?string $kind = null): array
     {
-        $software = $this->search->software($server);
+        $software = $this->loaderFilter($server, $kind);
         $gameVersion = $this->search->gameVersion($server);
 
         if ($source === 'curseforge') {
@@ -47,7 +52,7 @@ class ContentInstallService
             return ['versions' => $versions, 'loose' => false];
         }
 
-        $loaders = $this->modrinth->loaders($software);
+        $loaders = $kind === 'modpack' ? self::MODPACK_LOADERS : $this->modrinth->loaders($software);
         $versions = $this->modrinth->versions($project, $loaders, $gameVersion);
 
         if ($versions === [] && $gameVersion !== null) {
@@ -63,14 +68,15 @@ class ContentInstallService
      *
      * @return array<string, mixed>|null
      */
-    public function find(Server $server, string $project, string $versionId, string $source = 'modrinth'): ?array
+    public function find(Server $server, string $project, string $versionId, string $source = 'modrinth', ?string $kind = null): ?array
     {
-        $software = $this->search->software($server);
+        $software = $this->loaderFilter($server, $kind);
+        $loaders = $kind === 'modpack' ? self::MODPACK_LOADERS : $this->modrinth->loaders($software);
 
         foreach ([$this->search->gameVersion($server), null] as $gameVersion) {
             $list = $source === 'curseforge'
                 ? $this->curseForge->files((int) $project, $gameVersion, $software)
-                : $this->modrinth->versions($project, $this->modrinth->loaders($software), $gameVersion);
+                : $this->modrinth->versions($project, $loaders, $gameVersion);
 
             foreach ($list as $version) {
                 if ((string) $version['id'] === $versionId) {
@@ -195,5 +201,14 @@ class ContentInstallService
         }
 
         return 'pull_busy';
+    }
+
+    /**
+     * The loader to filter builds by: the server's own, except for modpacks, which bring their
+     * loader with them (the install switches the server to it), so any build may be picked.
+     */
+    protected function loaderFilter(Server $server, ?string $kind): ?string
+    {
+        return $kind === 'modpack' ? null : $this->search->software($server);
     }
 }

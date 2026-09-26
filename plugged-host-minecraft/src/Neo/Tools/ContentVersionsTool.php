@@ -27,6 +27,7 @@ final class ContentVersionsTool extends MinecraftTool
             'properties' => [
                 'project' => ['type' => 'string', 'description' => 'Project id from search_content.'],
                 'source' => ['type' => 'string', 'enum' => ['modrinth', 'curseforge']],
+                'kind' => ['type' => 'string', 'enum' => ['plugin', 'mod', 'modpack'], 'description' => 'Use "modpack" for modpacks (their builds are not limited to the server\'s current loader).'],
             ],
             'required' => ['project'],
         ];
@@ -45,7 +46,8 @@ final class ContentVersionsTool extends MinecraftTool
     public function execute(ToolContext $context, array $arguments): ToolResult
     {
         $this->software($context);
-        $result = app(ContentInstallService::class)->versions($context->server, $this->string($arguments, 'project', 100), $this->source($arguments));
+        $kind = is_string($arguments['kind'] ?? null) ? $arguments['kind'] : null;
+        $result = app(ContentInstallService::class)->versions($context->server, $this->string($arguments, 'project', 100), $this->source($arguments), $kind);
 
         if ($result['versions'] === []) {
             return ToolResult::ok('No builds of this project fit this server\'s software.', 'No compatible builds');

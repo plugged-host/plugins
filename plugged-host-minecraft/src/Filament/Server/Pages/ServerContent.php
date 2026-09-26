@@ -21,8 +21,8 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
-use PluggedHost\Minecraft\Jobs\InstallModpackJob;
 use PluggedHost\Minecraft\Services\ContentInstallService;
+use PluggedHost\Minecraft\Services\ContentSearchService;
 use PluggedHost\Minecraft\Services\CurseForgeCatalog;
 use PluggedHost\Minecraft\Services\GeyserService;
 use PluggedHost\Minecraft\Services\MinecraftVersionCatalog;
@@ -239,7 +239,8 @@ class ServerContent extends MinecraftPage implements HasTable
             ->filters($this->filterBar())
             ->recordActions($this->rowActions())
             ->searchable()
-            ->searchPlaceholder(trans('plugged-host-minecraft::strings.content.search'))
+            // Follows the Source filter, so the box never says Modrinth while CurseForge is shown.
+            ->searchPlaceholder(fn (): string => trans('plugged-host-minecraft::strings.content.' . ($this->sourceFrom($this->tableFilters ?? []) === 'curseforge' ? 'search_curseforge' : 'search')))
             // Every keystroke is a Modrinth request; 600ms is long enough that typing a
             // project name costs one call rather than one per letter.
             ->searchDebounce('600ms')
@@ -388,7 +389,7 @@ class ServerContent extends MinecraftPage implements HasTable
                 // Nothing to offer means the project has no build for this loader at all.
                 ->disabled(fn (array $record): bool => $this->versionOptions($record) === []),
             Action::make('modrinth')
-                ->label(trans('plugged-host-minecraft::strings.content.view'))
+                ->label(fn (array $record): string => trans('plugged-host-minecraft::strings.content.' . ($this->isCurseForge($record) ? 'view_curseforge' : 'view')))
                 ->icon(TablerIcon::ExternalLink)
                 ->color('gray')
                 ->url(fn (array $record): string => (string) $record['url'], true),
@@ -532,9 +533,10 @@ class ServerContent extends MinecraftPage implements HasTable
             return $this->projectVersions[$id];
         }
 
+        $kind = is_string($record['kind'] ?? null) ? $record['kind'] : null;
         $versions = $this->isCurseForge($record)
-            ? $this->curseForgeVersions($id)
-            : $this->modrinthVersions($id);
+            ? $this->curseForgeVersions($id, $kind)
+            : $this->modrinthVersions($id, $kind);
 
         $options = [];
 
@@ -551,9 +553,9 @@ class ServerContent extends MinecraftPage implements HasTable
      *
      * @return array<int, array<string, mixed>>
      */
-    protected function modrinthVersions(string $id): array
+    protected function modrinthVersions(string $id, ?string $kind = null): array
     {
-        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'modrinth');
+        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'modrinth', $kind);
         $this->looseVersions[$id] = $result['loose'];
 
         return $result['versions'];
@@ -566,9 +568,9 @@ class ServerContent extends MinecraftPage implements HasTable
      *
      * @return array<int, array<string, mixed>>
      */
-    protected function curseForgeVersions(string $id): array
+    protected function curseForgeVersions(string $id, ?string $kind = null): array
     {
-        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'curseforge');
+        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'curseforge', $kind);
         $this->looseVersions[$id] = $result['loose'];
 
         return $result['versions'];
@@ -636,6 +638,7 @@ class ServerContent extends MinecraftPage implements HasTable
             (string) ($record['id'] ?? ''),
             $versionId,
             $this->isCurseForge($record) ? 'curseforge' : 'modrinth',
+            is_string($record['kind'] ?? null) ? $record['kind'] : null,
         );
     }
 
@@ -677,13 +680,21 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function queueModpack(Server $server, array $record, array $version): void
     {
-        InstallModpackJob::dispatch(
+        // One path for both platforms: the service dispatches the CurseForge job for CurseForge
+        // packs (their ids are mod/file numbers, which the Modrinth job cannot read).
+        $result = app(ContentSearchService::class)->queueModpack(
             $server,
             (string) $record['id'],
             (string) $version['id'],
-            (string) $record['title'],
+            $this->isCurseForge($record) ? 'curseforge' : 'modrinth',
             user()?->id,
         );
+
+        if (!($result['ok'] ?? false)) {
+            $this->failed(trans('plugged-host-minecraft::strings.content.modpack_failed'));
+
+            return;
+        }
 
         Notification::make()
             ->success()
