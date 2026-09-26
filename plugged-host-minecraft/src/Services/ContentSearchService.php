@@ -57,6 +57,7 @@ class ContentSearchService
                 query: $query,
                 perPage: CurseForgeCatalog::PAGE_SIZE,
                 page: $page,
+                projectType: is_string($filters['kind'] ?? null) ? $filters['kind'] : null,
             );
             $kind = null;
         } else {
@@ -145,7 +146,7 @@ class ContentSearchService
      * The loader the server runs, or null when the egg declares no Modrinth-known variants.
      * Same rule as MinecraftPage::softwareFor().
      */
-    protected function software(Server $server): ?string
+    public function software(Server $server): ?string
     {
         if ($this->games->typesFor($server->egg) === null) {
             return null;
@@ -160,7 +161,7 @@ class ContentSearchService
      * The server's Minecraft version, with "latest" resolved to the newest published version.
      * Same rule as MinecraftPage::gameVersion().
      */
-    protected function gameVersion(Server $server): ?string
+    public function gameVersion(Server $server): ?string
     {
         $version = $this->switcher->version($server);
 

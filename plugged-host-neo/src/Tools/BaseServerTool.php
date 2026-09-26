@@ -18,6 +18,11 @@ abstract class BaseServerTool implements Tool
         return self::SCOPE_SERVER;
     }
 
+    public function availableFor(ToolContext $context): bool
+    {
+        return true;
+    }
+
     public function risk(array $arguments): ToolRisk
     {
         return ToolRisk::Read;

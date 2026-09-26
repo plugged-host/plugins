@@ -87,7 +87,7 @@ final class NeoToolRegistry
     public function available(ToolContext $context): array
     {
         return array_filter($this->all(), function (Tool $tool) use ($context): bool {
-            if (!$this->inScope($tool, $context)) {
+            if (!$this->inScope($tool, $context) || !$tool->availableFor($context)) {
                 return false;
             }
 

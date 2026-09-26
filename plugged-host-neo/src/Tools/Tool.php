@@ -34,6 +34,12 @@ interface Tool
     public function scope(): string;
 
     /**
+     * Whether the tool makes sense here at all (e.g. only Minecraft servers get the Minecraft
+     * tools). Checked before offering it, after the scope check.
+     */
+    public function availableFor(ToolContext $context): bool;
+
+    /**
      * @param  array<string, mixed>  $arguments
      */
     public function risk(array $arguments): ToolRisk;

@@ -362,6 +362,14 @@ class ModrinthCatalog
             'game_versions' => array_values(array_filter((array) ($version['game_versions'] ?? []), 'is_string')),
             'loaders' => array_values(array_filter((array) ($version['loaders'] ?? []), 'is_string')),
             'files' => is_array($version['files'] ?? null) ? $version['files'] : [],
+            // Required dependencies only (project ids), so an installer can say what else the
+            // jar needs to load.
+            'dependencies' => array_values(array_filter(array_map(
+                static fn ($dependency): ?string => is_array($dependency) && ($dependency['dependency_type'] ?? null) === 'required' && is_string($dependency['project_id'] ?? null)
+                    ? $dependency['project_id']
+                    : null,
+                (array) ($version['dependencies'] ?? []),
+            ))),
         ];
     }
 

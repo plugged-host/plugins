@@ -28,6 +28,36 @@ class MinecraftPluginProvider extends ServiceProvider
         }
 
         $this->registerClientApi();
+        $this->registerNeoTools();
+    }
+
+    /**
+     * Contribute the Minecraft tools (content, software, modpacks, Geyser) to plugged-host-neo.
+     * By class-string behind class_exists so either plugin can be uninstalled alone; the tool
+     * classes themselves are only loaded when neo asks for them.
+     */
+    private function registerNeoTools(): void
+    {
+        $registry = 'PluggedHost\\Neo\\Tools\\NeoToolRegistry';
+
+        if (!class_exists($registry)) {
+            return;
+        }
+
+        foreach ([
+            \PluggedHost\Minecraft\Neo\Tools\MinecraftInfoTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\SearchContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\ContentVersionsTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\InstallContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\ListInstalledContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\ToggleContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\RemoveContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\InstallGeyserTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\SwitchSoftwareTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\InstallModpackTool::class,
+        ] as $tool) {
+            $registry::register($tool);
+        }
     }
 
     /**

@@ -20,9 +20,9 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use PluggedHost\Minecraft\Jobs\InstallModpackJob;
+use PluggedHost\Minecraft\Services\ContentInstallService;
 use PluggedHost\Minecraft\Services\CurseForgeCatalog;
 use PluggedHost\Minecraft\Services\GeyserService;
 use PluggedHost\Minecraft\Services\MinecraftVersionCatalog;
@@ -553,19 +553,10 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function modrinthVersions(string $id): array
     {
-        $catalog = app(ModrinthCatalog::class);
-        $loaders = $catalog->loaders($this->software());
-        $gameVersion = $this->gameVersion();
+        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'modrinth');
+        $this->looseVersions[$id] = $result['loose'];
 
-        $versions = $catalog->versions($id, $loaders, $gameVersion);
-        $this->looseVersions[$id] = false;
-
-        if ($versions === [] && $gameVersion !== null) {
-            $versions = $catalog->versions($id, $loaders);
-            $this->looseVersions[$id] = $versions !== [];
-        }
-
-        return $versions;
+        return $result['versions'];
     }
 
     /**
@@ -577,20 +568,10 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function curseForgeVersions(string $id): array
     {
-        $catalog = app(CurseForgeCatalog::class);
-        $modId = (int) $id;
-        $loader = $this->software();
-        $gameVersion = $this->gameVersion();
+        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, 'curseforge');
+        $this->looseVersions[$id] = $result['loose'];
 
-        $versions = $catalog->files($modId, $gameVersion, $loader);
-        $this->looseVersions[$id] = false;
-
-        if ($versions === [] && $gameVersion !== null) {
-            $versions = $catalog->files($modId, null, $loader);
-            $this->looseVersions[$id] = $versions !== [];
-        }
-
-        return $versions;
+        return $result['versions'];
     }
 
     /**
@@ -650,39 +631,12 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function findVersion(array $record, string $versionId): ?array
     {
-        $id = (string) ($record['id'] ?? '');
-
-        if ($this->isCurseForge($record)) {
-            $catalog = app(CurseForgeCatalog::class);
-            $loader = $this->software();
-
-            // Both passes, in the order curseForgeVersions() built them, so a pick made from
-            // the loose fallback still resolves.
-            foreach ([$this->gameVersion(), null] as $gameVersion) {
-                foreach ($catalog->files((int) $id, $gameVersion, $loader) as $version) {
-                    if ((string) $version['id'] === $versionId) {
-                        return $version;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        $catalog = app(ModrinthCatalog::class);
-        $loaders = $catalog->loaders($this->software());
-
-        // Both lists, in the order versionOptions() built them, so a pick made from the
-        // loose fallback still resolves.
-        foreach ([$this->gameVersion(), null] as $gameVersion) {
-            foreach ($catalog->versions($id, $loaders, $gameVersion) as $version) {
-                if ((string) $version['id'] === $versionId) {
-                    return $version;
-                }
-            }
-        }
-
-        return null;
+        return app(ContentInstallService::class)->find(
+            $this->getServer(),
+            (string) ($record['id'] ?? ''),
+            $versionId,
+            $this->isCurseForge($record) ? 'curseforge' : 'modrinth',
+        );
     }
 
     /**
@@ -782,37 +736,10 @@ class ServerContent extends MinecraftPage implements HasTable
             $directory = $catalog->directoryFor((string) ($record['kind'] ?? 'mod'));
         }
 
-        try {
-            // A server that has never booted has no plugins/ or mods/ yet, and wings will
-            // not invent one. Failing here is fine — either it already exists, or the pull
-            // below reports the real problem.
-            $this->files()->createDirectory($directory, '/');
-        } catch (Throwable) {
-            //
-        }
+        if (app(ContentInstallService::class)->pull($this->getServer(), $file['url'], $file['filename'], $directory) !== null) {
+            $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
 
-        $retries = 0;
-        while ($retries < 10) {
-            try {
-                $this->files()->pull($file['url'], $directory, ['filename' => $file['filename']]);
-                break;
-            } catch (RequestException $exception) {
-                if ($exception->response?->status() === 400 && str_contains($exception->response->body(), 'simultaneous remote file downloads')) {
-                    $retries++;
-                    usleep(500000);
-                    continue;
-                }
-
-                report($exception);
-                $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
-
-                return;
-            } catch (Throwable $exception) {
-                report($exception);
-                $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
-
-                return;
-            }
+            return;
         }
 
         Activity::event('server:file.pull')
