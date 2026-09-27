@@ -17,4 +17,8 @@ return [
     ],
 
     'beta' => 'v2 Beta',
+
+    'profile' => [
+        'language_time' => 'Sprache und Zeitzone',
+    ],
 ];

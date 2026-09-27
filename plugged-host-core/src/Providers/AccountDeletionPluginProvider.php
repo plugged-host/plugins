@@ -3,16 +3,16 @@
 namespace PluggedHost\Core\Providers;
 
 use App\Enums\HeaderActionPosition;
-use App\Enums\TabPosition;
 use App\Filament\Admin\Resources\Users\Pages\EditUser;
-use App\Filament\Pages\Auth\EditProfile;
 use App\Models\User;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Support\ServiceProvider;
-use PluggedHost\Core\Filament\Components\Actions\DeleteAccountAction;
 use PluggedHost\Core\Filament\Components\Actions\DeleteUserWithServersAction;
 
+/**
+ * Deleting accounts. People delete their own account on noprofit.space, which removes the
+ * linked panel account and its servers through NoprofitServiceController::deleteAccount, so
+ * the profile page offers no delete button of its own. Admins keep theirs.
+ */
 class AccountDeletionPluginProvider extends ServiceProvider
 {
     public function boot(): void
@@ -24,7 +24,7 @@ class AccountDeletionPluginProvider extends ServiceProvider
          * via an INSERT query when $user->exists is false.
          */
         User::saving(function (User $user) {
-            if (! $user->exists && ($user->account_is_purged ?? false)) {
+            if (!$user->exists && ($user->account_is_purged ?? false)) {
                 return false;
             }
         });
@@ -32,11 +32,6 @@ class AccountDeletionPluginProvider extends ServiceProvider
 
     public function register(): void
     {
-        EditProfile::registerCustomHeaderActions(
-            HeaderActionPosition::Before,
-            DeleteAccountAction::make()
-        );
-
         /*
          * Admin Area -> Users -> edit. Upstream's own DeleteAction is disabled() while the user
          * owns a server and offers no way out of that state, so this one appears exactly there and
@@ -46,20 +41,6 @@ class AccountDeletionPluginProvider extends ServiceProvider
         EditUser::registerCustomHeaderActions(
             HeaderActionPosition::Before,
             DeleteUserWithServersAction::make()
-        );
-
-        EditProfile::registerCustomTabs(
-            TabPosition::After,
-            Tab::make('danger_zone')
-                ->label(fn () => trans('plugged-host-core::strings.danger_zone'))
-                ->icon('tabler-alert-triangle')
-                ->schema([
-                    Section::make(fn () => trans('plugged-host-core::strings.delete_account'))
-                        ->description(fn () => trans('plugged-host-core::strings.delete_account_description'))
-                        ->headerActions([
-                            DeleteAccountAction::make(),
-                        ]),
-                ])
         );
     }
 }

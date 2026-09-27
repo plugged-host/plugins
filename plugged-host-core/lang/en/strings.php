@@ -293,10 +293,7 @@ return [
         'no_available_port' => 'No available port was found after the current primary port.',
     ],
 
-    'delete_account' => 'Delete account',
     'danger_zone' => 'Danger Zone',
-    'delete_account_description' => 'Permanently delete your plugged.host account and all associated personal data.',
-    'current_password' => 'Current Password',
 
     'admin_delete_user' => [
         'label' => 'Delete user & servers',
@@ -313,11 +310,6 @@ return [
         'delete_server_confirm' => 'Are you sure you want to delete this server?',
         'delete_server_warning' => 'This action cannot be undone and all data will be permanently lost.',
         'delete_server' => 'Delete Server',
-        'delete_account_confirm' => 'Are you sure you want to delete your account? This action is permanent and cannot be undone.',
-        'delete_account_warning' => 'All your personal data, API keys, and SSH keys will be permanently removed.',
-        'delete_account_servers' => 'You still own :count server(s): :servers. Deleting your account destroys them and everything on them, including worlds, files, databases and backups.',
-        'delete_account_servers_ack' => 'Yes, permanently delete my :count server(s) and everything on them',
-        'delete_account_confirm_username' => 'Type your username (:username) to confirm',
     ],
 
     'notifications' => [
@@ -336,9 +328,6 @@ return [
         'invalid_loader' => 'That server software is not available for this game.',
         'unsupported_version' => 'Minecraft :version is not available for :loader.',
 
-        'account_deleted' => 'Account Deleted',
-        'account_deleted_success' => 'Your account has been deleted successfully.',
-        'account_deleted_with_servers' => 'Your account and :count server(s) have been deleted.',
         'account_delete_failed' => 'Could not delete account',
         'account_delete_has_servers' => 'Cannot delete an account with active servers. Please delete your servers first.',
         'account_delete_last_admin' => 'Cannot delete the last root administrator.',
@@ -571,7 +560,7 @@ return [
 
     'noprofit' => [
         'manage_account' => 'Manage on noprofit.space',
-        'managed_hint' => 'Your username, email and password are managed on noprofit.space.',
+        'managed_hint' => 'Your sign-in details, passkeys, two-factor codes, Discord link and account deletion are managed on noprofit.space.',
         'reset_moved' => 'Moved your account to noprofit.space? Your password lives there now.',
         'reset_moved_link' => 'Open accounts.noprofit.space',
     ],

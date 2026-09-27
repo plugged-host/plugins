@@ -70,6 +70,9 @@ return [
         'accounts_url' => rtrim((string) env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space'), '/'),
         'sso_secret' => (string) env('NOPROFIT_SSO_SECRET', ''),
         'migration_secret' => (string) env('NOPROFIT_MIGRATION_SECRET', ''),
+        // Credit balances and Discord links, both directions. Separate from the migration
+        // secret so a leak can move balances but never sign anyone in or delete an account.
+        'sync_secret' => (string) env('NOPROFIT_SYNC_SECRET', ''),
         'migration_callback' => (string) (env('NOPROFIT_MIGRATION_CALLBACK')
             ?: rtrim((string) env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space'), '/').'/auth/plugged-host/callback'),
         'migration_ttl' => 900,

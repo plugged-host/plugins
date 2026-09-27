@@ -294,10 +294,7 @@ return [
         'no_available_port' => 'Nach dem aktuellen primären Port wurde kein verfügbarer Port gefunden.',
     ],
 
-    'delete_account' => 'Konto löschen',
     'danger_zone' => 'Gefahrenzone',
-    'delete_account_description' => 'Lösche dein plugged.host Konto und alle zugehörigen personenbezogenen Daten dauerhaft.',
-    'current_password' => 'Aktuelles Passwort',
 
     'admin_delete_user' => [
         'label' => 'Benutzer & Server löschen',
@@ -314,11 +311,6 @@ return [
         'delete_server_confirm' => 'Bist du sicher, dass du diesen Server löschen willst?',
         'delete_server_warning' => 'Dieser Vorgang kann nicht rückgängig gemacht werden und alle Daten gehen unwiderruflich verloren.',
         'delete_server' => 'Server löschen',
-        'delete_account_confirm' => 'Bist du sicher, dass du dein Konto löschen willst? Dieser Vorgang ist endgültig und kann nicht rückgängig gemacht werden.',
-        'delete_account_warning' => 'Alle deine personenbezogenen Daten, API Keys und SSH Keys werden dauerhaft entfernt.',
-        'delete_account_servers' => 'Du besitzt noch :count Server: :servers. Beim Löschen deines Kontos werden sie und alles darauf zerstört, einschließlich Welten, Dateien, Datenbanken und Backups.',
-        'delete_account_servers_ack' => 'Ja, meine :count Server und alles darauf dauerhaft löschen',
-        'delete_account_confirm_username' => 'Tippe deinen Benutzernamen (:username) zur Bestätigung',
     ],
 
     'notifications' => [
@@ -337,9 +329,6 @@ return [
         'invalid_loader' => 'Diese Server Software ist für dieses Spiel nicht verfügbar.',
         'unsupported_version' => 'Minecraft :version ist für :loader nicht verfügbar.',
 
-        'account_deleted' => 'Konto gelöscht',
-        'account_deleted_success' => 'Dein Konto wurde erfolgreich gelöscht.',
-        'account_deleted_with_servers' => 'Dein Konto und :count Server wurden gelöscht.',
         'account_delete_failed' => 'Konto konnte nicht gelöscht werden',
         'account_delete_has_servers' => 'Ein Konto mit aktiven Servern kann nicht gelöscht werden. Bitte lösche zuerst deine Server.',
         'account_delete_last_admin' => 'Der letzte Root-Administrator kann nicht gelöscht werden.',
@@ -572,7 +561,7 @@ return [
 
     'noprofit' => [
         'manage_account' => 'Auf noprofit.space verwalten',
-        'managed_hint' => 'Benutzername, E-Mail und Passwort werden auf noprofit.space verwaltet.',
+        'managed_hint' => 'Anmeldedaten, Passkeys, Zwei-Faktor-Codes, deine Discord-Verknüpfung und das Löschen deines Kontos werden auf noprofit.space verwaltet.',
         'reset_moved' => 'Konto zu noprofit.space umgezogen? Dein Passwort liegt jetzt dort.',
         'reset_moved_link' => 'accounts.noprofit.space öffnen',
     ],

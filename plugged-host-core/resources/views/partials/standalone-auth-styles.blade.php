@@ -1,5 +1,5 @@
     {{--
-        Styles for the standalone auth pages (migrate, sso-connect, mfa-challenge).
+        Styles for the standalone auth pages (migrate, sso-connect).
 
         These pages do not load the panel theme, so the few theme v2 tokens they use are
         declared here under the same names and with the same values as

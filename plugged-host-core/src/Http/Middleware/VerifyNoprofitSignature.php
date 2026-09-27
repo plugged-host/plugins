@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Verifies a request signed by noprofit.space with the shared migration secret.
+ * Verifies a request signed by noprofit.space. The secret is the plugged-host-core.noprofit.*
+ * key named by the middleware parameter: migration_secret (default) for everything that can
+ * sign someone in or delete them, sync_secret for balance and Discord-link sync.
  *
  * The mirror of NoprofitClient: HMAC-SHA256 over the method, path, timestamp, a single-use
  * nonce and a hash of the exact body bytes (noprofit.space's RequestSignature). A request is
@@ -19,9 +21,9 @@ final class VerifyNoprofitSignature
 {
     private const TOLERANCE_SECONDS = 60;
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, string $secretKey = 'migration_secret'): Response
     {
-        $secret = (string) config('plugged-host-core.noprofit.migration_secret', '');
+        $secret = (string) config('plugged-host-core.noprofit.' . $secretKey, '');
 
         $timestamp = (string) $request->header('X-NP-Timestamp', '');
         $nonce = (string) $request->header('X-NP-Nonce', '');

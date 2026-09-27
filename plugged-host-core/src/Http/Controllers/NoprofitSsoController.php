@@ -2,7 +2,6 @@
 
 namespace PluggedHost\Core\Http\Controllers;
 
-use App\Models\Server;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,10 +11,8 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Support\NoprofitMigrationToken;
 use PluggedHost\Core\Support\NoprofitToken;
-use PluggedHost\Core\Support\PanelMfa;
-use PluggedHost\Discord\Models\DiscordLink;
-use PluggedHost\Economy\Models\UserCredits;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -27,7 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
  *     username: both can be claimed by anyone who registers on noprofit.space.
  *   - A brand-new panel user is only created when no panel account uses that email; otherwise
  *     the person is asked to connect the existing account with its plugged.host password.
- *   - The panel's own 2FA is enforced after either first factor (SSO token or /migrate password).
+ *   - Second factors (passkeys, authenticator codes) are checked by noprofit.space before it
+ *     issues an SSO token; the panel keeps no 2FA of its own.
  *   - Both hand-offs carry a random state that was stored in the session of the browser that
  *     started them, so a token captured from someone else's flow cannot be replayed into a
  *     victim's browser (login CSRF / account linking CSRF).
@@ -36,13 +34,6 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class NoprofitSsoController
 {
-    /**
-     * Session key holding a first-factor-verified sign-in or migration awaiting its 2FA code.
-     */
-    private const PENDING = 'plugged-host.sso.pending';
-
-    private const PENDING_SECONDS = 600;
-
     /**
      * Session key holding the state of the SSO round-trip this browser started.
      */
@@ -53,10 +44,18 @@ final class NoprofitSsoController
     public function login(): RedirectResponse
     {
         if (auth()->guard('web')->check()) {
-            return redirect()->to('/');
+            return redirect()->intended('/');
         }
 
         return $this->toAccountsSso();
+    }
+
+    /**
+     * Upstream endpoints this panel no longer offers (see MigrationEndpointServiceProvider).
+     */
+    public function closed(): never
+    {
+        abort(404);
     }
 
     /**
@@ -105,47 +104,7 @@ final class NoprofitSsoController
             ]);
         }
 
-        return $this->completeOrChallenge($request, $user, 'login');
-    }
-
-    public function showChallenge(Request $request): Response
-    {
-        $user = $this->pendingUser($request);
-        if ($user === null) {
-            return redirect()->route('filament.app.auth.login');
-        }
-
-        return response()->view('plugged-host-core::mfa-challenge', [
-            'method' => PanelMfa::method($user),
-        ]);
-    }
-
-    public function verifyChallenge(Request $request): Response
-    {
-        $user = $this->pendingUser($request);
-        if ($user === null) {
-            return redirect()->route('filament.app.auth.login');
-        }
-
-        $key = 'plugged-host:sso-mfa:' . $user->getKey();
-        if (RateLimiter::tooManyAttempts($key, 5)) {
-            $request->session()->forget(self::PENDING);
-
-            return redirect()->route('filament.app.auth.login');
-        }
-
-        if (!PanelMfa::verify($user, (string) $request->input('code', ''))) {
-            RateLimiter::hit($key, self::PENDING_SECONDS);
-
-            return back()->withErrors(['code' => 'That code is not valid.']);
-        }
-
-        RateLimiter::clear($key);
-        $purpose = (string) $request->session()->pull(self::PENDING . '.purpose', 'login');
-        $state = $request->session()->pull(self::PENDING . '.state');
-        $request->session()->forget(self::PENDING);
-
-        return $this->complete($request, $user, $purpose, is_string($state) ? $state : null);
+        return $this->signIn($request, $user);
     }
 
     public function showMigrate(Request $request): Response
@@ -202,7 +161,7 @@ final class NoprofitSsoController
 
         RateLimiter::clear($perAccount);
 
-        return $this->completeOrChallenge($request, $user, 'migrate', $state);
+        return redirect()->away(NoprofitMigrationToken::callbackUrl(NoprofitMigrationToken::issue($user, $state)));
     }
 
     /**
@@ -242,108 +201,16 @@ final class NoprofitSsoController
         return $user;
     }
 
-    private function completeOrChallenge(Request $request, User $user, string $purpose, ?string $state = null): Response
+    /**
+     * Back to the page that sent the visitor to sign in (Laravel's url.intended, stored in
+     * this session when the auth middleware redirected them), or the dashboard.
+     */
+    private function signIn(Request $request, User $user): RedirectResponse
     {
-        if (PanelMfa::method($user) === null) {
-            return $this->complete($request, $user, $purpose, $state);
-        }
-
-        $request->session()->put(self::PENDING, [
-            'user_id' => $user->getKey(),
-            'purpose' => $purpose,
-            'state' => $state,
-            'expires_at' => time() + self::PENDING_SECONDS,
-        ]);
-
-        PanelMfa::begin($user);
-
-        return redirect()->route('plugged-host.sso.challenge');
-    }
-
-    private function complete(Request $request, User $user, string $purpose, ?string $state = null): Response
-    {
-        if ($purpose === 'migrate') {
-            // Re-checked here as well: the 2FA step can finish after a conversion completed elsewhere.
-            if (NoprofitLink::isConverted($user) || $state === null) {
-                return redirect()->away($this->accountsUrl() . '/login');
-            }
-
-            return $this->sendMigrationToken($user, $state);
-        }
-
         auth()->guard('web')->login($user, true);
         $request->session()->regenerate();
 
-        return redirect()->to('/');
-    }
-
-    private function pendingUser(Request $request): ?User
-    {
-        $pending = $request->session()->get(self::PENDING);
-
-        if (!is_array($pending) || (int) ($pending['expires_at'] ?? 0) < time()) {
-            $request->session()->forget(self::PENDING);
-
-            return null;
-        }
-
-        return User::query()->find((int) ($pending['user_id'] ?? 0));
-    }
-
-    /**
-     * Hand the proven plugged.host identity to noprofit.space.
-     *
-     * The token travels through the browser, so it carries no password hash. noprofit.space
-     * fetches the hash server-to-server right after (NoprofitAccountController::export), which
-     * it may only do for a migration this panel issued: the token's nonce is remembered here for
-     * exactly as long as the token is valid.
-     */
-    private function sendMigrationToken(User $user, string $state): RedirectResponse
-    {
-        $ttl = (int) config('plugged-host-core.noprofit.migration_ttl', 900);
-        $nonce = bin2hex(random_bytes(16));
-        Cache::put(NoprofitAccountController::ISSUED_MIGRATION_KEY . $nonce, (int) $user->getKey(), $ttl);
-
-        $credits = class_exists(UserCredits::class) ? UserCredits::forUser($user) : null;
-        $discord = class_exists(DiscordLink::class) ? DiscordLink::query()->where('user_id', $user->id)->first() : null;
-
-        $usage = Server::query()
-            ->where('owner_id', $user->id)
-            ->toBase()
-            ->selectRaw('COUNT(*) AS count, COALESCE(SUM(cpu), 0) AS cpu, COALESCE(SUM(memory), 0) AS memory, COALESCE(SUM(disk), 0) AS disk')
-            ->first();
-
-        $token = NoprofitToken::encode([
-            'nonce' => $nonce,
-            'state' => $state,
-            'pelican_user_id' => (int) $user->id,
-            'email' => $user->email,
-            'username' => $user->username,
-            'credits' => (int) ($credits?->credits ?? 0),
-            'extra_cpu' => (int) ($credits?->extra_cpu ?? 0),
-            'extra_memory' => (int) ($credits?->extra_memory ?? 0),
-            'extra_disk' => (int) ($credits?->extra_disk ?? 0),
-            'discord' => $discord ? [
-                'discord_id' => (string) $discord->discord_id,
-                'username' => $discord->username,
-                'avatar' => $discord->avatar,
-                'is_boosting' => (bool) ($discord->is_boosting ?? false),
-                'boost_count' => (int) ($discord->boost_count ?? 0),
-                'boosts_rewarded' => (int) ($discord->boosts_rewarded ?? 0),
-                'valid_invites' => (int) ($discord->invite_count ?? 0),
-            ] : null,
-            'servers_usage' => [
-                'count' => (int) ($usage?->count ?? 0),
-                'cpu' => (int) ($usage?->cpu ?? 0),
-                'memory' => (int) ($usage?->memory ?? 0),
-                'disk' => (int) ($usage?->disk ?? 0),
-            ],
-        ], (string) config('plugged-host-core.noprofit.migration_secret'), NoprofitToken::AUDIENCE_MIGRATION, $ttl);
-
-        $callback = (string) config('plugged-host-core.noprofit.migration_callback');
-        $separator = str_contains($callback, '?') ? '&' : '?';
-
-        return redirect()->away($callback . $separator . 'token=' . urlencode($token));
+        return redirect()->intended('/');
     }
 
     private function toAccountsSso(): RedirectResponse
