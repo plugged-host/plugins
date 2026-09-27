@@ -1,8 +1,5 @@
 @php
-    use App\Enums\TablerIcon;
-    use Filament\Support\Icons\Heroicon;
     use Illuminate\Support\Number;
-    use function Filament\Support\generate_icon_html;
 
     // Tokens and credits can link through to their respective store tab if plugged-host-store
     // is present on the panel. If it isn't (or if the user cannot view the store), both render
@@ -57,12 +54,7 @@
             <div class="phv2-resource-rows">
                 <div class="phv2-resource-row">
                     <div class="phv2-resource-info">
-                        <span class="phv2-resource-label-group">
-                            <span class="phv2-resource-icon">
-                                {{ generate_icon_html(TablerIcon::Cpu) }}
-                            </span>
-                            <span class="phv2-resource-name">CPU</span>
-                        </span>
+                        <span class="phv2-resource-name">CPU</span>
                         <span class="phv2-resource-metrics">
                             <span class="phv2-resource-value">{{ $resources['cpu_used'] ?? 0 }}%</span>
                             <span class="phv2-resource-limit">/ {{ $cpuLimit }}</span>
@@ -77,12 +69,7 @@
 
                 <div class="phv2-resource-row">
                     <div class="phv2-resource-info">
-                        <span class="phv2-resource-label-group">
-                            <span class="phv2-resource-icon">
-                                {{ generate_icon_html(TablerIcon::Database) }}
-                            </span>
-                            <span class="phv2-resource-name">RAM</span>
-                        </span>
+                        <span class="phv2-resource-name">RAM</span>
                         <span class="phv2-resource-metrics">
                             <span class="phv2-resource-value">{{ $formatSize($resources['memory_used'] ?? 0) }}</span>
                             <span class="phv2-resource-limit">/ {{ $memLimit }}</span>
@@ -97,12 +84,7 @@
 
                 <div class="phv2-resource-row">
                     <div class="phv2-resource-info">
-                        <span class="phv2-resource-label-group">
-                            <span class="phv2-resource-icon">
-                                {{ generate_icon_html(TablerIcon::DeviceSdCard) }}
-                            </span>
-                            <span class="phv2-resource-name">Disk</span>
-                        </span>
+                        <span class="phv2-resource-name">Disk</span>
                         <span class="phv2-resource-metrics">
                             <span class="phv2-resource-value">{{ $formatSize($resources['disk_used'] ?? 0) }}</span>
                             <span class="phv2-resource-limit">/ {{ $diskLimit }}</span>
@@ -129,10 +111,6 @@
     >
         @if ($tokens !== null)
             <span class="phv2-balance-item">
-                <span class="phv2-balance-icon phv2-balance-icon-tokens">
-                    {{ generate_icon_html(TablerIcon::Coins) }}
-                </span>
-
                 <span class="phv2-balance-value">{{ Number::format($tokens, locale: $locale) }}</span>
 
                 <span class="phv2-balance-label">{{ trans('plugged-host-theme-v2::strings.balance.tokens') }}</span>
@@ -141,10 +119,6 @@
 
         @if ($credits !== null)
             <span class="phv2-balance-item">
-                <span class="phv2-balance-icon phv2-balance-icon-credits">
-                    {{ generate_icon_html(Heroicon::OutlinedBanknotes) }}
-                </span>
-
                 <span class="phv2-balance-value">{{ Number::format($credits, locale: $locale) }}</span>
 
                 <span class="phv2-balance-label">{{ trans('plugged-host-theme-v2::strings.balance.credits') }}</span>

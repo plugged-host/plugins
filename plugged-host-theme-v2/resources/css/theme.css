@@ -365,9 +365,7 @@ body {
     > .fi-sidebar-item-btn,
 .fi-sidebar-group.fi-active > .fi-sidebar-group-btn {
     background-color: var(--phv2-accent-soft);
-    border: 2px dashed var(--phv2-accent-edge);
     color: var(--phv2-accent-bright);
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 }
 
 .fi-sidebar-group:not(:has(> .fi-sidebar-group-btn))
@@ -405,9 +403,6 @@ body {
     > .fi-sidebar-item-btn {
     background-color: var(--phv2-raise);
     color: var(--phv2-text);
-    box-shadow:
-        0 1px 3px 0 rgb(0 0 0 / 0.1),
-        0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 
 /* =============================================================================
@@ -509,16 +504,8 @@ body {
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.625rem 0.75rem;
-    border: 1px solid var(--phv2-hairline);
     border-radius: 0.75rem;
     background-color: var(--phv2-sunken);
-    box-shadow: none;
-    transition: all 200ms;
-}
-
-.phv2-resources-card:hover {
-    border-color: var(--phv2-hairline);
-    box-shadow: none;
 }
 
 .phv2-resources-header {
@@ -556,25 +543,6 @@ body {
     line-height: 1.125rem;
 }
 
-.phv2-resource-label-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-}
-
-.phv2-resource-icon {
-    display: inline-flex;
-    flex: none;
-    color: var(--phv2-text-muted);
-}
-
-.phv2-resource-icon > svg,
-.phv2-resource-icon .fi-icon {
-    width: 0.875rem;
-    height: 0.875rem;
-    stroke-width: 1.5;
-}
-
 .phv2-resource-name {
     font-size: 0.75rem;
     font-weight: 500;
@@ -610,7 +578,6 @@ body {
     height: 100%;
     border-radius: 9999px;
     background-color: var(--phv2-accent-bright);
-    box-shadow: none !important;
     transition: width 300ms ease;
 }
 
@@ -624,26 +591,20 @@ body {
     gap: 0.5rem;
     min-height: 2.75rem;
     padding: 0.5rem 0.75rem;
-    border: 1px solid var(--phv2-hairline);
     border-radius: 0.75rem; /* rounded-xl */
     background-color: var(--phv2-sunken);
     color: var(--phv2-text);
     text-decoration: none;
-    transition: all 200ms;
+    transition: background-color 150ms ease;
 }
 
-/* hover:bg-white/5 + hover:scale-95, and only when there is actually somewhere to go */
+/* hover:bg-white/5, and only when there is actually somewhere to go */
 .phv2-balance-pills-linked {
     cursor: pointer;
 }
 
 .phv2-balance-pills-linked:hover {
     background-color: var(--phv2-raise);
-    border-color: var(--phv2-accent-edge);
-}
-
-.phv2-balance-pills-linked:active {
-    transform: scale(0.98);
 }
 
 .phv2-balance-pills-linked:focus-visible {
@@ -658,34 +619,6 @@ body {
     gap: 0.3125rem;
     font-size: 0.8125rem;
     line-height: 1.25rem;
-}
-
-/* size-4, not the reference's size-6: two currencies share the width one pill had. */
-.phv2-balance-icon {
-    display: inline-flex;
-    flex: none;
-}
-
-.phv2-balance-icon > svg,
-.phv2-balance-icon .fi-icon {
-    width: 1rem;
-    height: 1rem;
-    /* Tokens are a Tabler glyph and credits a Heroicon, and the two sets ship different stroke
-       widths as an SVG *attribute* (2 and 1.5). A CSS declaration outranks a presentation
-       attribute, so this is what stops the coins looking bolder than the banknotes beside them. */
-    stroke-width: 1.5;
-}
-
-/* The icons are the only thing telling two otherwise identical number-and-word pairs
-   apart, so they are the one place in this row that takes a colour of its own. */
-.phv2-balance-icon-tokens > svg,
-.phv2-balance-icon-tokens .fi-icon {
-    color: var(--phv2-accent-glow);
-}
-
-.phv2-balance-icon-credits > svg,
-.phv2-balance-icon-credits .fi-icon {
-    color: var(--phv2-accent-bright);
 }
 
 .phv2-balance-value {
@@ -820,8 +753,8 @@ body {
  * and a cog): the field and the cog were removed by request, so the bell is no longer one
  * 37.5px square in a row of three and can be the full-width "big notification button" that
  * was asked for. Shaped like `.phv2-new-server` — same 2.75rem height, same full-bleed
- * width — but filled from `--phv2-sunken` rather than the accent, because this column has
- * exactly one primary CTA and it is the New Server button below.
+ * width — but drawn as an ordinary nav row (transparent until hover), because it opens
+ * something the way the rows below do.
  *
  * No inline margin: `.fi-sidebar-nav` already has `padding: 1rem 0.5rem 0.5rem`, so an
  * extra 0.5rem here would inset this row to 1rem while every nav row below sat at 0.5rem —
@@ -841,24 +774,20 @@ body {
     min-height: 2.75rem;
     margin-block: 0 0.25rem;
     padding: 0.5rem 0.875rem;
-    background-color: var(--phv2-sunken);
-    border: 1px solid var(--phv2-hairline);
+    border: 2px solid transparent; /* the nav rows' border box, so the edges line up */
     border-radius: 0.75rem; /* rounded-xl */
-    color: var(--phv2-text);
+    background-color: transparent;
+    color: var(--phv2-text-nav);
     font-size: 0.875rem;
     font-weight: 500;
     text-align: start;
     cursor: pointer;
-    transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
+    transition: background-color 150ms ease, color 150ms ease;
 }
 
 .phv2-notifications:hover {
     background-color: var(--phv2-raise);
-    border-color: var(--phv2-accent-edge);
-}
-
-.phv2-notifications:active {
-    transform: scale(0.98);
+    color: var(--phv2-text);
 }
 
 .phv2-notifications:focus-visible {
@@ -866,14 +795,14 @@ body {
     outline-offset: 2px;
 }
 
-/* size-6 in UIExample, and the same 1.5rem the nav icons take, so the two agree. Tinted
-   rather than muted: this is the one row above the nav tree that reports something. */
+/* size-6 and the nav icons' colour, so this row reads as one of them; the unread badge
+   is what reports something. */
 .phv2-notifications > svg,
 .phv2-notifications .fi-icon {
     flex: none;
     width: 1.5rem;
     height: 1.5rem;
-    color: var(--phv2-accent-glow);
+    color: var(--phv2-text-faint);
 }
 
 .phv2-notifications-label {
@@ -909,6 +838,10 @@ body {
  * shadow bg-orange-600 hover:bg-orange-700 hover:shadow-none" — stretched to the full
  * 16rem column because it is the sidebar's own CTA rather than one button in a header row.
  *
+ * Styled as the theme's gray (secondary) button, not the accent fill: it is on screen on
+ * every page, so a filled one would sit next to each page's own primary button and there
+ * would always be two (UI/Design Rules, /var/www/CLAUDE.md).
+ *
  * This is hand-rolled rather than a .fi-btn: it is an anchor in a render hook, outside any
  * Filament action, so there is no Action to configure and nothing would give it the
  * fi-color-primary custom properties .fi-btn's fill depends on.
@@ -927,38 +860,25 @@ body {
     margin-block: 0.25rem 0.5rem;
     padding-inline: 1.25rem; /* px-5 */
     border-radius: 9999px; /* rounded-full */
-    background-color: var(--phv2-accent);
-    color: #fff;
+    background-color: var(--phv2-raise-2);
+    color: var(--phv2-text);
     font-size: 0.875rem; /* text-sm */
     font-weight: 500;
     text-align: center;
-    box-shadow:
-        0 1px 3px 0 rgb(0 0 0 / 0.1),
-        0 1px 2px -1px rgb(0 0 0 / 0.1);
-    transition: background-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+    transition: background-color 150ms ease, transform 100ms ease;
 }
 
 .phv2-new-server:hover {
-    background-color: var(--phv2-accent-hover);
-    box-shadow: 0 4px 12px 0 rgb(29 78 216 / 0.35);
+    background-color: var(--phv2-raise-3);
 }
 
 .phv2-new-server:active {
     transform: scale(0.97);
-    box-shadow: none;
 }
 
 .phv2-new-server:focus-visible {
     outline: 2px solid var(--phv2-accent-bright);
     outline-offset: 2px;
-}
-
-.phv2-new-server .fi-icon,
-.phv2-new-server svg {
-    width: 1rem; /* size-4 */
-    height: 1rem;
-    flex: none;
-    color: currentColor;
 }
 
 /* =============================================================================
@@ -1689,7 +1609,7 @@ html.fi {
 
 #nprogress .bar {
     background: var(--phv2-accent-glow) !important;
-    box-shadow: 0 4px 38px -15px var(--phv2-accent-glow) !important;
+    box-shadow: none !important;
     height: 1.85px !important;
 }
 
