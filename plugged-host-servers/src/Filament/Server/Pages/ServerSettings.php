@@ -133,7 +133,6 @@ class ServerSettings extends ServerFormPage
     {
         return Section::make(trans('server/setting.server_info.title'))
             ->id('general')
-            ->icon(TablerIcon::Server)
             ->columnSpanFull()
             ->extraAttributes(['class' => 'scroll-mt-24'])
             ->schema([
@@ -198,7 +197,6 @@ class ServerSettings extends ServerFormPage
     {
         return Section::make(trans('server/setting.server_info.sftp.title'))
             ->id('sftp')
-            ->icon('tabler-folder-share')
             ->description('Connect via any SFTP client (e.g. FileZilla, Cyberduck, WinSCP) to manage your server files directly.')
             ->columnSpanFull()
             ->visible(fn () => $this->hasSftpAccess())
@@ -241,13 +239,11 @@ class ServerSettings extends ServerFormPage
             Section::make(trans('plugged-host-servers::strings.choose_plan'))
                 ->id('resources')
                 ->description(trans('plugged-host-servers::strings.resize_plan_description'))
-                ->icon(TablerIcon::Cpu)
                 ->columnSpanFull()
                 ->extraAttributes(['class' => 'scroll-mt-24'])
                 ->footerActions([
                     Action::make('save_resources')
                         ->label(trans('plugged-host-servers::strings.server_settings.save_resources'))
-                        ->icon('tabler-device-floppy')
                         ->color('primary')
                         ->action('saveResources'),
                 ])
@@ -284,6 +280,7 @@ class ServerSettings extends ServerFormPage
                         }),
 
                     Section::make()
+                        ->contained(false)
                         ->visible(fn (Get $get) => (bool) $get('advanced'))
                         ->columns([
                             'default' => 1,
@@ -484,8 +481,6 @@ class ServerSettings extends ServerFormPage
         return [
             Section::make(trans('plugged-host-servers::strings.server_settings.sections.startup_command'))
                 ->id('startup')
-                ->icon(TablerIcon::PlayerPlay)
-                ->description('Configure the server startup command, Docker environment image, and configuration variables.')
                 ->columnSpanFull()
                 ->extraAttributes(['class' => 'scroll-mt-24'])
                 ->schema([
@@ -535,9 +530,9 @@ class ServerSettings extends ServerFormPage
                         ]),
 
                     // Variables subsection
+                    // A heading inside the startup card, not a second card nested in it.
                     Section::make(trans('server/startup.variables'))
-                        ->icon(TablerIcon::Adjustments)
-                        ->description('Runtime environment variables provided to the egg.')
+                        ->contained(false)
                         ->columnSpanFull()
                         ->schema([
                             Repeater::make('server_variables')
@@ -704,16 +699,18 @@ class ServerSettings extends ServerFormPage
             Section::make(trans('plugged-host-servers::strings.change_version_section'))
                 ->id('version')
                 ->description(trans('plugged-host-servers::strings.change_version_section_description'))
-                ->icon('tabler-versions')
                 ->columnSpanFull()
                 ->columns(2)
                 ->extraAttributes(['class' => 'scroll-mt-24'])
                 ->footerActions([
                     Action::make('apply_version')
                         ->label(trans('plugged-host-servers::strings.change_version_apply'))
-                        ->icon('tabler-refresh')
-                        ->color('danger')
+                        // Reinstalls the server: a secondary button on the page, the red
+                        // belongs to the confirmation's own submit.
+                        ->color('gray')
                         ->requiresConfirmation()
+                        ->modalIconColor('danger')
+                        ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                         ->modalHeading(trans('plugged-host-servers::strings.change_version_confirm'))
                         ->modalDescription(trans('plugged-host-servers::strings.change_version_warning'))
                         ->modalSubmitActionLabel(trans('plugged-host-servers::strings.change_version_apply'))
@@ -871,8 +868,6 @@ class ServerSettings extends ServerFormPage
     {
         return Section::make(trans('server/setting.notifications.title'))
             ->id('notifications')
-            ->icon(TablerIcon::Bell)
-            ->description('Manage notifications for automated and manual backups.')
             ->columnSpanFull()
             ->extraAttributes(['class' => 'scroll-mt-24'])
             ->schema([
@@ -973,9 +968,10 @@ class ServerSettings extends ServerFormPage
         if (user()?->can(SubuserPermission::SettingsReinstall, $server)) {
             $actions[] = Action::make('reinstall_server')
                 ->label(trans('server/setting.reinstall.action'))
-                ->color('danger')
-                ->icon('tabler-refresh')
+                ->color('gray')
                 ->requiresConfirmation()
+                ->modalIconColor('danger')
+                ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                 ->modalHeading(trans('server/setting.reinstall.modal'))
                 ->modalDescription(trans('server/setting.reinstall.modal_description'))
                 ->modalSubmitActionLabel(trans('server/setting.reinstall.yes'))
@@ -985,9 +981,10 @@ class ServerSettings extends ServerFormPage
         if ($this->canDeleteServer($server)) {
             $actions[] = Action::make('delete_server_danger')
                 ->label(trans('plugged-host-servers::strings.modals.delete_server'))
-                ->color('danger')
-                ->icon('tabler-trash')
+                ->color('gray')
                 ->requiresConfirmation()
+                ->modalIconColor('danger')
+                ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                 ->modalHeading(trans('plugged-host-servers::strings.modals.delete_server_confirm'))
                 ->modalDescription(trans('plugged-host-servers::strings.modals.delete_server_warning'))
                 ->modalSubmitActionLabel(trans('plugged-host-servers::strings.modals.delete_server'))
@@ -996,12 +993,8 @@ class ServerSettings extends ServerFormPage
 
         return Section::make(trans('plugged-host-servers::strings.danger_zone'))
             ->id('danger')
-            ->icon(TablerIcon::AlertTriangle)
-            ->description('Irreversible and destructive actions for this server container.')
             ->columnSpanFull()
-            ->extraAttributes([
-                'class' => 'scroll-mt-24 border-danger-500/30 dark:border-danger-500/20 bg-danger-500/[0.03]',
-            ])
+            ->extraAttributes(['class' => 'scroll-mt-24'])
             ->visible(fn () => user()?->can(SubuserPermission::SettingsReinstall, $server) || $this->canDeleteServer($server))
             ->footerActions($actions)
             ->footerActionsAlignment(Alignment::Right)
@@ -1108,9 +1101,10 @@ class ServerSettings extends ServerFormPage
         return [
             Action::make('delete_server')
                 ->label(trans('plugged-host-servers::strings.modals.delete_server'))
-                ->color('danger')
-                ->icon('tabler-trash')
+                ->color('gray')
                 ->requiresConfirmation()
+                ->modalIconColor('danger')
+                ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                 ->modalHeading(trans('plugged-host-servers::strings.modals.delete_server_confirm'))
                 ->modalDescription(trans('plugged-host-servers::strings.modals.delete_server_warning'))
                 ->modalSubmitActionLabel(trans('plugged-host-servers::strings.modals.delete_server'))

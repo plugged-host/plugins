@@ -141,8 +141,6 @@ class ConfigureServerPage extends Page
             ->statePath('data')
             ->components([
                 Section::make(trans('plugged-host-servers::strings.choose_type'))
-                    ->description(trans('plugged-host-servers::strings.choose_type_description'))
-                    ->icon('tabler-versions')
                     ->visible($types !== null)
                     ->schema([
                         // Read-only on purpose. Software used to be picked here, and is now the
@@ -155,8 +153,6 @@ class ConfigureServerPage extends Page
                     ]),
 
                 Section::make(trans('plugged-host-servers::strings.choose_location'))
-                    ->description(trans('plugged-host-servers::strings.choose_location_description'))
-                    ->icon('tabler-world')
                     ->schema([
                         CardSelect::make('location')
                             ->hiddenLabel()
@@ -197,7 +193,6 @@ class ConfigureServerPage extends Page
 
                 Section::make(trans('plugged-host-servers::strings.choose_plan'))
                     ->description(trans('plugged-host-servers::strings.choose_plan_description'))
-                    ->icon('tabler-server-cog')
                     ->schema([
                         CardSelect::make('plan')
                             ->hiddenLabel()
@@ -242,6 +237,7 @@ class ConfigureServerPage extends Page
                             }),
 
                         Section::make()
+                            ->contained(false)
                             ->visible(fn (Get $get) => (bool) $get('advanced'))
                             ->columns(3)
                             ->schema([
@@ -274,7 +270,6 @@ class ConfigureServerPage extends Page
 
                 Section::make(trans('plugged-host-servers::strings.server_details'))
                     ->description(trans('plugged-host-servers::strings.server_details_description'))
-                    ->icon('tabler-settings')
                     ->schema([
                         TextInput::make('name')
                             ->label(trans('plugged-host-servers::strings.name'))
@@ -346,8 +341,7 @@ class ConfigureServerPage extends Page
             Action::make('save')
                 ->label(trans('plugged-host-servers::strings.deploy_server'))
                 ->action('save')
-                ->keyBindings(['mod+s'])
-                ->icon('tabler-rocket'),
+                ->keyBindings(['mod+s']),
         ];
     }
 

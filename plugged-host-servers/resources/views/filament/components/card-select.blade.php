@@ -19,6 +19,44 @@
     :component="$getFieldWrapperView()"
     :field="$field"
 >
+    {{-- Flat radio cards on the theme tokens: a sunken well, a hairline-free idle state, the
+         accent border + soft fill when selected. No ring, no shadow, no hover lift. Scoped
+         plain CSS so it needs no asset build. --}}
+    <style>
+        .phcs-card { position: relative; display: flex; gap: .75rem; padding: 1rem; border-radius: .75rem; border: 1px solid transparent; background: var(--phv2-sunken); color: var(--phv2-text); user-select: none; transition: border-color 150ms ease, background-color 150ms ease; }
+        .phcs-card.is-clickable { cursor: pointer; }
+        .phcs-card.is-hoverable:hover { border-color: var(--phv2-accent-edge); background: var(--phv2-raise); }
+        .phcs-card.is-selected { border-color: var(--phv2-accent-bright); background: var(--phv2-accent-soft); }
+        .phcs-card.is-disabled { cursor: not-allowed; opacity: .5; }
+        .phcs-centered { height: 100%; flex-direction: column; align-items: center; text-align: center; gap: .625rem; }
+        .phcs-row { align-items: flex-start; }
+        .phcs-logo { display: flex; width: 3rem; height: 3rem; flex: none; align-items: center; justify-content: center; color: var(--phv2-text-muted); }
+        .phcs-logo img { width: 2.5rem; height: 2.5rem; border-radius: .5rem; object-fit: contain; }
+        .phcs-logo svg { width: 2rem; height: 2rem; }
+        .phcs-body { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: .125rem; }
+        .phcs-label { font-size: .875rem; font-weight: 600; line-height: 1.25rem; color: var(--phv2-text); }
+        .phcs-card.has-signal .phcs-label { padding-right: 4.5rem; }
+        .phcs-desc { font-size: .75rem; line-height: 1.125rem; color: var(--phv2-text-muted); }
+        .phcs-centered .phcs-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .phcs-meta { margin-top: .125rem; font-size: .75rem; font-weight: 500; color: var(--phv2-text-nav); font-variant-numeric: tabular-nums; }
+        .phcs-flag { display: flex; width: 1.5rem; height: 1rem; flex: none; margin-top: .125rem; overflow: hidden; border-radius: .125rem; outline: 1px solid var(--phv2-hairline); outline-offset: -1px; }
+        .phcs-flag > svg, .phcs-flag > img { width: 100%; height: 100%; object-fit: cover; }
+        .phcs-icon { width: 1.25rem; height: 1.25rem; flex: none; margin-top: .125rem; color: var(--phv2-text-muted); }
+        .phcs-signal { pointer-events: none; position: absolute; top: .75rem; right: .75rem; display: inline-flex; align-items: flex-end; gap: 3px; }
+        .phcs-signal-ms { margin-right: .25rem; align-self: center; font-size: .6875rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+        .phcs-signal-ms span { font-weight: 400; color: var(--phv2-text-muted); }
+        .phcs-signal-bar { width: 3px; border-radius: 1px; background: var(--phv2-raise-2); }
+        .phcs-tier { margin-top: .5rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .phcs-badge { display: inline-flex; align-items: center; gap: .25rem; padding: .125rem .5rem; border-radius: .5rem; background: var(--phv2-raise-2); font-size: .6875rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--phv2-text-nav); }
+        .phcs-badge-info { display: inline-flex; cursor: help; color: var(--phv2-text-muted); }
+        .phcs-badge-info svg { width: .75rem; height: .75rem; }
+        .phcs-unlock { display: inline-flex; align-items: center; gap: .375rem; min-height: 1.75rem; padding: 0 .75rem; border-radius: 9999px; background: var(--phv2-raise-2); font-size: .75rem; font-weight: 600; color: var(--phv2-text); transition: background-color 150ms ease; }
+        .phcs-unlock:hover { background: var(--phv2-raise-3); }
+        .phcs-unlock-cost { display: inline-flex; align-items: center; gap: .25rem; color: var(--phv2-text-nav); font-variant-numeric: tabular-nums; }
+        .phcs-unlock-cost svg { width: .875rem; height: .875rem; }
+        .phcs-note { font-size: .75rem; color: var(--phv2-text-muted); }
+    </style>
+
     <div
         x-data="{
             state: $wire.{{ $applyStateBindingModifiers("\$entangle('{$statePath}')") }},
@@ -32,14 +70,9 @@
             @php
                 $isLocked = $option['locked'] ?? false;
                 $tier = $option['tier'];
-                // WP13 tier pill: an icon and colour per tier, inline so it renders without a
-                // Tailwind rebuild. Premium keeps the WP2 accent-tint style.
-                $tierPill = match ($tier) {
-                    'premium' => ['icon' => 'tabler-star', 'style' => 'color: var(--phv2-accent-bright, #3b82f6); background: var(--phv2-accent-tint, rgb(29 78 216 / .12));'],
-                    'plus' => ['icon' => 'tabler-bolt', 'style' => 'color: #a78bfa; background: rgb(139 92 246 / .12);'],
-                    'free' => ['icon' => 'tabler-circle-check', 'style' => 'color: #34d399; background: rgb(16 185 129 / .12);'],
-                    default => null,
-                };
+                // WP13 tier pill: one neutral badge per tier. The tier is a category, not a
+                // status, so it takes no colour of its own.
+                $hasTierPill = in_array($tier, ['premium', 'plus', 'free'], true);
                 // A locked Plus/Premium card is inert (its own unlock button drives selection
                 // later), not a plain disabled option; everything else follows the normal rule.
                 $optionDisabled = $isDisabled || $option['disabled'];
@@ -51,10 +84,10 @@
                 {{-- Centered card layout (used for games/eggs) --}}
                 <label
                     @click="if (!{{ $radioDisabled ? 'true' : 'false' }}) select('{{ $option['value'] }}')"
-                    class="group relative flex h-full flex-col items-center text-center rounded-2xl border bg-white p-4 transition-all duration-150 ease-out dark:bg-gray-900 select-none {{ $radioDisabled ? ($optionDisabled && !$isLocked ? 'cursor-not-allowed border-gray-200 opacity-50 dark:border-white/10' : '') : 'cursor-pointer' }} {{ $isSelected && !$radioDisabled ? 'border-primary-500 ring-2 ring-primary-500 shadow-md shadow-primary-500/10 bg-primary-50/5 dark:bg-primary-950/20 dark:border-primary-400 dark:ring-primary-400 scale-[1.01]' : 'border-gray-200 dark:border-white/10' }}"
+                    class="phcs-card phcs-centered {{ $radioDisabled ? ($optionDisabled && !$isLocked ? 'is-disabled' : '') : 'is-clickable' }} {{ $isSelected && !$radioDisabled ? 'is-selected' : '' }}"
                     :class="{
-                        'border-primary-500 ring-2 ring-primary-500 shadow-md shadow-primary-500/10 bg-primary-50/5 dark:bg-primary-950/20 dark:border-primary-400 dark:ring-primary-400 scale-[1.01]': state == '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }},
-                        'border-gray-200 hover:border-primary-400 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:hover:border-primary-500': state != '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }}
+                        'is-selected': state == '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }},
+                        'is-hoverable': state != '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }}
                     }"
                 >
                     <input
@@ -68,48 +101,38 @@
                         {{ $getExtraInputAttributeBag() }}
                     />
 
-                    <span
-                        x-show="state == '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }}"
-                        x-cloak
-                        @if (! $isSelected) style="display: none;" @endif
-                        class="pointer-events-none absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm transition-all duration-150"
-                    >
-                        <x-filament::icon icon="tabler-check" class="h-3.5 w-3.5" />
-                    </span>
-
-                    <div class="flex h-12 w-12 items-center justify-center transition-transform duration-150 group-hover:scale-105 shrink-0">
+                    <span class="phcs-logo">
                         @if ($option['image'])
                             <img
                                 src="{{ $option['image'] }}"
                                 alt="{{ $option['label'] }}"
-                                class="h-10 w-10 rounded-lg object-contain"
                                 loading="lazy"
                             />
                         @elseif ($option['icon'])
-                            <x-filament::icon :icon="$option['icon']" class="h-8 w-8 text-gray-400 transition group-hover:text-primary-500 dark:group-hover:text-primary-400" />
+                            <x-filament::icon :icon="$option['icon']" />
                         @endif
-                    </div>
+                    </span>
 
-                    <div class="mt-2.5 flex flex-1 flex-col items-center justify-start w-full space-y-0.5">
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white leading-tight">
+                    <span class="phcs-body">
+                        <span class="phcs-label">
                             {{ $option['label'] }}
-                        </h3>
+                        </span>
 
                         @if ($option['description'])
-                            <p class="line-clamp-2 text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                            <span class="phcs-desc">
                                 {{ $option['description'] }}
-                            </p>
+                            </span>
                         @endif
-                    </div>
+                    </span>
                 </label>
             @else
                 {{-- Standard horizontal card layout (used for locations and plans) --}}
                 <label
                     @click="if (!{{ $radioDisabled ? 'true' : 'false' }}) select('{{ $option['value'] }}')"
-                    class="group relative flex items-start gap-3 rounded-xl border bg-white p-4 transition-all duration-150 ease-out dark:bg-gray-900 select-none {{ $radioDisabled ? ($optionDisabled && !$isLocked ? 'cursor-not-allowed border-gray-200 opacity-50 dark:border-white/10' : ($isLocked ? 'border-primary-400/40 dark:border-primary-400/30' : '')) : 'cursor-pointer' }} {{ $isSelected && !$radioDisabled ? 'border-primary-500 ring-2 ring-primary-500 shadow-sm shadow-primary-500/10 dark:border-primary-400 dark:ring-primary-400' : 'border-gray-200 dark:border-white/10' }}"
+                    class="phcs-card phcs-row {{ $option['signal'] ? 'has-signal' : '' }} {{ $radioDisabled ? ($optionDisabled && !$isLocked ? 'is-disabled' : '') : 'is-clickable' }} {{ $isSelected && !$radioDisabled ? 'is-selected' : '' }}"
                     :class="{
-                        'border-primary-500 ring-2 ring-primary-500 shadow-sm shadow-primary-500/10 dark:border-primary-400 dark:ring-primary-400': state == '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }},
-                        'border-gray-200 hover:border-primary-400 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:hover:border-primary-500': state != '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }} && !{{ $isLocked ? 'true' : 'false' }}
+                        'is-selected': state == '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }},
+                        'is-hoverable': state != '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }} && !{{ $isLocked ? 'true' : 'false' }}
                     }"
                 >
                     <input
@@ -117,7 +140,7 @@
                         name="{{ $getId() }}"
                         value="{{ $option['value'] }}"
                         x-model="state"
-                        @class(['mt-0.5 shrink-0', 'hidden' => $isLocked])
+                        @class(['fi-radio-input mt-0.5 shrink-0', 'hidden' => $isLocked])
                         @disabled($radioDisabled)
                         {{ $getExtraInputAttributeBag() }}
                     />
@@ -129,118 +152,106 @@
                         @php
                             $sig = $option['signal'];
                             $signalColor = match ($sig['level'] ?? 'poor') {
-                                'great' => '#22c55e',
-                                'good'  => '#4ade80',
-                                'ok'    => '#eab308',
-                                default => '#ef4444',
+                                'great' => 'var(--success-500)',
+                                'good'  => 'var(--success-400)',
+                                'ok'    => 'var(--warning-500)',
+                                default => 'var(--danger-500)',
                             };
                         @endphp
                         <span
-                            class="pointer-events-none absolute right-2.5 top-2.5 inline-flex items-end gap-[3px]"
+                            class="phcs-signal"
                             title="{{ $sig['ms'] }} ms"
                             aria-label="{{ $sig['ms'] }} ms latency"
                         >
-                            <span class="mr-1 self-center text-[0.625rem] font-semibold tabular-nums leading-none" style="color: {{ $signalColor }};">
-                                {{ $sig['ms'] }}<span class="font-normal" style="opacity: .55;"> ms</span>
+                            <span class="phcs-signal-ms" style="color: {{ $signalColor }};">
+                                {{ $sig['ms'] }}<span> ms</span>
                             </span>
                             @for ($i = 1; $i <= 4; $i++)
                                 <span
                                     aria-hidden="true"
-                                    style="width: 3px; height: {{ 3 + $i * 2 }}px; border-radius: 1px; background: {{ $i <= ($sig['bars'] ?? 0) ? $signalColor : 'rgb(148 163 184 / .3)' }};"
+                                    class="phcs-signal-bar"
+                                    style="height: {{ 3 + $i * 2 }}px; {{ $i <= ($sig['bars'] ?? 0) ? 'background: ' . $signalColor . ';' : '' }}"
                                 ></span>
                             @endfor
                         </span>
                     @endif
 
-                    <span class="flex min-w-0 flex-1 items-start gap-3">
-                        @if ($option['svg'])
-                            {{-- Inline vendored flag SVG (WP3). Trusted content — flag-icons files,
-                                 not user input — so raw output is safe. No public/ dependency, no
-                                 flag-icons `.fi-*` CSS to collide with Filament. --}}
-                            <span
-                                aria-hidden="true"
-                                class="mt-0.5 flex h-4 w-6 shrink-0 overflow-hidden rounded-sm shadow-sm ring-1 ring-gray-950/10 dark:ring-white/10 [&>svg]:h-full [&>svg]:w-full [&>svg]:object-cover"
-                            >{!! $option['svg'] !!}</span>
-                        @elseif ($option['image'])
-                            {{-- Self-hosted SVG, not a flag-icons CSS class: flag-icons and
-                                 Filament both own the `.fi-*` prefix. --}}
-                            <img
-                                src="{{ $option['image'] }}"
-                                alt=""
-                                aria-hidden="true"
-                                class="mt-0.5 h-4 w-6 shrink-0 rounded-sm object-cover shadow-sm ring-1 ring-gray-950/10 dark:ring-white/10"
-                                loading="lazy"
-                            />
-                        @elseif ($option['icon'])
-                            <x-filament::icon :icon="$option['icon']" class="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+                    @if ($option['svg'])
+                        {{-- Inline vendored flag SVG (WP3). Trusted content — flag-icons files,
+                             not user input — so raw output is safe. No public/ dependency, no
+                             flag-icons `.fi-*` CSS to collide with Filament. --}}
+                        <span aria-hidden="true" class="phcs-flag">{!! $option['svg'] !!}</span>
+                    @elseif ($option['image'])
+                        {{-- Self-hosted SVG, not a flag-icons CSS class: flag-icons and
+                             Filament both own the `.fi-*` prefix. --}}
+                        <span aria-hidden="true" class="phcs-flag">
+                            <img src="{{ $option['image'] }}" alt="" loading="lazy" />
+                        </span>
+                    @elseif ($option['icon'])
+                        <x-filament::icon :icon="$option['icon']" class="phcs-icon" />
+                    @endif
+
+                    <span class="phcs-body">
+                        <span class="phcs-label">
+                            {{ $option['label'] }}
+                        </span>
+
+                        @if ($option['description'])
+                            <span class="phcs-desc">
+                                {{ $option['description'] }}
+                            </span>
                         @endif
 
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-semibold text-gray-950 dark:text-white">
-                                {{ $option['label'] }}
+                        @if ($option['meta'])
+                            <span class="phcs-meta">
+                                {{ $option['meta'] }}
                             </span>
+                        @endif
 
-                            @if ($option['description'])
-                                <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
-                                    {{ $option['description'] }}
-                                </span>
-                            @endif
-
-                            @if ($option['meta'])
-                                <span class="mt-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                                    {{ $option['meta'] }}
-                                </span>
-                            @endif
-
-                            @if ($tierPill)
-                                {{-- WP13 tier pill. Stays on unlocked Plus/Premium cards too, so the
-                                     tier remains visible. The (i) shows the tier's uptime on hover or
-                                     focus; clicking it does not select the card. Every paid card's
-                                     unlock button is the same one purchase covering both tiers. --}}
-                                <div class="mt-2 flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide"
-                                          style="{{ $tierPill['style'] }}">
-                                        <x-filament::icon :icon="$tierPill['icon']" class="h-3 w-3" />
-                                        {{ trans("plugged-host-servers::strings.tiers.{$tier}") }}
-                                        <span
-                                            x-data
-                                            x-tooltip="{
-                                                content: @js(trans("plugged-host-servers::strings.uptime.{$tier}")),
-                                                theme: $store.theme,
-                                            }"
-                                            x-on:click.prevent
-                                            tabindex="0"
-                                            role="img"
-                                            aria-label="{{ trans("plugged-host-servers::strings.uptime.{$tier}") }}"
-                                            class="inline-flex"
-                                            style="cursor: help; opacity: .75;"
-                                        >
-                                            <x-filament::icon icon="tabler-info-circle" class="h-3 w-3" />
-                                        </span>
+                        @if ($hasTierPill)
+                            {{-- WP13 tier pill. Stays on unlocked Plus/Premium cards too, so the
+                                 tier remains visible. The (i) shows the tier's uptime on hover or
+                                 focus; clicking it does not select the card. Every paid card's
+                                 unlock button is the same one purchase covering both tiers. --}}
+                            <span class="phcs-tier">
+                                <span class="phcs-badge">
+                                    {{ trans("plugged-host-servers::strings.tiers.{$tier}") }}
+                                    <span
+                                        x-data
+                                        x-tooltip="{
+                                            content: @js(trans("plugged-host-servers::strings.uptime.{$tier}")),
+                                            theme: $store.theme,
+                                        }"
+                                        x-on:click.prevent
+                                        tabindex="0"
+                                        role="img"
+                                        aria-label="{{ trans("plugged-host-servers::strings.uptime.{$tier}") }}"
+                                        class="phcs-badge-info"
+                                    >
+                                        <x-filament::icon icon="tabler-info-circle" />
                                     </span>
+                                </span>
 
-                                    @if ($isLocked)
-                                        <button
-                                            type="button"
-                                            wire:click="unlockPremium"
-                                            @click.stop
-                                            class="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-primary-600"
-                                        >
-                                            <x-filament::icon icon="tabler-lock-open" class="h-3.5 w-3.5" />
-                                            <span>{{ trans('plugged-host-servers::strings.unlock') }}</span>
-                                            <span class="ml-0.5 inline-flex items-center gap-1 rounded-full bg-white/20 px-1.5 py-0.5">
-                                                <x-filament::icon icon="tabler-coins" class="h-3 w-3" />
-                                                <span class="tabular-nums">{{ $option['cost'] }}</span>
-                                            </span>
-                                        </button>
-                                    @elseif ($tier === 'free')
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                                            {{ trans('plugged-host-servers::strings.free_tier_desc') }}
+                                @if ($isLocked)
+                                    <button
+                                        type="button"
+                                        wire:click="unlockPremium"
+                                        @click.stop
+                                        class="phcs-unlock"
+                                    >
+                                        <span>{{ trans('plugged-host-servers::strings.unlock') }}</span>
+                                        <span class="phcs-unlock-cost">
+                                            <x-filament::icon icon="tabler-coins" />
+                                            <span>{{ $option['cost'] }}</span>
                                         </span>
-                                    @endif
-                                </div>
-                            @endif
-                        </span>
+                                    </button>
+                                @elseif ($tier === 'free')
+                                    <span class="phcs-note">
+                                        {{ trans('plugged-host-servers::strings.free_tier_desc') }}
+                                    </span>
+                                @endif
+                            </span>
+                        @endif
                     </span>
                 </label>
             @endif

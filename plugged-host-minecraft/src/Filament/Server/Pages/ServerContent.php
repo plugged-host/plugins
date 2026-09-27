@@ -158,14 +158,16 @@ class ServerContent extends MinecraftPage implements HasTable
                 ->label(fn () => $this->geyserStatus === 'update'
                     ? trans('plugged-host-minecraft::strings.mods.geyser_update')
                     : trans('plugged-host-minecraft::strings.mods.geyser_install'))
-                ->icon('tabler-brand-minecraft')
+                ->color('gray')
                 ->visible(fn () => $this->geyserStatus !== 'unavailable')
                 ->requiresConfirmation()
                 ->action('installGeyser'),
 
             Action::make('refresh')
                 ->label(trans('plugged-host-minecraft::strings.mods.refresh'))
+                ->iconButton()
                 ->icon('tabler-refresh')
+                ->tooltip(trans('plugged-host-minecraft::strings.mods.refresh'))
                 ->color('gray')
                 ->action('refreshList'),
         ];
@@ -430,19 +432,17 @@ class ServerContent extends MinecraftPage implements HasTable
                 ->toggleable(),
             TextColumn::make('downloads')
                 ->label(trans('plugged-host-minecraft::strings.content.col_downloads'))
-                ->numeric()
-                ->badge()
-                ->color('gray'),
+                ->numeric(),
             TextColumn::make('categories')
                 ->label(trans('plugged-host-minecraft::strings.content.col_categories'))
                 ->badge()
+                ->color('gray')
                 ->limitList(3)
                 ->toggleable(),
             TextColumn::make('status')
                 ->label('')
                 ->badge()
                 ->color(fn (array $record): string => $this->isProjectInstalled($record) ? 'success' : 'gray')
-                ->icon(fn (array $record): TablerIcon => $this->isProjectInstalled($record) ? TablerIcon::Check : TablerIcon::ExternalLink)
                 ->tooltip(fn (array $record): ?string => ($record['installable'] ?? true) === false ? trans('plugged-host-minecraft::strings.content.spigot_external_hint') : null)
                 ->state(fn (array $record): ?string => match (true) {
                     $this->isProjectInstalled($record) => trans('plugged-host-minecraft::strings.content.installed_badge'),
@@ -511,7 +511,6 @@ class ServerContent extends MinecraftPage implements HasTable
         return [
             Action::make('quick_install')
                 ->label(trans('plugged-host-minecraft::strings.content.quick_install'))
-                ->icon(TablerIcon::Download)
                 ->color('primary')
                 ->visible(fn (array $record): bool => ($record['kind'] ?? null) !== 'modpack')
                 ->disabled(fn (array $record): bool => $this->versionOptions($record) === [])
@@ -527,8 +526,8 @@ class ServerContent extends MinecraftPage implements HasTable
                 }),
             Action::make('install')
                 ->label(fn (array $record): string => ($record['kind'] ?? null) === 'modpack' ? trans('plugged-host-minecraft::strings.content.install') : trans('plugged-host-minecraft::strings.content.versions'))
-                ->icon(TablerIcon::Versions)
-                ->modalIcon(TablerIcon::Download)
+                // The row's one accent action: Install for a modpack, else quick install above.
+                ->color(fn (array $record): string => ($record['kind'] ?? null) === 'modpack' ? 'primary' : 'gray')
                 ->modalHeading(fn (array $record): string => trans(
                     'plugged-host-minecraft::strings.content.install_heading',
                     ['name' => $record['title']],
@@ -554,7 +553,13 @@ class ServerContent extends MinecraftPage implements HasTable
                     'spigotmc' => 'view_spigotmc',
                     default => 'view',
                 }))
+                ->iconButton()
                 ->icon(TablerIcon::ExternalLink)
+                ->tooltip(fn (array $record): string => trans('plugged-host-minecraft::strings.content.' . match ($this->platformOf($record)) {
+                    'curseforge' => 'view_curseforge',
+                    'spigotmc' => 'view_spigotmc',
+                    default => 'view',
+                }))
                 ->color('gray')
                 ->url(fn (array $record): string => (string) $record['url'], true),
         ];

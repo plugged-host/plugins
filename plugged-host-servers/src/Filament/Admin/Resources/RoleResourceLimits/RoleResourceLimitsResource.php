@@ -63,7 +63,6 @@ class RoleResourceLimitsResource extends Resource
             ->columns([
                 TextColumn::make('role.name')
                     ->label(trans_choice('plugged-host-servers::strings.role', 1))
-                    ->icon('tabler-users-group')
                     ->url(fn (RoleResourceLimits $limits) => auth()->user()->can('update', $limits->role) ? EditRole::getUrl(['record' => $limits->role]) : null),
                 TextColumn::make('cpu')
                     ->label(trans('plugged-host-servers::strings.cpu'))
@@ -103,7 +102,6 @@ class RoleResourceLimitsResource extends Resource
                 Select::make('role_id')
                     ->label(trans_choice('plugged-host-servers::strings.role', 1))
                     ->required()
-                    ->prefixIcon('tabler-users-group')
                     ->unique(ignoreRecord: true)
                     ->relationship('role', 'name')
                     ->searchable(['name'])

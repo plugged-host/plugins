@@ -3,7 +3,6 @@
 namespace PluggedHost\Storage\Providers;
 
 use App\Enums\HeaderActionPosition;
-use App\Enums\TablerIcon;
 use App\Filament\Server\Resources\Backups\Pages\ListBackups;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -67,10 +66,11 @@ class StoragePluginProvider extends ServiceProvider
             try {
                 ListBackups::registerCustomHeaderActions(
                     HeaderActionPosition::Before,
+                    // Secondary: the backups table's Create button is the page's one primary
+                    // action. Labelled, so no icon beside the words.
                     Action::make('offsite_storage_backups')
                         ->label('Off-site Backups')
-                        ->icon(TablerIcon::CloudDownload)
-                        ->color('primary')
+                        ->color('gray')
                         ->url(function () {
                             $server = Filament::getTenant();
                             $portalBaseUrl = env('BACKUPS_PORTAL_URL', 'https://backups.plugged.host');

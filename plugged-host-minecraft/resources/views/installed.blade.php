@@ -1,7 +1,9 @@
 {{-- Installed plugins/mods, embedded at the top of the ServerContent page (above the browse
      table). Reads the page's public $rows and renders its row actions (delete, enable/disable,
      update) with the jar name as the argument; the page re-checks everything server-side.
-     Scoped plain CSS on Filament's colour variables, so it needs no asset build. --}}
+     Scoped plain CSS on theme-v2's --phv2-* tokens, so it needs no asset build. One card, rows
+     split by a hairline; where a jar came from is plain text in the meta line, badges are kept
+     for state (disabled, update available, missing dependency). --}}
 @php
     $m = fn (string $key, array $replace = []) => trans('plugged-host-minecraft::strings.mods.' . $key, $replace);
     $icon = fn (string $name, string $class = 'phm-i') => svg($name, $class)->toHtml();
@@ -14,49 +16,45 @@
         return round($size, $i === 0 ? 0 : 1) . ' ' . $units[$i];
     };
     $platforms = [
-        'modrinth' => ['Modrinth', 'phm-src-modrinth'],
-        'curseforge' => ['CurseForge', 'phm-src-curseforge'],
-        'spigotmc' => ['SpigotMC', 'phm-src-spigot'],
+        'modrinth' => 'Modrinth',
+        'curseforge' => 'CurseForge',
+        'spigotmc' => 'SpigotMC',
     ];
     $pending = collect($this->rows)->where('pending', true)->count();
 @endphp
 <style>
-    .phm-list { display: flex; flex-direction: column; border-radius: .9rem; border: 1px solid rgba(127,127,127,.18); overflow: hidden; }
-    .phm-row { display: flex; align-items: center; gap: .85rem; padding: .7rem .9rem; border-top: 1px solid rgba(127,127,127,.14); }
-    .phm-row:first-child { border-top: 0; }
-    .phm-row.phm-off { opacity: .55; }
-    .phm-icon { width: 2.5rem; height: 2.5rem; flex: none; border-radius: .6rem; display: grid; place-items: center; background: rgba(127,127,127,.12); color: rgba(127,127,127,.9); overflow: hidden; }
+    .phm-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; }
+    .phm-head h3 { font-size: 1rem; font-weight: 600; color: var(--phv2-text); }
+    .phm-count { margin-inline-start: .25rem; font-weight: 500; color: var(--phv2-text-muted); font-variant-numeric: tabular-nums; }
+    .phm-list { display: flex; flex-direction: column; border-radius: 1rem; background: var(--phv2-raise); overflow: hidden; }
+    .phm-row { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; }
+    .phm-row + .phm-row { border-top: 1px solid var(--phv2-hairline); }
+    .phm-icon { width: 2.5rem; height: 2.5rem; flex: none; border-radius: .5rem; display: grid; place-items: center; background: var(--phv2-raise); color: var(--phv2-text-faint); overflow: hidden; }
     .phm-icon img { width: 100%; height: 100%; object-fit: cover; }
-    .phm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
-    .phm-line { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .45rem; }
-    .phm-name { font-weight: 600; font-size: .9rem; }
-    .phm-name a:hover { text-decoration: underline; }
-    .phm-meta { font-size: .75rem; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .phm-chip { display: inline-flex; align-items: center; gap: .2rem; font-size: .68rem; font-weight: 600; padding: .08rem .45rem; border-radius: 9999px; background: rgba(127,127,127,.14); }
-    .phm-src-modrinth { background: rgba(16,185,129,.14); color: #10b981; }
-    .phm-src-curseforge { background: rgba(249,115,22,.14); color: #f97316; }
-    .phm-src-spigot { background: rgba(234,179,8,.14); color: #d4a106; }
-    .phm-update { background: rgba(59,130,246,.15); color: #60a5fa; }
-    .phm-warn { background: rgba(244,63,94,.14); color: #fb7185; }
-    .phm-actions { display: flex; align-items: center; gap: .15rem; flex: none; }
-    .phm-i { width: 1rem; height: 1rem; flex: none; }
-    .phm-i-lg { width: 1.3rem; height: 1.3rem; }
+    .phm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .25rem; }
+    .phm-line { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; }
+    .phm-name { font-weight: 600; font-size: .875rem; color: var(--phv2-text); }
+    .phm-name a:hover { color: var(--phv2-accent-glow); }
+    .phm-version { font-family: var(--mono-font-family, 'JetBrains Mono'), ui-monospace, monospace; font-size: .75rem; color: var(--phv2-text-muted); }
+    .phm-meta { font-size: .75rem; color: var(--phv2-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .phm-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .75rem; line-height: 1rem; font-weight: 600; padding: .125rem .5rem; border-radius: .5rem; background: var(--phv2-raise-2); color: #f3f4f6; }
+    .phm-update { background: var(--phv2-accent-tint); color: var(--phv2-accent-bright); }
+    .phm-warn { background: color-mix(in oklab, #ef4444 15%, transparent); color: #f87171; }
+    .phm-actions { display: flex; align-items: center; gap: .25rem; flex: none; }
+    .phm-i { width: .875rem; height: .875rem; flex: none; }
+    .phm-i-lg { width: 1.25rem; height: 1.25rem; }
     .phm-spin { animation: phm-spin .9s linear infinite; }
     @keyframes phm-spin { to { transform: rotate(360deg); } }
-    .phm-empty { border-radius: .9rem; border: 1px dashed rgba(127,127,127,.3); padding: 1.5rem; text-align: center; font-size: .875rem; opacity: .7; }
-    .phm-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
-    .phm-head h3 { font-size: .875rem; font-weight: 600; }
-    .phm-progress { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; opacity: .7; }
-    .phm-rescan { opacity: .6; }
-    .phm-rescan:hover { opacity: 1; }
+    .phm-empty { border-radius: 1rem; background: var(--phv2-raise); padding: 1.5rem; text-align: center; font-size: .875rem; color: var(--phv2-text-muted); }
+    .phm-progress { display: inline-flex; align-items: center; gap: .375rem; font-size: .75rem; color: var(--phv2-text-muted); }
     @media (max-width: 640px) {
-        .phm-row { align-items: flex-start; gap: .65rem; padding: .7rem; }
-        .phm-icon { width: 2.1rem; height: 2.1rem; }
+        .phm-row { align-items: flex-start; gap: .625rem; padding: .75rem; }
+        .phm-icon { width: 2.25rem; height: 2.25rem; }
     }
 </style>
 <div>
     <div class="phm-head">
-        <h3>{{ $m('installed_heading') }} <span style="opacity: .5; font-weight: 500;">{{ count($this->rows) ?: '' }}</span></h3>
+        <h3>{{ $m('installed_heading') }}<span class="phm-count">{{ count($this->rows) ?: '' }}</span></h3>
         @if($pending > 0)
             <span class="phm-progress">{!! $icon('tabler-loader-2', 'phm-i phm-spin') !!}{{ $m('identifying', ['count' => $pending]) }}</span>
             {{-- A fresh key per round re-runs x-init, which asks for the next batch. --}}
@@ -76,8 +74,12 @@
                         $row['file'],
                         $row['size'] > 0 ? $human((int) $row['size']) : null,
                     ]);
+                    $sourceLabel = $source !== null
+                        ? $source . ($row['confidence'] === 'name' ? ' ~' : '')
+                        : (!$row['pending'] && $row['confidence'] === 'unknown' ? $m('unknown') : null);
+                    $sourceTitle = $source !== null ? $m('confidence_' . $row['confidence']) : $m('identify_unknown');
                 @endphp
-                <div class="phm-row {{ $row['disabled'] ? 'phm-off' : '' }}" wire:key="phm-{{ md5($row['file']) }}">
+                <div class="phm-row" wire:key="phm-{{ md5($row['file']) }}">
                     <div class="phm-icon">
                         @if($row['pending'])
                             {!! $icon('tabler-loader-2', 'phm-i-lg phm-spin') !!}
@@ -98,26 +100,24 @@
                                 @endif
                             </span>
                             @if(filled($row['version']))
-                                <span class="phm-chip">{{ $row['version'] }}</span>
-                            @endif
-                            @if($source)
-                                <span class="phm-chip {{ $source[1] }}" title="{{ $m('confidence_' . $row['confidence']) }}">
-                                    {{ $source[0] }}@if($row['confidence'] === 'name') ~@endif
-                                </span>
-                            @elseif(!$row['pending'] && $row['confidence'] === 'unknown')
-                                <span class="phm-chip" title="{{ $m('identify_unknown') }}">{{ $m('unknown') }}</span>
+                                <span class="phm-version">{{ $row['version'] }}</span>
                             @endif
                             @if($row['disabled'])
-                                <span class="phm-chip">{!! $icon('tabler-player-pause', 'phm-i') !!}{{ $m('disabled') }}</span>
+                                <span class="phm-badge">{{ $m('disabled') }}</span>
                             @endif
                             @if($row['update'])
-                                <span class="phm-chip phm-update">{!! $icon('tabler-arrow-up', 'phm-i') !!}{{ $row['update']['number'] }}</span>
+                                <span class="phm-badge phm-update" title="{{ $m('update', ['version' => $row['update']['number']]) }}">{!! $icon('tabler-arrow-up', 'phm-i') !!}{{ $row['update']['number'] }}</span>
                             @endif
                             @foreach($row['missing'] as $dependency)
-                                <span class="phm-chip phm-warn" title="{{ $m('missing_hint', ['name' => $dependency]) }}">{!! $icon('tabler-alert-triangle', 'phm-i') !!}{{ $m('missing', ['name' => $dependency]) }}</span>
+                                <span class="phm-badge phm-warn" title="{{ $m('missing_hint', ['name' => $dependency]) }}">{{ $m('missing', ['name' => $dependency]) }}</span>
                             @endforeach
                         </div>
-                        <div class="phm-meta" title="{{ $row['description'] }}">{{ implode(' · ', $meta) }}</div>
+                        <div class="phm-meta" title="{{ $row['description'] }}">
+                            @if($sourceLabel !== null)
+                                <span title="{{ $sourceTitle }}">{{ $sourceLabel }}</span>{{ $meta !== [] ? ' ·' : '' }}
+                            @endif
+                            {{ implode(' · ', $meta) }}
+                        </div>
                     </div>
 
                     <div class="phm-actions">
@@ -125,7 +125,7 @@
                             {{ ($this->updateJarAction)(['file' => $row['file']]) }}
                             {{ ($this->toggleJarAction)(['file' => $row['file']]) }}
                             {{ ($this->deleteJarAction)(['file' => $row['file']]) }}
-                            <button type="button" class="phm-rescan" wire:click="identify(@js($row['file']))" title="{{ $m('identify') }}" aria-label="{{ $m('identify') }}">{!! $icon('tabler-refresh', 'phm-i') !!}</button>
+                            <button type="button" class="fi-icon-btn fi-size-md" wire:click="identify(@js($row['file']))" x-tooltip="{ content: @js($m('identify')), theme: $store.theme }" aria-label="{{ $m('identify') }}">{!! $icon('tabler-refresh', 'phm-i-lg') !!}</button>
                         @endunless
                     </div>
                 </div>

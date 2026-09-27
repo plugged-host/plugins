@@ -51,9 +51,11 @@
     } catch (\Throwable) {}
 @endphp
 <!DOCTYPE html>
+{{-- `dark` unconditionally: theme v2 is dark-only (the panel forces dark mode), and this page
+     does not go through the panel layout that would add it. --}}
 <html
     lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-    class="fi min-h-screen">
+    class="fi dark min-h-screen">
 
 <head>
     <meta charset="utf-8" />
@@ -88,6 +90,54 @@
         :root {
             --font-family: '{!! $fontFamily !!}';
         }
+
+        /*
+            Theme v2 tokens, with their literal values as fallbacks: this page is rendered by the
+            exception handler, and when no panel can be resolved the theme stylesheet is absent.
+            Floor, card and text match the panel's simple layout; nothing decorative on top.
+        */
+        .fi-body {
+            background-color: var(--phv2-bg-bottom, #0b0d10);
+            background-image: linear-gradient(to bottom, var(--phv2-bg-top, #101319), var(--phv2-bg-bottom, #0b0d10));
+            background-attachment: fixed;
+            color: var(--phv2-text, #ffffff);
+        }
+
+        .ph-503-heading {
+            font-size: 1.25rem;
+            line-height: 1.75rem;
+            font-weight: 600;
+            color: var(--phv2-text, #ffffff);
+        }
+
+        .ph-503-text {
+            font-size: 0.875rem;
+            line-height: 1.375rem;
+            color: var(--phv2-text-muted, #9ca3af);
+        }
+
+        .ph-503-text.text-xs {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+
+        .ph-503-count {
+            font-weight: 600;
+            color: var(--phv2-text, #ffffff);
+        }
+
+        .ph-503-divider {
+            border-top: 1px solid var(--phv2-hairline, rgb(255 255 255 / 0.05));
+        }
+
+        .ph-503-link {
+            color: var(--phv2-text-muted, #9ca3af);
+            transition: color 150ms ease;
+        }
+
+        .ph-503-link:hover {
+            color: var(--phv2-text, #ffffff);
+        }
     </style>
 
     <script>
@@ -107,7 +157,7 @@
 <body class="fi-body min-h-screen antialiased">
 <div class="fi-simple-layout flex min-h-screen flex-col items-center justify-center p-4">
     <div class="fi-simple-main-ctn flex w-full flex-grow flex-col items-center justify-center">
-        <main class="fi-simple-main my-8 w-full px-6 py-10 shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 sm:rounded-2xl sm:px-10 sm:max-w-lg">
+        <main class="fi-simple-main my-8 w-full px-6 py-10 sm:rounded-2xl sm:px-10 sm:max-w-lg">
             <div class="fi-simple-page">
                 <section class="grid auto-cols-fr gap-y-6">
                     {{-- Logo --}}
@@ -117,41 +167,29 @@
                         </div>
                     @endif
 
-                    {{-- Status Icon & Badge --}}
-                    <div class="flex flex-col items-center gap-3">
-                        <div class="flex size-14 items-center justify-center rounded-full bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
-                            <x-filament::loading-indicator class="size-6 text-primary-600 dark:text-primary-400" />
-                        </div>
-
-                        <x-filament::badge color="primary" size="sm" class="rounded-full">
-                            {{ trans('plugged-host-core::strings.maintenance.status_active') }}
-                        </x-filament::badge>
-                    </div>
-
-                    {{-- Header & Subtitle --}}
-                    <header class="fi-simple-header flex flex-col items-center text-center">
-                        <h1 class="fi-simple-header-heading text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
+                    {{-- Heading and message. The heading is the status; no badge or spinner
+                         repeating it. --}}
+                    <header class="fi-simple-header flex flex-col items-center gap-2 text-center">
+                        <h1 class="fi-simple-header-heading ph-503-heading">
                             {{ trans('plugged-host-core::strings.maintenance.heading') }}
                         </h1>
 
-                        <p class="fi-simple-header-subheading mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                        <p class="fi-simple-header-subheading ph-503-text">
                             {{ $customMessage ?? trans('plugged-host-core::strings.maintenance.subheading') }}
                         </p>
                     </header>
 
                     {{-- Auto-refresh counter --}}
-                    <div class="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        <x-filament::icon icon="tabler-clock" class="size-4 text-gray-400 dark:text-gray-500" />
-                        <span>{{ trans('plugged-host-core::strings.maintenance.refresh_auto', ['seconds' => '']) }}</span>
-                        <span class="font-semibold tabular-nums text-gray-950 dark:text-white"><span id="countdown">{{ $retrySeconds }}</span>s</span>
-                    </div>
+                    <p class="ph-503-text text-center text-xs">
+                        {{ trans('plugged-host-core::strings.maintenance.refresh_auto', ['seconds' => '']) }}
+                        <span class="ph-503-count font-mono tabular-nums"><span id="countdown">{{ $retrySeconds }}</span>s</span>
+                    </p>
 
-                    {{-- Action Buttons --}}
+                    {{-- Actions: one primary, one secondary. --}}
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
                         <x-filament::button
                             id="refresh-btn"
                             color="primary"
-                            icon="tabler-refresh"
                             onclick="triggerRefresh()"
                             class="w-full sm:w-auto"
                         >
@@ -165,7 +203,6 @@
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 color="gray"
-                                icon="tabler-brand-discord"
                                 class="w-full sm:w-auto"
                             >
                                 {{ trans('plugged-host-core::strings.maintenance.discord') }}
@@ -173,11 +210,10 @@
                         @endif
                     </div>
 
-                    {{-- Public Status Link --}}
-                    <div class="border-t border-gray-100 pt-4 text-center dark:border-white/10">
-                        <a href="{{ $statusUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 transition hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400">
-                            <x-filament::icon icon="tabler-activity-heartbeat" class="size-4" />
-                            <span>{{ trans('plugged-host-core::strings.maintenance.status_page') }}</span>
+                    {{-- Public status link --}}
+                    <div class="ph-503-divider pt-4 text-center">
+                        <a href="{{ $statusUrl }}" target="_blank" rel="noopener noreferrer" class="ph-503-link text-xs font-medium">
+                            {{ trans('plugged-host-core::strings.maintenance.status_page') }}
                         </a>
                     </div>
                 </section>

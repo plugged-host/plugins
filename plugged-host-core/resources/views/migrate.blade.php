@@ -13,17 +13,10 @@
 <body>
 
     <div class="auth-card">
-        <!-- Logo & Header -->
-        <div style="text-align: center; margin-bottom: 1.5rem;">
-            <div style="display: flex; justify-content: center; margin-bottom: 0.75rem;">
-                <img src="/plugged.host_nobg.png" alt="plugged.host" style="height: 2.75rem; width: auto; object-fit: contain;">
-            </div>
-            <h1 style="font-size: 1.375rem; font-weight: 700; color: #ffffff; margin: 0; letter-spacing: -0.02em;">
-                Connect plugged.host Account
-            </h1>
-            <p style="font-size: 0.8125rem; color: #9ca3af; margin: 0.375rem 0 0 0;">
-                Sign in with your plugged.host credentials to link your services
-            </p>
+        <div class="auth-header">
+            <img src="/plugged.host_nobg.png" alt="plugged.host" class="auth-logo">
+            <h1 class="auth-title">Connect plugged.host Account</h1>
+            <p class="auth-subtitle">Sign in with your plugged.host credentials to link your services</p>
         </div>
 
         @if($errors->any())
@@ -46,7 +39,7 @@
                 </div>
             </div>
 
-            <div class="field-group" style="margin-bottom: 1.5rem;">
+            <div class="field-group field-group-last">
                 <label for="password" class="field-label">
                     Password<sup class="required-mark">*</sup>
                 </label>
@@ -56,23 +49,14 @@
                 </div>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <button type="submit" class="btn-submit">
-                    <span>Continue to noprofit.space</span>
-                    <svg style="width: 1rem; height: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </button>
+            <div class="auth-actions">
+                <button type="submit" class="btn-submit">Continue to noprofit.space</button>
 
-                <div style="text-align: center; margin-top: 0.5rem;">
-                    <a href="{{ $cancelUrl }}" class="btn-cancel">
-                        &larr; Cancel and return
-                    </a>
-                </div>
+                <a href="{{ $cancelUrl }}" class="btn-cancel">Cancel and return</a>
 
-                <p style="text-align: center; margin: 0.25rem 0 0; font-size: 0.75rem; line-height: 1.5; color: #71717a;">
+                <p class="auth-note">
                     Already moved your account to noprofit.space? Your plugged.host password was moved with it &mdash;
-                    <a href="{{ $accountsUrl }}/login" style="color: #9ca3af;">sign in there instead</a>.
+                    <a href="{{ $accountsUrl }}/login">sign in there instead</a>.
                 </p>
             </div>
         </form>

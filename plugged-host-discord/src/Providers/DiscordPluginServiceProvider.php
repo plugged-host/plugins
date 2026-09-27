@@ -3,7 +3,6 @@
 namespace PluggedHost\Discord\Providers;
 
 use App\Enums\TabPosition;
-use App\Enums\TablerIcon;
 use App\Extensions\OAuth\OAuthService;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Pages\Auth\EditProfile;
@@ -106,7 +105,6 @@ class DiscordPluginServiceProvider extends ServiceProvider
             UserResource::modifyTable(function (Table $table): Table {
                 $discordColumn = TextColumn::make('discordLink.discord_username')
                     ->label(trans('plugged-host-discord::strings.discord'))
-                    ->icon(fn (User $user) => $user->discordLink ? TablerIcon::BrandDiscordFilled : null)
                     ->formatStateUsing(fn ($state, User $user) => $user->discordLink?->discord_username ?? $user->discordLink?->discord_id)
                     ->description(fn (User $user) => $user->discordLink?->discord_username ? $user->discordLink?->discord_id : null)
                     ->placeholder('—')

@@ -2,26 +2,6 @@
     $s = fn (string $key, array $replace = []) => trans('plugged-host-neo::strings.' . $key, $replace);
     $icon = fn (string $name, string $class = 'neo-i') => svg($name, $class)->toHtml();
 
-    // One glyph per kind of tool, so a run of steps reads at a glance.
-    $toolIcon = fn (?string $tool): string => match (true) {
-        in_array($tool, ['console_read', 'send_command'], true) => 'tabler-terminal-2',
-        in_array($tool, ['list_files', 'search_files', 'create_directory'], true) => 'tabler-folder',
-        $tool === 'read_file' => 'tabler-file-text',
-        in_array($tool, ['write_file', 'edit_file', 'rename_file', 'set_startup_variable', 'rename_server'], true) => 'tabler-edit',
-        in_array($tool, ['compress_files', 'decompress_file'], true) => 'tabler-file-zip',
-        str_starts_with((string) $tool, 'delete_') || $tool === 'remove_content' => 'tabler-trash',
-        $tool === 'power' => 'tabler-power',
-        str_contains((string) $tool, 'backup') => 'tabler-archive',
-        in_array($tool, ['search_content', 'content_versions', 'list_installed_content', 'toggle_content'], true) => 'tabler-puzzle',
-        str_starts_with((string) $tool, 'install_') || $tool === 'switch_server_software' => 'tabler-download',
-        $tool === 'read_mclogs' => 'tabler-file-search',
-        $tool === 'minecraft_info' => 'tabler-world',
-        in_array($tool, ['get_startup', 'set_docker_image', 'reinstall_server', 'resize_server'], true) => 'tabler-adjustments',
-        in_array($tool, ['account_overview', 'list_create_options', 'unlock_paid_locations'], true) => 'tabler-user-circle',
-        str_contains((string) $tool, 'server') => 'tabler-server',
-        default => 'tabler-tool',
-    };
-
     $stateIcon = fn (string $status): string => match ($status) {
         'executing' => $icon('tabler-loader-2', 'neo-i-sm neo-spin'),
         'done' => $icon('tabler-check', 'neo-i-sm neo-ok'),
@@ -181,7 +161,6 @@
 
         @if(!$enabled)
             <div class="neo-head">
-                <div class="neo-mark neo-mark-off">{!! $icon('tabler-sparkles') !!}</div>
                 <div class="neo-head-text">
                     <div class="neo-title">neo</div>
                     <div class="neo-sub">{{ $s('chat.off_title') }}</div>
@@ -189,12 +168,11 @@
                 <button type="button" class="neo-iconbtn" x-on:click="toggle()" title="{{ $s('chat.close') }}" aria-label="{{ $s('chat.close') }}">{!! $icon('tabler-chevron-down') !!}</button>
             </div>
             <div class="neo-empty">
-                <div class="neo-mark neo-mark-off">{!! $icon('tabler-sparkles') !!}</div>
                 <div>
                     <div class="neo-greet">{{ $s('chat.off_title') }}</div>
                     <div>{{ $s('chat.off_body') }}</div>
                 </div>
-                <button type="button" class="neo-btn neo-btn-primary" x-on:click="turnOn()">{!! $icon('tabler-power', 'neo-i-sm') !!}{{ $s('chat.turn_on') }}</button>
+                <button type="button" class="neo-btn neo-btn-primary" x-on:click="turnOn()">{{ $s('chat.turn_on') }}</button>
             </div>
         @elseif($history !== null)
             <div class="neo-head">
@@ -211,7 +189,6 @@
                     <div class="neo-hist {{ $item->id === $this->conversationId ? 'neo-hist-current' : '' }}" wire:key="neo-hist-{{ $item->id }}">
                         <button type="button" class="neo-hist-open" x-bind:disabled="working"
                                 x-on:click="$wire.openConversation({{ $item->id }}).then((r) => { if (r && r.resume) { run(() => $wire.step()); } })">
-                            {!! $icon($item->id === $this->conversationId ? 'tabler-message-circle-check' : 'tabler-message-circle') !!}
                             <span class="neo-hist-text">
                                 <span class="neo-hist-title">{{ $item->title ?: $s('chat.untitled') }}</span>
                                 <span class="neo-hist-meta">{{ optional($item->last_activity_at)->locale(app()->getLocale())->diffForHumans() }} · {{ trans_choice('plugged-host-neo::strings.chat.messages_count', $item->user_messages_count, ['count' => $item->user_messages_count]) }}</span>
@@ -219,7 +196,7 @@
                         </button>
                         <span x-data="{ sure: false }">
                             <button type="button" class="neo-iconbtn" x-bind:class="sure ? 'neo-bad' : ''" x-bind:disabled="working"
-                                    x-bind:title="sure ? @js($s('chat.confirm_delete')) : @js($s('chat.delete_chat'))"
+                                    x-bind:title="sure ? @js($s('chat.confirm_delete')) : @js($s('chat.delete_chat'))" aria-label="{{ $s('chat.delete_chat') }}"
                                     x-on:click="if (sure) { $wire.deleteConversation({{ $item->id }}); } else { sure = true; setTimeout(() => sure = false, 4000); }">
                                 <span x-show="!sure">{!! $icon('tabler-trash') !!}</span>
                                 <span x-show="sure" x-cloak>{!! $icon('tabler-trash-x') !!}</span>
@@ -228,7 +205,6 @@
                     </div>
                 @empty
                     <div class="neo-empty">
-                        <div class="neo-mark neo-mark-off">{!! $icon('tabler-history') !!}</div>
                         <div>{{ $s('chat.history_empty') }}</div>
                     </div>
                 @endforelse
@@ -244,9 +220,8 @@
             </div>
             <div class="neo-settings">
                 <div class="neo-set-card">
-                    @foreach(['enabled' => 'tabler-sparkles', 'auto_approve' => 'tabler-bolt'] as $key => $keyIcon)
+                    @foreach(['enabled', 'auto_approve'] as $key)
                         <div class="neo-set-row">
-                            {!! $icon($keyIcon) !!}
                             <div class="neo-set-text">
                                 <div class="neo-set-title">{{ $s('profile.' . $key) }}</div>
                                 <div class="neo-set-hint">{{ $s('profile.' . $key . '_hint') }}</div>
@@ -259,7 +234,6 @@
 
                 <div class="neo-set-card">
                     <div class="neo-set-row">
-                        {!! $icon('tabler-gauge') !!}
                         <div class="neo-set-text">
                             <div class="neo-set-title">{{ $s('profile.usage') }}</div>
                             <div class="neo-set-hint">{{ $s('profile.usage_hint') }}</div>
@@ -267,7 +241,7 @@
                     </div>
                     @if(!$settings['linked'])
                         <div class="neo-set-hint">{{ $s('profile.unlinked') }}</div>
-                        <a class="neo-btn neo-btn-primary" href="{{ route('plugged-host.sso.link') }}">{!! $icon('tabler-link', 'neo-i-sm') !!}{{ $s('profile.link') }}</a>
+                        <a class="neo-btn neo-btn-primary" href="{{ route('plugged-host.sso.link') }}">{{ $s('profile.link') }}</a>
                     @elseif(!is_array($settings['limits']))
                         <div class="neo-set-hint">{{ $s('profile.unavailable') }}</div>
                     @else
@@ -286,35 +260,26 @@
 
                 <div class="neo-set-card">
                     <div class="neo-set-row">
-                        {!! $icon('tabler-history') !!}
                         <div class="neo-set-text">
                             <div class="neo-set-title">{{ $s('profile.history') }}</div>
                             <div class="neo-set-hint">{{ $s('profile.history_hint', ['days' => $settings['retention_days']]) }}</div>
                         </div>
                     </div>
                     <div x-data="{ sure: false }">
-                        <button type="button" class="neo-btn neo-btn-danger"
+                        <button type="button" class="neo-btn"
                                 x-on:click="if (sure) { sure = false; $wire.deleteHistory(); } else { sure = true; setTimeout(() => sure = false, 4000); }">
-                            {!! $icon('tabler-trash', 'neo-i-sm') !!}
                             <span x-text="sure ? @js($s('chat.confirm_delete')) : @js($s('profile.delete_history'))"></span>
                         </button>
                     </div>
                 </div>
 
-                <p class="neo-small">{!! $icon('tabler-lock', 'neo-i-sm') !!} {{ $s('profile.privacy') }}</p>
+                <p class="neo-small">{{ $s('profile.privacy') }}</p>
             </div>
         @elseif($conversation)
             <div class="neo-head">
-                <div class="neo-mark">{!! $icon('tabler-sparkles') !!}</div>
                 <div class="neo-head-text">
                     <div class="neo-title">neo</div>
-                    <div class="neo-sub">
-                        @if($serverName)
-                            {!! $icon('tabler-server', 'neo-i-sm') !!}<span>{{ $serverName }}</span>
-                        @else
-                            <span>{{ $s('chat.subtitle_app') }}</span>
-                        @endif
-                    </div>
+                    <div class="neo-sub">{{ $serverName ?: $s('chat.subtitle_app') }}</div>
                 </div>
                 <button type="button" class="neo-iconbtn" wire:click="showHistory" title="{{ $s('chat.history') }}" aria-label="{{ $s('chat.history') }}">{!! $icon('tabler-history') !!}</button>
                 <button type="button" class="neo-iconbtn" wire:click="newChat" x-bind:disabled="working" title="{{ $s('chat.new_chat') }}" aria-label="{{ $s('chat.new_chat') }}">{!! $icon('tabler-message-plus') !!}</button>
@@ -324,19 +289,17 @@
 
             @if(!$acknowledged)
                 <div class="neo-consent">
-                    <div class="neo-mark">{!! $icon('tabler-shield-check') !!}</div>
                     <h3>{{ $s('consent.title') }}</h3>
                     <ul>
-                        <li>{!! $icon('tabler-bolt') !!}<span>{{ $s('consent.body') }}</span></li>
-                        <li>{!! $icon('tabler-hand-stop') !!}<span>{{ $s('consent.approvals') }}</span></li>
+                        <li>{{ $s('consent.body') }}</li>
+                        <li>{{ $s('consent.approvals') }}</li>
                     </ul>
-                    <button type="button" class="neo-btn neo-btn-primary" x-on:click="acknowledge()">{!! $icon('tabler-check', 'neo-i-sm') !!}{{ $s('consent.accept') }}</button>
+                    <button type="button" class="neo-btn neo-btn-primary" x-on:click="acknowledge()">{{ $s('consent.accept') }}</button>
                 </div>
             @else
                 <div class="neo-body" x-init="new MutationObserver(() => { $el.scrollTop = $el.scrollHeight; }).observe($el, { childList: true, subtree: true }); $el.scrollTop = $el.scrollHeight;">
                     @if($messages->isEmpty())
                         <div class="neo-empty">
-                            <div class="neo-mark">{!! $icon('tabler-sparkles') !!}</div>
                             <div>
                                 <div class="neo-greet">{{ $serverName ? $s('chat.greeting_server', ['server' => $serverName]) : $s('chat.greeting_app') }}</div>
                                 <div>{{ $serverName ? $s('chat.empty_server') : $s('chat.empty_app') }}</div>
@@ -344,7 +307,7 @@
                             <div class="neo-chips">
                                 @foreach($suggestions as $suggestion)
                                     <button type="button" class="neo-chip" x-bind:disabled="working" x-on:click="suggest(@js($suggestion['prompt'] ?? ''))">
-                                        {!! $icon($suggestion['icon'] ?? 'tabler-sparkles', 'neo-i-sm') !!}{{ $suggestion['label'] ?? '' }}
+                                        {{ $suggestion['label'] ?? '' }}
                                     </button>
                                 @endforeach
                             </div>
@@ -366,30 +329,28 @@
                             @endphp
                             @if($status === 'pending_approval')
                                 <div class="neo-card" wire:key="neo-{{ $message->id }}">
-                                    <div class="neo-tile">
-                                        {!! $icon($toolIcon($message->tool_name), 'neo-i-sm neo-warn') !!}
+                                    <div class="neo-tile" title="{{ $s('chat.status.pending_approval') }}">
+                                        {!! $icon('tabler-hand-stop', 'neo-i-sm neo-warn') !!}
                                         <span class="neo-tile-label">{{ $label }}</span>
-                                        <span title="{{ $s('chat.status.pending_approval') }}">{!! $icon('tabler-hand-stop', 'neo-i-sm neo-warn') !!}</span>
                                     </div>
                                     @if(filled($message->meta['preview'] ?? null))
                                         <details class="neo-preview">
-                                            <summary>{!! $icon('tabler-eye', 'neo-i-sm') !!}{{ $s('chat.show_change') }}</summary>
+                                            <summary>{{ $s('chat.show_change') }}</summary>
                                             <pre>{{ $message->meta['preview'] }}</pre>
                                         </details>
                                     @endif
                                     <div class="neo-row">
-                                        <button type="button" class="neo-btn neo-btn-primary neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.approve({{ $message->id }}))">{!! $icon('tabler-check', 'neo-i-sm') !!}{{ $s('chat.approve') }}</button>
-                                        <button type="button" class="neo-btn neo-btn-ghost neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.deny({{ $message->id }}))">{!! $icon('tabler-x', 'neo-i-sm') !!}{{ $s('chat.deny') }}</button>
+                                        <button type="button" class="neo-btn neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.approve({{ $message->id }}))">{{ $s('chat.approve') }}</button>
+                                        <button type="button" class="neo-btn neo-btn-ghost neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.deny({{ $message->id }}))">{{ $s('chat.deny') }}</button>
                                     </div>
                                 </div>
                             @else
                                 <div class="neo-tile" wire:key="neo-{{ $message->id }}" title="{{ $s('chat.status.' . $status) }}{{ $auto ? ' · ' . $s('chat.auto') : '' }}">
-                                    {!! $icon($toolIcon($message->tool_name), 'neo-i-sm') !!}
+                                    {!! $stateIcon($status) !!}
                                     <span class="neo-tile-label">{{ $label }}</span>
                                     @if($auto)
                                         {!! $icon('tabler-bolt', 'neo-i-sm neo-dim') !!}
                                     @endif
-                                    {!! $stateIcon($status) !!}
                                 </div>
                             @endif
                         @else
@@ -407,9 +368,9 @@
                                 <div class="neo-notice-body">
                                     <span>{{ $message->content }}</span>
                                     @if($kind === 'unlinked')
-                                        <a class="neo-btn neo-btn-primary" href="{{ route('plugged-host.sso.link') }}">{!! $icon('tabler-link', 'neo-i-sm') !!}{{ $s('chat.activate') }}</a>
+                                        <a class="neo-btn" href="{{ route('plugged-host.sso.link') }}">{{ $s('chat.activate') }}</a>
                                     @elseif(in_array($kind, ['error', 'limited'], true) && $loop->last)
-                                        <button type="button" class="neo-btn neo-btn-ghost" x-on:click="run(() => $wire.retry())">{!! $icon('tabler-refresh', 'neo-i-sm') !!}{{ $s('chat.retry') }}</button>
+                                        <button type="button" class="neo-btn" x-on:click="run(() => $wire.retry())">{{ $s('chat.retry') }}</button>
                                     @endif
                                 </div>
                             </div>
@@ -417,7 +378,7 @@
                     @endforeach
 
                     @if($pending > 1)
-                        <button type="button" class="neo-btn neo-btn-primary" x-bind:disabled="working" x-on:click="run(() => $wire.approveAll())">{!! $icon('tabler-checks', 'neo-i-sm') !!}{{ $s('chat.approve_all', ['count' => $pending]) }}</button>
+                        <button type="button" class="neo-btn" x-bind:disabled="working" x-on:click="run(() => $wire.approveAll())">{{ $s('chat.approve_all', ['count' => $pending]) }}</button>
                     @endif
 
                     <div class="neo-typing" x-show="working" aria-label="{{ $s('chat.working') }}"><i></i><i></i><i></i></div>

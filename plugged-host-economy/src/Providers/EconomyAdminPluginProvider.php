@@ -157,7 +157,6 @@ class EconomyAdminPluginProvider extends ServiceProvider
     {
         return Section::make(fn (): string => trans('plugged-host-economy::strings.admin.credits_heading'))
             ->description(fn (): string => trans('plugged-host-economy::strings.admin.credits_hint'))
-            ->icon(TablerIcon::CurrencyDollar)
             ->schema([
                 Text::make(fn (?Model $record): string => $this->balanceLabel(
                     $this->creditsEnabled() ? $this->readCredits($record) : null,
@@ -167,7 +166,7 @@ class EconomyAdminPluginProvider extends ServiceProvider
                 Actions::make([
                     Action::make('ph_set_credits')
                         ->label(fn (): string => trans('plugged-host-economy::strings.admin.set_credits'))
-                        ->icon(TablerIcon::CurrencyDollar)
+                        ->color('gray')
                         ->modalHeading(fn (): string => trans('plugged-host-economy::strings.admin.modal_credits'))
                         ->modalDescription(fn (): string => trans('plugged-host-economy::strings.admin.modal_description'))
                         ->visible(fn (?Model $record): bool => $this->mayAdjust($record) && $this->creditsEnabled())
@@ -181,7 +180,6 @@ class EconomyAdminPluginProvider extends ServiceProvider
     {
         return Section::make(fn (): string => trans('plugged-host-economy::strings.admin.tokens_heading'))
             ->description(fn (): string => trans('plugged-host-economy::strings.admin.tokens_hint'))
-            ->icon(TablerIcon::Coin)
             ->schema([
                 Text::make(fn (?Model $record): string => $this->balanceLabel(
                     $this->tokensEnabled() ? $this->readTokens($record) : null,
@@ -191,7 +189,7 @@ class EconomyAdminPluginProvider extends ServiceProvider
                 Actions::make([
                     Action::make('ph_set_tokens')
                         ->label(fn (): string => trans('plugged-host-economy::strings.admin.set_tokens'))
-                        ->icon(TablerIcon::Coin)
+                        ->color('gray')
                         ->modalHeading(fn (): string => trans('plugged-host-economy::strings.admin.modal_tokens'))
                         ->modalDescription(fn (): string => trans('plugged-host-economy::strings.admin.modal_description'))
                         ->visible(fn (?Model $record): bool => $this->mayAdjust($record) && $this->tokensEnabled())

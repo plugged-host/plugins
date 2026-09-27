@@ -40,20 +40,47 @@
         .fi-sidebar-open-sidebar-btn,
         .fi-breadcrumbs { display: none !important; }
 
-        .ph-queue-track { height: 0.375rem; border-radius: 999px; overflow: hidden; background: rgb(0 0 0 / 0.08); }
-        .dark .ph-queue-track { background: rgb(255 255 255 / 0.1); }
+        /* Theme v2 tokens throughout (dark-only), so this reads the same whatever
+           Filament's light/dark switch says. */
+        .ph-queue-heading { font-size: 1rem; font-weight: 600; line-height: 1.5rem; color: var(--phv2-text); }
+        .ph-queue-title { font-size: 0.875rem; font-weight: 600; line-height: 1.25rem; color: var(--phv2-text); }
+        .ph-queue-muted { font-size: 0.875rem; line-height: 1.375rem; color: var(--phv2-text-muted); }
+        .ph-queue-small { font-size: 0.75rem; line-height: 1.125rem; color: var(--phv2-text-muted); }
+        .ph-queue-faint { font-size: 0.75rem; line-height: 1.125rem; color: var(--phv2-text-faint); }
+        .ph-queue-caption { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--phv2-text-muted); }
+        .ph-queue-value { font-size: 1.5rem; font-weight: 600; line-height: 2rem; font-variant-numeric: tabular-nums; color: var(--phv2-accent-bright); }
+        .ph-queue-accent { font-size: 0.75rem; font-weight: 500; color: var(--phv2-accent-bright); }
+        .ph-queue-num { font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--phv2-text); }
+        .ph-queue-num-over { color: var(--danger-400); }
+        .ph-queue-link { font-weight: 500; color: var(--phv2-accent-bright); }
+        .ph-queue-link:hover { color: var(--phv2-accent-glow); text-decoration: underline; }
+        .ph-queue-spinner { width: 1.25rem; height: 1.25rem; flex-shrink: 0; color: var(--phv2-accent-bright); }
+
+        .ph-queue-track { height: 0.375rem; border-radius: 9999px; overflow: hidden; background-color: var(--phv2-raise); }
         /* 1s, matching the client clock's tick, so the fill advances one visible second at
            a time. It used to be 5.1s to cover the poll interval, which meant the bar spent
            the whole wait easing toward a percentage that had been true five seconds ago —
            it never caught up, and "smooth" read as "lagging". */
-        .ph-queue-fill { height: 100%; border-radius: 999px; transition: width 1s linear; }
+        .ph-queue-fill { height: 100%; border-radius: 9999px; background-color: var(--phv2-accent-bright); transition: width 1s linear; }
         @media (prefers-reduced-motion: reduce) {
             .ph-queue-fill { transition: none; }
         }
         .ph-queue-meter { display: flex; flex-direction: column; gap: 0.375rem; }
-        .ph-queue-bar { height: 0.25rem; border-radius: 999px; overflow: hidden; background: rgb(0 0 0 / 0.08); }
-        .dark .ph-queue-bar { background: rgb(255 255 255 / 0.1); }
-        .ph-queue-bar > span { display: block; height: 100%; border-radius: 999px; }
+        .ph-queue-bar { height: 0.25rem; border-radius: 9999px; overflow: hidden; background-color: var(--phv2-raise); }
+        .ph-queue-bar > span { display: block; height: 100%; border-radius: 9999px; background-color: var(--phv2-accent-bright); }
+        .ph-queue-bar > span.ph-queue-bar-over { background-color: var(--danger-500); }
+
+        /* Full-width rows: text on the left, the action on the right from `sm` up and
+           under the text, full width, below it. */
+        .ph-queue-rows > * + * { border-top: 1px solid var(--phv2-hairline); }
+        .ph-queue-row { display: flex; flex-direction: column; gap: 0.75rem; padding-block: 1rem; }
+        .ph-queue-row:first-child { padding-top: 0; }
+        .ph-queue-row:last-child { padding-bottom: 0; }
+        .ph-queue-action { display: flex; width: 100%; }
+        @media (min-width: 640px) {
+            .ph-queue-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 1.5rem; }
+            .ph-queue-action { width: 15rem; flex-shrink: 0; }
+        }
     </style>
 
     {{--
@@ -121,29 +148,22 @@
         {{-- Status: where you are in the line, how long you have been there, and why.
              The reason is spelled out rather than hinted at — somebody whose start is
              being held deserves to know it is capacity and not a fault. --}}
-        <x-filament::section class="rounded-2xl">
+        <x-filament::section>
             <div class="flex flex-col gap-5">
-                <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex items-center gap-5">
-                        <div class="flex size-14 shrink-0 items-center justify-center rounded-full bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
-                            <x-filament::loading-indicator class="size-6 text-primary-600 dark:text-primary-400" />
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex min-w-0 flex-col gap-1">
+                        <div class="flex items-center gap-2">
+                            <x-filament::loading-indicator class="ph-queue-spinner" />
+                            <span class="ph-queue-heading truncate">{{ trans('plugged-host-queue::strings.heading') }}</span>
                         </div>
-
-                        <div class="flex min-w-0 flex-col gap-1.5">
-                            <span class="truncate text-lg font-semibold tracking-tight text-gray-950 dark:text-white">
-                                {{ trans('plugged-host-queue::strings.heading') }}
-                            </span>
-                            <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                                {{ trans('plugged-host-queue::strings.body_' . ($action === 'restart' ? 'restart' : 'start')) }}
-                            </p>
-                        </div>
+                        <p class="ph-queue-muted">
+                            {{ trans('plugged-host-queue::strings.body_' . ($action === 'restart' ? 'restart' : 'start')) }}
+                        </p>
                     </div>
 
-                    <div class="flex flex-col gap-1 sm:items-end sm:text-right">
-                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                            {{ trans('plugged-host-queue::strings.position_label') }}
-                        </span>
-                        <span class="text-2xl font-semibold leading-none tabular-nums text-gray-950 dark:text-white">
+                    <div class="flex shrink-0 flex-col gap-0.5 sm:items-end sm:text-right">
+                        <span class="ph-queue-caption">{{ trans('plugged-host-queue::strings.position_label') }}</span>
+                        <span class="ph-queue-value">
                             @if ($position > 1)
                                 {{ trans('plugged-host-queue::strings.position_value', ['position' => $position]) }}
                             @else
@@ -151,9 +171,7 @@
                             @endif
                         </span>
                         @if ($priorityActive)
-                            <span class="text-xs font-medium text-primary-600 dark:text-primary-400">
-                                {{ trans('plugged-host-queue::strings.position_priority') }}
-                            </span>
+                            <span class="ph-queue-accent">{{ trans('plugged-host-queue::strings.position_priority') }}</span>
                         @endif
                     </div>
                 </div>
@@ -163,7 +181,7 @@
                     $waited = sprintf('%d:%02d', intdiv($elapsed, 60), $elapsed % 60);
                 @endphp
                 <div class="ph-queue-track">
-                    <div class="ph-queue-fill bg-primary-600 dark:bg-primary-500"
+                    <div class="ph-queue-fill"
                          style="width: {{ $percent }}%"
                          :style="{ width: percent + '%' }"></div>
                 </div>
@@ -176,7 +194,7 @@
                     in JS, so en and de both work with no new keys and no formatting logic
                     duplicated in the browser.
                 --}}
-                <div class="flex flex-col gap-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
+                <div class="ph-queue-small flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <span x-text="@js(trans('plugged-host-queue::strings.waited', ['time' => ':n'])).replace(':n', waited)">
                         {{ trans('plugged-host-queue::strings.waited', ['time' => $waited]) }}
                     </span>
@@ -196,9 +214,9 @@
              the number on screen is the number the queue is acting on rather than a
              separate estimate that can disagree with it. --}}
         @if ($usage !== null)
-            <x-filament::section class="rounded-2xl">
+            <x-filament::section>
                 <div class="flex flex-col gap-4">
-                    <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                    <p class="ph-queue-muted">
                         @if ($reason)
                             {{ trans('plugged-host-queue::strings.reason_' . $reason, ['limit' => (int) $limit]) }}
                         @else
@@ -214,16 +232,16 @@
                                 $over = $shown !== null && $shown > $limit;
                             @endphp
                             <div class="ph-queue-meter">
-                                <div class="flex items-baseline justify-between gap-2 text-xs">
-                                    <span class="font-medium text-gray-500 dark:text-gray-400">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <span class="ph-queue-small">
                                         {{ trans('plugged-host-queue::strings.usage_' . $dimension) }}
                                     </span>
-                                    <span class="tabular-nums font-semibold {{ $over ? 'text-danger-600 dark:text-danger-400' : 'text-gray-950 dark:text-white' }}">
+                                    <span @class(['ph-queue-num', 'ph-queue-num-over' => $over])>
                                         {{ $shown === null ? '—' : number_format($shown, 1) . '%' }}
                                     </span>
                                 </div>
                                 <div class="ph-queue-bar">
-                                    <span class="{{ $over ? 'bg-danger-500' : 'bg-primary-500' }}"
+                                    <span @class(['ph-queue-bar-over' => $over])
                                           style="width: {{ $shown === null ? 0 : (int) round($shown) }}%"></span>
                                 </div>
                             </div>
@@ -239,6 +257,9 @@
         @php
             $unitsAbove = array_slice($units, 0, 2);
             $unitsBelow = array_slice($units, 2);
+            // One filled button per view: the ad-free tier (or the only tier) while the
+            // priority offer is on screen, otherwise the sponsored link.
+            $offerShown = !$priorityActive && $priorityAvailable && filled($priorityTiers);
         @endphp
 
         @if ($hasAdPartial && $unitsAbove !== [])
@@ -251,84 +272,61 @@
              complaint waiting to happen. The store sells the same two tiers; this is the
              copy for somebody who is already waiting and wants out now. --}}
         @if ($priorityActive)
-            <x-filament::section class="rounded-2xl">
-                <div class="flex flex-col gap-2">
-                    <span class="text-base font-semibold tracking-tight text-gray-950 dark:text-white">
-                        {{ trans('plugged-host-queue::strings.priority_active_heading') }}
-                    </span>
-                    <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                        {{ trans('plugged-host-queue::strings.priority_active_body', ['remaining' => $priorityHuman]) }}
-                    </p>
-                    @if ($priorityAdFree)
-                        <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-queue::strings.priority_active_ad_free', ['remaining' => $priorityAdFreeHuman]) }}
-                        </p>
-                    @endif
-                </div>
-            </x-filament::section>
-        @elseif ($priorityAvailable && filled($priorityTiers))
-            <x-filament::section class="rounded-2xl">
-                <div class="flex flex-col gap-4">
-                    <div class="flex min-w-0 flex-col gap-1.5">
-                        <span class="text-base font-semibold tracking-tight text-gray-950 dark:text-white">
-                            {{ trans('plugged-host-queue::strings.priority_heading') }}
-                        </span>
-                        <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-queue::strings.priority_body') }}
-                        </p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
+            {{-- The receipt: the same success callout the Economy page shows for it. --}}
+            <x-filament::callout
+                color="success"
+                :heading="trans('plugged-host-queue::strings.priority_active_heading')"
+                :description="trans('plugged-host-queue::strings.priority_active_body', ['remaining' => $priorityHuman])
+                    . ($priorityAdFree ? ' ' . trans('plugged-host-queue::strings.priority_active_ad_free', ['remaining' => $priorityAdFreeHuman]) : '')"
+            />
+        @elseif ($offerShown)
+            <x-filament::section>
+                <div class="flex flex-col gap-5">
+                    <div class="flex min-w-0 flex-col gap-1">
+                        <span class="ph-queue-heading">{{ trans('plugged-host-queue::strings.priority_heading') }}</span>
+                        <p class="ph-queue-muted">{{ trans('plugged-host-queue::strings.priority_body') }}</p>
+                        <p class="ph-queue-small">
                             {{ trans('plugged-host-queue::strings.priority_balance', ['balance' => $balance]) }}
                             @if ($earnUrl)
-                                <a href="{{ $earnUrl }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">
+                                <a href="{{ $earnUrl }}" class="ph-queue-link">
                                     {{ trans('plugged-host-queue::strings.priority_earn_link') }}
                                 </a>
                             @endif
                         </p>
                     </div>
 
-                    {{-- One tile per tier, cheapest first. Two columns on anything wider
-                         than a phone; the ad-free tile is ringed rather than merely
-                         labelled, because it is the one being upsold. --}}
-                    <div @class(['grid grid-cols-1 gap-3', 'sm:grid-cols-2' => count($priorityTiers) > 1])>
+                    {{-- One full-width row per tier, cheapest first. The ad-free tier's
+                         button is the filled one, because it is the one being upsold. --}}
+                    <div class="ph-queue-rows flex flex-col">
                         @foreach ($priorityTiers as $tier)
-                            <div @class([
-                                'flex h-full flex-col gap-3 rounded-xl p-4',
-                                'ring-2 ring-info-500/60 dark:ring-info-400/50' => $tier['ad_free'],
-                                'ring-1 ring-gray-950/5 dark:ring-white/10' => !$tier['ad_free'],
-                            ])>
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="flex min-w-0 flex-col gap-0.5">
-                                        <span class="truncate text-sm font-semibold text-gray-950 dark:text-white">
+                            <div class="ph-queue-row">
+                                <div class="flex min-w-0 flex-col gap-0.5">
+                                    <div class="flex flex-wrap items-baseline gap-x-2">
+                                        <span class="ph-queue-title">
                                             {{ trans($tier['ad_free']
                                                 ? 'plugged-host-queue::strings.priority_tier_ad_free'
                                                 : 'plugged-host-queue::strings.priority_tier_standard') }}
                                         </span>
-                                        <span class="text-lg font-bold tabular-nums tracking-tight text-gray-950 dark:text-white">
+                                        <span class="ph-queue-small tabular-nums">
                                             {{ trans('plugged-host-queue::strings.priority_tier_days', ['days' => $tier['days']]) }}
                                         </span>
                                     </div>
-
-                                    <x-filament::badge :color="$tier['ad_free'] ? 'info' : 'gray'" size="sm" class="shrink-0 rounded-full">
+                                    <p class="ph-queue-small">
                                         {{ trans($tier['ad_free']
-                                            ? 'plugged-host-queue::strings.priority_badge_no_ads'
-                                            : 'plugged-host-queue::strings.priority_badge_ads') }}
-                                    </x-filament::badge>
+                                            ? 'plugged-host-queue::strings.priority_tier_no_ads_note'
+                                            : 'plugged-host-queue::strings.priority_tier_ads_note') }}
+                                    </p>
                                 </div>
 
-                                {{-- Grows so both tiles' buttons land on one baseline --}}
-                                <p class="flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                                    {{ trans($tier['ad_free']
-                                        ? 'plugged-host-queue::strings.priority_tier_no_ads_note'
-                                        : 'plugged-host-queue::strings.priority_tier_ads_note') }}
-                                </p>
-
-                                <x-filament::button wire:click="buyPriority('{{ $tier['key'] }}')"
-                                                    wire:loading.attr="disabled"
-                                                    :disabled="$tier['unaffordable']"
-                                                    :color="$tier['ad_free'] ? 'info' : 'gray'"
-                                                    class="w-full justify-center">
-                                    {{ trans('plugged-host-queue::strings.priority_cta', ['cost' => $tier['cost']]) }}
-                                </x-filament::button>
+                                <div class="ph-queue-action">
+                                    <x-filament::button wire:click="buyPriority('{{ $tier['key'] }}')"
+                                                        wire:loading.attr="disabled"
+                                                        :disabled="$tier['unaffordable']"
+                                                        :color="($tier['ad_free'] || count($priorityTiers) === 1) ? 'primary' : 'gray'"
+                                                        class="w-full justify-center">
+                                        {{ trans('plugged-host-queue::strings.priority_cta', ['cost' => $tier['cost']]) }}
+                                    </x-filament::button>
+                                </div>
                             </div>
                         @endforeach
                     </div>
@@ -340,33 +338,29 @@
              thing a user must be told before they agree to it, not after. The node name is
              a label only; the click re-runs the whole search server-side. --}}
         @if ($transferNode)
-            <x-filament::section class="rounded-2xl">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex min-w-0 flex-col gap-1.5">
-                        <span class="text-base font-semibold tracking-tight text-gray-950 dark:text-white">
-                            {{ trans('plugged-host-queue::strings.transfer_heading') }}
-                        </span>
-                        <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+            <x-filament::section>
+                <div class="ph-queue-row">
+                    <div class="flex min-w-0 flex-col gap-1">
+                        <span class="ph-queue-heading">{{ trans('plugged-host-queue::strings.transfer_heading') }}</span>
+                        <p class="ph-queue-muted">
                             {{ trans('plugged-host-queue::strings.transfer_body', ['node' => $transferNode]) }}
                         </p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-queue::strings.transfer_note') }}
-                        </p>
+                        <p class="ph-queue-small">{{ trans('plugged-host-queue::strings.transfer_note') }}</p>
                     </div>
 
-                    <x-filament::button wire:click="takeTransfer"
-                                        wire:confirm="{{ trans('plugged-host-queue::strings.transfer_confirm', ['node' => $transferNode]) }}"
-                                        wire:loading.attr="disabled"
-                                        color="gray"
-                                        class="shrink-0">
-                        {{ trans('plugged-host-queue::strings.transfer_cta') }}
-                    </x-filament::button>
+                    <div class="ph-queue-action">
+                        <x-filament::button wire:click="takeTransfer"
+                                            wire:confirm="{{ trans('plugged-host-queue::strings.transfer_confirm', ['node' => $transferNode]) }}"
+                                            wire:loading.attr="disabled"
+                                            color="gray"
+                                            class="w-full justify-center">
+                            {{ trans('plugged-host-queue::strings.transfer_cta') }}
+                        </x-filament::button>
+                    </div>
                 </div>
             </x-filament::section>
         @elseif ($transferTooBig)
-            <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                {{ trans('plugged-host-queue::strings.transfer_too_big') }}
-            </p>
+            <p class="ph-queue-small">{{ trans('plugged-host-queue::strings.transfer_too_big') }}</p>
         @endif
 
         {{-- A Direct Link is an ordinary URL that pays per landing, so it cannot be a unit
@@ -375,23 +369,23 @@
              cannot reach window.opener, nofollow/sponsored because that is what a paid link
              is. Off unless plugged-host-ads has one configured. --}}
         @if ($directLink)
-            <x-filament::section class="rounded-2xl">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex min-w-0 flex-col gap-1.5">
-                        <span class="text-base font-semibold tracking-tight text-gray-950 dark:text-white">
-                            {{ trans('plugged-host-queue::strings.direct_heading') }}
-                        </span>
-                        <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-queue::strings.direct_body') }}
-                        </p>
+            <x-filament::section>
+                <div class="ph-queue-row">
+                    <div class="flex min-w-0 flex-col gap-1">
+                        <span class="ph-queue-heading">{{ trans('plugged-host-queue::strings.direct_heading') }}</span>
+                        <p class="ph-queue-muted">{{ trans('plugged-host-queue::strings.direct_body') }}</p>
                     </div>
 
-                    <a href="{{ $directLink }}"
-                       target="_blank"
-                       rel="noopener noreferrer nofollow sponsored"
-                       class="fi-btn fi-btn-size-md inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:bg-primary-500 dark:hover:bg-primary-400">
-                        {{ trans('plugged-host-queue::strings.direct_cta') }}
-                    </a>
+                    <div class="ph-queue-action">
+                        <x-filament::button tag="a"
+                                            :href="$directLink"
+                                            target="_blank"
+                                            rel="noopener noreferrer nofollow sponsored"
+                                            :color="$offerShown ? 'gray' : 'primary'"
+                                            class="w-full justify-center">
+                            {{ trans('plugged-host-queue::strings.direct_cta') }}
+                        </x-filament::button>
+                    </div>
                 </div>
             </x-filament::section>
         @endif
@@ -404,14 +398,14 @@
              behind them instead of sitting in the line until the sweep notices the
              silence. --}}
         <div class="flex flex-col items-center gap-1 pb-2 text-center">
-            <button type="button"
-                    wire:click="leave"
-                    wire:loading.attr="disabled"
-                    class="text-sm font-medium text-gray-500 underline-offset-2 hover:underline dark:text-gray-400">
+            <x-filament::link tag="button"
+                              color="gray"
+                              wire:click="leave"
+                              wire:loading.attr="disabled">
                 {{ trans('plugged-host-queue::strings.leave_cta') }}
-            </button>
+            </x-filament::link>
             @if ($passMinutes > 0)
-                <span class="text-xs text-gray-400 dark:text-gray-500">
+                <span class="ph-queue-faint">
                     {{ trans('plugged-host-queue::strings.pass_note', ['minutes' => $passMinutes]) }}
                 </span>
             @endif

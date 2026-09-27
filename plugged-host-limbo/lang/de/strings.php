@@ -7,7 +7,12 @@ return [
     'restored' => 'Dein Server wird wiederhergestellt.',
     'insufficient' => 'Du benötigst :cost Tokens, um diesen Server wiederherzustellen.',
     'failed' => 'Wiederherstellung fehlgeschlagen. Es wurden keine Tokens abgebucht.',
-    'body' => 'Dieser Server war längere Zeit inaktiv und wurde in den Ruhezustand versetzt, um Kapazität freizugeben. Stelle ihn unten wieder her, um ihn wieder online zu bringen.',
+    'body' => 'Dieser Server war längere Zeit inaktiv und wurde in den Ruhezustand versetzt, um Kapazität freizugeben. Stelle ihn wieder her, um ihn wieder online zu bringen.',
+
+    'entered' => ':time in den Ruhezustand versetzt',
+    'cost_label' => 'Wiederherstellungskosten',
+    'balance_label' => 'Dein Guthaben',
+    'tokens' => ':count Tokens',
 
     'settings' => [
         'section_general' => 'Allgemein',

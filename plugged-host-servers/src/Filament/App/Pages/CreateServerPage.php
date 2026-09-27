@@ -106,8 +106,8 @@ class CreateServerPage extends Page
                 ->label(trans('plugged-host-servers::strings.deploy_server'))
                 ->action('save')
                 ->keyBindings(['mod+s'])
-                ->icon('tabler-rocket')
-                ->color(fn () => $this->canDeploy() ? 'primary' : 'gray')
+                // Secondary: the page's one primary is the Deploy button under the form.
+                ->color('gray')
                 ->disabled(fn () => !$this->canDeploy())
                 ->tooltip(fn () => $this->getDeployDisabledReason()),
         ];
@@ -237,15 +237,12 @@ class CreateServerPage extends Page
             ->components([
                 // 1. Server Details Section (at top)
                 Section::make(trans('plugged-host-servers::strings.server_details'))
-                    ->description(trans('plugged-host-servers::strings.server_details_description'))
-                    ->icon('tabler-server')
                     ->schema([
                         TextInput::make('name')
                             ->label(trans('plugged-host-servers::strings.name'))
                             ->required()
                             ->maxLength(191)
                             ->live(onBlur: true)
-                            ->prefixIcon('tabler-server')
                             ->suffixAction(
                                 Action::make('randomize_name')
                                     ->icon('tabler-dice-5')
@@ -258,8 +255,6 @@ class CreateServerPage extends Page
 
                 // 2. Choose Game Section
                 Section::make(trans('plugged-host-servers::strings.choose_game'))
-                    ->description(trans('plugged-host-servers::strings.choose_game_description'))
-                    ->icon('tabler-device-gamepad-2')
                     ->schema([
                         CardSelect::make('game')
                             ->hiddenLabel()
@@ -282,8 +277,6 @@ class CreateServerPage extends Page
 
                 // 3. Choose Location Section
                 Section::make(trans('plugged-host-servers::strings.choose_location'))
-                    ->description(trans('plugged-host-servers::strings.choose_location_description'))
-                    ->icon('tabler-world')
                     ->schema([
                         CardSelect::make('location')
                             ->hiddenLabel()
@@ -313,7 +306,6 @@ class CreateServerPage extends Page
                 // 4. Choose Plan & Resources Section
                 Section::make(trans('plugged-host-servers::strings.choose_plan'))
                     ->description(trans('plugged-host-servers::strings.choose_plan_description'))
-                    ->icon('tabler-server-cog')
                     ->schema([
                         CardSelect::make('plan')
                             ->hiddenLabel()
@@ -380,7 +372,6 @@ class CreateServerPage extends Page
 
                 // 5. EULA Agreement Section (Minecraft only)
                 Section::make(trans('plugged-host-servers::strings.eula_agree'))
-                    ->icon('tabler-file-certificate')
                     ->visible(function (Get $get) {
                         $egg = $this->egg($get('game'));
 

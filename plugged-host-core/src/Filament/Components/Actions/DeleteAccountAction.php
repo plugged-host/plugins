@@ -38,8 +38,12 @@ class DeleteAccountAction extends Action
         parent::setUp();
 
         $this->label(fn () => trans('plugged-host-core::strings.delete_account'));
-        $this->color('danger');
-        $this->icon('tabler-trash');
+
+        // Secondary on the page, danger only inside the confirmation modal: the filled red
+        // button belongs to the step that actually deletes, not to the one that opens it.
+        $this->color('gray');
+        $this->modalIconColor('danger');
+        $this->modalSubmitAction(fn (Action $action): Action => $action->color('danger'));
         $this->requiresConfirmation();
         $this->modalHeading(fn () => trans('plugged-host-core::strings.delete_account'));
         $this->modalSubmitActionLabel(fn () => trans('plugged-host-core::strings.delete_account'));

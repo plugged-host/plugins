@@ -340,7 +340,6 @@ class ResourceStorePage extends Page
             'discordProfileUrl' => $discordProfileUrl,
             'memoryUnit' => $memoryUnit,
             'upgrades' => $upgrades,
-            'upgradeGridClass' => $this->upgradeGridClass($upgrades),
             'tokensEnabled' => $tokens->isEnabled(),
             'tokens' => $tokenBalance,
             'earnTokensUrl' => $this->earnTokensUrl(),
@@ -493,11 +492,8 @@ class ResourceStorePage extends Page
     }
 
     /**
-     * Presentation model for the four upgrade cards.
-     *
-     * Accents use Filament's semantic colour tokens rather than raw Tailwind
-     * hues, so they resolve through the panel's palette and stay in step with
-     * the Nord theme instead of hard-coding a second set of colours.
+     * Presentation model for the upgrade rows. Colour and layout live in the view
+     * (resource-store.blade.php), which draws every row the same way.
      *
      * @param  array<string, mixed>  $summary
      * @return list<array<string, mixed>>
@@ -526,9 +522,6 @@ class ResourceStorePage extends Page
         $cards = [
             [
                 'key' => 'cpu',
-                'icon' => 'tabler-cpu',
-                'accent' => 'text-primary-600 dark:text-primary-400',
-                'bar' => 'bg-primary-500',
                 'label' => trans('plugged-host-core::strings.cpu'),
                 'description' => trans('plugged-host-economy::strings.credits.cpu_upgrade_desc'),
                 'current' => $summary['cpu'] . '%',
@@ -542,9 +535,6 @@ class ResourceStorePage extends Page
             ],
             [
                 'key' => 'memory',
-                'icon' => 'tabler-device-sd-card',
-                'accent' => 'text-info-600 dark:text-info-400',
-                'bar' => 'bg-info-500',
                 'label' => trans('plugged-host-core::strings.memory'),
                 'description' => trans('plugged-host-economy::strings.credits.memory_upgrade_desc'),
                 'current' => number_format($summary['memory']) . ' ' . $memoryUnit,
@@ -558,9 +548,6 @@ class ResourceStorePage extends Page
             ],
             [
                 'key' => 'disk',
-                'icon' => 'tabler-database',
-                'accent' => 'text-success-600 dark:text-success-400',
-                'bar' => 'bg-success-500',
                 'label' => trans('plugged-host-core::strings.disk'),
                 'description' => trans('plugged-host-economy::strings.credits.disk_upgrade_desc'),
                 'current' => number_format($summary['disk']) . ' ' . $memoryUnit,
@@ -578,9 +565,6 @@ class ResourceStorePage extends Page
         if ($serverLimit !== null) {
             $cards[] = [
                 'key' => 'server_slot',
-                'icon' => 'tabler-server',
-                'accent' => 'text-warning-600 dark:text-warning-400',
-                'bar' => 'bg-warning-500',
                 'label' => trans('plugged-host-core::strings.server_limit'),
                 'description' => trans('plugged-host-economy::strings.credits.server_slot_upgrade_desc'),
                 'current' => $serverLimit . ' ' . trans('plugged-host-economy::strings.credits.servers_count'),
@@ -600,20 +584,6 @@ class ResourceStorePage extends Page
         }
 
         return $cards;
-    }
-
-    /**
-     * Grid columns for the upgrade cards. Spelled out as whole class strings so
-     * Tailwind can see them while scanning this file — an interpolated count
-     * would compile to nothing.
-     *
-     * @param  list<array<string, mixed>>  $upgrades
-     */
-    protected function upgradeGridClass(array $upgrades): string
-    {
-        return count($upgrades) >= 4
-            ? 'sm:grid-cols-2 xl:grid-cols-4'
-            : 'sm:grid-cols-2 xl:grid-cols-3';
     }
 
     protected function percentOf(int|float|null $current, int|float|null $max): int

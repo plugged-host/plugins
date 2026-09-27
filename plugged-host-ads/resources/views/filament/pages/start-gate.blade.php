@@ -41,24 +41,35 @@
         .fi-sidebar-open-sidebar-btn,
         .fi-breadcrumbs { display: none !important; }
 
-        .ph-gate-track { height: 0.375rem; border-radius: 999px; overflow: hidden; background: rgb(0 0 0 / 0.08); }
-        .dark .ph-gate-track { background: rgb(255 255 255 / 0.1); }
+        /* Theme v2 tokens throughout (dark-only), so this reads the same whatever
+           Filament's light/dark switch says. */
+        .ph-gate-heading { font-size: 1rem; font-weight: 600; line-height: 1.5rem; color: var(--phv2-text); }
+        .ph-gate-muted { font-size: 0.875rem; line-height: 1.375rem; color: var(--phv2-text-muted); }
+        .ph-gate-caption { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--phv2-text-muted); }
+        .ph-gate-value { font-size: 1.5rem; font-weight: 600; line-height: 2rem; font-variant-numeric: tabular-nums; color: var(--phv2-accent-bright); }
+        .ph-gate-spinner { width: 1.25rem; height: 1.25rem; flex-shrink: 0; color: var(--phv2-accent-bright); }
+
+        .ph-gate-track { height: 0.375rem; border-radius: 9999px; overflow: hidden; background-color: var(--phv2-raise); }
         /* 1s, matching the client clock's tick, so the fill advances one visible second at a
            time. It used to be 2.1s to cover the poll interval, which meant the bar was always
            easing toward a percentage that had been true when the response was generated — it
            never caught up, and "smooth" read as "lagging". */
-        .ph-gate-fill { height: 100%; border-radius: 999px; transition: width 1s linear; }
+        .ph-gate-fill { height: 100%; border-radius: 9999px; background-color: var(--phv2-accent-bright); transition: width 1s linear; }
         @media (prefers-reduced-motion: reduce) {
             .ph-gate-fill { transition: none; }
         }
         /* Heights are reserved so the page does not jump as units fill, and so an
            empty unit leaves a stable gap instead of collapsing the layout. */
         .ph-gate-unit { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .ph-gate-sponsored {
-            display: block; text-align: center; font-size: 0.6875rem; line-height: 1;
-            letter-spacing: 0.08em; text-transform: uppercase; color: rgb(107 114 128);
+
+        /* Text on the left, the action on the right from `sm` up and under the text,
+           full width, below it. */
+        .ph-gate-row { display: flex; flex-direction: column; gap: 0.75rem; }
+        .ph-gate-action { display: flex; width: 100%; }
+        @media (min-width: 640px) {
+            .ph-gate-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 1.5rem; }
+            .ph-gate-action { width: 15rem; flex-shrink: 0; }
         }
-        .dark .ph-gate-sponsored { color: rgb(107 114 128); }
     </style>
 
     {{--
@@ -209,28 +220,21 @@
              })()
          ">
 
-        <x-filament::section class="rounded-2xl">
+        <x-filament::section>
             <div class="flex flex-col gap-5">
-                <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex items-center gap-5">
-                        <div class="flex size-14 shrink-0 items-center justify-center rounded-full bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
-                            <x-filament::loading-indicator class="size-6 text-primary-600 dark:text-primary-400" />
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex min-w-0 flex-col gap-1">
+                        <div class="flex items-center gap-2">
+                            <x-filament::loading-indicator class="ph-gate-spinner" />
+                            <span class="ph-gate-heading truncate">{{ trans('plugged-host-ads::strings.start_gate_heading') }}</span>
                         </div>
-
-                        <div class="flex min-w-0 flex-col gap-1.5">
-                            <span class="truncate text-lg font-semibold tracking-tight text-gray-950 dark:text-white">
-                                {{ trans('plugged-host-ads::strings.start_gate_heading') }}
-                            </span>
-                            <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                                {{ trans('plugged-host-ads::strings.start_gate_body', ['seconds' => $maxDwell]) }}
-                            </p>
-                        </div>
+                        <p class="ph-gate-muted">
+                            {{ trans('plugged-host-ads::strings.start_gate_body', ['seconds' => $maxDwell]) }}
+                        </p>
                     </div>
 
-                    <div class="flex flex-col gap-1 sm:items-end sm:text-right">
-                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                            {{ trans('plugged-host-ads::strings.start_gate_wait_label') }}
-                        </span>
+                    <div class="flex shrink-0 flex-col gap-0.5 sm:items-end sm:text-right">
+                        <span class="ph-gate-caption">{{ trans('plugged-host-ads::strings.start_gate_wait_label') }}</span>
                         {{--
                             The inner text is the server's answer and stays as the pre-Alpine
                             paint; x-text takes over on boot and is what makes the number move
@@ -239,7 +243,7 @@
                             substituted in JS, so en and de both work with no new keys and no
                             plural logic in the browser.
                         --}}
-                        <span class="text-2xl font-semibold leading-none tabular-nums text-gray-950 dark:text-white"
+                        <span class="ph-gate-value"
                               x-text="remaining > 0
                                   ? @js(trans('plugged-host-ads::strings.start_gate_seconds', ['seconds' => ':n'])).replace(':n', remaining)
                                   : @js(trans('plugged-host-ads::strings.start_gate_ready'))">
@@ -256,11 +260,10 @@
                     $percent = $maxDwell > 0 ? min(100, (int) round($elapsed / $maxDwell * 100)) : 100;
                 @endphp
                 <div class="ph-gate-track">
-                    <div class="ph-gate-fill bg-primary-600 dark:bg-primary-500"
+                    <div class="ph-gate-fill"
                          style="width: {{ $percent }}%"
                          :style="{ width: percent + '%' }"></div>
                 </div>
-
             </div>
         </x-filament::section>
 
@@ -287,25 +290,25 @@
              advertiser's page cannot reach window.opener, and nofollow/sponsored
              because that is what a paid link is. Off unless
              start_credits.gate_ads.direct_link is on — a panel that opens tabs by
-             itself is adware. --}}
+             itself is adware. It is the only button in the room, so it is the filled one. --}}
         @if ($directLink)
-            <x-filament::section class="rounded-2xl">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex min-w-0 flex-col gap-1.5">
-                        <span class="text-base font-semibold tracking-tight text-gray-950 dark:text-white">
-                            {{ trans('plugged-host-ads::strings.start_gate_direct_heading') }}
-                        </span>
-                        <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-ads::strings.start_gate_direct_body') }}
-                        </p>
+            <x-filament::section>
+                <div class="ph-gate-row">
+                    <div class="flex min-w-0 flex-col gap-1">
+                        <span class="ph-gate-heading">{{ trans('plugged-host-ads::strings.start_gate_direct_heading') }}</span>
+                        <p class="ph-gate-muted">{{ trans('plugged-host-ads::strings.start_gate_direct_body') }}</p>
                     </div>
 
-                    <a href="{{ $directLink }}"
-                       target="_blank"
-                       rel="noopener noreferrer nofollow sponsored"
-                       class="fi-btn fi-btn-size-md inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:bg-primary-500 dark:hover:bg-primary-400">
-                        {{ trans('plugged-host-ads::strings.start_gate_direct_cta') }}
-                    </a>
+                    <div class="ph-gate-action">
+                        <x-filament::button tag="a"
+                                            :href="$directLink"
+                                            target="_blank"
+                                            rel="noopener noreferrer nofollow sponsored"
+                                            color="primary"
+                                            class="w-full justify-center">
+                            {{ trans('plugged-host-ads::strings.start_gate_direct_cta') }}
+                        </x-filament::button>
+                    </div>
                 </div>
             </x-filament::section>
         @endif

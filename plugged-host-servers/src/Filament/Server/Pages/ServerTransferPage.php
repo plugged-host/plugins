@@ -93,7 +93,6 @@ class ServerTransferPage extends Page
             ->label(fn (): string => $this->location
                 ? trans('plugged-host-servers::strings.transfers.move_to', ['location' => $this->service()->locationName($this->location)])
                 : trans('plugged-host-servers::strings.transfers.choose'))
-            ->icon(TablerIcon::TruckDelivery)
             ->button()
             ->color('primary')
             ->size('lg')
@@ -139,7 +138,6 @@ class ServerTransferPage extends Page
     {
         return Action::make('cancel')
             ->label(trans('plugged-host-servers::strings.transfers.cancel'))
-            ->icon(TablerIcon::X)
             ->button()
             ->color('gray')
             ->size('sm')

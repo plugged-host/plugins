@@ -31,6 +31,17 @@
 --}}
 @if ($units !== [])
     <div class="ph-gate-stack flex flex-col gap-2" wire:ignore>
+        {{-- The caption's own style lives here rather than on either page, because both
+             the ad gate and the start queue include this partial. Theme v2's tiny
+             uppercase caption, in the faint text colour. --}}
+        @once
+            <style>
+                .ph-gate-sponsored {
+                    display: block; text-align: center; font-size: 0.6875rem; font-weight: 600; line-height: 1;
+                    letter-spacing: 0.05em; text-transform: uppercase; color: var(--phv2-text-faint);
+                }
+            </style>
+        @endonce
         <span class="ph-gate-sponsored">{{ trans('plugged-host-ads::strings.start_gate_sponsored') }}</span>
 
         <div class="grid gap-4 lg:grid-cols-2">

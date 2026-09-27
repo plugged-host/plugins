@@ -27,6 +27,10 @@
     Everything is `shrink-0` inside a `min-w-0` wrapper: flex items shrink before their
     neighbours are pushed out, and an over-long balance must never be what moves the user menu
     off the edge of the screen.
+
+    Look: `.ph-chip` in plugged-host.css — theme v2's badge shape on the one card fill, no ring.
+    Icons stay only where they are the label (which currency, which quota); the Economy button
+    is a word, so it carries no icon.
 --}}
 <div wire:poll.60s class="fi-ph-chips flex min-w-0 items-center gap-1.5 sm:gap-2">
     @if ($summary)
@@ -38,7 +42,7 @@
             // is inline-flex at all widths; the button is `hidden sm:inline-flex`, and
             // putting `hidden` and `inline-flex` in one class list leaves which one wins
             // to stylesheet order rather than to the code saying it.
-            $chipBase = 'shrink-0 items-center gap-1.5 rounded-lg bg-gray-50 px-1.5 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-950/5 sm:px-2 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10';
+            $chipBase = 'ph-chip shrink-0 items-center gap-1.5';
             $chip = 'inline-flex ' . $chipBase;
 
             $quotaTitle = trans('plugged-host-core::strings.chips.quota_title', [
@@ -62,9 +66,8 @@
             <a
                 href="{{ $storeUrl }}"
                 wire:navigate
-                @class(['hidden sm:inline-flex', $chipBase, 'transition hover:bg-gray-100 dark:hover:bg-white/10'])
+                @class(['hidden sm:inline-flex', $chipBase])
             >
-                <x-filament::icon icon="tabler-shopping-bag" class="size-4 text-gray-400 dark:text-gray-500" />
                 {{ $storeLabel }}
             </a>
         @endif
@@ -74,7 +77,7 @@
                 @class([$chip])
                 title="{{ trans('plugged-host-core::strings.chips.tokens_title') }}"
             >
-                <x-filament::icon icon="tabler-coin" class="size-4 text-warning-500 dark:text-warning-400" />
+                <x-filament::icon icon="tabler-coin" class="size-4" />
                 {{ number_format($tokens) }}
             </span>
         @endif
@@ -92,10 +95,10 @@
                 <a
                     href="{{ $storeUrl }}"
                     wire:navigate
-                    @class([$chip, 'transition hover:bg-gray-100 dark:hover:bg-white/10'])
+                    @class([$chip])
                     title="{{ trans('plugged-host-core::strings.chips.credits_title') }}"
                 >
-                    <x-filament::icon icon="tabler-currency-dollar" class="size-4 text-primary-500 dark:text-primary-400" />
+                    <x-filament::icon icon="tabler-currency-dollar" class="size-4" />
                     {{ number_format($credits) }}
                 </a>
             @else
@@ -103,7 +106,7 @@
                     @class([$chip])
                     title="{{ trans('plugged-host-core::strings.chips.credits_title') }}"
                 >
-                    <x-filament::icon icon="tabler-currency-dollar" class="size-4 text-primary-500 dark:text-primary-400" />
+                    <x-filament::icon icon="tabler-currency-dollar" class="size-4" />
                     {{ number_format($credits) }}
                 </span>
             @endif
@@ -111,18 +114,18 @@
 
         <span @class([$chip, 'hidden gap-2.5 md:inline-flex']) title="{{ $quotaTitle }}">
             <span class="inline-flex items-center gap-1.5">
-                <x-filament::icon icon="tabler-cpu" class="size-4 text-gray-400 dark:text-gray-500" />
-                {{ $summary['cpu_used'] }}<span class="text-gray-400 dark:text-gray-500">/{{ $this->limit($summary['cpu_limit'], $suffix, false) }}{{ $summary['cpu_limit'] > 0 ? '%' : '' }}</span>
+                <x-filament::icon icon="tabler-cpu" class="size-4" />
+                {{ $summary['cpu_used'] }}<span class="ph-chip-faint">/{{ $this->limit($summary['cpu_limit'], $suffix, false) }}{{ $summary['cpu_limit'] > 0 ? '%' : '' }}</span>
             </span>
 
             <span class="inline-flex items-center gap-1.5">
-                <x-filament::icon icon="tabler-database" class="size-4 text-gray-400 dark:text-gray-500" />
-                {{ $this->size($summary['memory_used'], $suffix) }}<span class="text-gray-400 dark:text-gray-500">/{{ $this->limit($summary['memory_limit'], $suffix) }}</span>
+                <x-filament::icon icon="tabler-database" class="size-4" />
+                {{ $this->size($summary['memory_used'], $suffix) }}<span class="ph-chip-faint">/{{ $this->limit($summary['memory_limit'], $suffix) }}</span>
             </span>
 
             <span class="inline-flex items-center gap-1.5">
-                <x-filament::icon icon="tabler-device-sd-card" class="size-4 text-gray-400 dark:text-gray-500" />
-                {{ $this->size($summary['disk_used'], $suffix) }}<span class="text-gray-400 dark:text-gray-500">/{{ $this->limit($summary['disk_limit'], $suffix) }}</span>
+                <x-filament::icon icon="tabler-device-sd-card" class="size-4" />
+                {{ $this->size($summary['disk_used'], $suffix) }}<span class="ph-chip-faint">/{{ $this->limit($summary['disk_limit'], $suffix) }}</span>
             </span>
         </span>
     @endif

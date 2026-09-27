@@ -255,7 +255,7 @@ class PluggedHostNeoPlugin implements HasPluginSettings, Plugin
                 Actions::make([
                     Action::make("test_provider_{$slot}")
                         ->label($t('test', ['slot' => $slot]))
-                        ->icon('tabler-plug-connected')
+                        ->color('gray')
                         ->action(fn () => self::testProvider($slot)),
                 ]),
             ]);

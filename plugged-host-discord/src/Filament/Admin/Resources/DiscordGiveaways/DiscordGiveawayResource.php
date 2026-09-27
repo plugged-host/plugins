@@ -216,8 +216,9 @@ class DiscordGiveawayResource extends Resource
                     ->wrap(),
                 TextColumn::make('amount')
                     ->label(trans('plugged-host-discord::strings.giveaways.reward'))
+                    // Neutral: the currency is spelled out in the label, and colour is kept for state.
                     ->badge()
-                    ->color(fn (DiscordGiveaway $record): string => $record->currency === DiscordGiveaway::CURRENCY_TOKENS ? 'warning' : 'success')
+                    ->color('gray')
                     ->formatStateUsing(fn (DiscordGiveaway $record): string => self::rewardLabel($record)),
                 TextColumn::make('paid_count')
                     ->label(trans('plugged-host-discord::strings.giveaways.winners'))
@@ -239,8 +240,7 @@ class DiscordGiveawayResource extends Resource
                 ViewAction::make(),
                 Action::make('retry')
                     ->label(trans('plugged-host-discord::strings.giveaways.retry'))
-                    ->icon('tabler-refresh')
-                    ->color('warning')
+                    ->color('gray')
                     ->visible(fn (DiscordGiveaway $record): bool => static::canViewAny() && $record->paid_count < $record->recipients_count)
                     ->requiresConfirmation()
                     ->modalDescription(trans('plugged-host-discord::strings.giveaways.retry_confirm'))
@@ -257,7 +257,6 @@ class DiscordGiveawayResource extends Resource
             ->toolbarActions([
                 CreateAction::make()
                     ->label(trans('plugged-host-discord::strings.giveaways.create'))
-                    ->icon('tabler-gift')
                     ->createAnother(false)
                     ->successNotification(null)
                     ->using(function (array $data): DiscordGiveaway {

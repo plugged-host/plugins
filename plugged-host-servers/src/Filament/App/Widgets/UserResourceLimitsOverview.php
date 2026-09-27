@@ -3,7 +3,6 @@
 namespace PluggedHost\Servers\Filament\App\Widgets;
 
 use App\Filament\Pages\Auth\EditProfile;
-use Filament\Support\Enums\IconPosition;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use PluggedHost\Servers\Models\RoleResourceLimits;
@@ -75,7 +74,6 @@ class UserResourceLimitsOverview extends StatsOverviewWidget
             ? null
             : Stat::make(trans('plugged-host-servers::strings.credits.credits'), number_format($creditsBalance))
                 ->description(trans('plugged-host-servers::strings.credits.store_description'))
-                ->descriptionIcon('tabler-shopping-bag', IconPosition::Before)
                 ->url($storeUrl);
 
         $formatAmount = fn (string $resource, int $amount): string => match ($resource) {
@@ -95,7 +93,6 @@ class UserResourceLimitsOverview extends StatsOverviewWidget
                     : 'plugged-host-servers::strings.credits.over_quota',
                 ['amount' => $formatAmount($resource, $overage[$resource])]
             ))
-                ->descriptionIcon('tabler-alert-triangle', IconPosition::Before)
                 ->color('danger');
 
             return true;
@@ -115,39 +112,32 @@ class UserResourceLimitsOverview extends StatsOverviewWidget
             if ($canUpgradeWithDiscord && $discordProfileUrl) {
                 $reminderText = trans('plugged-host-discord::strings.need_more_stuff') ?: 'Need more stuff? Link Discord';
                 $targetUrl = $discordProfileUrl;
-                $targetIcon = 'tabler-brand-discord';
             } elseif ($storeUrl) {
                 $reminderText = trans('plugged-host-servers::strings.credits.need_more_upgrade_store');
                 $targetUrl = $storeUrl;
-                $targetIcon = 'tabler-shopping-bag';
             } else {
                 $reminderText = null;
                 $targetUrl = null;
-                $targetIcon = null;
             }
 
             if ($reminderText && $targetUrl) {
                 if ($cpuExhausted && !$cpuOver) {
                     $cpuStat->description($reminderText)
-                        ->descriptionIcon($targetIcon, IconPosition::Before)
                         ->url($targetUrl);
                 }
 
                 if ($memoryExhausted && !$memoryOver) {
                     $memoryStat->description($reminderText)
-                        ->descriptionIcon($targetIcon, IconPosition::Before)
                         ->url($targetUrl);
                 }
 
                 if ($diskExhausted && !$diskOver) {
                     $diskStat->description($reminderText)
-                        ->descriptionIcon($targetIcon, IconPosition::Before)
                         ->url($targetUrl);
                 }
 
                 if (!$cpuExhausted && !$memoryExhausted && !$diskExhausted && $serverLimitExhausted && !$memoryOver) {
                     $memoryStat->description($reminderText)
-                        ->descriptionIcon($targetIcon, IconPosition::Before)
                         ->url($targetUrl);
                 }
             }

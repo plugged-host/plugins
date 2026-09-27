@@ -2,7 +2,6 @@
 
 namespace PluggedHost\Core\Filament\Pages\Auth;
 
-use App\Enums\TablerIcon;
 use App\Filament\Pages\Auth\Login as PanelLogin;
 use BladeUI\Icons\Exceptions\SvgNotFound;
 use Filament\Actions\Action;
@@ -13,7 +12,6 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
-use Filament\Support\Colors\Color;
 use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 use PluggedHost\Core\Services\LegalAcceptanceService;
@@ -112,7 +110,6 @@ class Login extends PanelLogin
         return Actions::make([
             Action::make('passkey')
                 ->label(trans('passkeys.authenticate_using_passkey'))
-                ->icon(TablerIcon::Key->value)
                 ->color('gray')
                 ->alpineClickHandler('$wire.beginPasskeyAuthentication().then((allowed) => allowed && window.authenticateWithPasskey())')
                 ->extraAttributes(['type' => 'button']),
@@ -137,8 +134,6 @@ class Login extends PanelLogin
 
         foreach ($this->oauthService->getEnabled() as $oauthSchema) {
             $id = $oauthSchema->getId();
-            $color = $oauthSchema->getHexColor();
-            $color = is_string($color) ? Color::hex($color) : null;
             $icon = $oauthSchema->getIcon();
 
             if (is_string($icon)) {
@@ -149,10 +144,12 @@ class Login extends PanelLogin
                 }
             }
 
+            // Secondary, not the provider's brand colour: "Sign in" is the page's one primary
+            // button. The provider's logo stays — it is how people recognise the option.
             $actions[] = Action::make("oauth_$id")
                 ->label($oauthSchema->getName())
                 ->icon($icon)
-                ->color($color)
+                ->color('gray')
                 ->action(fn () => $this->beginOAuthAuthentication($id));
         }
 

@@ -67,7 +67,6 @@ class AdminTransferAction extends Action
             Select::make('target')
                 ->label(trans('plugged-host-servers::strings.transfers.admin.target'))
                 ->helperText(trans('plugged-host-servers::strings.transfers.admin.target_hint'))
-                ->prefixIcon(TablerIcon::MapPin)
                 ->required()
                 ->live()
                 ->native(false)

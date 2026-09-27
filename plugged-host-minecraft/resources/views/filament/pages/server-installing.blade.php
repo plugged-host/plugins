@@ -6,10 +6,35 @@
     wire:poll re-renders the whole page every few seconds, which is also what keeps the
     elapsed time current without any client-side clock.
 
-    Utilities here are compiled by plugins/plugged-host-core/resources/css/plugged-host.css;
-    run `yarn build` after introducing a new class.
+    Styled by the scoped <style> below on theme-v2's --phv2-* tokens (no asset build). The
+    few Tailwind utilities left (flex/gap) are compiled by
+    plugins/plugged-host-core/resources/css/plugged-host.css.
 --}}
 <x-filament-panels::page>
+    <style>
+        .phi-status { display: flex; flex-direction: column; gap: 1.25rem; }
+        .phi-main { display: flex; flex-direction: column; gap: .375rem; min-width: 0; }
+        .phi-title { display: flex; align-items: center; gap: .625rem; min-width: 0; }
+        .phi-spinner { width: 1.25rem; height: 1.25rem; flex: none; color: var(--phv2-accent-bright); }
+        .phi-name { font-size: 1rem; font-weight: 600; color: var(--phv2-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .phi-body { font-size: .875rem; line-height: 1.5; color: var(--phv2-text-muted); }
+        .phi-side { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; flex: none; }
+        .phi-caption { font-size: .6875rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--phv2-text-muted); }
+        .phi-value { font-size: .875rem; font-weight: 600; color: var(--phv2-text); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .phi-stat { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+        .phi-steps { display: flex; flex-direction: column; gap: 1rem; }
+        .phi-step { display: flex; align-items: center; gap: .75rem; font-size: .875rem; }
+        .phi-step-icon { width: 1rem; height: 1rem; flex: none; }
+        .phi-done { color: var(--phv2-text-muted); } .phi-done .phi-step-icon { color: #4ade80; }
+        .phi-active { color: var(--phv2-text); font-weight: 500; } .phi-active .phi-step-icon { color: var(--phv2-accent-bright); }
+        .phi-failed { color: var(--phv2-text); font-weight: 500; } .phi-failed .phi-step-icon { color: #f87171; }
+        .phi-pending { color: var(--phv2-text-faint); }
+        .phi-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem 1.5rem; }
+        @media (min-width: 640px) {
+            .phi-status { flex-direction: row; align-items: center; justify-content: space-between; }
+            .phi-side .phi-stat { align-items: flex-end; text-align: right; }
+        }
+    </style>
     <div class="flex flex-col gap-6"
          wire:poll.keep-alive.{{ $poll }}="checkInstallState"
          x-data="{
@@ -57,52 +82,32 @@
                  });
              }
          }">
-        {{-- Status --}}
-        <x-filament::section class="rounded-2xl">
-            <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-5">
-                    <div @class([
-                        'flex size-14 shrink-0 items-center justify-center rounded-full ring-1',
-                        'bg-danger-50 ring-danger-600/20 dark:bg-danger-400/10 dark:ring-danger-400/30' => $failed,
-                        'bg-gray-100 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10' => !$failed,
-                    ])>
+        {{-- Status. The page title already names the state (installing / failed), so there is no
+             badge repeating it: a spinner while it runs, the explanation, and the one next step. --}}
+        <x-filament::section>
+            <div class="phi-status">
+                <div class="phi-main">
+                    <div class="phi-title">
+                        @unless ($failed)
+                            <x-filament::loading-indicator class="phi-spinner" />
+                        @endunless
+                        <span class="phi-name">{{ $server->name }}</span>
+                    </div>
+
+                    <p class="phi-body">
                         @if ($failed)
-                            <x-filament::icon icon="tabler-alert-triangle" class="size-6 text-danger-600 dark:text-danger-400" />
+                            {{ trans('plugged-host-minecraft::strings.installing.failed_body') }}
                         @else
-                            <x-filament::loading-indicator class="size-6 text-primary-600 dark:text-primary-400" />
+                            {{ trans('plugged-host-minecraft::strings.installing.status_body') }}
                         @endif
-                    </div>
-
-                    <div class="flex min-w-0 flex-col gap-1.5">
-                        <div class="flex flex-wrap items-center gap-2.5">
-                            <span class="truncate text-lg font-semibold tracking-tight text-gray-950 dark:text-white">
-                                {{ $server->name }}
-                            </span>
-
-                            <x-filament::badge :color="$failed ? 'danger' : 'primary'" size="sm" class="rounded-full">
-                                {{ $server->status?->getLabel() }}
-                            </x-filament::badge>
-                        </div>
-
-                        <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                            @if ($failed)
-                                {{ trans('plugged-host-minecraft::strings.installing.failed_body') }}
-                            @else
-                                {{ trans('plugged-host-minecraft::strings.installing.status_body') }}
-                            @endif
-                        </p>
-                    </div>
+                    </p>
                 </div>
 
-                <div class="flex shrink-0 flex-wrap items-center gap-4">
+                <div class="phi-side">
                     @if ($startedAt)
-                        <div class="flex flex-col gap-1 sm:items-end sm:text-right">
-                            <span class="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                                {{ trans('plugged-host-minecraft::strings.installing.elapsed') }}
-                            </span>
-                            <span class="text-base font-semibold leading-none tabular-nums text-gray-950 dark:text-white">
-                                {{ $startedAt->diffForHumans(null, true) }}
-                            </span>
+                        <div class="phi-stat">
+                            <span class="phi-caption">{{ trans('plugged-host-minecraft::strings.installing.elapsed') }}</span>
+                            <span class="phi-value">{{ $startedAt->diffForHumans(null, true) }}</span>
                         </div>
                     @endif
 
@@ -112,7 +117,6 @@
                             wire:target="retryReinstall"
                             wire:loading.attr="disabled"
                             color="primary"
-                            icon="tabler-refresh"
                         >
                             <span wire:loading.remove wire:target="retryReinstall">
                                 {{ trans('plugged-host-minecraft::strings.installing.retry_reinstall') }}
@@ -129,8 +133,7 @@
                             :href="$supportUrl"
                             target="_blank"
                             rel="noopener noreferrer"
-                            color="danger"
-                            icon="tabler-brand-discord"
+                            color="gray"
                         >
                             {{ trans('plugged-host-minecraft::strings.installing.get_help') }}
                         </x-filament::button>
@@ -140,74 +143,53 @@
         </x-filament::section>
 
         {{-- Steps --}}
-        <x-filament::section class="rounded-2xl">
+        <x-filament::section>
             <x-slot name="heading">
                 {{ trans('plugged-host-minecraft::strings.installing.steps_heading') }}
             </x-slot>
 
-            <ol class="flex flex-col gap-5">
+            <ol class="phi-steps">
                 @foreach ($steps as $step)
-                    <li class="flex items-center gap-4">
-                        <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
-                            @switch($step['state'])
-                                @case('done')
-                                    <x-filament::icon icon="tabler-check" class="size-4 text-success-600 dark:text-success-400" />
+                    <li @class(['phi-step', 'phi-' . $step['state']])>
+                        @switch($step['state'])
+                            @case('done')
+                                <x-filament::icon icon="tabler-check" class="phi-step-icon" />
 
-                                    @break
-                                @case('active')
-                                    <x-filament::loading-indicator class="size-4 text-primary-600 dark:text-primary-400" />
+                                @break
+                            @case('active')
+                                <x-filament::loading-indicator class="phi-step-icon" />
 
-                                    @break
-                                @case('failed')
-                                    <x-filament::icon icon="tabler-x" class="size-4 text-danger-600 dark:text-danger-400" />
+                                @break
+                            @case('failed')
+                                <x-filament::icon icon="tabler-x" class="phi-step-icon" />
 
-                                    @break
-                                @default
-                                    <x-filament::icon icon="tabler-point" class="size-4 text-gray-400 dark:text-gray-600" />
-                            @endswitch
-                        </div>
+                                @break
+                            @default
+                                <x-filament::icon icon="tabler-point" class="phi-step-icon" />
+                        @endswitch
 
-                        <span @class([
-                            'text-sm',
-                            'font-medium text-gray-950 dark:text-white' => in_array($step['state'], ['active', 'failed'], true),
-                            'text-gray-500 dark:text-gray-400' => $step['state'] === 'done',
-                            'text-gray-400 dark:text-gray-500' => $step['state'] === 'pending',
-                        ])>
-                            {{ $step['label'] }}
-                        </span>
+                        <span>{{ $step['label'] }}</span>
                     </li>
                 @endforeach
             </ol>
         </x-filament::section>
 
-        {{-- What is being built. Tiles rather than a bare definition list: at four columns
-             a label sitting straight on top of its value reads as one cramped block, so each
-             pair gets its own inset card with an icon to anchor it. --}}
-        <x-filament::section class="rounded-2xl">
+        {{-- What is being built: label over value, grouped by whitespace. --}}
+        <x-filament::section>
             <x-slot name="heading">
                 {{ trans('plugged-host-minecraft::strings.installing.details_heading') }}
             </x-slot>
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="phi-details">
                 @foreach ([
-                    ['icon' => 'tabler-cube', 'label' => trans('plugged-host-minecraft::strings.installing.detail_type'), 'value' => $server->egg?->name ?? '—'],
-                    ['icon' => 'tabler-cpu', 'label' => trans('plugged-host-minecraft::strings.cpu'), 'value' => $server->cpu > 0 ? $server->cpu . '%' : trans('plugged-host-minecraft::strings.unlimited')],
-                    ['icon' => 'tabler-device-sd-card', 'label' => trans('plugged-host-minecraft::strings.memory'), 'value' => $server->memory > 0 ? $server->memory . $suffix : trans('plugged-host-minecraft::strings.unlimited')],
-                    ['icon' => 'tabler-database', 'label' => trans('plugged-host-minecraft::strings.disk'), 'value' => $server->disk > 0 ? $server->disk . $suffix : trans('plugged-host-minecraft::strings.unlimited')],
+                    ['label' => trans('plugged-host-minecraft::strings.installing.detail_type'), 'value' => $server->egg?->name ?? '—'],
+                    ['label' => trans('plugged-host-minecraft::strings.cpu'), 'value' => $server->cpu > 0 ? $server->cpu . '%' : trans('plugged-host-minecraft::strings.unlimited')],
+                    ['label' => trans('plugged-host-minecraft::strings.memory'), 'value' => $server->memory > 0 ? $server->memory . $suffix : trans('plugged-host-minecraft::strings.unlimited')],
+                    ['label' => trans('plugged-host-minecraft::strings.disk'), 'value' => $server->disk > 0 ? $server->disk . $suffix : trans('plugged-host-minecraft::strings.unlimited')],
                 ] as $detail)
-                    <div class="flex items-center gap-4 rounded-xl bg-gray-50 p-4 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
-                        <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-gray-950/5 dark:bg-white/10 dark:ring-white/10">
-                            <x-filament::icon :icon="$detail['icon']" class="size-5 text-gray-400 dark:text-gray-500" />
-                        </div>
-
-                        <div class="flex min-w-0 flex-col gap-1.5">
-                            <span class="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                                {{ $detail['label'] }}
-                            </span>
-                            <span class="truncate text-base font-semibold leading-none text-gray-950 dark:text-white">
-                                {{ $detail['value'] }}
-                            </span>
-                        </div>
+                    <div class="phi-stat">
+                        <span class="phi-caption">{{ $detail['label'] }}</span>
+                        <span class="phi-value" title="{{ $detail['value'] }}">{{ $detail['value'] }}</span>
                     </div>
                 @endforeach
             </div>

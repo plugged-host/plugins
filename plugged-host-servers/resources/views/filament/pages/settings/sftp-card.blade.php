@@ -1,6 +1,6 @@
 {{--
-    SFTP Credentials Card
-    A dedicated, high-contrast credential display with 1-click copy and SFTP launch.
+    SFTP credentials as full-width rows: address (copy, open in an SFTP client), username
+    (copy) and where the password comes from. Scoped plain CSS on the theme tokens.
 --}}
 @php
     $server = $server ?? $getRecord();
@@ -10,76 +10,65 @@
     $username = ($user?->username ?? 'user') . '.' . $server->uuid_short;
 @endphp
 
-<div class="flex flex-col gap-4">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {{-- Connection Address --}}
-        <div x-data="{ copied: false }" class="flex flex-col justify-between p-4 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/80 dark:border-white/10 transition hover:border-gray-300 dark:hover:border-white/20">
-            <div>
-                <span class="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
-                    {{ trans('server/setting.server_info.sftp.connection') }}
-                </span>
-                <span class="font-mono text-xs font-semibold text-gray-900 dark:text-white break-all block">
-                    {{ $hostAndPort }}
-                </span>
-            </div>
-            <div class="flex items-center gap-2 mt-4 pt-3 border-t border-gray-200/60 dark:border-white/5">
-                <button
-                    type="button"
-                    @click="navigator.clipboard.writeText('{{ $hostAndPort }}'); copied = true; setTimeout(() => copied = false, 2000)"
-                    class="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/15 border border-gray-200 dark:border-white/10 transition shadow-sm">
-                    <x-filament::icon x-show="!copied" icon="tabler-copy" class="size-3.5" />
-                    <x-filament::icon x-show="copied" icon="tabler-check" class="size-3.5 text-success-500" style="display: none;" />
-                    <span x-text="copied ? 'Copied!' : 'Copy Host'">Copy Host</span>
-                </button>
-                <a
-                    href="{{ $sftpUrl }}"
-                    class="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 transition"
-                    title="Launch in SFTP Client">
-                    <x-filament::icon icon="tabler-plug" class="size-3.5" />
-                    <span>Launch</span>
-                </a>
-            </div>
-        </div>
+<style>
+    .phset-rows { display: flex; flex-direction: column; }
+    .phset-row { display: flex; align-items: center; gap: 1rem; min-height: 2.75rem; padding: .5rem 0; }
+    .phset-row + .phset-row { border-top: 1px solid var(--phv2-hairline); }
+    .phset-label { flex: none; width: 7rem; font-size: .8125rem; color: var(--phv2-text-muted); }
+    .phset-value { flex: 1; min-width: 0; font-size: .875rem; color: var(--phv2-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .phset-value-wrap { white-space: normal; }
+    .phset-hint { display: block; margin-top: .125rem; font-size: .75rem; line-height: 1.125rem; color: var(--phv2-text-muted); }
+    .phset-copied { color: var(--success-400); }
+    .phset-actions { display: inline-flex; flex: none; align-items: center; gap: .25rem; }
+    @media (max-width: 640px) { .phset-label { width: 5.5rem; } }
+</style>
 
-        {{-- Username --}}
-        <div x-data="{ copied: false }" class="flex flex-col justify-between p-4 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/80 dark:border-white/10 transition hover:border-gray-300 dark:hover:border-white/20">
-            <div>
-                <span class="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
-                    {{ trans('server/setting.server_info.sftp.username') }}
-                </span>
-                <span class="font-mono text-xs font-semibold text-gray-900 dark:text-white break-all block">
-                    {{ $username }}
-                </span>
-            </div>
-            <div class="mt-4 pt-3 border-t border-gray-200/60 dark:border-white/5">
-                <button
-                    type="button"
-                    @click="navigator.clipboard.writeText('{{ $username }}'); copied = true; setTimeout(() => copied = false, 2000)"
-                    class="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/15 border border-gray-200 dark:border-white/10 transition shadow-sm">
-                    <x-filament::icon x-show="!copied" icon="tabler-copy" class="size-3.5" />
-                    <x-filament::icon x-show="copied" icon="tabler-check" class="size-3.5 text-success-500" style="display: none;" />
-                    <span x-text="copied ? 'Copied!' : 'Copy Username'">Copy Username</span>
-                </button>
-            </div>
-        </div>
+<div class="phset-rows">
+    {{-- Connection Address --}}
+    <div x-data="{ copied: false }" class="phset-row">
+        <span class="phset-label">{{ trans('server/setting.server_info.sftp.connection') }}</span>
+        <span class="phset-value font-mono" title="{{ $hostAndPort }}">{{ $hostAndPort }}</span>
+        <span class="phset-actions">
+            <button
+                type="button"
+                @click="navigator.clipboard.writeText('{{ $hostAndPort }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                class="fi-icon-btn fi-size-sm"
+                aria-label="Copy Host"
+                x-tooltip="{ content: 'Copy Host', theme: $store.theme }">
+                <x-filament::icon x-show="!copied" icon="tabler-copy" />
+                <x-filament::icon x-show="copied" icon="tabler-check" class="phset-copied" style="display: none;" />
+            </button>
+            <a
+                href="{{ $sftpUrl }}"
+                class="fi-icon-btn fi-size-sm"
+                aria-label="Launch in SFTP Client"
+                x-tooltip="{ content: 'Launch in SFTP Client', theme: $store.theme }">
+                <x-filament::icon icon="tabler-external-link" />
+            </a>
+        </span>
+    </div>
 
-        {{-- Password --}}
-        <div class="flex flex-col justify-between p-4 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/80 dark:border-white/10 transition hover:border-gray-300 dark:hover:border-white/20">
-            <div>
-                <span class="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
-                    {{ trans('server/setting.server_info.sftp.password') }}
-                </span>
-                <span class="text-xs font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-                    <x-filament::icon icon="tabler-lock" class="size-4 text-warning-500 shrink-0" />
-                    Your Account Password
-                </span>
-            </div>
-            <div class="mt-4 pt-3 border-t border-gray-200/60 dark:border-white/5">
-                <p class="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-                    {{ trans('server/setting.server_info.sftp.password_body') }}
-                </p>
-            </div>
-        </div>
+    {{-- Username --}}
+    <div x-data="{ copied: false }" class="phset-row">
+        <span class="phset-label">{{ trans('server/setting.server_info.sftp.username') }}</span>
+        <span class="phset-value font-mono" title="{{ $username }}">{{ $username }}</span>
+        <button
+            type="button"
+            @click="navigator.clipboard.writeText('{{ $username }}'); copied = true; setTimeout(() => copied = false, 2000)"
+            class="fi-icon-btn fi-size-sm"
+            aria-label="Copy Username"
+            x-tooltip="{ content: 'Copy Username', theme: $store.theme }">
+            <x-filament::icon x-show="!copied" icon="tabler-copy" />
+            <x-filament::icon x-show="copied" icon="tabler-check" class="phset-copied" style="display: none;" />
+        </button>
+    </div>
+
+    {{-- Password --}}
+    <div class="phset-row">
+        <span class="phset-label">{{ trans('server/setting.server_info.sftp.password') }}</span>
+        <span class="phset-value phset-value-wrap">
+            Your Account Password
+            <span class="phset-hint">{{ trans('server/setting.server_info.sftp.password_body') }}</span>
+        </span>
     </div>
 </div>
-

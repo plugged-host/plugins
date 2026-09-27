@@ -41,7 +41,6 @@ class NoprofitAccountPluginProvider extends ServiceProvider
             Action::make('manage_on_noprofit')
                 ->label(fn () => trans('plugged-host-core::strings.noprofit.manage_account'))
                 ->tooltip(fn () => trans('plugged-host-core::strings.noprofit.managed_hint'))
-                ->icon('tabler-external-link')
                 ->color('gray')
                 ->url(fn () => self::accountsUrl() . '/settings')
                 ->visible(fn () => NoprofitLink::isConverted(auth()->user())),

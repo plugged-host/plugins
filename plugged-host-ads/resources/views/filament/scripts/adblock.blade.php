@@ -58,13 +58,14 @@
     const PROBE_TIMEOUT = 4000;
 
     // The exact class lists a Filament Action renders for a primary solid button
-    // and a gray outlined one. Copied rather than approximated: they are what
-    // makes these the panel's own buttons, palette and dark mode included, with
-    // no colour named anywhere in this plugin.
+    // and a gray (secondary) one — Filament gives a gray button no colour classes
+    // at all. Copied rather than approximated: they are what makes these the
+    // panel's own buttons, palette and dark mode included, with no colour named
+    // anywhere in this plugin.
     const BTN_PRIMARY = 'fi-btn fi-size-md fi-color fi-color-primary fi-bg-color-600'
         + ' hover:fi-bg-color-500 dark:fi-bg-color-600 dark:hover:fi-bg-color-500'
         + ' fi-text-color-0 hover:fi-text-color-0 dark:fi-text-color-0 dark:hover:fi-text-color-0';
-    const BTN_SECONDARY = 'fi-btn fi-outlined fi-size-md';
+    const BTN_SECONDARY = 'fi-btn fi-size-md';
 
     // There is never more than one overlay, so fixed ids are safe here and let
     // the dialog point at its own heading and description.

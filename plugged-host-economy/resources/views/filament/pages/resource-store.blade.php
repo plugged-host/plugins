@@ -1,69 +1,91 @@
 {{--
     The Economy page.
 
-    Utilities used here are compiled by plugins/plugged-host-core/resources/css/
-    plugged-host.css, which is the only Tailwind entry that scans plugins/**. If
-    you introduce a class that no plugin view used before, run `yarn build` or it
-    will silently render unstyled.
+    Layout utilities used here are compiled by plugins/plugged-host-core/resources/css/
+    plugged-host.css, which is the only Tailwind entry that scans plugins/**. If you
+    introduce a class that no plugin view used before, run `yarn build` or it will
+    silently render unstyled. Colour, type and surfaces come from the scoped <style>
+    below, which reads Theme v2's --phv2-* tokens, so nothing here depends on
+    Filament's light/dark switch.
 
-    Phone first, at 360px: card padding, section gaps and grid columns all step up at
-    `sm` rather than being sized for a desktop and left to overflow. The transaction
-    history is the one that mattered — a four-column table in an `overflow-x-auto`
-    reads as broken on a phone, so below `sm` the same rows render as stacked cards
-    and the table itself is hidden.
+    Phone first, at 360px: every list is a column of full-width rows whose action drops
+    under its text below `sm`. The transaction history is the one that mattered most — a
+    four-column table in an `overflow-x-auto` reads as broken on a phone, so below `sm`
+    the same rows render stacked and the table itself is hidden.
+
+    One filled button on the page: the ad-free priority tier. Every other action is a
+    gray (secondary) button.
 --}}
 <x-filament-panels::page>
-    <div class="flex flex-col gap-5 sm:gap-8">
+    <style>
+        .ph-eco-card { display: flex; flex-direction: column; gap: 1.25rem; padding: 1rem; border-radius: 1rem; background-color: var(--phv2-raise); }
+        .ph-eco-list { display: flex; flex-direction: column; padding: 0.25rem 1rem; border-radius: 1rem; background-color: var(--phv2-raise); }
+        .ph-eco-row { display: flex; flex-direction: column; gap: 1rem; padding-block: 1rem; }
+        .ph-eco-row + .ph-eco-row { border-top: 1px solid var(--phv2-hairline); }
+        .ph-eco-row-action { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; }
+        @media (min-width: 640px) {
+            .ph-eco-card { padding: 1.5rem; }
+            .ph-eco-list { padding-inline: 1.5rem; }
+            .ph-eco-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 1.5rem; }
+            .ph-eco-row-action { width: 15rem; flex-shrink: 0; }
+        }
+
+        .ph-eco-heading { font-size: 1rem; font-weight: 600; line-height: 1.5rem; color: var(--phv2-text); }
+        .ph-eco-title { font-size: 0.875rem; font-weight: 600; line-height: 1.25rem; color: var(--phv2-text); }
+        .ph-eco-text { font-size: 0.875rem; line-height: 1.375rem; color: var(--phv2-text-nav); }
+        .ph-eco-muted { font-size: 0.8125rem; line-height: 1.25rem; color: var(--phv2-text-muted); }
+        .ph-eco-small { font-size: 0.75rem; line-height: 1.125rem; color: var(--phv2-text-muted); }
+        .ph-eco-caption { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--phv2-text-muted); }
+        .ph-eco-value { font-size: 1.5rem; font-weight: 600; line-height: 2rem; font-variant-numeric: tabular-nums; color: var(--phv2-accent-bright); }
+        .ph-eco-num { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--phv2-text); }
+        .ph-eco-link { font-weight: 500; color: var(--phv2-accent-bright); }
+        .ph-eco-link:hover { color: var(--phv2-accent-glow); text-decoration: underline; }
+
+        .ph-eco-track { height: 4px; border-radius: 9999px; overflow: hidden; background-color: var(--phv2-raise); }
+        .ph-eco-fill { display: block; height: 100%; border-radius: 9999px; background-color: var(--phv2-accent-bright); }
+
+        .ph-eco-amount { flex-shrink: 0; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .ph-eco-amount-in { color: var(--success-400); }
+        .ph-eco-amount-out { color: var(--phv2-text-muted); }
+
+        .ph-eco-tx { display: flex; flex-direction: column; gap: 0.25rem; padding-block: 0.75rem; }
+        .ph-eco-tx:first-child { padding-top: 0; }
+        .ph-eco-tx:last-child { padding-bottom: 0; }
+        .ph-eco-tx + .ph-eco-tx { border-top: 1px solid var(--phv2-hairline); }
+
+        .ph-eco-table { width: 100%; text-align: left; font-size: 0.875rem; }
+        .ph-eco-table th { padding: 0 1rem 0.75rem 0; }
+        .ph-eco-table th:last-child, .ph-eco-table td:last-child { padding-right: 0; }
+        .ph-eco-table td { padding: 0.75rem 1rem 0.75rem 0; border-top: 1px solid var(--phv2-hairline); vertical-align: middle; }
+        .ph-eco-table .ph-eco-end { text-align: right; white-space: nowrap; }
+    </style>
+
+    <div class="flex flex-col gap-6">
         {{--
             The wallet: both currencies as equal cards.
 
-            They used to be one box with credits at text-4xl and tokens as a quiet row
-            under a divider, which read as "credits, plus a footnote" — and tokens now buy
-            something on this very page, so a footnote is the wrong shape. Each card says
-            the balance, what that balance is for, and where more comes from. The credits
-            card spans the row on its own when the token half of the economy is switched
-            off, rather than leaving a hole next to it.
+            Each card says the balance, what that balance is for, and where more comes
+            from. The credits card spans the row on its own when the token half of the
+            economy is switched off, rather than leaving a hole next to it. The body grows
+            (flex-1) so both cards' buttons land on one baseline.
         --}}
-        <div @class(['grid grid-cols-1 gap-5 sm:gap-6', 'lg:grid-cols-2' => $tokensEnabled])>
-            {{-- Credits. Hand-rolled rather than <x-filament::section> so `h-full` can
-                 put both cards' buttons on one baseline; class list mirrors .fi-section. --}}
-            <div class="flex h-full flex-col gap-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-950/5 sm:p-6 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center gap-4">
-                    <div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-warning-50 text-warning-600 ring-4 ring-warning-500/10 dark:bg-warning-400/10 dark:text-warning-400">
-                        <x-filament::icon icon="tabler-coins" class="size-6" />
-                    </div>
-
-                    <div class="flex min-w-0 flex-col gap-0.5">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-economy::strings.credits.credits') }}
-                        </span>
-                        <div class="flex flex-wrap items-baseline gap-2">
-                            <span class="text-3xl font-bold tabular-nums tracking-tight text-gray-950 dark:text-white">
-                                {{ number_format($credits) }}
-                            </span>
-                            <span class="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                                {{ trans('plugged-host-economy::strings.credits.credits') }}
-                            </span>
-                        </div>
-                    </div>
+        <div @class(['grid grid-cols-1 gap-4', 'lg:grid-cols-2' => $tokensEnabled])>
+            <div class="ph-eco-card">
+                <div class="flex flex-col gap-1">
+                    <span class="ph-eco-heading">{{ trans('plugged-host-economy::strings.credits.credits') }}</span>
+                    <span class="ph-eco-value">{{ number_format($credits) }}</span>
                 </div>
 
-                {{-- Grows into the slack so both cards' buttons line up --}}
-                <div class="flex flex-1 flex-col gap-1.5">
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ trans('plugged-host-economy::strings.tokens.what_credits_buy') }}
-                    </p>
-                    <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                        {{ trans('plugged-host-economy::strings.credits.balance_hint') }}
-                    </p>
+                <div class="flex flex-1 flex-col gap-1">
+                    <p class="ph-eco-text">{{ trans('plugged-host-economy::strings.tokens.what_credits_buy') }}</p>
+                    <p class="ph-eco-muted">{{ trans('plugged-host-economy::strings.credits.balance_hint') }}</p>
                 </div>
 
                 @if ($discordProfileUrl)
                     <x-filament::button
                         :href="$discordProfileUrl"
                         tag="a"
-                        color="primary"
-                        icon="tabler-brand-discord-filled"
+                        color="gray"
                         class="w-full justify-center"
                     >
                         {{ trans('plugged-host-economy::strings.credits.earn_discord_rewards') }}
@@ -71,44 +93,23 @@
                 @endif
             </div>
 
-            {{-- Tokens --}}
             @if ($tokensEnabled)
-                <div class="flex h-full flex-col gap-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-950/5 sm:p-6 dark:bg-gray-900 dark:ring-white/10">
-                    <div class="flex items-center gap-4">
-                        <div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-info-50 text-info-600 ring-4 ring-info-500/10 dark:bg-info-400/10 dark:text-info-400">
-                            <x-filament::icon icon="tabler-bolt" class="size-6" />
-                        </div>
-
-                        <div class="flex min-w-0 flex-col gap-0.5">
-                            <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                {{ trans('plugged-host-economy::strings.tokens.tokens') }}
-                            </span>
-                            <div class="flex flex-wrap items-baseline gap-2">
-                                <span class="text-3xl font-bold tabular-nums tracking-tight text-gray-950 dark:text-white">
-                                    {{ number_format($tokens) }}
-                                </span>
-                                <span class="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                                    {{ trans('plugged-host-economy::strings.tokens.tokens') }}
-                                </span>
-                            </div>
-                        </div>
+                <div class="ph-eco-card">
+                    <div class="flex flex-col gap-1">
+                        <span class="ph-eco-heading">{{ trans('plugged-host-economy::strings.tokens.tokens') }}</span>
+                        <span class="ph-eco-value">{{ number_format($tokens) }}</span>
                     </div>
 
-                    <div class="flex flex-1 flex-col gap-1.5">
-                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {{ trans('plugged-host-economy::strings.tokens.what_tokens_buy') }}
-                        </p>
-                        <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-economy::strings.tokens.balance_hint') }}
-                        </p>
+                    <div class="flex flex-1 flex-col gap-1">
+                        <p class="ph-eco-text">{{ trans('plugged-host-economy::strings.tokens.what_tokens_buy') }}</p>
+                        <p class="ph-eco-muted">{{ trans('plugged-host-economy::strings.tokens.balance_hint') }}</p>
                     </div>
 
                     @if ($earnTokensUrl)
                         <x-filament::button
                             :href="$earnTokensUrl"
                             tag="a"
-                            color="info"
-                            icon="tabler-bolt"
+                            color="gray"
                             class="w-full justify-center"
                         >
                             {{ trans('plugged-host-economy::strings.tokens.earn_tokens') }}
@@ -141,43 +142,28 @@
             Absent entirely when the queue plugin is not installed ($priority is null).
         --}}
         @if ($priority)
-            <div class="flex flex-col gap-5 sm:gap-6">
+            <div class="flex flex-col gap-4">
                 <div class="flex flex-col gap-1">
-                    <div class="flex items-center gap-2">
-                        <x-filament::icon icon="tabler-rocket" class="size-5 text-gray-400 dark:text-gray-500" />
-                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">
-                            {{ trans('plugged-host-economy::strings.priority.heading') }}
-                        </h3>
-                    </div>
-                    <p class="max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                        {{ trans('plugged-host-economy::strings.priority.description') }}
-                    </p>
+                    <h3 class="ph-eco-heading">{{ trans('plugged-host-economy::strings.priority.heading') }}</h3>
+                    <p class="ph-eco-muted max-w-2xl">{{ trans('plugged-host-economy::strings.priority.description') }}</p>
                 </div>
 
                 {{-- The receipt for a window that is already running. Shown even when
                      selling has been switched off, because withdrawing an offer does not
                      repossess what somebody already paid for. --}}
                 @if ($priority['active'])
-                    <div class="flex flex-col gap-2 rounded-2xl bg-success-50 p-4 ring-1 ring-success-600/20 sm:p-5 dark:bg-success-400/10 dark:ring-success-400/30">
-                        <div class="flex items-center gap-2">
-                            <x-filament::icon icon="tabler-circle-check-filled" class="size-5 shrink-0 text-success-600 dark:text-success-400" />
-                            <span class="text-sm font-semibold text-gray-950 dark:text-white">
-                                {{ trans('plugged-host-economy::strings.priority.active_heading') }}
-                            </span>
-                        </div>
-                        <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                            {{ trans('plugged-host-economy::strings.priority.active_body', ['remaining' => $priority['remaining']]) }}
-                        </p>
-                        @if ($priority['adFree'])
-                            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                {{ trans('plugged-host-economy::strings.priority.active_ad_free', ['remaining' => $priority['adFreeRemaining']]) }}
-                            </p>
-                        @endif
-                    </div>
+                    <x-filament::callout
+                        color="success"
+                        :heading="trans('plugged-host-economy::strings.priority.active_heading')"
+                        :description="trans('plugged-host-economy::strings.priority.active_body', ['remaining' => $priority['remaining']])
+                            . ($priority['adFree'] ? ' ' . trans('plugged-host-economy::strings.priority.active_ad_free', ['remaining' => $priority['adFreeRemaining']]) : '')"
+                    />
                 @endif
 
                 @if (filled($priority['tiers']))
-                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
+                    {{-- One full-width row per tier, cheapest first. The ad-free tier's
+                         button is the page's one filled button: it is the one being sold. --}}
+                    <div class="ph-eco-list">
                         @foreach ($priority['tiers'] as $tier)
                             @php
                                 $adFree = $tier['ad_free'];
@@ -189,65 +175,39 @@
                                     : ['perk_queue', 'perk_transfer', 'perk_ads_stay'];
                             @endphp
 
-                            <div @class([
-                                'flex h-full flex-col gap-5 rounded-2xl bg-white p-4 shadow-sm sm:p-6 dark:bg-gray-900',
-                                'ring-2 ring-info-500/60 dark:ring-info-400/50' => $adFree,
-                                'ring-1 ring-gray-950/5 dark:ring-white/10' => !$adFree,
-                            ])>
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="flex min-w-0 flex-col gap-1">
-                                        <h4 class="truncate text-sm font-semibold text-gray-950 dark:text-white">
-                                            {{ $label }}
-                                        </h4>
-                                        <div class="flex flex-wrap items-baseline gap-2">
-                                            <span class="text-2xl font-bold tabular-nums tracking-tight text-gray-950 dark:text-white">
-                                                {{ trans('plugged-host-economy::strings.priority.tier_days', ['days' => $tier['days']]) }}
-                                            </span>
-                                        </div>
+                            <div class="ph-eco-row">
+                                <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <div class="flex flex-wrap items-baseline gap-x-2">
+                                        <h4 class="ph-eco-title">{{ $label }}</h4>
+                                        <span class="ph-eco-muted tabular-nums">
+                                            {{ trans('plugged-host-economy::strings.priority.tier_days', ['days' => $tier['days']]) }}
+                                        </span>
                                     </div>
 
-                                    <x-filament::badge :color="$adFree ? 'info' : 'gray'" size="sm" class="shrink-0 rounded-full">
-                                        {{ trans($adFree
-                                            ? 'plugged-host-economy::strings.priority.badge_no_ads'
-                                            : 'plugged-host-economy::strings.priority.badge_ads') }}
-                                    </x-filament::badge>
+                                    <ul class="flex flex-col gap-0.5">
+                                        @foreach ($perks as $perk)
+                                            <li class="ph-eco-muted">{{ trans("plugged-host-economy::strings.priority.{$perk}") }}</li>
+                                        @endforeach
+                                    </ul>
                                 </div>
 
-                                {{-- Grows so both cards' buttons land on one baseline --}}
-                                <ul class="flex flex-1 flex-col gap-2">
-                                    @foreach ($perks as $perk)
-                                        <li class="flex items-start gap-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                                            <x-filament::icon
-                                                :icon="$perk === 'perk_ads_stay' ? 'tabler-minus' : 'tabler-check'"
-                                                @class([
-                                                    'mt-0.5 size-4 shrink-0',
-                                                    'text-success-600 dark:text-success-400' => $perk !== 'perk_ads_stay',
-                                                    'text-gray-400 dark:text-gray-500' => $perk === 'perk_ads_stay',
-                                                ])
-                                            />
-                                            <span>{{ trans("plugged-host-economy::strings.priority.{$perk}") }}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-
-                                <div class="flex flex-col gap-2">
+                                <div class="ph-eco-row-action">
                                     <x-filament::button
                                         wire:click="buyPriority('{{ $tier['key'] }}')"
                                         wire:loading.attr="disabled"
                                         wire:confirm="{{ trans('plugged-host-economy::strings.priority.confirm', ['cost' => number_format($tier['cost']), 'days' => $tier['days']]) }}"
                                         :disabled="$tier['unaffordable']"
-                                        :color="$adFree ? 'info' : 'gray'"
-                                        icon="tabler-bolt"
+                                        :color="$adFree ? 'primary' : 'gray'"
                                         class="w-full justify-center"
                                     >
                                         {{ trans('plugged-host-economy::strings.priority.cta', ['cost' => number_format($tier['cost'])]) }}
                                     </x-filament::button>
 
                                     @if ($tier['unaffordable'])
-                                        <p class="text-center text-xs text-gray-500 dark:text-gray-400">
+                                        <p class="ph-eco-small text-center">
                                             {{ trans('plugged-host-economy::strings.priority.balance', ['balance' => number_format($tokens)]) }}
                                             @if ($earnTokensUrl)
-                                                <a href="{{ $earnTokensUrl }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">
+                                                <a href="{{ $earnTokensUrl }}" class="ph-eco-link">
                                                     {{ trans('plugged-host-economy::strings.priority.earn_link') }}
                                                 </a>
                                             @endif
@@ -258,110 +218,72 @@
                         @endforeach
                     </div>
 
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ trans('plugged-host-economy::strings.priority.extend_hint') }}
-                    </p>
+                    <p class="ph-eco-small">{{ trans('plugged-host-economy::strings.priority.extend_hint') }}</p>
                 @endif
             </div>
         @endif
 
-        {{-- Upgrade cards --}}
+        {{-- Resource upgrades: one full-width row per resource, the purchase tiers on the
+             right from `sm` up and under the text below it. --}}
         @if (filled($upgrades))
-            <div class="flex flex-col gap-5 sm:gap-6">
+            <div class="flex flex-col gap-4">
                 <div class="flex flex-col gap-1">
-                    <div class="flex items-center gap-2">
-                        <x-filament::icon icon="tabler-shopping-bag" class="size-5 text-gray-400 dark:text-gray-500" />
-                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">
-                            {{ trans('plugged-host-economy::strings.credits.available_upgrades') }}
-                        </h3>
-                    </div>
-                    <p class="max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                        {{ trans('plugged-host-economy::strings.credits.available_upgrades_description') }}
-                    </p>
+                    <h3 class="ph-eco-heading">{{ trans('plugged-host-economy::strings.credits.available_upgrades') }}</h3>
+                    <p class="ph-eco-muted max-w-2xl">{{ trans('plugged-host-economy::strings.credits.available_upgrades_description') }}</p>
                 </div>
 
-                <div @class(['grid grid-cols-1 gap-5 sm:gap-6', $upgradeGridClass])>
+                <div class="ph-eco-list">
                     @foreach ($upgrades as $upgrade)
-                        {{--
-                            Hand-rolled rather than <x-filament::section> because the cards
-                            need `flex h-full flex-col` on the content box so the purchase
-                            buttons of all four land on one baseline. Class list mirrors
-                            .fi-section so they read as native panel cards.
-                        --}}
-                        <div class="flex h-full flex-col gap-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-950/5 sm:gap-6 sm:p-6 dark:bg-gray-900 dark:ring-white/10">
-                            {{-- Identity --}}
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex min-w-0 items-center gap-3">
-                                    <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
-                                        <x-filament::icon :icon="$upgrade['icon']" @class(['size-5', $upgrade['accent']]) />
-                                    </div>
-                                    <h4 class="truncate text-sm font-semibold text-gray-950 dark:text-white">
-                                        {{ $upgrade['label'] }}
-                                    </h4>
-                                </div>
+                        <div class="ph-eco-row">
+                            <div class="flex min-w-0 flex-1 flex-col gap-2">
+                                <div class="flex items-center justify-between gap-3">
+                                    <h4 class="ph-eco-title truncate">{{ $upgrade['label'] }}</h4>
 
-                                @if ($upgrade['at_max'])
-                                    <x-filament::badge color="success" size="sm" class="shrink-0 rounded-full">
-                                        {{ ($upgrade['unlimited'] ?? false)
-                                            ? trans('plugged-host-core::strings.unlimited')
-                                            : trans('plugged-host-economy::strings.credits.max_tier') }}
-                                    </x-filament::badge>
-                                @endif
-                            </div>
-
-                            {{-- Current vs. max --}}
-                            <div class="flex flex-col gap-2.5">
-                                <div class="flex items-baseline justify-between gap-2">
-                                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                        {{ $upgrade['percent'] === null
-                                            ? trans('plugged-host-economy::strings.credits.current_limit')
-                                            : trans('plugged-host-economy::strings.credits.limit') }}
-                                    </span>
-                                    <span class="text-sm font-semibold tabular-nums text-gray-950 dark:text-white">
-                                        {{ $upgrade['current'] }}
-                                    </span>
+                                    @if ($upgrade['at_max'])
+                                        <x-filament::badge color="success" size="sm" class="shrink-0">
+                                            {{ ($upgrade['unlimited'] ?? false)
+                                                ? trans('plugged-host-core::strings.unlimited')
+                                                : trans('plugged-host-economy::strings.credits.max_tier') }}
+                                        </x-filament::badge>
+                                    @endif
                                 </div>
 
                                 @if ($upgrade['percent'] !== null)
-                                    <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                                        <div
-                                            @class(['h-full rounded-full transition-all duration-500 ease-out', $upgrade['bar']])
-                                            style="width: {{ max(2, $upgrade['percent']) }}%"
-                                        ></div>
+                                    <div class="ph-eco-track">
+                                        <span class="ph-eco-fill" style="width: {{ max(2, $upgrade['percent']) }}%"></span>
                                     </div>
 
-                                    <div class="flex items-baseline justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span class="tabular-nums">{{ $upgrade['percent'] }}%</span>
+                                    <div class="ph-eco-small flex flex-wrap items-baseline justify-between gap-x-2">
+                                        <span>
+                                            {{ trans('plugged-host-economy::strings.credits.limit') }}:
+                                            <span class="ph-eco-num">{{ $upgrade['current'] }}</span>
+                                        </span>
                                         <span>
                                             {{ trans('plugged-host-economy::strings.credits.max') }}:
-                                            <span class="font-semibold tabular-nums text-gray-700 dark:text-gray-300">{{ $upgrade['max'] }}</span>
+                                            <span class="ph-eco-num">{{ $upgrade['max'] }}</span>
                                         </span>
                                     </div>
+                                @else
+                                    <span class="ph-eco-small">
+                                        {{ trans('plugged-host-economy::strings.credits.current_limit') }}:
+                                        <span class="ph-eco-num">{{ $upgrade['current'] }}</span>
+                                    </span>
                                 @endif
+
+                                <p class="ph-eco-muted">{{ $upgrade['description'] }}</p>
                             </div>
 
-                            {{-- Grows to fill the slack so every card's buttons line up --}}
-                            <p class="flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                                {{ $upgrade['description'] }}
-                            </p>
-
-                            {{-- Purchase tiers --}}
-                            <div class="flex flex-col gap-2.5">
+                            <div class="ph-eco-row-action">
                                 @foreach ($upgrade['tiers'] as $tier)
-                                    {{-- Label and price sit on one line from `sm` up and stack
-                                         below it. At 360px in a two-up grid there is not enough
-                                         room for both, and `justify-between` spent that shortfall
-                                         on crushing the label — which is the half that says what
-                                         you are buying. --}}
                                     <x-filament::button
                                         wire:click="{{ $tier['method'] }}({{ $tier['amount'] }})"
                                         wire:loading.attr="disabled"
                                         wire:confirm="{{ trans('plugged-host-economy::strings.credits.confirm_purchase', ['cost' => number_format($tier['price']), 'item' => $tier['label']]) }}"
                                         :disabled="$tier['disabled']"
-                                        :color="$loop->last ? 'primary' : 'gray'"
+                                        color="gray"
                                         class="w-full"
                                     >
-                                        <span class="flex w-full flex-col items-start gap-0.5 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                                        <span class="flex w-full items-center justify-between gap-3">
                                             <span class="font-semibold">{{ $tier['label'] }}</span>
                                             <span class="tabular-nums">
                                                 {{ number_format($tier['price']) }} {{ trans('plugged-host-economy::strings.credits.credits_short') }}
@@ -377,49 +299,33 @@
         @endif
 
         {{-- Transaction history --}}
-        <x-filament::section
-            :heading="trans('plugged-host-economy::strings.credits.recent_transactions')"
-            icon="tabler-receipt"
-            icon-color="gray"
-            class="rounded-2xl"
-        >
+        <x-filament::section :heading="trans('plugged-host-economy::strings.credits.recent_transactions')">
             @if ($transactions->isEmpty())
-                <div class="flex flex-col items-center justify-center gap-3 py-10 text-center">
-                    <div class="flex size-11 items-center justify-center rounded-full bg-gray-100 ring-4 ring-gray-100/50 dark:bg-white/5 dark:ring-white/5">
-                        <x-filament::icon icon="tabler-receipt-off" class="size-5 text-gray-400 dark:text-gray-500" />
-                    </div>
-                    <span class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ trans('plugged-host-economy::strings.credits.no_transactions') }}
-                    </span>
-                </div>
+                <p class="ph-eco-muted">{{ trans('plugged-host-economy::strings.credits.no_transactions') }}</p>
             @else
                 {{--
-                    The same rows twice: stacked cards below `sm`, the table from `sm` up.
+                    The same rows twice: stacked rows below `sm`, the table from `sm` up.
 
                     Four columns inside `overflow-x-auto` was the worst thing on this page
                     at 360px — a horizontally scrolling table reads as a broken layout
                     rather than as something you are meant to scroll, and the amount, which
                     is the column people came for, was the one off the right edge.
                 --}}
-                <div class="flex flex-col gap-2.5 sm:hidden">
+                <div class="flex flex-col sm:hidden">
                     @foreach ($transactions as $tx)
-                        <div class="flex flex-col gap-1.5 rounded-xl bg-gray-50 p-3 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
+                        <div class="ph-eco-tx">
                             <div class="flex items-start justify-between gap-3">
-                                <span class="min-w-0 text-sm text-gray-950 dark:text-white">
-                                    {{ $tx->description }}
+                                <span class="ph-eco-text min-w-0">{{ $tx->description }}</span>
+                                <span @class(['ph-eco-amount', 'ph-eco-amount-in' => $tx->amount > 0, 'ph-eco-amount-out' => $tx->amount <= 0])>
+                                    {{ $tx->amount > 0 ? '+' : '−' }}{{ number_format(abs($tx->amount)) }}
                                 </span>
-                                <x-filament::badge :color="$tx->amount > 0 ? 'success' : 'danger'" size="sm" class="shrink-0 rounded-full">
-                                    <span class="tabular-nums">
-                                        {{ $tx->amount > 0 ? '+' : '−' }}{{ number_format(abs($tx->amount)) }}
-                                    </span>
-                                </x-filament::badge>
                             </div>
 
-                            <div class="flex items-baseline justify-between gap-3 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                            <div class="ph-eco-small flex items-baseline justify-between gap-3 tabular-nums">
                                 <span>{{ $tx->created_at->format('Y-m-d H:i') }}</span>
                                 <span>
                                     {{ trans('plugged-host-economy::strings.credits.balance') }}:
-                                    <span class="font-semibold text-gray-700 dark:text-gray-300">{{ number_format($tx->balance_after) }}</span>
+                                    <span class="ph-eco-num">{{ number_format($tx->balance_after) }}</span>
                                 </span>
                             </div>
                         </div>
@@ -427,34 +333,26 @@
                 </div>
 
                 <div class="hidden overflow-x-auto sm:block">
-                    <table class="w-full text-left text-sm">
+                    <table class="ph-eco-table">
                         <thead>
-                            <tr class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                <th scope="col" class="pb-3 pr-4 font-medium">{{ trans('plugged-host-economy::strings.credits.date') }}</th>
-                                <th scope="col" class="pb-3 pr-4 font-medium">{{ trans('plugged-host-economy::strings.credits.description') }}</th>
-                                <th scope="col" class="pb-3 pr-4 text-right font-medium">{{ trans('plugged-host-economy::strings.credits.amount') }}</th>
-                                <th scope="col" class="pb-3 text-right font-medium">{{ trans('plugged-host-economy::strings.credits.balance') }}</th>
+                            <tr class="ph-eco-caption">
+                                <th scope="col">{{ trans('plugged-host-economy::strings.credits.date') }}</th>
+                                <th scope="col">{{ trans('plugged-host-economy::strings.credits.description') }}</th>
+                                <th scope="col" class="ph-eco-end">{{ trans('plugged-host-economy::strings.credits.amount') }}</th>
+                                <th scope="col" class="ph-eco-end">{{ trans('plugged-host-economy::strings.credits.balance') }}</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200 dark:divide-white/5">
+                        <tbody>
                             @foreach ($transactions as $tx)
                                 <tr>
-                                    <td class="whitespace-nowrap py-3.5 pr-4 text-xs tabular-nums text-gray-500 dark:text-gray-400">
-                                        {{ $tx->created_at->format('Y-m-d H:i') }}
+                                    <td class="ph-eco-small whitespace-nowrap tabular-nums">{{ $tx->created_at->format('Y-m-d H:i') }}</td>
+                                    <td class="ph-eco-text">{{ $tx->description }}</td>
+                                    <td class="ph-eco-end">
+                                        <span @class(['ph-eco-amount', 'ph-eco-amount-in' => $tx->amount > 0, 'ph-eco-amount-out' => $tx->amount <= 0])>
+                                            {{ $tx->amount > 0 ? '+' : '−' }}{{ number_format(abs($tx->amount)) }}
+                                        </span>
                                     </td>
-                                    <td class="py-3.5 pr-4 text-sm text-gray-950 dark:text-white">
-                                        {{ $tx->description }}
-                                    </td>
-                                    <td class="whitespace-nowrap py-3.5 pr-4 text-right">
-                                        <x-filament::badge :color="$tx->amount > 0 ? 'success' : 'danger'" size="sm" class="rounded-full">
-                                            <span class="tabular-nums">
-                                                {{ $tx->amount > 0 ? '+' : '−' }}{{ number_format(abs($tx->amount)) }}
-                                            </span>
-                                        </x-filament::badge>
-                                    </td>
-                                    <td class="whitespace-nowrap py-3.5 text-right text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">
-                                        {{ number_format($tx->balance_after) }}
-                                    </td>
+                                    <td class="ph-eco-end ph-eco-small tabular-nums">{{ number_format($tx->balance_after) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

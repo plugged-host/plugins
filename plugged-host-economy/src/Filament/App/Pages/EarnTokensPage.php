@@ -509,7 +509,6 @@ class EarnTokensPage extends Page
 
             $actions[] = Action::make("earn_{$key}")
                 ->label(trans('plugged-host-economy::strings.tokens_earn_with', ['provider' => $provider->label()]))
-                ->icon('tabler-external-link')
                 ->color('gray')
                 ->action(fn () => $this->earn($key));
         }

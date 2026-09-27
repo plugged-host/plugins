@@ -12,14 +12,10 @@
 </head>
 <body>
     <div class="auth-card">
-        <div style="text-align: center; margin-bottom: 1.5rem;">
-            <div style="display: flex; justify-content: center; margin-bottom: 0.75rem;">
-                <img src="/plugged.host_nobg.png" alt="plugged.host" style="height: 2.75rem; width: auto; object-fit: contain;">
-            </div>
-            <h1 style="font-size: 1.375rem; font-weight: 700; color: #ffffff; margin: 0; letter-spacing: -0.02em;">
-                Two-factor check
-            </h1>
-            <p style="font-size: 0.8125rem; color: #9ca3af; margin: 0.375rem 0 0 0;">
+        <div class="auth-header">
+            <img src="/plugged.host_nobg.png" alt="plugged.host" class="auth-logo">
+            <h1 class="auth-title">Two-factor check</h1>
+            <p class="auth-subtitle">
                 @if($method === 'email')
                     We emailed you a 6-digit code.
                 @else
@@ -34,14 +30,14 @@
 
         <form method="POST" action="{{ route('plugged-host.sso.challenge.verify') }}">
             @csrf
-            <div class="field-group" style="margin-bottom: 1.5rem;">
+            <div class="field-group field-group-last">
                 <label for="code" class="field-label">Code<sup class="required-mark">*</sup></label>
                 <div class="fi-input-wrp">
                     <input id="code" type="text" name="code" required autofocus autocomplete="one-time-code"
                            inputmode="text" class="fi-input" placeholder="123456">
                 </div>
             </div>
-            <button type="submit" class="btn-submit"><span>Continue</span></button>
+            <button type="submit" class="btn-submit">Continue</button>
         </form>
     </div>
 </body>

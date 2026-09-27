@@ -15,7 +15,6 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
-use Filament\Support\Colors\Color;
 use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 use PluggedHost\Core\Services\LegalAcceptanceService;
@@ -97,9 +96,6 @@ class Register extends BaseRegister
         foreach ($this->oauthService->getEnabled() as $schema) {
             $id = $schema->getId();
 
-            $color = $schema->getHexColor();
-            $color = is_string($color) ? Color::hex($color) : null;
-
             $icon = $schema->getIcon();
             if (is_string($icon)) {
                 try {
@@ -109,10 +105,12 @@ class Register extends BaseRegister
                 }
             }
 
+            // Secondary, not the provider's brand colour: the form's submit button is the
+            // page's one primary. The provider's logo stays — it is how people recognise it.
             $actions[] = Action::make("oauth_$id")
                 ->label('Continue with ' . $schema->getName())
                 ->icon($icon)
-                ->color($color)
+                ->color('gray')
                 ->action(fn () => $this->beginOAuthAuthentication($id));
         }
 

@@ -110,7 +110,9 @@ class ServerWorlds extends MinecraftPage
         return [
             Action::make('stop')
                 ->label(trans('plugged-host-minecraft::strings.worlds.stop'))
+                ->iconButton()
                 ->icon(TablerIcon::PlayerStop)
+                ->tooltip(trans('plugged-host-minecraft::strings.worlds.stop'))
                 ->color('danger')
                 ->visible(fn (): bool => !$this->offline && (bool) user()?->can(SubuserPermission::ControlStop, $this->getServer()))
                 ->action(function (): void {
@@ -120,7 +122,9 @@ class ServerWorlds extends MinecraftPage
                 }),
             Action::make('refresh')
                 ->label(trans('plugged-host-minecraft::strings.mods.refresh'))
+                ->iconButton()
                 ->icon(TablerIcon::Refresh)
+                ->tooltip(trans('plugged-host-minecraft::strings.mods.refresh'))
                 ->color('gray')
                 ->action('reloadWorlds'),
         ];
@@ -130,9 +134,10 @@ class ServerWorlds extends MinecraftPage
     {
         return Action::make('download')
             ->label(trans('plugged-host-minecraft::strings.worlds.download'))
+            ->iconButton()
             ->icon(TablerIcon::Download)
-            ->color('primary')
-            ->size('sm')
+            ->tooltip(trans('plugged-host-minecraft::strings.worlds.download'))
+            ->color('gray')
             ->visible(fn (array $arguments): bool => $this->can(SubuserPermission::FileArchive, SubuserPermission::FileReadContent) && ($this->world($arguments)['folders'] ?? []) !== [])
             ->action(function (array $arguments): void {
                 abort_unless($this->can(SubuserPermission::FileArchive, SubuserPermission::FileReadContent), 403);
@@ -147,7 +152,6 @@ class ServerWorlds extends MinecraftPage
 
         return Action::make('options')
             ->label(trans('plugged-host-minecraft::strings.worlds.options'))
-            ->icon(TablerIcon::Adjustments)
             ->color('gray')
             ->size('sm')
             ->visible(fn (array $arguments): bool => ($this->world($arguments)['active'] ?? false) && $this->can(SubuserPermission::FileUpdate, SubuserPermission::FileDelete))
@@ -171,7 +175,6 @@ class ServerWorlds extends MinecraftPage
                 TextInput::make('level_name')
                     ->label(trans('plugged-host-minecraft::strings.worlds.level_name'))
                     ->helperText('level-name')
-                    ->prefixIcon(TablerIcon::World)
                     ->required()
                     ->maxLength(64)
                     ->regex('/^[A-Za-z0-9][A-Za-z0-9 _.\-]{0,63}$/')
@@ -183,13 +186,11 @@ class ServerWorlds extends MinecraftPage
                 TextInput::make('level_seed')
                     ->label(trans('plugged-host-minecraft::strings.worlds.seed'))
                     ->helperText('level-seed')
-                    ->prefixIcon(TablerIcon::Seedling)
                     ->placeholder(trans('plugged-host-minecraft::strings.worlds.seed_random'))
                     ->maxLength(64),
                 TextInput::make('generator_settings')
                     ->label(trans('plugged-host-minecraft::strings.worlds.generator'))
                     ->helperText('generator-settings')
-                    ->prefixIcon(TablerIcon::Adjustments)
                     ->maxLength(2000),
                 Select::make('level_type')
                     ->label(trans('plugged-host-minecraft::strings.worlds.type'))
@@ -231,8 +232,7 @@ class ServerWorlds extends MinecraftPage
     {
         return Action::make('generate')
             ->label(trans('plugged-host-minecraft::strings.worlds.generate'))
-            ->icon(TablerIcon::Refresh)
-            ->color('success')
+            ->color('gray')
             ->size('sm')
             ->visible(fn (array $arguments): bool => ($this->world($arguments)['active'] ?? false) && $this->can(SubuserPermission::FileDelete))
             ->disabled(fn (): bool => !$this->offline)
@@ -263,8 +263,7 @@ class ServerWorlds extends MinecraftPage
     {
         return Action::make('activate')
             ->label(trans('plugged-host-minecraft::strings.worlds.activate'))
-            ->icon(TablerIcon::PlayerPlay)
-            ->color('primary')
+            ->color('gray')
             ->size('sm')
             ->visible(fn (array $arguments): bool => !($this->world($arguments)['active'] ?? true) && $this->can(SubuserPermission::FileUpdate))
             ->requiresConfirmation()
@@ -287,9 +286,10 @@ class ServerWorlds extends MinecraftPage
     {
         return Action::make('deleteWorld')
             ->label(trans('plugged-host-minecraft::strings.mods.delete'))
+            ->iconButton()
             ->icon(TablerIcon::Trash)
+            ->tooltip(trans('plugged-host-minecraft::strings.mods.delete'))
             ->color('danger')
-            ->size('sm')
             ->visible(fn (array $arguments): bool => !($this->world($arguments)['active'] ?? true) && $this->can(SubuserPermission::FileDelete))
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments): string => trans('plugged-host-minecraft::strings.worlds.delete_heading', ['world' => $this->world($arguments)['name'] ?? '']))
