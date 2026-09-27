@@ -265,8 +265,8 @@ body {
  * group: "flex items-center justify-between w-full py-1.5 text-gray-300 hover:bg-white/5 rounded-lg"
  *
  * `min-height: 2.75rem` — not `height` — is the "all buttons are big buttons" request. It
- * is the same 2.75rem as `.fi-btn` and `.phv2-new-server`, so the CTA above this tree and
- * every row below it now read as one family of controls. min- rather than a fixed height
+ * is the same 2.75rem as `.fi-btn`, so the buttons and every nav row read as one family
+ * of controls. min- rather than a fixed height
  * because a long label in de wraps rather than being clipped, and because a group header on
  * the admin and server panels has a collapse chevron inside it that must stay centred.
  *
@@ -752,9 +752,8 @@ body {
  * This is the whole of what used to be UIExample's search row (a filter field, this bell,
  * and a cog): the field and the cog were removed by request, so the bell is no longer one
  * 37.5px square in a row of three and can be the full-width "big notification button" that
- * was asked for. Shaped like `.phv2-new-server` — same 2.75rem height, same full-bleed
- * width — but drawn as an ordinary nav row (transparent until hover), because it opens
- * something the way the rows below do.
+ * was asked for. Same 2.75rem height and full-bleed width as the nav rows, and drawn as
+ * one (transparent until hover), because it opens something the way the rows below do.
  *
  * No inline margin: `.fi-sidebar-nav` already has `padding: 1rem 0.5rem 0.5rem`, so an
  * extra 0.5rem here would inset this row to 1rem while every nav row below sat at 0.5rem —
@@ -827,58 +826,6 @@ body {
     font-weight: 600;
     line-height: 1.25rem;
     text-align: center;
-}
-
-/* =============================================================================
- * Sidebar "New Server" call to action — injected at SIDEBAR_NAV_START, directly
- * under the notification button, in place of the Compute group it replaced.
- *
- * Verbatim UIExample's primary button (views/servers.ejs): "hover:scale-95 flex
- * items-center justify-center h-11 gap-2 px-5 text-sm font-medium text-white rounded-full
- * shadow bg-orange-600 hover:bg-orange-700 hover:shadow-none" — stretched to the full
- * 16rem column because it is the sidebar's own CTA rather than one button in a header row.
- *
- * Styled as the theme's gray (secondary) button, not the accent fill: it is on screen on
- * every page, so a filled one would sit next to each page's own primary button and there
- * would always be two (UI/Design Rules, /var/www/CLAUDE.md).
- *
- * This is hand-rolled rather than a .fi-btn: it is an anchor in a render hook, outside any
- * Filament action, so there is no Action to configure and nothing would give it the
- * fi-color-primary custom properties .fi-btn's fill depends on.
- * ============================================================================= */
-
-.phv2-new-server {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem; /* gap-2 */
-    height: 2.75rem; /* h-11 */
-    /* Inline margin deliberately 0 — see .phv2-notifications above. `.fi-sidebar-nav`'s own
-       0.5rem inline padding is the only inset, so the CTA, the notification button and every
-       nav row share one left edge. The old `margin: 0.5rem 0.5rem 0.25rem` pushed this button
-       1rem in and made it read as narrower than the rows under it. */
-    margin-block: 0.25rem 0.5rem;
-    padding-inline: 1.25rem; /* px-5 */
-    border-radius: 9999px; /* rounded-full */
-    background-color: var(--phv2-raise-2);
-    color: var(--phv2-text);
-    font-size: 0.875rem; /* text-sm */
-    font-weight: 500;
-    text-align: center;
-    transition: background-color 150ms ease, transform 100ms ease;
-}
-
-.phv2-new-server:hover {
-    background-color: var(--phv2-raise-3);
-}
-
-.phv2-new-server:active {
-    transform: scale(0.97);
-}
-
-.phv2-new-server:focus-visible {
-    outline: 2px solid var(--phv2-accent-bright);
-    outline-offset: 2px;
 }
 
 /* =============================================================================

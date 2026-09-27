@@ -17,12 +17,11 @@ use Illuminate\Support\Facades\Route;
  *
  * That is a deliberate divergence from the reference, and it buys three things beyond the
  * look the user asked for:
- *   - every row can be the same big 2.75rem button, matching `.phv2-new-server` and
- *     `.fi-btn`, which a group header plus a dense child list cannot be;
+ *   - every row can be the same big 2.75rem button, matching `.fi-btn`, which a group header plus a dense child list cannot be;
  *   - `NavigationBuilder::getNavigation()` wraps ungrouped items in a single *unlabelled*
  *     group, so there is exactly one `.fi-sidebar-group` and no `.fi-sidebar-group-btn`
  *     in the tree at all; and
- *   - four rows fit above the fold with the notification button, the New Server CTA, the
+ *   - four rows fit above the fold with the notification button, the
  *     token/credit balance and the avatar row, which is the whole of what this column is
  *     meant to show.
  *
@@ -35,8 +34,9 @@ use Illuminate\Support\Facades\Route;
  * Economy there and simply do not exist in this panel.
  *
  * Rows that *did* have counterparts and are gone by request rather than for want of one:
- *   - UIExample's Compute group (New Server + SFTP Credentials here) was replaced by the big
- *     "New Server" button PluggedHostThemeV2ServiceProvider injects above this tree;
+ *   - UIExample's Compute group (New Server + SFTP Credentials here). It became a sidebar
+ *     "New Server" button, which was removed by request too: creating a server starts from
+ *     the Create server button on the servers list;
  *   - the Economy group's "Earn Tokens" row was dropped. `/tokens` itself is still a live
  *     page, owned by plugged-host-ads and still linked from the start gate and the store —
  *     Theme v2 only stopped putting it in the sidebar;

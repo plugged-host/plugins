@@ -4,7 +4,6 @@ return [
     'nav' => [
         'notifications' => 'Benachrichtigungen',
         'home' => 'Startseite',
-        'new_server' => 'Neuer Server',
         'store' => 'Shop',
         'backups' => 'Backups',
         'profile_settings' => 'Profileinstellungen',

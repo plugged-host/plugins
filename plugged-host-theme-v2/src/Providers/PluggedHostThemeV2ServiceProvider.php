@@ -6,7 +6,6 @@ use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
@@ -58,20 +57,6 @@ class PluggedHostThemeV2ServiceProvider extends ServiceProvider
         );
 
         /*
-         * The "New Server" call to action, which replaced the Compute nav group.
-         *
-         * Same position as the notification button and registered after it, because Filament
-         * concatenates every hook at one position in registration order — so this lands
-         * directly below it and above the nav tree, which is where Compute used to be. There
-         * is no render hook *between* two nav items, which is why the button sits here rather
-         * than literally in the group's old slot.
-         */
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::SIDEBAR_NAV_START,
-            fn (): Htmlable => $this->renderSidebarNewServer(),
-        );
-
-        /*
          * The token / credit balance, at the foot of the sidebar above the avatar row.
          *
          * SIDEBAR_FOOTER renders *after* `.fi-sidebar-footer` in the DOM (see
@@ -118,51 +103,6 @@ class PluggedHostThemeV2ServiceProvider extends ServiceProvider
                         ['count' => Number::format($unreadNotificationsCount, locale: app()->getLocale())],
                     )
                     : trans('filament-panels::layout.actions.open_database_notifications.label'),
-            ])->render());
-        } catch (Throwable) {
-            return new HtmlString('');
-        }
-    }
-
-    /**
-     * The app panel only: create-server is an app-panel page, and a "New Server" CTA in the
-     * admin or server sidebar is not what the Compute group was.
-     *
-     * Both remaining guards are needed and neither implies the other. Route::has() is really
-     * a test for plugged-host-core being installed with user-creatable servers switched on —
-     * it is that plugin's UserCreatableServersPluginProvider that registers the page — while
-     * canAccess() is per user: false for anyone with no RoleResourceLimits profile and no UCS
-     * defaults, who would get a 403 from the page itself. A button that cannot work is worse
-     * than no button, and unlike a nav item this one is the sidebar's loudest element.
-     *
-     * The page is named as a string rather than imported so Theme v2 stays installable
-     * without plugged-host-core instead of fataling on a missing class.
-     *
-     * @see \PluggedHost\Servers\Filament\App\Pages\CreateServerPage::canAccess()
-     */
-    private function renderSidebarNewServer(): Htmlable
-    {
-        try {
-            if (!ThemeV2Access::shouldRenderTheme()) {
-                return new HtmlString('');
-            }
-
-            if (Filament::getCurrentPanel()?->getId() !== 'app') {
-                return new HtmlString('');
-            }
-
-            if (!Route::has('filament.app.pages.create-server')) {
-                return new HtmlString('');
-            }
-
-            $page = 'PluggedHost\\Servers\\Filament\\App\\Pages\\CreateServerPage';
-
-            if (class_exists($page) && !$page::canAccess()) {
-                return new HtmlString('');
-            }
-
-            return new HtmlString((string) view('plugged-host-theme-v2::sidebar.new-server', [
-                'url' => route('filament.app.pages.create-server'),
             ])->render());
         } catch (Throwable) {
             return new HtmlString('');
