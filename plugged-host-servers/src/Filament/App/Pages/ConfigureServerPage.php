@@ -25,7 +25,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentView;
-use PluggedHost\Servers\Filament\App\Widgets\UserResourceLimitsOverview;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
 use PluggedHost\Servers\Models\RoleResourceLimits;
 use PluggedHost\Minecraft\Models\ServerOnboarding;
@@ -342,13 +341,6 @@ class ConfigureServerPage extends Page
                 ->label(trans('plugged-host-servers::strings.deploy_server'))
                 ->action('save')
                 ->keyBindings(['mod+s']),
-        ];
-    }
-
-    protected function getHeaderWidgets(): array
-    {
-        return [
-            UserResourceLimitsOverview::class,
         ];
     }
 

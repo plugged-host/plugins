@@ -22,7 +22,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
-use PluggedHost\Servers\Filament\App\Widgets\UserResourceLimitsOverview;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
 use PluggedHost\Servers\Models\RoleResourceLimits;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
@@ -90,13 +89,6 @@ class CreateServerPage extends Page
     public static function canAccess(): bool
     {
         return RoleResourceLimits::forUser(auth()->user()) !== null;
-    }
-
-    protected function getHeaderWidgets(): array
-    {
-        return [
-            UserResourceLimitsOverview::class,
-        ];
     }
 
     protected function getHeaderActions(): array

@@ -36,18 +36,10 @@ class CreateServerAction extends Action
             ? trans('plugged-host-servers::strings.create_server')
             : null);
 
+        // Shown to anyone the create page lets in (canAccess() is the same check), and never
+        // greyed out: someone at their limit still gets to the page, whose Deploy button says
+        // why it cannot deploy and where to get more, instead of a dead button here.
         $this->visible(fn () => RoleResourceLimits::forUser(auth()->user()) !== null);
-
-        $this->disabled(function () {
-            $user = auth()->user();
-            $resourceLimits = RoleResourceLimits::forUser($user);
-
-            if (!$resourceLimits) {
-                return true;
-            }
-
-            return !$resourceLimits->canCreateServer($user, 1, 1, 1);
-        });
 
         $this->url(fn () => CreateServerPage::getUrl());
     }

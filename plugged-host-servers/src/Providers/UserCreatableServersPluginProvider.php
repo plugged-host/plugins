@@ -52,9 +52,9 @@ class UserCreatableServersPluginProvider extends ServiceProvider
         // The row stays open for us with nothing selected: index.blade.php computes
         // $hasNonBulkToolbarAction from Action::isBulk(), which a plain Action reports as false.
         //
-        // The action keeps its own visible()/disabled() guards, so a user with no resource
-        // profile still sees no button and one over quota still sees it greyed out — and an
-        // invisible action is filtered out before $hasNonBulkToolbarAction is computed, so it
+        // The action keeps its own visible() guard, so a user with no resource profile still
+        // sees no button (anyone else can always click it; the create page explains a full
+        // quota) — and an invisible action is filtered out before $hasNonBulkToolbarAction is computed, so it
         // cannot prop open a toolbar that would otherwise be empty.
         Table::configureUsing(function (Table $table): void {
             if (!$table->getLivewire() instanceof ListServers) {
