@@ -242,34 +242,7 @@ class ServerTransferPage extends Page
      */
     public function events(ServerRelocation $relocation): array
     {
-        $tz = user()?->timezone ?: config('app.timezone');
-        $out = [];
-
-        foreach (array_reverse((array) $relocation->info('events', [])) as $event) {
-            $params = (array) ($event['params'] ?? []);
-
-            if (array_key_exists('location', $params)) {
-                $params['location'] = $this->service()->locationName($params['location'] ?: null);
-            }
-
-            if (isset($params['reason'])) {
-                $params['reason'] = trans('plugged-host-servers::strings.transfers.reasons.' . $params['reason']);
-            }
-
-            try {
-                $at = \Carbon\Carbon::parse((string) ($event['at'] ?? 'now'))->setTimezone($tz)->format('H:i:s');
-            } catch (Throwable) {
-                $at = '';
-            }
-
-            $out[] = [
-                'at' => $at,
-                'text' => trans('plugged-host-servers::strings.transfers.events.' . ($event['key'] ?? 'copying'), $params),
-                'level' => (string) ($event['level'] ?? 'info'),
-            ];
-        }
-
-        return $out;
+        return $this->service()->timeline($relocation, user()?->timezone);
     }
 
     /**

@@ -39,6 +39,15 @@ allocation-safe network-ports action, and paid (Plus/Premium) locations. Extract
   new node verified the copy. After the move: port locks/notes carried over, egg `*PORT`
   variables that held an old port follow it, subdomains repointed, server started if it was
   running.
+- **Admin transfers** (Admin → Servers → edit): an icon-only Transfer header action
+  (`AdminTransferAction`) replaces upstream's button in the Manage tab, which is hidden through
+  `Action`/`ToggleButtons::configureUsing` (names `exclude_transfer` / `server_transfer`). The
+  admin picks a location ("best node", automatic) or a specific node from the nodes they can
+  access; ports are planned and created automatically (the modal previews them), all backups
+  move, and the same orchestrator runs it (`origin = admin`: no self-service switch, cooldown,
+  suspension or paid-tier gate). A **Transfers** tab (`AdminTransfers`, `?tab=ph-transfers`)
+  shows the running move with nodes, attempt, nodes tried and raw wings errors, Cancel, a
+  Release control for a move that ended STUCK (keeps the server on its old node), and history.
 - **Transfer watcher** (`plugged-host-servers:transfers`, `TransferWatcher`): one background
   process (flock on `storage/framework/plugged-host-transfers.lock`) that steps every move each
   second and reads the source node's websocket (`WingsSocket`, a minimal RFC 6455 client) for

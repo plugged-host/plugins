@@ -100,7 +100,7 @@ class NodeTransferService
 
         if ($this->orchestrated()) {
             try {
-                return app(self::ORCHESTRATOR)->blockedReason($server, $user, false) === null;
+                return app(self::ORCHESTRATOR)->blockedReason($server, $user, 'queue') === null;
             } catch (Throwable) {
                 return false;
             }

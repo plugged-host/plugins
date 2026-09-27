@@ -145,6 +145,42 @@ class TransferPlanner
      */
     public function allocationsOn(Server $server, Node $node): ?array
     {
+        $plan = $this->portPlan($server, $node);
+
+        if ($plan === null) {
+            return null;
+        }
+
+        try {
+            $ids = $this->create($node, array_map(fn (array $pick) => $pick['id'] ?? $pick['port'] * -1, $plan));
+        } catch (Throwable $e) {
+            Log::warning('[plugged-host-servers] transfer allocation create failed', ['node' => $node->getKey(), 'error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        ksort($ids);
+        $ids = array_values($ids);
+
+        $ports = Allocation::withoutGlobalScopes()->whereIn('id', $ids)->pluck('port', 'id')->map(intval(...))->all();
+
+        return [
+            'primary' => (int) array_shift($ids),
+            'additional' => array_map(intval(...), $ids),
+            'ports' => $ports,
+        ];
+    }
+
+    /**
+     * Which port each of the server's allocations would get on $node, without creating or
+     * claiming anything (the admin transfer form previews it). Index order = the server's
+     * allocations, primary first.
+     *
+     * @return null|array<int, array{port: int, id: int|null, same: bool}>  null when the
+     *                                                                     ranges are full
+     */
+    public function portPlan(Server $server, Node $node): ?array
+    {
         $current = $this->currentAllocations($server);
 
         if ($current->isEmpty()) {
@@ -168,7 +204,7 @@ class TransferPlanner
 
             if ($there instanceof Allocation) {
                 if ($there->server_id === null) {
-                    $picked[$index] = (int) $there->getKey();
+                    $picked[$index] = ['port' => $port, 'id' => (int) $there->getKey(), 'same' => true];
                     $claimed[$port] = true;
                 }
 
@@ -176,7 +212,7 @@ class TransferPlanner
             }
 
             if ($this->inRanges($port, $ranges)) {
-                $picked[$index] = $port * -1; // negative: create this port
+                $picked[$index] = ['port' => $port, 'id' => null, 'same' => true];
                 $claimed[$port] = true;
             }
         }
@@ -190,7 +226,7 @@ class TransferPlanner
             $free = $existing->first(fn (Allocation $a, int $port) => $a->server_id === null && !isset($claimed[$port]) && $this->inRanges($port, $ranges));
 
             if ($free instanceof Allocation) {
-                $picked[$index] = (int) $free->getKey();
+                $picked[$index] = ['port' => (int) $free->port, 'id' => (int) $free->getKey(), 'same' => false];
                 $claimed[(int) $free->port] = true;
 
                 continue;
@@ -202,28 +238,54 @@ class TransferPlanner
                 return null;
             }
 
-            $picked[$index] = $port * -1;
+            $picked[$index] = ['port' => $port, 'id' => null, 'same' => false];
             $claimed[$port] = true;
         }
 
-        try {
-            $ids = $this->create($node, $picked);
-        } catch (Throwable $e) {
-            Log::warning('[plugged-host-servers] transfer allocation create failed', ['node' => $node->getKey(), 'error' => $e->getMessage()]);
+        ksort($picked);
 
-            return null;
+        return $picked;
+    }
+
+    /**
+     * Destinations an admin can pick on the admin server page, grouped by location: first
+     * "best node" (the automatic choice users get), then every node the admin may access.
+     * Keys are `loc:<code>` or `node:<id>`; `$disabled` collects the node keys that cannot
+     * take the server (full, in maintenance, or not viable for its size).
+     *
+     * @param  Collection<int, Node>  $accessible
+     * @param  array<int, string>  $disabled  filled by reference
+     * @return array<string, array<string, string>>
+     */
+    public function adminOptions(Server $server, Collection $accessible, array &$disabled = []): array
+    {
+        $viable = $this->destinations($server, null, [], $accessible->map(fn (Node $n) => (int) $n->getKey())->values()->all())
+            ->map(fn (Node $n) => (int) $n->getKey())
+            ->all();
+
+        $groups = [];
+
+        foreach ($accessible->reject(fn (Node $n) => (int) $n->getKey() === (int) $server->node_id) as $node) {
+            $code = $this->locationOf($node);
+            $group = $code === null
+                ? trans('plugged-host-servers::strings.transfers.unknown_location')
+                : app(TransferService::class)->locationName($code);
+
+            if ($code !== null && !isset($groups[$group]["loc:$code"])) {
+                $groups[$group]["loc:$code"] = trans('plugged-host-servers::strings.transfers.admin.best_node');
+            }
+
+            $key = 'node:' . $node->getKey();
+            $groups[$group][$key] = $node->name . ($node->isUnderMaintenance() ? ' · ' . trans('plugged-host-servers::strings.transfers.admin.maintenance') : '');
+
+            if (!in_array((int) $node->getKey(), $viable, true)) {
+                $disabled[] = $key;
+            }
         }
 
-        ksort($ids);
-        $ids = array_values($ids);
+        ksort($groups);
 
-        $ports = Allocation::withoutGlobalScopes()->whereIn('id', $ids)->pluck('port', 'id')->map(intval(...))->all();
-
-        return [
-            'primary' => (int) array_shift($ids),
-            'additional' => array_map(intval(...), $ids),
-            'ports' => $ports,
-        ];
+        return $groups;
     }
 
     /**

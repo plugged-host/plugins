@@ -98,11 +98,18 @@ class TransferService
      *
      * @return null|array{0: string, 1: array<string, scalar>}
      */
-    public function blockedReason(Server $server, ?User $user, bool $selfService = true): ?array
+    public function blockedReason(Server $server, ?User $user, string $origin = ServerRelocation::ORIGIN_USER): ?array
     {
-        // The start queue's own offer has its own switch; this one is for the Transfer page.
-        if ($selfService && !$this->enabled()) {
+        $admin = $origin === ServerRelocation::ORIGIN_ADMIN;
+
+        // The start queue's offer has its own switch and admins need none; this one is for
+        // the Transfer page.
+        if ($origin === ServerRelocation::ORIGIN_USER && !$this->enabled()) {
             return ['disabled', []];
+        }
+
+        if ($admin && !$user?->can('update server', $server)) {
+            return ['permission', []];
         }
 
         if (!self::canUse($user, $server)) {
@@ -113,7 +120,7 @@ class TransferService
             return ['busy', []];
         }
 
-        if ($server->isSuspended()) {
+        if ($server->isSuspended() && !$admin) {
             return ['suspended', []];
         }
 
@@ -133,7 +140,7 @@ class TransferService
             return ['backup_running', []];
         }
 
-        $until = $this->cooldownUntil($server);
+        $until = $admin ? null : $this->cooldownUntil($server);
 
         if ($until !== null) {
             return ['cooldown', ['time' => $until->diffForHumans(syntax: Carbon::DIFF_ABSOLUTE)]];
@@ -177,7 +184,7 @@ class TransferService
      */
     public function start(Server $server, User $user, ?string $location, string $origin = ServerRelocation::ORIGIN_USER, ?array $only = null, bool $startAfter = false): ServerRelocation
     {
-        if (($reason = $this->blockedReason($server, $user, $origin === ServerRelocation::ORIGIN_USER)) !== null) {
+        if (($reason = $this->blockedReason($server, $user, $origin)) !== null) {
             throw new TransferException(...$reason);
         }
 
@@ -194,16 +201,23 @@ class TransferService
                 throw new TransferException('invalid_location');
             }
 
-            if (($offer['tier'] ?? LocationCatalog::FREE) !== LocationCatalog::FREE && !($offer['unlocked'] ?? false)) {
+            // The paid-tier unlock is the owner's to buy; an admin may place a server anywhere.
+            if ($origin !== ServerRelocation::ORIGIN_ADMIN && ($offer['tier'] ?? LocationCatalog::FREE) !== LocationCatalog::FREE && !($offer['unlocked'] ?? false)) {
                 throw new TransferException('location_locked');
             }
         }
 
-        if ($this->planner->destinations($server, $location, [], $only)->isEmpty()) {
+        $destinations = $this->planner->destinations($server, $location, [], $only);
+
+        if ($destinations->isEmpty()) {
             throw new TransferException('no_node');
         }
 
-        $relocation = DB::transaction(function () use ($server, $user, $location, $origin, $only, $startAfter) {
+        // What the owner is shown: a location, never a node, even when an admin or the start
+        // queue picked the node.
+        $shownLocation = $location ?? $this->planner->locationOf($destinations->first());
+
+        $relocation = DB::transaction(function () use ($server, $user, $location, $origin, $only, $startAfter, $shownLocation) {
             // Serialises double clicks: the second one waits here and then sees the first.
             Server::query()->whereKey($server->getKey())->lockForUpdate()->first();
 
@@ -225,7 +239,7 @@ class TransferService
             $relocation->state_at = now();
             $relocation->remember('only', $only);
             $relocation->remember('from_location', $this->planner->locationOf($server->node));
-            $relocation->event('requested', ['location' => $location ?? '']);
+            $relocation->event('requested', ['location' => $shownLocation ?? '']);
             $relocation->save();
 
             return $relocation;
@@ -233,7 +247,7 @@ class TransferService
 
         Activity::event('server:transfer.start')
             ->subject($server)
-            ->property('location', $this->locationName($location ?? $this->planner->locationOf($this->planner->destinations($server, null, [], $only)->first())))
+            ->property('location', $this->locationName($shownLocation))
             ->log();
 
         TransferWatcher::ensureRunning();
@@ -270,6 +284,46 @@ class TransferService
             $this->releaseAttempt($relocation);
             $relocation->event('cancelled', [], 'warning');
             $this->finish($relocation, ServerRelocation::CANCELLED, 'cancelled');
+
+            return true;
+        }, 15);
+    }
+
+    /**
+     * An admin's way out of STUCK: give up on the new node and leave the server where its data
+     * is, on the old one. Only for a transfer wings never settled; it marks it failed and frees
+     * the new node's ports, exactly as wings' own failure report would. The copy on the new
+     * node (if any) is not touched, and the old node may still refuse to start the server until
+     * its wings is restarted — the admin is told both.
+     */
+    public function release(ServerRelocation $relocation, User $admin): bool
+    {
+        return (bool) $this->locked($relocation, function (ServerRelocation $relocation) use ($admin): bool {
+            $server = Server::query()->find($relocation->server_id);
+
+            if ($relocation->state !== ServerRelocation::STUCK || !$server instanceof Server || !$admin->can('update server', $server)) {
+                return false;
+            }
+
+            $transfer = ServerTransfer::query()->find($relocation->transfer_id);
+
+            if ($transfer instanceof ServerTransfer && $transfer->successful === true) {
+                return false; // settled after all; reviveStuck() will finish it
+            }
+
+            if ($transfer instanceof ServerTransfer) {
+                $this->releaseTransfer($transfer);
+            }
+
+            $relocation->remember('released_by', $admin->getKey());
+            $relocation->moveState(ServerRelocation::FAILED);
+            $relocation->event('released', ['admin' => $admin->username], 'warning');
+            $relocation->save();
+
+            Activity::event('server:transfer.failed')
+                ->subject($server)
+                ->property('reason', trans('plugged-host-servers::strings.transfers.reasons.stuck'))
+                ->log();
 
             return true;
         }, 15);
@@ -1035,7 +1089,7 @@ class TransferService
         $probe = $this->probe($transfer->newNode, $server);
 
         if ($probe === 'absent') {
-            $this->release($transfer);
+            $this->releaseTransfer($transfer);
 
             if ($relocation->info('user_cancelled')) {
                 $relocation->event('cancelled', [], 'warning');
@@ -1104,7 +1158,7 @@ class TransferService
         $transfer = ServerTransfer::query()->find($relocation->transfer_id);
 
         if ($transfer instanceof ServerTransfer) {
-            $this->release($transfer);
+            $this->releaseTransfer($transfer);
         }
     }
 
@@ -1113,7 +1167,7 @@ class TransferService
      * does. Never touches a transfer upstream recorded as successful, and only frees ports
      * that are still this server's.
      */
-    protected function release(ServerTransfer $transfer): void
+    protected function releaseTransfer(ServerTransfer $transfer): void
     {
         DB::transaction(function () use ($transfer) {
             /** @var ServerTransfer|null $fresh */
@@ -1417,6 +1471,43 @@ class TransferService
                 //
             }
         }
+    }
+
+    /**
+     * Timeline entries, newest first, with their parameters made readable.
+     *
+     * @return list<array{at: string, text: string, level: string}>
+     */
+    public function timeline(ServerRelocation $relocation, ?string $timezone = null): array
+    {
+        $timezone = $timezone ?: config('app.timezone');
+        $out = [];
+
+        foreach (array_reverse((array) $relocation->info('events', [])) as $event) {
+            $params = (array) ($event['params'] ?? []);
+
+            if (array_key_exists('location', $params)) {
+                $params['location'] = $this->locationName($params['location'] ?: null);
+            }
+
+            if (isset($params['reason'])) {
+                $params['reason'] = trans('plugged-host-servers::strings.transfers.reasons.' . $params['reason']);
+            }
+
+            try {
+                $at = Carbon::parse((string) ($event['at'] ?? 'now'))->setTimezone($timezone)->format('H:i:s');
+            } catch (Throwable) {
+                $at = '';
+            }
+
+            $out[] = [
+                'at' => $at,
+                'text' => trans('plugged-host-servers::strings.transfers.events.' . ($event['key'] ?? 'copying'), $params),
+                'level' => (string) ($event['level'] ?? 'info'),
+            ];
+        }
+
+        return $out;
     }
 
     /** Where the move goes: the chosen location, or for the start queue's offer the node's. */

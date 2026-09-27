@@ -18,6 +18,10 @@
 - Transfers started elsewhere (admin panel, limbo) are adopted by the watcher for progress and
   stall resolution. Owners and admins get database notifications; activity log entries
   `server:transfer.*`.
+- **Admin server page**: an icon-only Transfer header action replaces upstream's Manage-tab
+  button. Pick a location (automatic node) or a node; ports are created automatically and
+  previewed; it runs through the same orchestrator. New Transfers tab with live progress, admin
+  details, Cancel, Release for a STUCK move, and history.
 - `RoleResourceLimits::deploymentPortRanges()` is now public static (used by the planner).
 - Migration `011_create_server_relocations_table` (operator-run).
 

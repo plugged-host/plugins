@@ -108,6 +108,9 @@ class ServerRelocation extends Model
 
     public const ORIGIN_QUEUE = 'queue';
 
+    /** Started by an admin from the admin server page: may target a node, skips the user gates. */
+    public const ORIGIN_ADMIN = 'admin';
+
     /** A transfer started outside this service (admin panel, limbo) that the watcher took over. */
     public const ORIGIN_EXTERNAL = 'external';
 
