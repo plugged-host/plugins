@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- **Self-service transfers.** New server page *Transfer*: pick a location (never a node), see the
+  data size, backups and an offline-time estimate, press Move. A progress card shows the route,
+  a live bar with bytes / speed / ETA read from the source node's websocket, a stepper
+  (prepare, stop, copy, backups, verify, start) and a timeline; a strip on every other server
+  page links to it while a move runs. Subuser permission `transfer.move`. Settings on the plugin
+  tab (`TRANSFERS_*`).
+- **Failover around wings' transfer.** Clean stop with kill fallback instead of wings' 15 s stop
+  that refuses the transfer; wings' answer is checked (upstream leaves a dangling transfer when
+  the source refuses); failed attempts free their ports and retry on another node of the
+  location; stalled copies are aborted through the source's own cancel and resolved by probing
+  the new node; a move that gives up starts the server again on its old node. The source copy
+  is only ever deleted by upstream after the new node verified the checksum. Local backups move
+  with the server so they stay restorable.
+- Transfers started elsewhere (admin panel, limbo) are adopted by the watcher for progress and
+  stall resolution. Owners and admins get database notifications; activity log entries
+  `server:transfer.*`.
+- `RoleResourceLimits::deploymentPortRanges()` is now public static (used by the planner).
+- Migration `011_create_server_relocations_table` (operator-run).
+
 ## 1.2.1
 
 - Version bump to 1.2.1 (plugged.host 2.1).

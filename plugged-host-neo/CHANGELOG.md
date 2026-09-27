@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- Knowledge: servers can be moved to another location from the Transfer page (plugged-host-servers).
+
 ## 1.2.1
 
 - **New plugin.** Ships dark (`NEO_ENABLED=false`).

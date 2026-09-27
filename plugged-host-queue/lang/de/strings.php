@@ -64,7 +64,7 @@ return [
     // Das Umzugsangebot.
     'transfer_heading' => 'Auf einen ruhigeren Node umziehen',
     'transfer_body' => 'Wir können diesen Server auf :node umziehen, der nicht ausgelastet ist. Deine Dateien kommen mit.',
-    'transfer_note' => 'Während des Kopierens ist der Server offline, und seine IP-Adresse und sein Port ändern sich. Nach dem Umzug startest du ihn selbst.',
+    'transfer_note' => 'Während des Kopierens ist der Server offline, und seine Adresse ändert sich. Nach dem Umzug startet er von selbst.',
     'transfer_confirm' => "Diesen Server auf :node umziehen?\n\nDer Server bleibt offline, bis das Kopieren fertig ist, und seine IP-Adresse und sein Port ändern sich. Alles, was auf die alte Adresse zeigt — eine Domain, ein Lesezeichen, die Serverliste eines Spielers — muss angepasst werden.",
     'transfer_cta' => 'Server umziehen',
     'transfer_too_big' => 'Dieser Server ist zu groß für einen schnellen Umzug — hier zu warten geht schneller.',

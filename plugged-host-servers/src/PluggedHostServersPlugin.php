@@ -62,6 +62,11 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
         $data['premium_cost'] = (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 25);
         $data['plus_tag'] = config('plugged-host-servers.user-creatable-servers.plus.tag', 'plus');
 
+        $data['transfers_enabled'] = (bool) config('plugged-host-servers.transfers.enabled', true);
+        $data['transfers_cooldown_hours'] = (int) config('plugged-host-servers.transfers.cooldown_hours', 6);
+        $data['transfers_max_attempts'] = (int) config('plugged-host-servers.transfers.max_attempts', 3);
+        $data['transfers_stop_timeout'] = (int) config('plugged-host-servers.transfers.stop_timeout', 90);
+
         return $data;
     }
 
@@ -225,6 +230,44 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->default(fn () => config('plugged-host-servers.user-creatable-servers.plus.tag', 'plus')),
                 ]),
+            Section::make(trans('plugged-host-servers::strings.transfers.settings.section'))
+                ->description(trans('plugged-host-servers::strings.transfers.settings.section_hint'))
+                ->columns(4)
+                ->schema([
+                    Toggle::make('transfers_enabled')
+                        ->label(trans('plugged-host-servers::strings.transfers.settings.enabled'))
+                        ->inline(false)
+                        ->columnSpanFull()
+                        ->onIcon(TablerIcon::Check)
+                        ->offIcon(TablerIcon::X)
+                        ->default(fn () => (bool) config('plugged-host-servers.transfers.enabled', true)),
+                    TextInput::make('transfers_cooldown_hours')
+                        ->label(trans('plugged-host-servers::strings.transfers.settings.cooldown'))
+                        ->helperText(trans('plugged-host-servers::strings.transfers.settings.cooldown_hint'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(720)
+                        ->required()
+                        ->suffix(trans('plugged-host-servers::strings.transfers.settings.hours'))
+                        ->default(fn () => (int) config('plugged-host-servers.transfers.cooldown_hours', 6)),
+                    TextInput::make('transfers_max_attempts')
+                        ->label(trans('plugged-host-servers::strings.transfers.settings.max_attempts'))
+                        ->helperText(trans('plugged-host-servers::strings.transfers.settings.max_attempts_hint'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(10)
+                        ->required()
+                        ->default(fn () => (int) config('plugged-host-servers.transfers.max_attempts', 3)),
+                    TextInput::make('transfers_stop_timeout')
+                        ->label(trans('plugged-host-servers::strings.transfers.settings.stop_timeout'))
+                        ->helperText(trans('plugged-host-servers::strings.transfers.settings.stop_timeout_hint'))
+                        ->numeric()
+                        ->minValue(10)
+                        ->maxValue(900)
+                        ->required()
+                        ->suffix(trans('plugged-host-servers::strings.transfers.settings.seconds'))
+                        ->default(fn () => (int) config('plugged-host-servers.transfers.stop_timeout', 90)),
+                ]),
         ];
     }
 
@@ -250,6 +293,10 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
             'UCS_PREMIUM_TAG' => trim((string) ($data['premium_tag'] ?? '')) !== '' ? trim((string) $data['premium_tag']) : 'premium',
             'UCS_PREMIUM_COST' => (string) max(0, min(1000000, (int) ($data['premium_cost'] ?? 25))),
             'UCS_PLUS_TAG' => trim((string) ($data['plus_tag'] ?? '')) !== '' ? trim((string) $data['plus_tag']) : 'plus',
+            'TRANSFERS_ENABLED' => !empty($data['transfers_enabled']) ? 'true' : 'false',
+            'TRANSFERS_COOLDOWN_HOURS' => (string) max(0, min(720, (int) ($data['transfers_cooldown_hours'] ?? 6))),
+            'TRANSFERS_MAX_ATTEMPTS' => (string) max(1, min(10, (int) ($data['transfers_max_attempts'] ?? 3))),
+            'TRANSFERS_STOP_TIMEOUT' => (string) max(10, min(900, (int) ($data['transfers_stop_timeout'] ?? 90))),
         ]);
 
         Notification::make()

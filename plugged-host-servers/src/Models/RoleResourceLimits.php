@@ -505,7 +505,7 @@ class RoleResourceLimits extends Model
 
         throw_if($nodes->isEmpty(), new NoViableNodeException(trans('exceptions.deployment.no_viable_nodes')));
 
-        $ranges = $this->allocationPortRanges();
+        $ranges = self::deploymentPortRanges();
         /** @var Node $node */
         foreach (app(NodeBalancer::class)->sortByLowestUsage($nodes) as $node) {
             $ip = $this->nodeAllocationIp($node);
@@ -683,7 +683,7 @@ class RoleResourceLimits extends Model
 
         throw_if($nodes->isEmpty(), new NoViableNodeException(trans('exceptions.deployment.no_viable_nodes')));
 
-        $ranges = $this->allocationPortRanges();
+        $ranges = self::deploymentPortRanges();
         /** @var Node $node */
         foreach (app(NodeBalancer::class)->sortByLowestUsage($nodes) as $node) {
             $ip = $this->nodeAllocationIp($node);
@@ -715,8 +715,14 @@ class RoleResourceLimits extends Model
         throw new NoViableAllocationException(trans('exceptions.deployment.no_viable_allocations'));
     }
 
-    /** @return array<int, array{int, int}> */
-    private function allocationPortRanges(): array
+    /**
+     * The port ranges new allocations may be created in (UCS_DEPLOYMENT_PORTS, else the
+     * panel's client allocation range, else the whole legal range). Public for the transfer
+     * planner, which creates allocations on the destination node by the same rule.
+     *
+     * @return array<int, array{int, int}>
+     */
+    public static function deploymentPortRanges(): array
     {
         $configured = array_filter(array_map('trim', explode(',', (string) config('plugged-host-servers.user-creatable-servers.deployment_ports'))));
         $ranges = [];

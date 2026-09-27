@@ -184,5 +184,35 @@ return [
         'cpu_weight' => (float) env('NODES_BALANCE_CPU_WEIGHT', 1.0),
         'memory_weight' => (float) env('NODES_BALANCE_MEMORY_WEIGHT', 1.0),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Server transfers
+    |--------------------------------------------------------------------------
+    |
+    | Self-service moves to another location (Services\Transfers). The copy is
+    | wings' own streaming transfer; everything around it is ours: picking the
+    | node inside the location, a clean stop, live progress read from the
+    | source node's websocket, retries on another node, and putting the server
+    | back online where it was when a move gives up. The source copy is only
+    | ever deleted by upstream once the new node has verified its checksum.
+    |
+    | enabled — owners, and subusers given "transfer", can move their servers.
+    | cooldown_hours — minimum time between two finished moves of one server.
+    | max_attempts — nodes tried before a move gives up.
+    | stop_timeout — seconds a clean stop gets before the server is killed.
+    | stall_minutes — no bytes moving for this long while copying = stalled.
+    | finalize_minutes — after the last byte, how long the new node may take
+    |     to confirm (it may still be pulling the container image).
+    |
+    */
+    'transfers' => [
+        'enabled' => (bool) env('TRANSFERS_ENABLED', true),
+        'cooldown_hours' => (int) env('TRANSFERS_COOLDOWN_HOURS', 6),
+        'max_attempts' => (int) env('TRANSFERS_MAX_ATTEMPTS', 3),
+        'stop_timeout' => (int) env('TRANSFERS_STOP_TIMEOUT', 90),
+        'stall_minutes' => (int) env('TRANSFERS_STALL_MINUTES', 10),
+        'finalize_minutes' => (int) env('TRANSFERS_FINALIZE_MINUTES', 20),
+    ],
 ];
 

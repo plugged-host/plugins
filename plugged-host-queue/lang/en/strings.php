@@ -66,7 +66,7 @@ return [
     // The transfer offer.
     'transfer_heading' => 'Move to a quieter node',
     'transfer_body' => 'We can move this server to :node, which is not busy. Your files come with it.',
-    'transfer_note' => 'The server goes offline while it copies, and its IP address and port change. You start it yourself once the move finishes.',
+    'transfer_note' => 'The server goes offline while it copies and its address changes. It starts again by itself once the move finishes.',
     'transfer_confirm' => "Move this server to :node?\n\nThe server stays offline until the copy finishes, and its IP address and port will change. Anything pointing at the old address — a domain, a bookmark, a player's server list — has to be updated.",
     'transfer_cta' => 'Move the server',
     'transfer_too_big' => 'This server is too large to move quickly, so waiting here is the faster option.',
