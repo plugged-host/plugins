@@ -206,7 +206,7 @@ class ServerContent extends MinecraftPage implements HasTable
         }
 
         try {
-            app(ModDetectionService::class)->identifyPending($server, 4);
+            app(ModDetectionService::class)->identifyPending($server);
         } catch (Throwable $exception) {
             report($exception);
         }

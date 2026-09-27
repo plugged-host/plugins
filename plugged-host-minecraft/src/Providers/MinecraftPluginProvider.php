@@ -85,7 +85,7 @@ class MinecraftPluginProvider extends ServiceProvider
 
                             $detection = app(\PluggedHost\Minecraft\Services\ModDetectionService::class);
                             // One batch per call; rows still being identified say "pending".
-                            $detection->identifyPending($server, 4);
+                            $detection->identifyPending($server);
 
                             return response()->json(['data' => $detection->list($server)]);
                         })->name('api:client:minecraft.mods');

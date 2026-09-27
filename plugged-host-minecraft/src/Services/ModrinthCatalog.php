@@ -289,6 +289,58 @@ class ModrinthCatalog
     }
 
     /**
+     * versionFromHash() for many jars in one request (POST /version_files). Shares its per-hash
+     * cache, so a jar seen on any server is answered without asking again, and an unknown hash
+     * is remembered as unknown for the same TTL.
+     *
+     * @param  list<string>  $hashes
+     * @return array<string, array<string, mixed>> SHA-1 => normalised version (with 'project_id')
+     */
+    public function versionsFromHashes(array $hashes): array
+    {
+        $hashes = array_values(array_unique(array_filter($hashes)));
+        $payloads = [];
+        $missing = [];
+
+        foreach ($hashes as $hash) {
+            $cached = Cache::get("plugged-host-core:modrinth:hash:$hash");
+
+            if (is_array($cached)) {
+                $payloads[$hash] = $cached;
+            } else {
+                $missing[] = $hash;
+            }
+        }
+
+        if ($missing !== []) {
+            try {
+                $found = $this->post(self::BASE . '/version_files', ['hashes' => $missing, 'algorithm' => 'sha1']);
+            } catch (Throwable $exception) {
+                report($exception);
+                $found = null;
+            }
+
+            // Only remember answers: a failed request leaves the hashes to be asked again.
+            if ($found !== null) {
+                foreach ($missing as $hash) {
+                    $payload = is_array($found[$hash] ?? null) ? $found[$hash] : [];
+                    Cache::put("plugged-host-core:modrinth:hash:$hash", $payload, self::TTL);
+                    $payloads[$hash] = $payload;
+                }
+            }
+        }
+
+        $versions = [];
+        foreach ($payloads as $hash => $payload) {
+            if (isset($payload['id'])) {
+                $versions[$hash] = $this->normaliseVersion($payload) + ['project_id' => (string) ($payload['project_id'] ?? '')];
+            }
+        }
+
+        return $versions;
+    }
+
+    /**
      * The newest version each jar could update to on this loader and Minecraft version.
      *
      * @param  list<string>  $hashes

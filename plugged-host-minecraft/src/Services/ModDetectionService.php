@@ -4,6 +4,8 @@ namespace PluggedHost\Minecraft\Services;
 
 use App\Models\Server;
 use App\Repositories\Daemon\DaemonFileRepository;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -24,13 +26,17 @@ use Throwable;
  *  5. otherwise it stays identified by its own descriptor, or honestly unknown.
  *
  * Downloading jars (streamed to disk) is the expensive part, so list() never does it: it returns what is known and
- * marks the rest pending, and the caller works through them with identifyPending() in small
- * batches. Updates (Modrinth only) are one extra bulk request per listing, cached.
+ * marks the rest pending, and the caller works through them with identifyPending() in
+ * batches downloaded in parallel, with one Modrinth request per batch. Updates (Modrinth only) are one extra bulk request per listing, cached.
  */
 class ModDetectionService
 {
     // Jars bigger than this are only matched by name (FPM runs with 128 MB).
     public const MAX_JAR_BYTES = 24 * 1024 * 1024;
+
+    // Jars identified per round trip. They download in parallel, so a round costs about as
+    // long as its biggest jar; wings' bandwidth, not the count, is what bounds it.
+    public const BATCH = 8;
 
     private const IDENTITY_TTL_DAYS = 30;
 
@@ -70,7 +76,7 @@ class ModDetectionService
     /**
      * Identify up to $limit jars nobody has looked at yet. Returns how many are still pending.
      */
-    public function identifyPending(Server $server, int $limit = 4): int
+    public function identifyPending(Server $server, int $limit = self::BATCH): int
     {
         $dir = $this->directory($server);
         $pending = array_values(array_filter($this->listing($server, $dir)['jars'], fn (array $jar): bool => !Cache::has($this->key($server, $jar))));
@@ -114,30 +120,44 @@ class ModDetectionService
         $software = $this->switcher->loader($server);
         $items = [];
 
-        // Each jar is streamed to a temporary file, so memory stays flat whatever its size: read
-        // its descriptor, look its hash up, and fingerprint it for CurseForge only when
-        // Modrinth did not know it.
-        foreach ($jars as $jar) {
-            $item = ['jar' => $jar, 'sha1' => null, 'fingerprint' => null, 'version' => null, 'meta' => JarMetadataReader::EMPTY];
-            $path = $jar['size'] > 0 && $jar['size'] <= self::MAX_JAR_BYTES ? $this->download($server, "/{$dir}/{$jar['name']}") : null;
+        // Every jar of the batch is streamed from wings at the same time, each to its own
+        // temporary file, so memory stays flat whatever the sizes: read its descriptor and hash
+        // it, ask Modrinth about all the hashes in one request, and fingerprint for CurseForge
+        // only the jars Modrinth did not know.
+        $paths = $this->downloadAll($server, array_map(
+            fn (array $jar): ?string => $jar['size'] > 0 && $jar['size'] <= self::MAX_JAR_BYTES ? "/{$dir}/{$jar['name']}" : null,
+            $jars,
+        ));
 
-            if ($path !== null) {
-                try {
-                    $item['sha1'] = (string) sha1_file($path);
-                    $item['meta'] = $this->reader->readFile($path);
-                    $item['version'] = $this->safely(fn () => $this->modrinth->versionFromHash($item['sha1']), null);
+        try {
+            foreach ($jars as $i => $jar) {
+                $item = ['jar' => $jar, 'sha1' => null, 'fingerprint' => null, 'version' => null, 'meta' => JarMetadataReader::EMPTY];
 
-                    if ($item['version'] === null && $this->curseforge->configured()) {
-                        $item['fingerprint'] = $this->murmur2File($path);
+                if (isset($paths[$i])) {
+                    try {
+                        $item['sha1'] = (string) sha1_file($paths[$i]);
+                        $item['meta'] = $this->reader->readFile($paths[$i]);
+                    } catch (Throwable) {
+                        //
                     }
-                } catch (Throwable) {
-                    //
-                } finally {
-                    @unlink($path);
                 }
+
+                $items[$i] = $item;
             }
 
-            $items[] = $item;
+            $versions = $this->safely(fn () => $this->modrinth->versionsFromHashes(array_values(array_filter(array_column($items, 'sha1')))), []);
+
+            foreach ($items as $i => $item) {
+                $items[$i]['version'] = $item['sha1'] !== null ? ($versions[$item['sha1']] ?? null) : null;
+
+                if ($items[$i]['version'] === null && isset($paths[$i]) && $this->curseforge->configured()) {
+                    $items[$i]['fingerprint'] = $this->safely(fn () => $this->murmur2File($paths[$i]), null);
+                }
+            }
+        } finally {
+            foreach ($paths as $path) {
+                @unlink($path);
+            }
         }
 
         // 2. Modrinth by hash (projects fetched in one request).
@@ -373,34 +393,62 @@ class ModDetectionService
     }
 
     /**
-     * Stream a file from wings into a temporary file (never into memory). Null when it could
-     * not be fetched or is larger than allowed.
+     * Stream several files from wings at once, each into its own temporary file (never into
+     * memory). Returns the temporary paths under the same keys; a file that could not be
+     * fetched, or came out larger than allowed, is left out. Null paths are skipped.
+     *
+     * Built by hand rather than with Http::daemon(): that macro lives on the HTTP factory, and
+     * a pool hands out bare pending requests, so the same token, base URL, TLS and connect
+     * settings are stated here.
+     *
+     * @param  array<int, string|null>  $paths
+     * @return array<int, string>
      */
-    private function download(Server $server, string $path): ?string
+    private function downloadAll(Server $server, array $paths): array
     {
-        $file = tempnam(sys_get_temp_dir(), 'phjar');
+        $files = [];
+        foreach (array_filter($paths) as $key => $path) {
+            $file = tempnam(sys_get_temp_dir(), 'phjar');
 
-        if ($file === false) {
-            return null;
+            if ($file !== false) {
+                $files[$key] = $file;
+            }
         }
+
+        if ($files === []) {
+            return [];
+        }
+
+        $node = $server->node;
 
         try {
-            $response = Http::daemon($server->node)
-                ->timeout(60)
-                ->withOptions(['sink' => $file])
-                ->get("/api/servers/{$server->uuid}/files/contents", ['file' => $path]);
-
-            clearstatcache(true, $file);
-            if ($response->successful() && filesize($file) > 0 && filesize($file) <= self::MAX_JAR_BYTES) {
-                return $file;
-            }
+            $responses = Http::pool(fn (Pool $pool): array => array_map(
+                fn (int $key): mixed => $pool->as((string) $key)
+                    ->withToken($node->daemon_token)
+                    ->withOptions(['verify' => app()->environment('production'), 'sink' => $files[$key]])
+                    ->connectTimeout((int) config('panel.guzzle.connect_timeout'))
+                    ->timeout(60)
+                    ->baseUrl($node->getConnectionAddress())
+                    ->get("/api/servers/{$server->uuid}/files/contents", ['file' => $paths[$key]]),
+                array_keys($files),
+            ), count($files));
         } catch (Throwable) {
-            //
+            $responses = [];
         }
 
-        @unlink($file);
+        $downloaded = [];
+        foreach ($files as $key => $file) {
+            $response = $responses[(string) $key] ?? null;
+            clearstatcache(true, $file);
 
-        return null;
+            if ($response instanceof Response && $response->successful() && filesize($file) > 0 && filesize($file) <= self::MAX_JAR_BYTES) {
+                $downloaded[$key] = $file;
+            } else {
+                @unlink($file);
+            }
+        }
+
+        return $downloaded;
     }
 
     /**
@@ -506,22 +554,25 @@ class ModDetectionService
     /**
      * 32-bit MurmurHash2 (the variant CurseForge uses) over the first $blocks bytes, computed
      * with 32-bit-safe arithmetic.
+     *
+     * This is the hot loop of a fingerprint (a quarter of a million rounds per MB), so the
+     * blocks are unpacked in one C call and mul32() is written out inline: the same maths,
+     * several times faster than an ord() per byte and a method call per multiply.
      */
     private function murmurBlocks(string $data, int $h, int $blocks): int
     {
+        if ($blocks === 0) {
+            return $h;
+        }
+
         $m = 0x5bd1e995;
 
-        for ($index = 0; $index < $blocks; $index += 4) {
-            $k = (ord($data[$index]) & 0xff)
-                | ((ord($data[$index + 1]) & 0xff) << 8)
-                | ((ord($data[$index + 2]) & 0xff) << 16)
-                | ((ord($data[$index + 3]) & 0xff) << 24);
+        foreach (unpack('V*', substr($data, 0, $blocks)) as $k) {
+            $k = ((((($k >> 16) * $m) & 0xffff) << 16) + (($k & 0xffff) * $m)) & 0xffffffff;
+            $k ^= $k >> 24;
+            $k = ((((($k >> 16) * $m) & 0xffff) << 16) + (($k & 0xffff) * $m)) & 0xffffffff;
 
-            $k = $this->mul32($k, $m);
-            $k ^= ($k >> 24) & 0xffffff; // logical shift
-            $k = $this->mul32($k, $m);
-
-            $h = $this->mul32($h, $m);
+            $h = ((((($h >> 16) * $m) & 0xffff) << 16) + (($h & 0xffff) * $m)) & 0xffffffff;
             $h ^= $k;
         }
 
