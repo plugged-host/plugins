@@ -173,11 +173,14 @@ class StatusExporter
         $recent = [];
 
         foreach ($settings as $setting) {
-            $series = ['label' => $setting->display_name, 'cpu' => [], 'memory' => []];
+            // times[] runs parallel to cpu[]/memory[] so the status page can plot on a real
+            // time axis (unreachable minutes are skipped, leaving gaps) and label each point.
+            $series = ['label' => $setting->display_name, 'times' => [], 'cpu' => [], 'memory' => []];
             foreach ($recentSnapshots->get($setting->public_id, collect()) as $snapshot) {
                 if (($snapshot->metrics['reachable'] ?? false) !== true) {
                     continue;
                 }
+                $series['times'][] = $snapshot->checked_at->toIso8601String();
                 $series['cpu'][] = (float) ($snapshot->metrics['cpu_used'] ?? 0);
                 $series['memory'][] = (int) ($snapshot->metrics['memory_used'] ?? 0);
             }
@@ -203,7 +206,14 @@ class StatusExporter
 
             for ($date = now()->subDays(89)->startOfDay(); $date->lte(now()->startOfDay()); $date->addDay()) {
                 $record = $records->get($date->toDateString());
-                $days[] = ['date' => $date->toDateString(), 'status' => $record?->worst_status ?? 'unknown'];
+                $day = ['date' => $date->toDateString(), 'status' => $record?->worst_status ?? 'unknown'];
+                if ($record !== null) {
+                    // Lets the status page weight its 7/30/90-day windows by checks, the same
+                    // way uptime_percent is, instead of scoring a day with one bad minute as 0%.
+                    $day['total_checks'] = (int) $record->total_checks;
+                    $day['operational_checks'] = (int) $record->operational_checks;
+                }
+                $days[] = $day;
                 $checks += (int) ($record?->total_checks ?? 0);
                 $operational += (int) ($record?->operational_checks ?? 0);
             }
