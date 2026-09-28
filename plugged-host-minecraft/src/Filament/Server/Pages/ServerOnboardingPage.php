@@ -225,7 +225,7 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
                     ->label(trans('plugged-host-minecraft::strings.server_software'))
                     ->cardColumns(2)
                     // Without live binding the selected ring renders from stale state — the same
-                    // reason ConfigureServerPage's cards are live.
+                    // reason the create page's cards are live.
                     ->live()
                     ->required()
                     ->cardOptions($loaders->values()->all())

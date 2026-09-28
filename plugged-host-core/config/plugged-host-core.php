@@ -1,20 +1,10 @@
 <?php
 
 return [
-    'legal' => [
-        'terms_url' => env('LEGAL_TERMS_URL', ''),
-        'privacy_url' => env('LEGAL_PRIVACY_URL', ''),
-        'terms_version' => env('LEGAL_TERMS_VERSION', '2026-08-21'),
-        'privacy_version' => env('LEGAL_PRIVACY_VERSION', '2026-08-21'),
-    ],
-
     // Status pipeline config moved to plugged-host-status in v1.2.0 (WP1/WP15).
     // user-creatable-servers + nodes config moved to plugged-host-servers in v1.2.0 (WP1).
-
-    'register' => [
-        'password_registration_enabled' => (bool) env('REGISTER_PASSWORD_REGISTRATION_ENABLED', true),
-        'oauth_registration_enabled' => (bool) env('REGISTER_OAUTH_REGISTRATION_ENABLED', true),
-    ],
+    // Sign-up (which methods are open), the legal documents and their acceptance, the compute
+    // plan and the store prices are set on noprofit.space (Admin > Settings) since 2.1.
 
     /*
      * The first-login welcome tour (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage,
@@ -24,12 +14,21 @@ return [
      * stops the redirect for everyone immediately -- which is the thing you want to be able
      * to do without a deploy if the gate ever misbehaves.
      *
-     * version re-prompts everyone when it changes, the same way LEGAL_*_VERSION does for a
-     * changed document. Bump it when the tour is rewritten; leave it alone for wording fixes.
+     * version re-prompts everyone when it changes, the same way a legal document's version
+     * does for a changed document. Bump it when the tour is rewritten; leave it alone for wording fixes.
      */
     'tour' => [
         'enabled' => (bool) env('TOUR_ENABLED', true),
         'version' => env('TOUR_VERSION', '1'),
+    ],
+
+    /*
+     * The "remember me" cookie's name (NamedRecallerSessionGuard). Leave unset on the panel whose
+     * cookies cover the parent domain (prod: SESSION_DOMAIN=.plugged.host); set it on a panel
+     * under that domain (dev), or it reads the other panel's cookie of the same default name.
+     */
+    'session' => [
+        'remember_cookie' => (string) env('SESSION_REMEMBER_COOKIE', ''),
     ],
 
     /*

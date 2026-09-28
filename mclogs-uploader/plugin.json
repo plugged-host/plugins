@@ -15,7 +15,7 @@
     "panel_version": null,
     "composer_packages": null,
     "meta": {
-        "status": "enabled",
+        "status": "disabled",
         "status_message": null
     }
 }

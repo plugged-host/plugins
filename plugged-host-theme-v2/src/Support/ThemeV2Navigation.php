@@ -6,12 +6,15 @@ use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationItem;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Route;
+use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
+use PluggedHost\Economy\Filament\App\Pages\TokenStorePage;
 
 /**
  * The app panel's sidebar. This started out shaped 1:1 after UIExample's
  * `views/components/top.ejs` — an ungrouped "Home" row followed by collapsible,
- * icon-bearing groups whose items carried no icon of their own — and is now **flat and four
- * rows long by request**: Home, Store, Profile Settings, and Admin Panel for admins. Every
+ * icon-bearing groups whose items carried no icon of their own — and is now **flat by
+ * request**: Home, Resource Store, Token Store, Backups, Profile Settings, and Admin Panel
+ * for admins. Every
  * destination is one top-level row carrying its own icon, with no group headers and nothing
  * indented underneath.
  *
@@ -38,8 +41,8 @@ use Illuminate\Support\Facades\Route;
  *     "New Server" button, which was removed by request too: creating a server starts from
  *     the Create server button on the servers list;
  *   - the Economy group's "Earn Tokens" row was dropped. `/tokens` itself is still a live
- *     page, owned by plugged-host-ads and still linked from the start gate and the store —
- *     Theme v2 only stopped putting it in the sidebar;
+ *     page, linked from the start gate and the Token Store — Theme v2 only stopped putting
+ *     it in the sidebar;
  *   - Customization, whose destination is a tab on the profile page and so is still one
  *     click in from the Profile Settings row. That tab holds the Theme v2 opt-in toggle,
  *     which is why it had a row of its own and a cog in the old search row; neither is
@@ -58,8 +61,8 @@ class ThemeV2Navigation
     }
 
     /**
-     * The whole app sidebar as one flat list of four rows, in the order it reads top to
-     * bottom: home, the shop, the user's own settings, then the way into the admin panel.
+     * The whole app sidebar as one flat list, in the order it reads top to bottom: home, the
+     * two stores, backups, the user's own settings, then the way into the admin panel.
      *
      * @return array<NavigationItem>
      */
@@ -76,14 +79,21 @@ class ThemeV2Navigation
                 ->isActiveWhen(fn () => request()->is('/')),
         ];
 
-        // Store stands in for the whole Economy group now that Earn Tokens is gone, so it
-        // takes the shopping-bag glyph rather than the group's banknotes: a single row that
-        // goes to a shop should not be labelled as if it were the section.
-        if (Route::has('filament.app.pages.store')) {
-            $items[] = NavigationItem::make(trans('plugged-host-theme-v2::strings.nav.store'))
-                ->icon(Heroicon::OutlinedShoppingBag)
-                ->url(route('filament.app.pages.store'))
-                ->isActiveWhen(fn () => request()->is('store*'));
+        // The two stores, one per currency: credits buy resources, tokens buy priority and the
+        // paid locations. Each is labelled by its own page, so the sidebar cannot call it
+        // something the page does not, and is left out while its currency is switched off.
+        foreach ([
+            [ResourceStorePage::class, Heroicon::OutlinedShoppingBag, 'store'],
+            [TokenStorePage::class, Heroicon::OutlinedCircleStack, 'token-store'],
+        ] as [$page, $icon, $slug]) {
+            if (!class_exists($page) || !Route::has("filament.app.pages.{$slug}") || !$page::canAccess()) {
+                continue;
+            }
+
+            $items[] = NavigationItem::make($page::getNavigationLabel())
+                ->icon($icon)
+                ->url(route("filament.app.pages.{$slug}"))
+                ->isActiveWhen(fn () => request()->is($slug));
         }
 
         // Storage Backups Portal

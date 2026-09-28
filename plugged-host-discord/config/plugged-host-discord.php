@@ -32,8 +32,9 @@ return [
     | when their Discord is linked and they are verified members of the Discord
     | server.
     |
-    | Note: Resource limits are managed directly on the Role itself in the
-    | Panel (Admin -> Roles -> Role Resource Limits), NOT in this plugin.
+    | What members get in CPU, memory and disk is the Discord tier on
+    | noprofit.space; a role only decides the server limit (Admin -> Role
+    | Server Limits).
     |
     */
     'role_name' => env('DISCORD_LINKED_ROLE_NAME', 'Discord Linked'),

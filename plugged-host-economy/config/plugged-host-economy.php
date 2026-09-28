@@ -8,7 +8,7 @@ return [
     |
     | Credits buy resources, and nothing else. They are earned socially (Discord
     | invites and boosts, see plugged-host-discord) and spent in the resource
-    | store on CPU, memory, disk and server slots.
+    | store on CPU, memory and disk.
     |
     | The env keys keep their historical CREDITS_* names: none of them is set in
     | .env, so every value here is the live default, and renaming them would have
@@ -16,24 +16,10 @@ return [
     |
     */
     'credits' => [
+        // The CPU, memory and disk caps and prices come from noprofit.space with each
+        // account's plan (NoprofitCreditSync); a new account's starting credits are
+        // granted there too.
         'enabled' => (bool) env('CREDITS_ENABLED', true),
-        'starting_balance' => (int) env('CREDITS_STARTING_BALANCE', 0),
-
-        /*
-         * Maximum total resource limits attainable via role and credit upgrades.
-         * Defaults: 600% CPU, 24 GB (24576 MB) RAM, 100 GB (102400 MB) Disk.
-         */
-        'max_cpu' => (int) env('CREDITS_MAX_TOTAL_CPU', 600),
-        'max_memory' => (int) env('CREDITS_MAX_TOTAL_MEMORY', 24576),
-        'max_disk' => (int) env('CREDITS_MAX_TOTAL_DISK', 102400),
-
-        /*
-         * Pricing rates in credits for resource upgrades.
-         */
-        'price_cpu_50' => (int) env('CREDITS_PRICE_CPU_50', 100),
-        'price_memory_1024' => (int) env('CREDITS_PRICE_MEMORY_1024', 150),
-        'price_disk_5120' => (int) env('CREDITS_PRICE_DISK_5120', 75),
-        'price_server_slot' => (int) env('CREDITS_PRICE_SERVER_SLOT', 250),
 
         /*
          * When a reward is clawed back (a Discord invite that left the server) and the

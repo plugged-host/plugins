@@ -137,7 +137,7 @@ return [
     'pass_minutes_helper' => 'After a release, this user\'s next starts on that server skip this queue and the ad gate. Sitting through one wait and landing in the other is the worst thing this feature can do.',
 
     'section_priority' => 'Priority',
-    'section_priority_desc' => 'What tokens buy. One purchase, account-wide, for a window of days — not a single skip. Sold on the waiting page and in the resource store.',
+    'section_priority_desc' => 'What tokens buy. One purchase, account-wide, for a window of days — not a single skip. Sold on the waiting page and in the Token Store.',
     'priority_token_cost' => 'Token cost',
     'priority_token_cost_helper' => 'Tokens are minted by the plugged.host Ads plugin. Its earn page reads this number to explain the price, so changing it here changes it there.',
     'priority_days' => 'Window (days)',

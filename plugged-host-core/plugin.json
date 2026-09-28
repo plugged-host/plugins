@@ -3,7 +3,7 @@
     "name": "plugged.host Core",
     "author": "plugged.host",
     "version": "1.2.1",
-    "description": "Core features for plugged.host, including legal acceptance, public status, registration, node capacity, user-created servers, and allocation enforcement",
+    "description": "Core features for plugged.host: sign-in through noprofit.space, the welcome tour, sidebar visibility, node capacity, user-created servers, and allocation enforcement",
     "category": "plugin",
     "url": null,
     "update_url": null,

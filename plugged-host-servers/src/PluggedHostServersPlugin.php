@@ -73,48 +73,6 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
     public function getSettingsForm(): array
     {
         return [
-            Section::make('Default limits')
-                ->description('These limits apply when a user has no role with a resource-limit profile. A role profile always takes precedence.')
-                ->columns(4)
-                ->schema([
-                    Toggle::make('default_limits_enabled')
-                        ->label('Enable limits for users without a resource role')
-                        ->helperText('When disabled, only users assigned a role with a resource-limit profile can create servers.')
-                        ->inline(false)
-                        ->columnSpanFull()
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.default_limits_enabled')),
-                    TextInput::make('default_cpu')
-                        ->label('CPU')
-                        ->required()
-                        ->numeric()
-                        ->minValue(0)
-                        ->suffix('%')
-                        ->hint('0 means unlimited')
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.default_cpu')),
-                    TextInput::make('default_memory')
-                        ->label('Memory')
-                        ->required()
-                        ->numeric()
-                        ->minValue(0)
-                        ->suffix(config('panel.use_binary_prefix') ? 'MiB' : 'MB')
-                        ->hint('0 means unlimited')
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.default_memory')),
-                    TextInput::make('default_disk')
-                        ->label('Disk space')
-                        ->required()
-                        ->numeric()
-                        ->minValue(0)
-                        ->suffix(config('panel.use_binary_prefix') ? 'MiB' : 'MB')
-                        ->hint('0 means unlimited')
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.default_disk')),
-                    TextInput::make('default_server_limit')
-                        ->label('Server limit')
-                        ->numeric()
-                        ->minValue(0)
-                        ->nullable()
-                        ->placeholder('No limit')
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.default_server_limit')),
-                ]),
             Section::make('Limits')
                 ->columns(3)
                 ->schema([
@@ -274,11 +232,6 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
     public function saveSettings(array $data): void
     {
         $this->writeToEnvironment([
-            'UCS_DEFAULT_LIMITS_ENABLED' => $data['default_limits_enabled'] ? 'true' : 'false',
-            'UCS_DEFAULT_CPU' => $data['default_cpu'],
-            'UCS_DEFAULT_MEMORY' => $data['default_memory'],
-            'UCS_DEFAULT_DISK' => $data['default_disk'],
-            'UCS_DEFAULT_SERVER_LIMIT' => $data['default_server_limit'] ?? '',
             'UCS_DEFAULT_DATABASE_LIMIT' => $data['database_limit'],
             'UCS_DEFAULT_ALLOCATION_LIMIT' => $data['allocation_limit'],
             'UCS_DEFAULT_BACKUP_LIMIT' => $data['backup_limit'],

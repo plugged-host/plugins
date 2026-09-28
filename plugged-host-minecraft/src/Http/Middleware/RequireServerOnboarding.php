@@ -37,7 +37,7 @@ use Throwable;
  *    pending, which is right for "is there still something to offer" and would be catastrophic here:
  *    it would lock every server that predates this feature, and every server an admin created,
  *    behind a wizard its owner never asked for. requiredFor() reads a flag that only
- *    ConfigureServerPage sets, on the servers it created itself.
+ *    ServerProvisioner sets, on the servers users create themselves.
  * 2. **ServerOnboardingPage::canAccess()**, so nobody is redirected to a page they would then get a
  *    403 or a 404 from. That covers a subuser with no FileUpdate permission, a non-Minecraft egg,
  *    and a server in a conflict state — including one that is still installing, which is the state

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Services\AccountDeletionService;
+use PluggedHost\Core\Services\NoprofitAccountSync;
 use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Core\Support\NoprofitMigrationToken;
 use PluggedHost\Discord\Jobs\SyncDiscordMembershipJob;
@@ -122,7 +123,7 @@ final class NoprofitServiceController
             if ($link === null) {
                 $discord->unlinkUser($user);
 
-                return response()->json(['linked' => false]);
+                return response()->json(['linked' => false, 'snapshot' => $this->snapshot($user)]);
             }
 
             // noprofit.space just proved this Discord account with OAuth, so it moves here from
@@ -145,13 +146,29 @@ final class NoprofitServiceController
                 ['username' => $link['username'] ?? null, 'discriminator' => '0', 'avatar' => $link['avatar'] ?? null],
             );
 
-            SyncDiscordMembershipJob::dispatch($user);
+            // Checked right away, not behind the queue: server membership gives the Discord
+            // role here and the Discord tier on noprofit.space, which reads it from the answer.
+            SyncDiscordMembershipJob::dispatchSync($user->fresh());
         } catch (Throwable $exception) {
             report($exception);
 
             return response()->json(['error' => 'failed'], 500);
         }
 
-        return response()->json(['linked' => true]);
+        return response()->json(['linked' => true, 'snapshot' => $this->snapshot($user)]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function snapshot(User $user): ?array
+    {
+        $snapshot = NoprofitAccountSync::snapshotFor($user->fresh());
+
+        if ($snapshot !== null) {
+            NoprofitAccountSync::remember($snapshot);
+        }
+
+        return $snapshot;
     }
 }

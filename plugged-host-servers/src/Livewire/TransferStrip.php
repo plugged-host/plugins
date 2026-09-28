@@ -15,6 +15,9 @@ use PluggedHost\Servers\Services\Transfers\TransferService;
  */
 class TransferStrip extends Component
 {
+    /** How long the finished outcome (done/failed) keeps showing after a move ends. */
+    private const OUTCOME_MINUTES = 2;
+
     #[Locked]
     public int $serverId;
 
@@ -30,7 +33,7 @@ class TransferStrip extends Component
             $relocation = ServerRelocation::activeFor($server)
                 ?? ServerRelocation::query()
                     ->where('server_id', $server->getKey())
-                    ->where('finished_at', '>', now()->subMinutes(10))
+                    ->where('finished_at', '>', now()->subMinutes(self::OUTCOME_MINUTES))
                     ->latest('id')
                     ->first();
         }

@@ -23,7 +23,7 @@ use Filament\Support\Facades\FilamentView;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\ServerProvisioner;
@@ -88,7 +88,7 @@ class CreateServerPage extends Page
 
     public static function canAccess(): bool
     {
-        return RoleResourceLimits::forUser(auth()->user()) !== null;
+        return AccountAllowance::forUser(auth()->user()) !== null;
     }
 
     protected function getHeaderActions(): array
@@ -116,10 +116,10 @@ class CreateServerPage extends Page
     {
         $user = auth()->user();
 
-        return $this->plansCache ??= app(PlanCatalog::class)->forUser($user, RoleResourceLimits::forUser($user));
+        return $this->plansCache ??= app(PlanCatalog::class)->forUser($user, AccountAllowance::forUser($user));
     }
 
-    /** @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, premium: bool, unlocked: bool, cost: int}> */
+    /** @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, tier: string, unlocked: bool, cost: int}> */
     protected function getAvailableLocations(int $cpu = 0, int $memory = 0, int $disk = 0): Collection
     {
         $key = "{$cpu}:{$memory}:{$disk}";
@@ -134,7 +134,7 @@ class CreateServerPage extends Page
     public function mount(): void
     {
         $user = auth()->user();
-        $resourceLimits = RoleResourceLimits::forUser($user);
+        $resourceLimits = AccountAllowance::forUser($user);
 
         abort_if(!$resourceLimits, 403);
 
@@ -169,7 +169,7 @@ class CreateServerPage extends Page
 
         // Resolve default location
         $availableLocations = $this->getAvailableLocations($cpu, $memory, $disk);
-        $defaultLocation = $availableLocations->firstWhere('available', true)['code'] ?? null;
+        $defaultLocation = $availableLocations->first(fn (array $location) => $location['available'] && $location['unlocked'])['code'] ?? null;
 
         $this->form->fill([
             'game' => $this->game,
@@ -218,7 +218,7 @@ class CreateServerPage extends Page
     public function form(Schema $schema): Schema
     {
         $user = auth()->user();
-        $resourceLimits = RoleResourceLimits::forUser($user);
+        $resourceLimits = AccountAllowance::forUser($user);
 
         abort_if(!$resourceLimits, 403);
 
@@ -280,13 +280,17 @@ class CreateServerPage extends Page
                                     'label' => $location['name'],
                                     'svg' => $location['svg'],
                                     'signal' => $this->latencySignal($location['latency']),
-                                    'premium' => $location['premium'] ?? false,
-                                    'locked' => ($location['premium'] ?? false) && !($location['unlocked'] ?? false),
-                                    'cost' => $location['cost'] ?? 0,
+                                    // WP13 tiers: a locked Plus/Premium card is not selectable
+                                    // but carries its own unlock affordance; an unlocked one is a
+                                    // normal selectable card that keeps its tier pill.
+                                    'tier' => $location['tier'],
+                                    'locked' => !$location['unlocked'],
+                                    'cost' => $location['cost'],
                                     'description' => $location['available']
                                         ? null
                                         : trans('plugged-host-servers::strings.location_unavailable'),
-                                    'disabled' => !$location['available'] && !($location['premium'] ?? false),
+                                    // A paid-tier card must not be a plain disabled radio.
+                                    'disabled' => !$location['available'] && $location['tier'] === LocationCatalog::FREE,
                                 ])
                                 ->all())
                             ->required()

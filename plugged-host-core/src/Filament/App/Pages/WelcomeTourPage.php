@@ -21,8 +21,8 @@ use Throwable;
  * hold one page rather than argue with every link in the sidebar. Step 1 is therefore
  * unskippable by construction rather than by disabling buttons.
  *
- * $layout is set rather than extending SimplePage, for the reason SetPasswordPage documents:
- * Panel::discoverPages() only registers subclasses of Filament\Pages\Page, and SimplePage is
+ * $layout is set rather than extending SimplePage: Panel::discoverPages() only registers
+ * subclasses of Filament\Pages\Page, and SimplePage is
  * a *sibling* of Page, so a SimplePage dropped in this directory would get no route at all.
  * hasLogo() is the one member filament-panels::components.page.simple needs that Page, unlike
  * SimplePage, does not define.

@@ -9,7 +9,7 @@ use Throwable;
 /**
  * The per-user "paid locations unlocked" flag (WP13) — one purchase covers both the Plus and
  * Premium tiers, which are two labels over this single entitlement. Same shape as
- * Support\OAuthPasswordGate / Support\PanelTour: reads and writes users.premium_unlocked_at behind
+ * Support\PanelTour: reads and writes users.premium_unlocked_at behind
  * a memoised Schema::hasColumn guard, using forceFill(...)->saveQuietly() since the column cannot
  * live in upstream User::$fillable (and users.customization is off-limits — EditProfile rebuilds
  * it).

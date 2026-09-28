@@ -69,7 +69,14 @@ class EnsureRememberMeCookie
         }
 
         if ($needsRefresh && !$guard->getCookieJar()->hasQueued($recallerName)) {
-            $guard->login($user, true);
+            // Only the cookie, never login(): login() migrates the session (new id, old one
+            // destroyed) and fires Login, and the console sends several requests a second --
+            // the ones still carrying the old id lost the session, fell back to the recaller,
+            // and one that could not use it came back logged out ("the console disappears").
+            (function () use ($user): void {
+                $this->ensureRememberTokenIsSet($user);
+                $this->queueRecallerCookie($user);
+            })->call($guard);
         }
     }
 

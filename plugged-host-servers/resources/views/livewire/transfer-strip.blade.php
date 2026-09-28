@@ -1,9 +1,10 @@
 {{--
-    The progress strip on every server page (TransferStrip). Polls while the move runs, then
-    shows the outcome for ten minutes. One flat row on the theme tokens: a status dot, the
-    state, a flat progress bar. Scoped plain CSS, no asset build.
+    The progress strip on every server page (TransferStrip). Polls fast while the move runs,
+    then keeps a slow poll going while it shows the outcome so the strip clears itself once the
+    window passes (OUTCOME_MINUTES). One flat row on the theme tokens: a status dot, the state,
+    a flat progress bar. Scoped plain CSS, no asset build.
 --}}
-<div @if ($relocation?->isActive()) wire:poll.3s @endif>
+<div @if ($relocation?->isActive()) wire:poll.3s @elseif ($relocation) wire:poll.15s @endif>
     @if ($relocation)
         @php
             $active = $relocation->isActive();

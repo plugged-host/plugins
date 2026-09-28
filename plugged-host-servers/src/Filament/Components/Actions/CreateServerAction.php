@@ -3,7 +3,7 @@
 namespace PluggedHost\Servers\Filament\Components\Actions;
 
 use PluggedHost\Servers\Filament\App\Pages\CreateServerPage;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use Filament\Actions\Action;
 
 class CreateServerAction extends Action
@@ -39,7 +39,7 @@ class CreateServerAction extends Action
         // Shown to anyone the create page lets in (canAccess() is the same check), and never
         // greyed out: someone at their limit still gets to the page, whose Deploy button says
         // why it cannot deploy and where to get more, instead of a dead button here.
-        $this->visible(fn () => RoleResourceLimits::forUser(auth()->user()) !== null);
+        $this->visible(fn () => AccountAllowance::forUser(auth()->user()) !== null);
 
         $this->url(fn () => CreateServerPage::getUrl());
     }

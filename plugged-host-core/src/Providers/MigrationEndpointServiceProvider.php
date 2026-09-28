@@ -17,6 +17,9 @@ use PluggedHost\Core\Http\Controllers\NoprofitSsoController;
  * Passkeys and authenticator codes are managed and checked on noprofit.space, so upstream's
  * passkey endpoints (sign-in, password confirmation, registering a new one) are closed: a
  * passkey registered on the panel would otherwise still sign in without noprofit.space.
+ * Upstream's OAuth sign-in and linking (/auth/oauth/*) are closed for the same reason: a
+ * Discord login there would sign in without noprofit.space (and its second factor), and
+ * Discord is linked on noprofit.space, which mirrors the link here.
  * A later route with the same method and URI replaces the earlier one.
  */
 class MigrationEndpointServiceProvider extends ServiceProvider
@@ -44,5 +47,12 @@ class MigrationEndpointServiceProvider extends ServiceProvider
         Route::post('/passkeys/confirm', $closed)->name('passkey.confirm');
         Route::get('/user/passkeys/options', $closed)->name('passkey.registration-options');
         Route::post('/user/passkeys', $closed)->name('passkey.store');
+
+        // routes/auth.php is loaded by the panel's RouteServiceProvider, which boots after the
+        // plugin providers, so these have to be added once the application has booted.
+        $this->app->booted(function () use ($closed): void {
+            Route::get('/auth/oauth/redirect/{driver}', $closed)->name('auth.oauth.redirect');
+            Route::get('/auth/oauth/callback/{driver}', $closed)->name('auth.oauth.callback');
+        });
     }
 }

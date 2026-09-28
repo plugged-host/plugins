@@ -37,9 +37,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
-use PluggedHost\Servers\Filament\App\Widgets\UserResourceLimitsOverview;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Services\ServerResizer;
 use Illuminate\Validation\ValidationException;
@@ -223,7 +222,7 @@ class ServerSettings extends ServerFormPage
             return [];
         }
 
-        $resourceLimits = RoleResourceLimits::forUser($server->user);
+        $resourceLimits = AccountAllowance::forUser($server->user);
 
         if (!$resourceLimits) {
             return [];
@@ -342,7 +341,7 @@ class ServerSettings extends ServerFormPage
             return false;
         }
 
-        return RoleResourceLimits::forUser($server->user) !== null;
+        return AccountAllowance::forUser($server->user) !== null;
     }
 
     protected function resourceState(Server $server): array
@@ -368,7 +367,7 @@ class ServerSettings extends ServerFormPage
 
     protected function planOptions(
         Server $server,
-        RoleResourceLimits $resourceLimits,
+        AccountAllowance $resourceLimits,
         string $suffix,
         int $maxCpu,
         int $maxMemory,
@@ -1082,12 +1081,7 @@ class ServerSettings extends ServerFormPage
         $this->redirect($homeUrl, navigate: false);
     }
 
-    // -- 8. Header Widgets & Actions ----------------------------------------------
-
-    protected function getHeaderWidgets(): array
-    {
-        return $this->canEditResources() ? [UserResourceLimitsOverview::class] : [];
-    }
+    // -- 8. Header Actions ----------------------------------------------------------
 
     protected function getHeaderActions(): array
     {

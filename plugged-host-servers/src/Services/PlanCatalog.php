@@ -4,7 +4,7 @@ namespace PluggedHost\Servers\Services;
 
 use App\Models\User;
 use Illuminate\Support\Collection;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 
 /**
  * The resource presets ("plans") offered as tiles during server creation.
@@ -18,9 +18,9 @@ class PlanCatalog
     /**
      * @return Collection<int, array{id: string, label: string, cpu: int, memory: int, disk: int, available: bool}>
      */
-    public function forUser(?User $user, ?RoleResourceLimits $limits = null): Collection
+    public function forUser(?User $user, ?AccountAllowance $limits = null): Collection
     {
-        $limits ??= RoleResourceLimits::forUser($user);
+        $limits ??= AccountAllowance::forUser($user);
 
         return collect((array) config('plugged-host-servers.user-creatable-servers.plans', []))
             ->filter(fn ($plan) => is_array($plan))
@@ -45,7 +45,7 @@ class PlanCatalog
     /**
      * @return array{id: string, label: string, cpu: int, memory: int, disk: int, available: bool}|null
      */
-    public function find(?User $user, ?string $id, ?RoleResourceLimits $limits = null): ?array
+    public function find(?User $user, ?string $id, ?AccountAllowance $limits = null): ?array
     {
         if ($id === null || $id === '') {
             return null;

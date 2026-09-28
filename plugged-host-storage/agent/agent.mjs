@@ -2,8 +2,8 @@
 // plugged.host storage agent (WP9).
 //
 // Runs on the storage box, NOT the panel host. It PULLS: it initiates each rsync from the nodes,
-// serves an on-demand tar of a server's mirror behind an HMAC-signed URL (so wings can restore
-// from it directly), answers node-reachability probes for the panel, reports mirror size and
+// serves a tar of a server's mirror behind an HMAC-signed URL (streamed to browsers as it is
+// built, complete with a size for wings restores, cached until the next mirror pass), answers node-reachability probes for the panel, reports mirror size and
 // freshness back, and self-updates from a signed bundle the panel serves.
 //
 // Uses only Node built-ins — no npm dependencies to install on the box.
@@ -18,6 +18,7 @@
 //   PH_SNAPSHOTS           default 3     (rotating --link-dest snapshots kept)
 //   PH_MIRROR_INTERVAL_MIN default 30
 //   PH_UPDATE_INTERVAL_MIN default 15
+//   PH_MAX_ARCHIVE_JOBS    default 3     (tar builds at once; more answer 503 + Retry-After)
 //   PH_RELEASE_DIR         default /opt/plugged-host-storage   (for self-update symlink swap)
 //   PH_VERSION             current version string (stamped by install.sh into the unit)
 
@@ -42,7 +43,8 @@ const CFG = {
   mirrorIntervalMin: parseInt(process.env.PH_MIRROR_INTERVAL_MIN || '30', 10),
   updateIntervalMin: parseInt(process.env.PH_UPDATE_INTERVAL_MIN || '15', 10),
   releaseDir: process.env.PH_RELEASE_DIR || '/opt/plugged-host-storage',
-  version: process.env.PH_VERSION || '1.2.2',
+  version: process.env.PH_VERSION || '1.3.0',
+  maxArchiveJobs: Math.max(1, parseInt(process.env.PH_MAX_ARCHIVE_JOBS || '3', 10)),
   // How to turn a plan entry (host + path + uuid) into an rsync source. The pull credential
   // lives HERE, on the storage box, never on the panel. Placeholders: %HOST% %PATH% %UUID%.
   // Default is the SSH form; set to an rsync:// module URL if using an rsync daemon instead.
@@ -194,6 +196,10 @@ async function ensureDirs() {
   for (const d of [DIRS.mirror, DIRS.snapshots, DIRS.archives]) {
     await fsp.mkdir(d, { recursive: true });
   }
+  // Half-written archives from a build the agent did not live to finish.
+  for (const name of await fsp.readdir(DIRS.archives).catch(() => [])) {
+    if (name.endsWith('.tmp.tar.gz')) await fsp.rm(path.join(DIRS.archives, name), { force: true }).catch(() => {});
+  }
 }
 
 // Percent free on the storage filesystem, via `df`.
@@ -230,6 +236,20 @@ function run(cmd, args, opts = {}) {
     });
   });
 }
+
+// The gzip used for archives: pigz (every core) when the box has it, else gzip. Level 1 either
+// way: most of a game server is already compressed (world regions, jars), so a higher level
+// costs minutes of CPU for a few percent of size -- and that wait is the download's start.
+function findOnPath(bin) {
+  for (const dir of String(process.env.PATH || '/usr/local/bin:/usr/bin:/bin').split(':')) {
+    try {
+      fs.accessSync(path.join(dir, bin), fs.constants.X_OK);
+      return path.join(dir, bin);
+    } catch { /* next */ }
+  }
+  return null;
+}
+const COMPRESSOR = findOnPath('pigz') ? 'pigz -1' : 'gzip -1';
 
 // ---- Server Directory Resolution --------------------------------------------
 
@@ -358,6 +378,12 @@ async function mirrorServer(entry) {
   }
 
   const bytes = await dirSizeBytes(dest);
+  sizeCache.set(uuid, { bytes, at: Date.now() });
+  // The mirror changed, so the cached archive is out of date (freshCachedArchive would say so
+  // too: new snapshot, or a pass newer than the build). A build writing it right now finishes
+  // and is simply not trusted.
+  lastPassAt.set(uuid, Date.now());
+  if (!cacheWriters.has(uuid)) await dropCachedArchive(uuid);
   await report(entry, { state: 'ok', bytes, last_replicated_at: new Date().toISOString(), mirror_path: dest });
   log('info', 'mirror pass complete', { uuid, bytes });
 }
@@ -402,29 +428,218 @@ async function replicationTick() {
 
 // ---- inbound HTTP: archives, reachability, health, info ---------------------
 
-async function buildArchive(uuidOrShortId) {
-  const resolved = await resolveServerDir(uuidOrShortId);
-  if (!resolved) return null;
-
-  const src = resolved.dir;
-  const fullUuid = resolved.uuid;
-  const out = path.join(DIRS.archives, `${fullUuid}.tar.gz`);
-
-  // Rebuild if older than 5 min or absent, so a restore gets a fresh point-in-time tar.
-  try {
-    const st = await fsp.stat(out);
-    if (Date.now() - st.mtimeMs < 5 * 60 * 1000) {
-      return { path: out, uuid: fullUuid };
+// Archives are built from the newest snapshot when the server has one: it is the mirror as it
+// was at the end of the last pass, hardlinked, so a pass running meanwhile cannot change files
+// under tar. A built archive is kept in archives/ and reused until the source changes (the
+// next mirror pass removes it), so a second download -- or a retry -- starts at once, with a
+// size and resumable ranges.
+async function archiveSource(resolved) {
+  if (resolved.source === path.basename(DIRS.mirror)) {
+    const snapBase = path.join(DIRS.snapshots, resolved.uuid);
+    const snaps = (await fsp.readdir(snapBase).catch(() => [])).sort();
+    for (let i = snaps.length - 1; i >= 0; i--) {
+      const dir = path.join(snapBase, snaps[i]);
+      const files = await fsp.readdir(dir).catch(() => []);
+      if (files.length > 0) return dir;
     }
-  } catch { /* not built yet */ }
+  }
+  return resolved.dir;
+}
 
-  const tmpOut = path.join(DIRS.archives, `${fullUuid}.${Date.now()}.tmp.tar.gz`);
+function cachedArchivePath(uuid) {
+  return path.join(DIRS.archives, `${uuid}.tar.gz`);
+}
+
+// Next to each cached archive, which folder it was built from and when the build started.
+// Snapshot folders are named by pass, so a new pass means a new source and the archive is out
+// of date -- even across agent restarts. (Folder mtimes cannot tell: `cp -al` copies them.)
+function cacheMetaPath(uuid) {
+  return path.join(DIRS.archives, `${uuid}.json`);
+}
+
+const lastPassAt = new Map(); // uuid -> ms of the last completed mirror pass (this process)
+
+// The cached archive when it was built from the current source, else null.
+async function freshCachedArchive(uuid, srcDir) {
+  const [archive, meta] = await Promise.all([
+    fsp.stat(cachedArchivePath(uuid)).catch(() => null),
+    fsp.readFile(cacheMetaPath(uuid), 'utf8').then(JSON.parse).catch(() => null),
+  ]);
+  if (!archive || !archive.size || !meta || meta.source !== srcDir) return null;
+  // Built from the live mirror (no snapshot) while a pass ran: out of date.
+  if ((lastPassAt.get(uuid) || 0) > Number(meta.started_at || 0)) return null;
+  return { path: cachedArchivePath(uuid), size: archive.size };
+}
+
+async function writeCacheMeta(uuid, srcDir, startedAt) {
+  await fsp.writeFile(cacheMetaPath(uuid), JSON.stringify({ source: srcDir, started_at: startedAt.getTime() })).catch(() => {});
+}
+
+async function dropCachedArchive(uuid) {
+  await fsp.rm(cacheMetaPath(uuid), { force: true }).catch(() => {});
+  await fsp.rm(cachedArchivePath(uuid), { force: true }).catch(() => {});
+}
+
+let archiveJobs = 0;
+const cacheWriters = new Set();   // uuids whose cached archive is being written right now
+const completeBuilds = new Map(); // uuid -> Promise of a complete build (restores share one)
+
+function tarArgs(srcDir) {
   const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
-  const tarArgs = ['-czf', tmpOut, ...excludeArgs, '-C', src, '.'];
+  return ['-c', '-f', '-', '-I', COMPRESSOR, ...excludeArgs, '-C', srcDir, '.'];
+}
 
-  await run('tar', tarArgs);
-  await fsp.rename(tmpOut, out);
-  return { path: out, uuid: fullUuid };
+// tar exits 1 when a file changed while it was read; the archive is still whole.
+function tarOk(code) {
+  return code === 0 || code === 1;
+}
+
+// Build the whole archive into the cache, then return it (restores: wings gets a complete file
+// with a Content-Length, as it always has). Concurrent requests for one server share the build.
+function buildCompleteArchive(uuid, srcDir) {
+  if (completeBuilds.has(uuid)) return completeBuilds.get(uuid);
+
+  const job = (async () => {
+    const startedAt = new Date();
+    const tmpOut = path.join(DIRS.archives, `${uuid}.${Date.now()}.tmp.tar.gz`);
+    archiveJobs++;
+    cacheWriters.add(uuid);
+    await fsp.rm(cacheMetaPath(uuid), { force: true }).catch(() => {});
+    try {
+      const code = await new Promise((resolve, reject) => {
+        const child = spawn('tar', tarArgs(srcDir), { stdio: ['ignore', 'pipe', 'ignore'] });
+        const file = fs.createWriteStream(tmpOut);
+        child.on('error', reject);
+        file.on('error', reject);
+        child.stdout.pipe(file);
+        let exit = null;
+        let flushed = false;
+        const done = () => { if (exit !== null && flushed) resolve(exit); };
+        child.on('close', (c) => { exit = c; done(); });
+        file.on('finish', () => { flushed = true; done(); });
+      });
+      if (!tarOk(code)) throw new Error(`tar exited ${code}`);
+      await fsp.rename(tmpOut, cachedArchivePath(uuid));
+      await writeCacheMeta(uuid, srcDir, startedAt);
+      const st = await fsp.stat(cachedArchivePath(uuid));
+      return { path: cachedArchivePath(uuid), size: st.size };
+    } catch (e) {
+      await fsp.rm(tmpOut, { force: true }).catch(() => {});
+      throw e;
+    } finally {
+      archiveJobs--;
+      cacheWriters.delete(uuid);
+      completeBuilds.delete(uuid);
+    }
+  })();
+
+  completeBuilds.set(uuid, job);
+  return job;
+}
+
+// Stream the archive to the browser while tar writes it, so the download starts within a
+// second instead of after the whole build. The first stream for a server also writes the
+// cache; if the browser goes away, that build still finishes so a retry starts instantly.
+function streamArchive(res, uuid, srcDir, headers) {
+  const writesCache = !cacheWriters.has(uuid);
+  const startedAt = new Date();
+  const tmpOut = path.join(DIRS.archives, `${uuid}.${Date.now()}.tmp.tar.gz`);
+  const child = spawn('tar', tarArgs(srcDir), { stdio: ['ignore', 'pipe', 'ignore'] });
+  let file = null;
+
+  archiveJobs++;
+  if (writesCache) {
+    cacheWriters.add(uuid);
+    fsp.rm(cacheMetaPath(uuid), { force: true }).catch(() => {});
+    file = fs.createWriteStream(tmpOut);
+    file.on('error', () => { child.stdout.unpipe(file); file = null; });
+    child.stdout.pipe(file);
+  }
+
+  res.writeHead(200, headers);
+  res.on('error', () => {});
+  // end: false -- the response is only ended once tar says the archive is whole (below).
+  child.stdout.pipe(res, { end: false });
+
+  let responseDone = false;
+  res.on('close', () => {
+    if (responseDone) return;
+    child.stdout.unpipe(res);
+    // Nobody left to receive it and no cache to fill: stop the build.
+    if (!file) child.kill('SIGTERM');
+  });
+
+  child.on('error', () => res.destroy());
+  child.on('close', async (code) => {
+    archiveJobs--;
+    const ok = tarOk(code);
+    responseDone = true;
+    // A failed build must not look like a finished download: cut the connection so the
+    // browser reports a failure instead of saving a truncated file.
+    if (!ok) res.destroy(); else if (!res.writableEnded) res.end();
+
+    if (!writesCache) return;
+    try {
+      if (file) {
+        await new Promise((resolve) => (file.writableFinished ? resolve() : file.on('finish', resolve).on('close', resolve)));
+      }
+      if (ok && file) {
+        await fsp.rename(tmpOut, cachedArchivePath(uuid));
+        await writeCacheMeta(uuid, srcDir, startedAt);
+      } else {
+        await fsp.rm(tmpOut, { force: true });
+      }
+    } catch {
+      await fsp.rm(tmpOut, { force: true }).catch(() => {});
+    } finally {
+      cacheWriters.delete(uuid);
+    }
+  });
+}
+
+// A built archive from disk, with a size and single-range support (resuming, download managers).
+function sendFile(req, res, file, headers) {
+  const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
+  let start = 0;
+  let end = file.size - 1;
+
+  if (range && (range[1] !== '' || range[2] !== '')) {
+    if (range[1] === '') {
+      start = Math.max(0, file.size - Number(range[2]));
+    } else {
+      start = Number(range[1]);
+      if (range[2] !== '') end = Math.min(end, Number(range[2]));
+    }
+    if (start > end || start >= file.size) {
+      res.writeHead(416, { 'Content-Range': `bytes */${file.size}` });
+      return res.end();
+    }
+    res.writeHead(206, { ...headers, 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${file.size}` });
+  } else {
+    res.writeHead(200, { ...headers, 'Content-Length': file.size });
+  }
+
+  return pipeline(fs.createReadStream(file.path, { start, end }), res).catch(() => res.destroy());
+}
+
+// What a browser gets: the stream. What wings gets for a restore (no browser User-Agent):
+// the complete file, exactly as before. ?stream=1 / ?stream=0 force either.
+function wantsStream(req, q) {
+  if (q.get('stream') === '1') return true;
+  if (q.get('stream') === '0') return false;
+  return /^Mozilla\//.test(String(req.headers['user-agent'] || ''));
+}
+
+// Folder sizes for /info, remembered until the next mirror pass (du walks every file).
+const sizeCache = new Map(); // uuid -> { bytes, at }
+const SIZE_TTL_MS = 30 * 60 * 1000;
+
+async function cachedDirSize(uuid, dir) {
+  const hit = sizeCache.get(uuid);
+  if (hit && Date.now() - hit.at < SIZE_TTL_MS) return hit.bytes;
+  const bytes = await dirSizeBytes(dir);
+  sizeCache.set(uuid, { bytes, at: Date.now() });
+  return bytes;
 }
 
 function probeTcp(host, port, timeoutMs = 3000) {
@@ -469,8 +684,12 @@ function startServer() {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ok: true, exists: false }));
         }
-        const st = await fsp.stat(resolved.dir).catch(() => null);
-        const bytes = await dirSizeBytes(resolved.dir);
+        const srcDir = await archiveSource(resolved);
+        const [st, bytes, cached] = await Promise.all([
+          fsp.stat(srcDir).catch(() => null),
+          cachedDirSize(resolved.uuid, resolved.dir),
+          freshCachedArchive(resolved.uuid, srcDir),
+        ]);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({
           ok: true,
@@ -479,6 +698,8 @@ function startServer() {
           source: resolved.source,
           bytes,
           mtime: st ? st.mtime.toISOString() : null,
+          // A ready archive downloads at once, with a known size.
+          archive_bytes: cached ? cached.size : null,
         }));
       }
 
@@ -488,27 +709,39 @@ function startServer() {
         if (!/^[a-f0-9-]{6,}$/i.test(id) || !verifySignedRequest('archive', id, q.get('expires'), q.get('sig'))) {
           res.writeHead(403); return res.end('forbidden');
         }
-        const archive = await buildArchive(id);
-        if (!archive) { res.writeHead(404); return res.end('no mirror'); }
-        const st = await fsp.stat(archive.path).catch(() => null);
+        const resolved = await resolveServerDir(id);
+        if (!resolved) { res.writeHead(404); return res.end('no mirror'); }
+        const srcDir = await archiveSource(resolved);
 
         const customFilename = q.get('filename')
           ? q.get('filename').replace(/[^a-zA-Z0-9_.-]/g, '_')
-          : `backup-${archive.uuid.slice(0, 8)}.tar.gz`;
+          : `backup-${resolved.uuid.slice(0, 8)}.tar.gz`;
 
         const headers = {
           'Content-Type': 'application/octet-stream',
           'Content-Disposition': `attachment; filename="${customFilename}"`,
-          'Accept-Ranges': 'bytes',
           'Cache-Control': 'no-store, no-cache, must-revalidate',
           'Pragma': 'no-cache',
           'X-Content-Type-Options': 'nosniff',
         };
-        if (st && st.size) {
-          headers['Content-Length'] = st.size;
+
+        // Already built and still current: send it straight away, with a size and ranges.
+        const cached = await freshCachedArchive(resolved.uuid, srcDir);
+        if (cached) {
+          return sendFile(req, res, cached, { ...headers, 'Accept-Ranges': 'bytes' });
         }
-        res.writeHead(200, headers);
-        return pipeline(fs.createReadStream(archive.path), res).catch(() => res.destroy());
+
+        if (archiveJobs >= CFG.maxArchiveJobs && !completeBuilds.has(resolved.uuid)) {
+          res.writeHead(503, { 'Retry-After': '30', 'Content-Type': 'text/plain' });
+          return res.end('busy, try again in a moment');
+        }
+
+        if (wantsStream(req, q)) {
+          return streamArchive(res, resolved.uuid, srcDir, headers);
+        }
+
+        const built = await buildCompleteArchive(resolved.uuid, srcDir);
+        return sendFile(req, res, built, { ...headers, 'Accept-Ranges': 'bytes' });
       }
 
       // GET /reachable?host=..&port=..&expires=..&sig=..  -> second-witness node probe.

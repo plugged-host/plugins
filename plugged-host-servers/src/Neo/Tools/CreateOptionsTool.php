@@ -4,7 +4,7 @@ namespace PluggedHost\Servers\Neo\Tools;
 
 use PluggedHost\Neo\Tools\ToolContext;
 use PluggedHost\Neo\Tools\ToolResult;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Neo\AccountTool;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\LocationCatalog;
@@ -44,7 +44,7 @@ final class CreateOptionsTool extends AccountTool
     {
         $user = $context->user;
         app(ServerProvisioner::class)->forget($user);
-        $limits = RoleResourceLimits::forUser($user);
+        $limits = AccountAllowance::forUser($user);
 
         $games = app(GameCatalog::class)->games()->map(fn (array $game): string => "- {$game['name']} (game id {$game['id']})" . ($game['has_types'] ? ' — software/version is picked in the setup wizard after creation' : ''));
         $plans = app(PlanCatalog::class)->forUser($user, $limits)->map(fn (array $plan): string => "- {$plan['label']} (plan id {$plan['id']}): {$plan['cpu']}% CPU, {$plan['memory']} MB RAM, {$plan['disk']} MB disk" . ($plan['available'] ? '' : ' [does not fit the remaining allowance]'));

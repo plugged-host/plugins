@@ -26,7 +26,7 @@ class PerkDiscoveryPluginProvider extends ServiceProvider
     {
         // Singleton because PerkDiscovery memoises per user: a widget's canView() and its
         // getViewData() both ask for the same list, and so does every other surface on the
-        // page. Without this each call would re-run the role and Discord lookups.
+        // page. Without this each call would re-run the tier and Discord lookups.
         $this->app->singleton(PerkDiscovery::class);
     }
 }

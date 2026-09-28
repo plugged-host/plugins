@@ -72,7 +72,6 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'show_app_panel' => (bool) config('plugged-host-ads.show_app_panel', true),
             'show_server_panel' => (bool) config('plugged-host-ads.show_server_panel', true),
             'show_admin_panel' => (bool) config('plugged-host-ads.show_admin_panel', false),
-            'show_auth_pages' => (bool) config('plugged-host-ads.show_auth_pages', true),
 
             // Named slots (WP4): each placement's own on/off, plus the per-page cap.
             'max_units_per_page' => (int) config('plugged-host-ads.max_units_per_page', 2),
@@ -250,13 +249,6 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->onIcon(TablerIcon::Check)
                         ->offIcon(TablerIcon::X)
                         ->default(fn () => config('plugged-host-ads.show_admin_panel', false)),
-                    Toggle::make('show_auth_pages')
-                        ->label(trans('plugged-host-ads::strings.show_auth_pages'))
-                        ->helperText(trans('plugged-host-ads::strings.show_auth_pages_helper'))
-                        ->inline(false)
-                        ->onIcon(TablerIcon::Check)
-                        ->offIcon(TablerIcon::X)
-                        ->default(fn () => config('plugged-host-ads.show_auth_pages', true)),
                 ]),
 
             // Named slots (WP4): one switch per placement, plus the hard per-page cap
@@ -652,7 +644,6 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_SHOW_APP_PANEL' => !empty($data['show_app_panel']) ? 'true' : 'false',
             'ADS_SHOW_SERVER_PANEL' => !empty($data['show_server_panel']) ? 'true' : 'false',
             'ADS_SHOW_ADMIN_PANEL' => !empty($data['show_admin_panel']) ? 'true' : 'false',
-            'ADS_SHOW_AUTH_PAGES' => !empty($data['show_auth_pages']) ? 'true' : 'false',
 
             'ADS_MAX_UNITS_PER_PAGE' => (string) $this->clamp($data['max_units_per_page'] ?? 2, 0, 20),
             'ADS_SLOT_SIDEBAR_FOOTER' => !empty($data['slot_sidebar_footer']) ? 'true' : 'false',

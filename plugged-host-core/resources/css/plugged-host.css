@@ -55,27 +55,6 @@
 @custom-variant dark (.dark &);
 
 /*
-    Phone topbar: make room for the balance chips.
-
-    `.fi-topbar-end` is `ms-auto flex items-center gap-x-4` upstream — 1rem between
-    items, sized for the two controls Filament puts there. AccountChips adds two more
-    on a bar that below `lg` has already lost the logo and brand text, and on a 360px
-    screen those three 1rem gaps are the difference between fitting and pushing the
-    user menu off the edge. Halved below `sm` only, and only when the chips are
-    actually present, so a panel without them (the admin panel, a signed-out page)
-    keeps upstream's spacing exactly.
-
-    :has() is unsupported in browsers older than Chrome 105 / Safari 15.4 / Firefox
-    121; there the rule is simply dropped and the bar spaces itself as it did before,
-    which is the reason this is a gap tweak rather than something load-bearing.
-*/
-@media (width < 40rem) {
-    .fi-topbar-end:has(.fi-ph-chips) {
-        column-gap: 0.5rem;
-    }
-}
-
-/*
     Resolve gray/primary/danger/... against the panel's runtime palette, exactly
     as vendor/filament/support/resources/css/index.css does, so `text-gray-500`
     written in a plugin view is the same Nord grey a Filament component renders
@@ -253,7 +232,7 @@
     color: var(--phv2-text-nav, #d1d5db);
 }
 
-/* Tiny uppercase caption — the theme's `.phv2-resources-title`. */
+/* Tiny uppercase caption. */
 .ph-caption {
     font-size: 0.6875rem;
     line-height: 1rem;
@@ -286,35 +265,6 @@
     border-radius: 9999px;
     background-color: var(--phv2-accent-bright, #3b82f6);
     transition: width 300ms ease;
-}
-
-/*
-    Account chips (livewire/account-chips). No `display` here: the view decides that per chip
-    (`inline-flex`, `hidden sm:inline-flex`, `hidden md:inline-flex`), and an unlayered
-    `display` would override every one of those utilities.
-*/
-.ph-chip {
-    border-radius: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    line-height: 1rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    background-color: var(--phv2-raise, rgb(255 255 255 / 0.05));
-    color: var(--phv2-text-nav, #d1d5db);
-    transition: background-color 150ms ease;
-}
-
-a.ph-chip:hover {
-    background-color: var(--phv2-raise-2, rgb(255 255 255 / 0.1));
-}
-
-.ph-chip .fi-icon {
-    color: var(--phv2-text-muted, #9ca3af);
-}
-
-.ph-chip-faint {
-    color: var(--phv2-text-faint, #71717a);
 }
 
 .fi-ph-brand {

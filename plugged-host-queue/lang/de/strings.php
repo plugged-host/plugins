@@ -135,7 +135,7 @@ return [
     'pass_minutes_helper' => 'Nach einer Freigabe überspringen die nächsten Starts dieses Nutzers auf diesem Server sowohl die Warteschlange als auch das Werbe-Gate. Einmal warten und dann im anderen Wartebereich landen ist das Schlimmste, was diese Funktion tun kann.',
 
     'section_priority' => 'Priorität',
-    'section_priority_desc' => 'Wofür Tokens da sind. Ein Kauf, kontoweit, für ein Zeitfenster in Tagen — kein einzelnes Überspringen. Verkauft auf der Warteseite und im Ressourcen-Shop.',
+    'section_priority_desc' => 'Wofür Tokens da sind. Ein Kauf, kontoweit, für ein Zeitfenster in Tagen — kein einzelnes Überspringen. Verkauft auf der Warteseite und im Token-Shop.',
     'priority_token_cost' => 'Preis in Tokens',
     'priority_token_cost_helper' => 'Tokens werden vom Plugin plugged.host Ads ausgegeben. Dessen Verdienen-Seite liest diese Zahl, um den Preis zu erklären — hier geändert heißt dort geändert.',
     'priority_days' => 'Zeitfenster (Tage)',

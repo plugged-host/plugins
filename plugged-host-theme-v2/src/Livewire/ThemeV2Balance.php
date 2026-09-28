@@ -6,6 +6,7 @@ use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
+use PluggedHost\Economy\Filament\App\Pages\TokenStorePage;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\TokenService;
 use PluggedHost\ThemeV2\Support\ThemeV2Access;
@@ -21,30 +22,25 @@ use Throwable;
  * It is injected at SIDEBAR_FOOTER, i.e. *after* `.fi-sidebar-footer` in the DOM, and appears
  * above it because that element carries `order: 1` in theme.css.
  *
- * Why this exists at all: before it there was nowhere in Theme v2 to see a balance. The
- * numbers used to arrive with plugged-host-core's `AccountChips`, which hangs off
- * GLOBAL_SEARCH_BEFORE — a hook that only exists inside `topbar.blade.php`, and Theme v2 has
- * no topbar on any panel. An earlier pass re-injected that component here verbatim and it was
- * removed again because it rendered wrong, not because the numbers were unwanted: core's chips
- * take *all* of their dark styling from Tailwind `dark:` variants, and Filament only puts
- * `.dark` on `<html>` client-side when the stored preference resolves to dark — so on a
- * light-preferring browser they painted as pale `bg-gray-50 / text-gray-700` pills on Theme
- * v2's unconditionally dark sidebar. Everything here is styled from `--phv2-*` custom
- * properties instead, so it cannot depend on that class being present.
+ * Everything is styled from `--phv2-*` custom properties rather than Tailwind `dark:` variants:
+ * Filament only puts `.dark` on `<html>` client-side when the stored preference resolves to
+ * dark, and Theme v2's sidebar is dark regardless.
+ *
+ * Three things, each linking to where it is topped up: the usage card (what the account's
+ * servers use of its plan) to the Resource Store, the token balance to the Token Store and the
+ * credit balance to the Resource Store.
  *
  * A Livewire component rather than a static fragment, for one reason: `wire:navigate` swaps
  * the body, so a fragment would be re-rendered on every page change and would look correct —
  * but buying something is a Livewire action on the *same* page, and a fragment would then sit
  * there showing the pre-purchase balance until the user navigated. `wire:poll.60s` in the view
  * closes that window. (There is no `x-persist` anywhere on a Theme v2 page — Filament puts it
- * on `.fi-topbar-end`, which this theme removes — so unlike core's chips this component is not
- * *forced* to be Livewire to avoid freezing. It is Livewire because of the purchase case.)
+ * on `.fi-topbar-end`, which this theme removes — so this component is not *forced* to be
+ * Livewire to avoid freezing. It is Livewire because of the purchase case.)
  *
- * Deliberately not reusing core's `AccountSummary`: it returns null outright for a user with
- * no `RoleResourceLimits` profile, which would blank the balance for exactly the users most
- * likely to be topping up, and it runs a four-column aggregate over `servers` to build the
- * cpu/memory/disk figures this row never shows. Tokens and credits are two cheap primary-key
- * reads, so they are read here with the same class_exists()/try guards core uses.
+ * The balances are two cheap primary-key reads done here, not taken from core's
+ * `AccountSummary`, which is null for an account without a plan and would blank the balance
+ * for exactly the users most likely to be topping up.
  */
 class ThemeV2Balance extends Component
 {
@@ -75,8 +71,9 @@ class ThemeV2Balance extends Component
         return view('plugged-host-theme-v2::sidebar.balance', [
             'tokens' => static::tokens(),
             'credits' => static::credits(),
-            'resources' => static::resources(),
-            'storeUrl' => static::storeUrl(),
+            'usage' => static::usage(static::resources()),
+            'resourceStoreUrl' => static::pageUrl(ResourceStorePage::class),
+            'tokenStoreUrl' => static::pageUrl(TokenStorePage::class),
         ]);
     }
 
@@ -183,18 +180,90 @@ class ThemeV2Balance extends Component
     }
 
     /**
-     * Where the pill leads, standing in for UIExample's /wallet. Null when the economy plugin
-     * is absent, in which case the view renders a plain div — a balance the user cannot act on
-     * is still worth showing, but it must not look clickable.
+     * The usage card's rows: what the servers use against the plan, one row per resource, plus
+     * servers while there is a server limit. `full` marks a row that is at or over its limit.
+     *
+     * @param  ?array<string, int|null>  $resources  AccountSummary::forUser()
+     * @return list<array{label: string, used: string, limit: string, percent: int, full: bool}>
      */
-    private static function storeUrl(): ?string
+    private static function usage(?array $resources): array
     {
-        if (!class_exists(ResourceStorePage::class)) {
+        if ($resources === null) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ([
+            'cpu' => [trans('plugged-host-theme-v2::strings.usage.cpu'), 'percent'],
+            'memory' => [trans('plugged-host-theme-v2::strings.usage.memory'), 'size'],
+            'disk' => [trans('plugged-host-theme-v2::strings.usage.disk'), 'size'],
+        ] as $key => [$label, $kind]) {
+            $used = (int) ($resources["{$key}_used"] ?? 0);
+            $limit = (int) ($resources["{$key}_limit"] ?? 0);
+
+            [$usedText, $limitText] = static::pair($used, $limit, $kind);
+
+            // 0 is unlimited.
+            $unlimited = $limit === 0;
+
+            $rows[] = [
+                'label' => $label,
+                'used' => $usedText,
+                'limit' => $limitText,
+                'percent' => $unlimited ? 0 : ($limit > 0 ? (int) min(100, round($used / $limit * 100)) : 100),
+                'full' => !$unlimited && $used >= $limit,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * "200 / 500%", "4 / 16 GB" (the unit once when both sides share it), "512 MB / 16 GB".
+     * A limit of 0 is unlimited.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function pair(int $used, int $limit, string $kind): array
+    {
+        if ($kind === 'percent') {
+            return [(string) $used, $limit > 0 ? $limit . '%' : '∞'];
+        }
+
+        $binary = (bool) config('panel.use_binary_prefix');
+        $format = fn (int $value): array => $value >= 1024
+            ? [rtrim(rtrim(number_format($value / 1024, 1), '0'), '.'), $binary ? 'GiB' : 'GB']
+            : [(string) $value, $binary ? 'MiB' : 'MB'];
+
+        [$usedValue, $usedUnit] = $format($used);
+
+        if ($limit <= 0) {
+            return ["{$usedValue} {$usedUnit}", '∞'];
+        }
+
+        [$limitValue, $limitUnit] = $format($limit);
+
+        return [
+            $usedUnit === $limitUnit || $used === 0 ? $usedValue : "{$usedValue} {$usedUnit}",
+            "{$limitValue} {$limitUnit}",
+        ];
+    }
+
+    /**
+     * Where a balance or the usage card leads, or null when that page is absent or closed to
+     * this user (its currency switched off), in which case the view renders it inert.
+     *
+     * @param  class-string  $page
+     */
+    private static function pageUrl(string $page): ?string
+    {
+        if (!class_exists($page)) {
             return null;
         }
 
         try {
-            return ResourceStorePage::getUrl(panel: 'app');
+            return $page::canAccess() ? $page::getUrl(panel: 'app') : null;
         } catch (Throwable) {
             return null;
         }

@@ -5,8 +5,8 @@
 | plugged-host-servers
 |--------------------------------------------------------------------------
 |
-| Provisioning: the create/configure pages, plans, locations, node capacity,
-| role resource limits and the network-ports action.
+| Provisioning: the create page, plans, locations, node capacity, the
+| account allowance (the noprofit.space plan) and the network-ports action.
 |
 | WP1: these two blocks moved out of plugged-host-core unchanged. The env
 | variable names are identical (UCS_*, NODES_*), so .env needs no edit.
@@ -16,14 +16,6 @@
 
 return [
     'user-creatable-servers' => [
-        'default_limits_enabled' => (bool) env('UCS_DEFAULT_LIMITS_ENABLED', false),
-        'default_cpu' => (int) env('UCS_DEFAULT_CPU', 0),
-        'default_memory' => (int) env('UCS_DEFAULT_MEMORY', 0),
-        'default_disk' => (int) env('UCS_DEFAULT_DISK', 0),
-        'default_server_limit' => filled(env('UCS_DEFAULT_SERVER_LIMIT'))
-            ? (int) env('UCS_DEFAULT_SERVER_LIMIT')
-            : null,
-
         'database_limit' => (int) env('UCS_DEFAULT_DATABASE_LIMIT', 0),
         'allocation_limit' => (int) env('UCS_DEFAULT_ALLOCATION_LIMIT', 0),
         'backup_limit' => (int) env('UCS_DEFAULT_BACKUP_LIMIT', 0),

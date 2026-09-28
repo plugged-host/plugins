@@ -12,6 +12,7 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use PluggedHost\ThemeV2\Filament\Pages\ThemeAwareEditProfile;
 use PluggedHost\ThemeV2\Livewire\ThemeV2Balance;
+use PluggedHost\ThemeV2\Livewire\ThemeV2ServerEntry;
 use PluggedHost\ThemeV2\Support\ThemeV2Access;
 use Throwable;
 
@@ -30,6 +31,11 @@ class PluggedHostThemeV2ServiceProvider extends ServiceProvider
         Livewire::component('plugged-host-theme-v2.edit-profile', ThemeAwareEditProfile::class);
         Livewire::component(ThemeAwareEditProfile::class, ThemeAwareEditProfile::class);
         Livewire::component('plugged-host-theme-v2.balance', ThemeV2Balance::class);
+
+        // Upstream's server card resolves `server-entry` to App\Livewire\ServerEntry by
+        // discovery; naming it explicitly points that name at Theme v2's subclass, which only
+        // swaps the view (see ThemeV2ServerEntry). Upstream's files are untouched.
+        Livewire::component('server-entry', ThemeV2ServerEntry::class);
 
         // The /plugged-host/theme-v2/toggle route went with the per-user preference (WP2):
         // there is only one theme now, so there is nothing to toggle.
@@ -72,12 +78,8 @@ class PluggedHostThemeV2ServiceProvider extends ServiceProvider
     }
 
     /**
-     * plugged-host-core's own chips stay gone: it hangs AccountChips off GLOBAL_SEARCH_BEFORE,
-     * a hook that exists only inside topbar.blade.php, and this theme has no topbar on any
-     * panel, so nothing has to be switched off for them not to appear. The balance they used
-     * to carry is back as Theme v2's own component at SIDEBAR_FOOTER below, styled from
-     * `--phv2-*` properties rather than the `dark:` variants that made core's version render
-     * as pale pills on this theme's unconditionally dark sidebar.
+     * The account's usage and balances, as Theme v2's own component at SIDEBAR_FOOTER (this
+     * theme has no topbar), styled from `--phv2-*` properties rather than `dark:` variants.
      *
      * A render hook that throws takes the whole panel down with it, so every failure mode
      * below degrades to "no notification button" rather than a 500 — which requires rendering

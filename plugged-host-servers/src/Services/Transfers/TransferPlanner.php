@@ -10,7 +10,7 @@ use App\Services\Deployment\FindViableNodesService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Countries;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\NodeBalancer;
 use PluggedHost\Servers\Services\NodeCapacity;
@@ -20,7 +20,7 @@ use Throwable;
  * Where a server can move to: which locations to offer, which node inside a location, and
  * which ports it gets there.
  *
- * The rules are the ones server creation uses (RoleResourceLimits::findOrCreateAllocation):
+ * The rules are the ones server creation uses (AccountAllowance::findOrCreateAllocation):
  * the deployment tags, the location as an AND filter with the tiers kept apart, nodes with a
  * full disk left out unless that would empty the pool, and the coolest node by NodeBalancer
  * first. A move must never land a server somewhere creation would not have put it.
@@ -187,7 +187,7 @@ class TransferPlanner
             return null;
         }
 
-        $ranges = RoleResourceLimits::deploymentPortRanges();
+        $ranges = AccountAllowance::deploymentPortRanges();
         $existing = Allocation::withoutGlobalScopes()
             ->where('node_id', $node->getKey())
             ->where('ip', self::BIND_IP)

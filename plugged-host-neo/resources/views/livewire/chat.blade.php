@@ -82,7 +82,7 @@
             this.applySize(null);
             try { localStorage.removeItem('plugged-host-neo.size'); } catch (e) {}
         },
-        {{-- 'Ask neo' on a mclo.gs upload (dispatched from OfferNeoForMclogsUpload's notification). --}}
+        {{-- 'Ask neo to fix it' on the automatic log check above the console (log-check.blade.php). --}}
         async ask(detail) {
             const log = detail && typeof detail.log === 'string' ? detail.log : null;
             if (!log) { return; }

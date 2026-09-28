@@ -9,7 +9,7 @@ allocation-safe network-ports action, and paid (Plus/Premium) locations. Extract
 
 - **Create flow** (`CreateServerPage` → `ConfigureServerPage`, slugs `create-server` /
   `create-server/{game}`): pick a game, location, plan; deploy. All creation goes through
-  `RoleResourceLimits::createServer()` — never a hand-rolled upstream call — and plans/locations
+  `AccountAllowance::createServer()` — never a hand-rolled upstream call — and plans/locations
   are re-resolved **server-side** on submit so a tampered payload can't request resources or a
   location it isn't entitled to.
 - **Flags**: vendored `flag-icons` SVGs (`resources/flags/4x3/<cc>.svg`) inlined by
@@ -21,9 +21,11 @@ allocation-safe network-ports action, and paid (Plus/Premium) locations. Extract
   `premium:<cc>` codes; a node tagged both is premium). Plus and Premium are two labels over one
   unlock: a single token purchase opens every paid location permanently. Tiers never share
   hardware. Each card's tier pill has an (i) tooltip with the tier's uptime: free "No uptime
-  guarantee", Plus "95% uptime", Premium "99.99% uptime" (`strings.uptime.*`).
-- **Node capacity / role limits**: `NodeCapacity`, `RoleResourceLimits`, `AvailableResources`,
-  the resource/console widgets, and the admin role-limit resource.
+  guarantee", Plus "Best Performance", Premium "99.99% uptime" (`strings.uptime.*`).
+- **Node capacity / account allowance**: `NodeCapacity`, `AvailableResources`, the resource/console
+  widgets, and `Support/AccountAllowance`: what an account may use is its noprofit.space plan
+  (default tier, or the Discord tier while in the server, plus bought resources). There are no
+  role limits and no server count.
 - **Transfers** (`Services/Transfers`, server page `ServerTransferPage`, slug `transfer`): the
   owner, or a subuser with the `transfer.move` permission, picks a *location*; `TransferPlanner`
   picks the node inside it by the same rules as creation (deployment tags, tier, disk pressure,
@@ -62,7 +64,7 @@ Owns the **UCS_\*** and **NODES_\*** settings (its own `HasPluginSettings` tab),
 
 | Config (`plugged-host-servers.*`) | Env | Meaning |
 |---|---|---|
-| `user-creatable-servers.default_*` / limits | `UCS_DEFAULT_*` | Default per-user resource allowance |
+| `user-creatable-servers.{database,allocation,backup}_limit` | `UCS_DEFAULT_{DATABASE,ALLOCATION,BACKUP}_LIMIT` | Per-server feature limits of a created server |
 | `user-creatable-servers.deployment_tags` | `UCS_DEPLOYMENT_TAGS` | Node tags eligible for deployment |
 | `user-creatable-servers.plans` / `catalog` | — | Resource presets + per-egg software variants |
 | `user-creatable-servers.plus.tag` | `UCS_PLUS_TAG` (`plus`) | Plus node tag |
@@ -85,10 +87,12 @@ Env variable spellings are unchanged from when these lived in core, so `.env` ne
   be run by the operator**; paid (Plus and Premium) locations are omitted until it exists.
 - `011_create_server_relocations_table.php` — one row per server move. **Operator-run**; the
   Transfer page and the watcher stay hidden/inert until it exists (`ServerRelocation::ready()`).
+- `012_drop_role_resource_limits_table.php` — drops the old role limits table (role limits are
+  gone, see `AccountAllowance`). **Operator-run**; nothing reads the table any more.
 
 ## Extension points it offers / consumes
 
-- Offers: `RoleResourceLimits::createServer()`, `LocationCatalog`, `PlanCatalog`, `GameCatalog`,
+- Offers: `AccountAllowance::createServer()`, `LocationCatalog`, `PlanCatalog`, `GameCatalog`,
   `CardSelect`, `PremiumLocationService`, and API routes under `/api/client/provision/*`.
 - Consumes (all by class-string behind `class_exists()`): status `NodeLatency` (latency badge),
   economy `TokenService` (paid unlock), minecraft `ServerOnboarding::markRequired` (post-create),

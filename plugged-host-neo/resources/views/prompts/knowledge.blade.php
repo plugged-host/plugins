@@ -5,19 +5,24 @@
     $label = fn ($p) => is_string($p['label'] ?? null) && str_contains($p['label'], '::') ? trans($p['label']) : ($p['label'] ?? $p['id']);
     $gb = fn ($mb) => rtrim(rtrim(number_format(((int) $mb) / 1024, 1), '0'), '.') . ' GB';
     $subCosts = (array) $cfg('subdomains.token_costs', []);
+    // The allowance, caps and store prices are decided on noprofit.space and arrive with the credit sync.
+    $noprofit = class_exists(\PluggedHost\Economy\Services\NoprofitCreditSync::class);
+    $tiers = $noprofit ? \PluggedHost\Economy\Services\NoprofitCreditSync::tiers() : null;
+    $pricing = $noprofit ? \PluggedHost\Economy\Services\NoprofitCreditSync::pricing() : null;
+    $plan = $noprofit && isset($user) ? \PluggedHost\Economy\Services\NoprofitCreditSync::plan($user) : null;
 @endphp
 What plugged.host is and how it works (answer from this; if something is not covered, say you are not sure and point to support):
 
 Accounts and support
 - plugged.host is a free game and app server host on the Pelican panel. Accounts, sign-in (SSO) and the Discord link are handled on noprofit.space (accounts.noprofit.space); the panel is where servers live.
-- Sign-in can require the panel's own two-factor code. Users can delete their account (this deletes their servers).
+- Sign-in details, passkeys and two-factor codes are managed on noprofit.space, not in the panel. Deleting the noprofit.space account also deletes the panel account and all its servers.
 - Human support, abuse reports and account problems go through a private ticket on Discord: {{ $cfg('plugged-host-discord.invite_url') ?: $supportUrl }}. Never ask users to post passwords or keys anywhere.
 - Status page: status.plugged.host (nodes, incidents, history). Terms: plugged.host/terms, privacy: plugged.host/privacy. It is a free service with no uptime guarantee (SLA).
 
 Creating servers and the free allowance
 - Users create servers themselves (/create-server): pick a game, a location and a size. Everything is free within the account's allowance, which is shared across all their servers.
-@if($ucs['default_limits_enabled'] ?? false)
-- The default allowance for a new account is {{ (int) ($ucs['default_cpu'] ?? 0) }}% CPU, {{ $gb($ucs['default_memory'] ?? 0) }} RAM and {{ $gb($ucs['default_disk'] ?? 0) }} disk in total. Panel roles can raise it (the "{{ $cfg('plugged-host-discord.role_name', 'Discord Linked') }}" role, given for linking Discord and staying in the Discord server, usually does), and credits buy more (see below).
+@if($tiers)
+- A new account's allowance is {{ (int) $tiers['default']['cpu'] }}% CPU, {{ $gb($tiers['default']['memory']) }} RAM and {{ $gb($tiers['default']['disk']) }} disk in total; while the account's linked Discord is in the Discord server it is {{ (int) $tiers['discord']['cpu'] }}% CPU, {{ $gb($tiers['discord']['memory']) }} RAM and {{ $gb($tiers['discord']['disk']) }} disk. Discord is linked on noprofit.space (Settings). Credits buy more (see below).
 @endif
 - Size presets: @foreach($plans as $p){{ $label($p) }} {{ (int) $p['cpu'] }}% CPU / {{ $gb($p['memory']) }} / {{ $gb($p['disk']) }}{{ $loop->last ? '.' : '; ' }}@endforeach Custom sizes are allowed within the allowance.
 - Each server gets {{ (int) ($ucs['database_limit'] ?? 0) }} databases, {{ (int) ($ucs['allocation_limit'] ?? 0) }} ports and {{ (int) ($ucs['backup_limit'] ?? 0) }} panel backups.
@@ -31,8 +36,8 @@ Locations and tiers
 @endif
 
 Credits and tokens (two separate currencies; they cannot be exchanged)
-- Credits buy permanent resource upgrades in the store (/store): +50% CPU for {{ (int) $cfg('plugged-host-economy.credits.price_cpu_50', 100) }}, +1 GB RAM for {{ (int) $cfg('plugged-host-economy.credits.price_memory_1024', 150) }}, +5 GB disk for {{ (int) $cfg('plugged-host-economy.credits.price_disk_5120', 75) }}, +1 server slot for {{ (int) $cfg('plugged-host-economy.credits.price_server_slot', 250) }}; account caps {{ (int) $cfg('plugged-host-economy.credits.max_cpu', 600) }}% CPU / {{ $gb($cfg('plugged-host-economy.credits.max_memory', 24576)) }} / {{ $gb($cfg('plugged-host-economy.credits.max_disk', 102400)) }}. Credits are earned by inviting people to the Discord server ({{ (int) $cfg('plugged-host-discord.credits_per_invite', 50) }} per invite; the invited account must be at least {{ (int) $cfg('plugged-host-discord.min_account_age_days', 30) }} days old and is reversed if they leave), boosting it ({{ (int) $cfg('plugged-host-discord.credits_per_boost_1', 500) }} for one boost, {{ (int) $cfg('plugged-host-discord.credits_per_boost_2', 1250) }} for two) and giveaways.
-- Tokens pay for extras: start-queue priority, Plus/Premium locations, restoring hibernated servers and subdomain deposits. They are earned from sponsored links on the tokens page ({{ (int) $cfg('plugged-host-ads.start_credits.linkvertise.reward', 1) }} per link, up to {{ (int) $cfg('plugged-host-ads.start_credits.linkvertise.daily_cap', 5) }} a day){{ (int) $cfg('plugged-host-economy.tokens.daily_grant', 0) > 0 ? ', a free ' . (int) $cfg('plugged-host-economy.tokens.daily_grant') . ' per day' : '' }} and Discord giveaways. Balances show in the sidebar.
+- Credits buy permanent resource upgrades in the Resource Store (/store){{ $pricing ? ': +' . (int) ($pricing['cpu_unit_percent'] ?? 50) . '% CPU for ' . (int) ($pricing['cpu_price_credits'] ?? 0) . ', +' . $gb($pricing['memory_unit_mb'] ?? 1024) . ' RAM for ' . (int) ($pricing['memory_price_credits'] ?? 0) . ', +' . $gb($pricing['storage_unit_mb'] ?? 5120) . ' disk for ' . (int) ($pricing['storage_price_credits'] ?? 0) . '' : '' }}{{ $plan ? '; this account can reach at most ' . (int) $plan['max_cpu'] . '% CPU / ' . $gb($plan['max_memory']) . ' / ' . $gb($plan['max_disk']) : '' }}. The same credits and resources show on noprofit.space, which has a store of its own. Credits are earned by inviting people to the Discord server ({{ (int) $cfg('plugged-host-discord.credits_per_invite', 50) }} per invite; the invited account must be at least {{ (int) $cfg('plugged-host-discord.min_account_age_days', 30) }} days old and is reversed if they leave), boosting it ({{ (int) $cfg('plugged-host-discord.credits_per_boost_1', 500) }} for one boost, {{ (int) $cfg('plugged-host-discord.credits_per_boost_2', 1250) }} for two) and giveaways; the Discord rewards tab of the profile page (/profile?tab=discord-rewards) shows what invites and boosts earned and what is still waiting.
+- Tokens pay for extras: start-queue priority and the Plus/Premium locations (both sold in the Token Store, /token-store), restoring hibernated servers and subdomain deposits (paid on the server itself). They are earned from sponsored links on the tokens page ({{ (int) $cfg('plugged-host-ads.start_credits.linkvertise.reward', 1) }} per link, up to {{ (int) $cfg('plugged-host-ads.start_credits.linkvertise.daily_cap', 5) }} a day){{ (int) $cfg('plugged-host-economy.tokens.daily_grant', 0) > 0 ? ', a free ' . (int) $cfg('plugged-host-economy.tokens.daily_grant') . ' per day' : '' }}. Balances show in the sidebar.
 
 Starting servers: start queue, waiting room, hibernation
 @if($cfg('plugged-host-queue.enabled', false))
@@ -48,11 +53,9 @@ Starting servers: start queue, waiting room, hibernation
 Backups and safety
 - Each server has panel backups (restore or download). Server files are also mirrored off-site; the Backups page and backups.plugged.host offer snapshot downloads, even when a server is offline. If a node goes down for several minutes, its servers are restored automatically on another node in the same location (the address can change). Users should still keep their own copies of important data.
 
-@if(class_exists('Boy132\MclogsUploader\MclogsUploaderPlugin'))
 Console logs
-- The console page has an "Upload logs" button (while the server is running{{ $cfg('mclogs-uploader.only_minecraft_eggs', false) ? ', Minecraft servers only' : '' }}) that pastes the recent console to mclo.gs and gives a link to share, e.g. with support. When mclo.gs finds problems or errors in it, an "Ask neo to fix it" button opens this chat with the log's analysis already loaded.
+- On Minecraft servers the server log is checked automatically: it is uploaded to mclo.gs on its own (nobody has to press anything; secrets are removed first) and whatever mclo.gs recognises is shown above the console, with its suggested fix and an "Ask neo to fix it" button that opens this chat with the log's analysis loaded. With no problems there is a line with the log's mclo.gs link, to share with support. There is no upload button.
 
-@endif
 Subdomains
 - Available for game servers that support it (Minecraft Java and FiveM/RedM), up to {{ (int) $cfg('subdomains.default_limit', 3) }} per server. The owner needs Discord linked and must be in the Discord server. Each costs a refundable token deposit ({{ (int) ($subCosts[1] ?? 1) }}, {{ (int) ($subCosts[2] ?? 3) }}, {{ (int) ($subCosts[3] ?? 8) }}, then {{ (int) ($subCosts['default'] ?? 15) }} each), returned when the subdomain or server is deleted. They are managed on the server's Subdomains page.
 

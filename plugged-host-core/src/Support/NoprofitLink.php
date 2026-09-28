@@ -26,6 +26,14 @@ final class NoprofitLink
      */
     private static ?bool $available = null;
 
+    /**
+     * A page on accounts.noprofit.space, e.g. '/settings' (where Discord is linked).
+     */
+    public static function accountsUrl(string $path = ''): string
+    {
+        return rtrim((string) config('plugged-host-core.noprofit.accounts_url'), '/') . $path;
+    }
+
     public static function accountId(?User $user): ?int
     {
         if ($user === null || !self::available()) {

@@ -555,9 +555,15 @@
                                         @if ($srv['has_backup'])
                                             <span class="dot dot-ok" aria-hidden="true"></span>
                                             <span>Backup ready</span>
-                                            @if ($srv['bytes'])
+                                            @php
+                                                $size = $srv['archive_bytes'] ?: $srv['bytes'];
+                                                $sizeText = $size >= 1073741824
+                                                    ? number_format($size / 1073741824, 1) . ' GB'
+                                                    : number_format($size / 1048576, $size >= 104857600 ? 0 : 1) . ' MB';
+                                            @endphp
+                                            @if ($size)
                                                 <span class="sep" aria-hidden="true">&middot;</span>
-                                                <span>{{ number_format($srv['bytes'] / (1024 * 1024), 1) }} MB</span>
+                                                <span>{{ $srv['archive_bytes'] ? $sizeText : 'about ' . $sizeText }}</span>
                                             @endif
                                             @if (!empty($srv['mtime']))
                                                 <span class="sep" aria-hidden="true">&middot;</span>
@@ -572,7 +578,7 @@
 
                                 <div class="server-actions">
                                     @if ($srv['has_backup'])
-                                        <a href="{{ $srv['download_url'] }}" class="btn btn-secondary btn-sm">Download</a>
+                                        <a href="{{ $srv['download_url'] }}" class="btn btn-secondary btn-sm" data-download>Download</a>
                                     @endif
 
                                     <a href="{{ $srv['manage_url'] }}" class="link" title="Manage Server in Panel">Manage</a>
@@ -608,6 +614,20 @@
                 setTimeout(() => { toast.style.display = 'none'; }, 2000);
             });
         }
+
+        // The download starts in the browser's own download list within a second or two (the
+        // storage box streams the archive while it packs it), so say so instead of looking idle,
+        // and keep a second click from starting a second copy.
+        document.addEventListener('click', (event) => {
+            const link = event.target.closest('a[data-download]');
+            if (!link) return;
+            if (link.dataset.started === '1') { event.preventDefault(); return; }
+            link.dataset.started = '1';
+            link.textContent = 'Starting…';
+            link.setAttribute('aria-disabled', 'true');
+            setTimeout(() => { link.textContent = 'Downloading, see your browser'; }, 2500);
+            setTimeout(() => { link.textContent = 'Download'; link.dataset.started = ''; link.removeAttribute('aria-disabled'); }, 30000);
+        });
 
         // Deep-linking handler
         document.addEventListener('DOMContentLoaded', () => {

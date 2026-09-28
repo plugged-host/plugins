@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- **Sign-in details are noprofit.space's only** (`AccountIdentityLockPluginProvider`): the panel
+  never changes a user's username, email, password or "managed externally" flag, whatever route
+  tries (admin form, application API, client API; the change is put back and logged). On the
+  admin user page username and email are read-only, the password field, the toggle and
+  upstream's OAuth section with its Unlink buttons are gone, and "create user" is closed
+  (`/admin/users/create` 404s). Roles, credits, language and time zone stay editable.
+- **Admin sidebar regrouped** (`AdminNavigation`, applied by `HiddenNavigationManager`): Servers,
+  Users, Announcements & status, Subdomains, Panel, and a collapsed Advanced group.
+
 ## 1.2.1
 
 - **noprofit.space SSO hardening (account takeover).** `/sso/callback` finds the panel user only by the stored noprofit account id (`users.noprofit_account_id`, migration `011_add_noprofit_account_id_to_users`, operator-run) or by the plugged.host id noprofit.space linked through a password-proven migration; never by email or username. An email already used by an unlinked panel account shows a "connect your account" page instead of signing in.

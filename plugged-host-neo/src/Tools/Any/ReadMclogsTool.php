@@ -15,7 +15,7 @@ use RuntimeException;
 
 /**
  * Read a log pasted on mclo.gs: the problems its analysis detected (with suggested fixes) and
- * the log's error entries. This is what "Ask neo" on an uploaded console log starts with, and
+ * the log's error entries. This is what "Ask neo to fix it" above the console starts with, and
  * it also works for any mclo.gs link a user shares in the chat. It only reads a public paste,
  * so it needs no server permission.
  */

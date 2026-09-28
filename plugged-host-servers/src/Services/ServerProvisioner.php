@@ -9,7 +9,7 @@ use App\Repositories\Daemon\DaemonFileRepository;
 use App\Exceptions\Service\Deployment\NoViableAllocationException;
 use App\Exceptions\Service\Deployment\NoViableNodeException;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use Throwable;
 
 /**
@@ -126,7 +126,7 @@ class ServerProvisioner
      *
      * @throws ProvisioningException
      */
-    public function resources(User $user, array $input, ?RoleResourceLimits $limits = null): array
+    public function resources(User $user, array $input, ?AccountAllowance $limits = null): array
     {
         if (is_string($input['plan'] ?? null) && $input['plan'] !== '') {
             $plan = $this->plans->find($user, $input['plan'], $limits);
@@ -151,7 +151,7 @@ class ServerProvisioner
      */
     public function forget(User $user): void
     {
-        RoleResourceLimits::forgetMemo($user);
+        AccountAllowance::forgetMemo($user);
 
         if (class_exists(\PluggedHost\Core\Services\AccountSummary::class)) {
             app(\PluggedHost\Core\Services\AccountSummary::class)->forget($user);
@@ -160,7 +160,7 @@ class ServerProvisioner
 
     /**
      * @param  array<string, mixed>  $input
-     * @return array{limits: RoleResourceLimits, egg: Egg, resources: array{cpu: int, memory: int, disk: int}, location: string, name: string}
+     * @return array{limits: AccountAllowance, egg: Egg, resources: array{cpu: int, memory: int, disk: int}, location: string, name: string}
      *
      * @throws ProvisioningException
      */
@@ -170,14 +170,9 @@ class ServerProvisioner
             $this->forget($user);
         }
 
-        $limits = RoleResourceLimits::forUser($user);
+        $limits = AccountAllowance::forUser($user);
         if ($limits === null) {
             throw new ProvisioningException('no_resource_limits');
-        }
-
-        $usage = RoleResourceLimits::getUsage($user);
-        if ($limits->server_limit !== null && $usage['count'] >= $limits->server_limit) {
-            throw new ProvisioningException('server_limit_reached');
         }
 
         $resources = $this->resources($user, $input, $limits);

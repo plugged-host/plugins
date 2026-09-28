@@ -102,7 +102,7 @@ class ServerOnboarding extends Model
     /**
      * Mark a server as one that must go through setup before it can be used.
      *
-     * Only ConfigureServerPage calls this, and that is the whole design: the wizard now owns the
+     * Only ServerProvisioner calls this, and that is the whole design: the wizard now owns the
      * software question, so a server created there is genuinely unconfigured until it has been
      * answered. A server that predates this flag, or one an admin created, does not carry it and
      * keeps the wizard as an offer — forcing those would ambush owners of servers that have been

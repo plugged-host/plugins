@@ -14,11 +14,9 @@ use Throwable;
  * which step the person stopped on. Three callers share it -- RequirePanelTour reads it,
  * WelcomeTourPage writes it, and the user-menu entry restarts it.
  *
- * Shaped after OAuthPasswordGate, with one divergence that is the whole reason this class
- * exists rather than a couple of inline attribute reads:
+ * The one thing that makes this a class rather than a couple of inline attribute reads:
  *
- *   There, an absent column reads as null, null means "nothing pending", and the gate opens.
- *   Here, an absent column reads as "never acknowledged", which means the gate *shuts* --
+ *   An absent column reads as "never acknowledged", which means the gate *shuts* --
  *   and since the write would also fail, every request from every user would redirect to a
  *   page whose only button cannot record anything. So mustAcknowledge() consults the
  *   Schema::hasColumn() memo on the read path and answers false when the column is missing.
@@ -54,7 +52,7 @@ final class PanelTour
 
     /**
      * Which tour this is. Bumping it in config re-prompts everyone -- deliberately, the same
-     * way LEGAL_*_VERSION re-prompts for a changed document -- because a rewritten tour that
+     * way a legal document's version does for a changed document -- because a rewritten tour that
      * only new accounts ever see is a tour nobody reads.
      */
     public static function version(): string
@@ -207,7 +205,7 @@ final class PanelTour
         $state = [...self::state($user), ...$changes, 'version' => self::version()];
 
         try {
-            // forceFill + saveQuietly, as OAuthPasswordGate does: the column is not in
+            // forceFill + saveQuietly: the column is not in
             // User::$fillable (it cannot be -- User is upstream), and recording tour progress
             // has no business firing the model events the panel's own observers listen to.
             $user->forceFill([self::COLUMN => json_encode($state)])->saveQuietly();

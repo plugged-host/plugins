@@ -31,8 +31,9 @@ use PluggedHost\Core\Support\NoprofitLink;
  *    client API. The profile page keeps only the panel's own tabs (ThemeAwareEditProfile in
  *    theme-v2); its header action points every linked account to noprofit.space, where
  *    sign-in details, passkeys, 2FA, Discord and account deletion are managed.
- *  - Whatever route tries to set a password on such an account anyway (admin edit, a reset
- *    link issued before the conversion) is ignored, and no reset mail goes out for it.
+ *  - No reset mail goes out for such an account (a reset link issued before the conversion
+ *    would otherwise still arrive). The panel changing sign-in details at all is stopped by
+ *    AccountIdentityLockPluginProvider.
  */
 class NoprofitAccountPluginProvider extends ServiceProvider
 {
@@ -66,18 +67,6 @@ class NoprofitAccountPluginProvider extends ServiceProvider
         Route::middleware([VerifyNoprofitSignature::class . ':sync_secret', 'throttle:120,1'])
             ->post('/api/noprofit/discord/link', [NoprofitServiceController::class, 'linkDiscord'])
             ->name('plugged-host.noprofit.discord.link');
-
-        // Judged on the stored state, so an admin who deliberately un-ticks "managed
-        // externally" can still give the account a panel password again.
-        User::saving(function (User $user): void {
-            if (!$user->exists || !$user->isDirty('password')) {
-                return;
-            }
-
-            if ($user->getOriginal('is_managed_externally') && $user->getOriginal(NoprofitLink::COLUMN) !== null) {
-                $user->setAttribute('password', $user->getOriginal('password'));
-            }
-        });
 
         Event::listen(NotificationSending::class, function (NotificationSending $event): ?bool {
             if ($event->notification instanceof ResetPassword

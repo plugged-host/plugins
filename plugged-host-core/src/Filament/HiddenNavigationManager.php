@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Core\Filament;
 
+use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Navigation\NavigationManager;
 
@@ -51,14 +52,29 @@ class HiddenNavigationManager extends NavigationManager
     {
         $hidden = static::hidden();
 
-        if ($hidden === []) {
-            return parent::getNavigationItems();
-        }
-
-        return array_values(array_filter(
+        $items = $hidden === [] ? parent::getNavigationItems() : array_values(array_filter(
             parent::getNavigationItems(),
             fn (NavigationItem $item): bool => !in_array($item->getKey(), $hidden, true),
         ));
+
+        // The server sidebar: everyday pages on top, the rest folded into "More". The admin
+        // sidebar: regrouped by AdminNavigation.
+        return match ($this->panel->getId()) {
+            'server' => ServerNavigation::arrange($items),
+            'admin' => AdminNavigation::arrange($items),
+            default => $items,
+        };
+    }
+
+    /**
+     * The admin panel's groups come from AdminNavigation instead of AdminPanelProvider, so
+     * their order is ours.
+     *
+     * @return array<string | int, NavigationGroup | string>
+     */
+    public function getNavigationGroups(): array
+    {
+        return $this->panel->getId() === 'admin' ? AdminNavigation::groups() : parent::getNavigationGroups();
     }
 
     /**

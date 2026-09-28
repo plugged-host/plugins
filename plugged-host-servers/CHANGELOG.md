@@ -22,8 +22,19 @@
   button. Pick a location (automatic node) or a node; ports are created automatically and
   previewed; it runs through the same orchestrator. New Transfers tab with live progress, admin
   details, Cancel, Release for a STUCK move, and history.
-- `RoleResourceLimits::deploymentPortRanges()` is now public static (used by the planner).
+- `deploymentPortRanges()` is now public static (used by the planner).
 - Migration `011_create_server_relocations_table` (operator-run).
+- **No more role limits.** What an account may use is only its noprofit.space plan (default
+  tier, or the Discord tier while in the server, plus resources bought there). The *Role Server
+  Limits* admin page, the Roles relation tab, the *Servers per account* setting
+  (`UCS_DEFAULT_SERVER_LIMIT`) and the server count are gone. `RoleResourceLimits` (an Eloquent
+  model) became `Support\AccountAllowance`, a plain value object with the same placement helpers.
+  Migration `012_drop_role_resource_limits_table` (operator-run).
+- Removed the old two-step create page (`ConfigureServerPage`, `create-server/{game}`), which
+  nothing linked to since the single create page replaced it.
+- **Fix:** Plus/Premium location cards on the create page lost their tier pill and could be
+  selected while locked (the page still read the pre-tier `premium` flag); they show the pill
+  and the Unlock button again and cannot be picked until unlocked.
 
 ## 1.2.1
 
@@ -37,7 +48,7 @@
   everything they had. `LocationCatalog::resolve()` now returns the tier name, and location
   entries carry `tier` instead of `premium`.
 - Each location card's tier pill (Free / Plus / Premium) has an (i) with an uptime tooltip:
-  "No uptime guarantee" / "95% uptime" / "99.99% uptime".
+  "No uptime guarantee" / "Best Performance" / "99.99% uptime".
 - Client API: `GET /provision/locations` adds `tier` (`premium` is kept, true for premium only).
 
 ## 1.2.0

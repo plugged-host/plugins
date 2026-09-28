@@ -3,17 +3,15 @@
 namespace PluggedHost\Neo\Services;
 
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Request;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
- * Read-only client for mclo.gs, where the mclogs-uploader plugin pastes a server's console.
+ * Client for mclo.gs, where the console's log is uploaded automatically (LogCheck).
  *
- * neo reads a log's info, mclo.gs's automatic analysis (known problems with suggested fixes)
- * and its error entries. The host is fixed and ids are strictly validated, so an id taken from
- * the model or a log can never point a request anywhere else.
+ * Uploads a log, and reads a log's info, mclo.gs's automatic analysis (known problems with
+ * suggested fixes) and its error entries. The host is fixed and ids are strictly validated, so
+ * an id taken from the model or a log can never point a request anywhere else.
  */
 final class Mclogs
 {
@@ -46,21 +44,29 @@ final class Mclogs
     }
 
     /**
-     * The id, link and error count of a successful POST /1/log, if this response is one.
+     * Paste a log to mclo.gs. mclo.gs strips IP addresses itself; callers redact secrets first.
      *
-     * @return array{id: string, url: string, errors: int}|null
+     * @return array{id: string, url: string, errors: int}
+     *
+     * @throws RuntimeException When mclo.gs cannot be reached or refuses the log.
      */
-    public static function uploaded(Request $request, Response $response): ?array
+    public function upload(string $content): array
     {
-        if ($request->method() !== 'POST' || rtrim(strtok($request->url(), '?') ?: '', '/') !== self::API . '/log' || !$response->successful()) {
-            return null;
-        }
+        $response = Http::asForm()
+            ->acceptJson()
+            ->withUserAgent('plugged.host neo')
+            ->withoutRedirecting()
+            ->connectTimeout(5)
+            ->timeout(15)
+            ->post(self::API . '/log', ['content' => $content]);
 
         $data = $response->json();
         $id = is_array($data) && ($data['success'] ?? false) === true && is_string($data['id'] ?? null) ? self::idFrom($data['id']) : null;
 
-        if ($id === null) {
-            return null;
+        if (!$response->successful() || $id === null) {
+            throw new RuntimeException(is_array($data) && is_string($data['error'] ?? null)
+                ? "mclo.gs refused the log: {$data['error']}"
+                : "mclo.gs answered HTTP {$response->status()}.");
         }
 
         return ['id' => $id, 'url' => self::SITE . $id, 'errors' => max(0, (int) ($data['errors'] ?? 0))];

@@ -1,13 +1,16 @@
 <?php
 
 return [
-    'role_resource_limits' => 'Rollen-Ressourcenlimit|Rollen-Ressourcenlimits',
+    // The server sidebar's collapsed group (PluggedHost\Core\Filament\ServerNavigation).
+    'nav' => [
+        'more' => 'Mehr',
+    ],
+
     'role' => 'Rolle|Rollen',
     'user' => 'Benutzer|Benutzer',
     'cpu' => 'CPU',
     'memory' => 'RAM',
     'disk' => 'Speicherplatz',
-    'server_limit' => 'Server Limit',
     'no_limit' => 'Kein Limit',
     'unlimited' => 'Unbegrenzt',
     'hint_unlimited' => '0 bedeutet Unbegrenzt',
@@ -361,27 +364,6 @@ return [
         'locked_allocation_required_body' => 'Diese Netzwerkzuweisung ist gesperrt und kann nicht entfernt werden.',
     ],
 
-    /*
-     * Was vom Guthaben-Block übrig ist, nachdem die Wirtschaft nach
-     * plugged-host-economy gezogen ist.
-     *
-     * Diese fünf werden weiterhin von Core-Code gerendert — UserResourceLimitsOverview ist
-     * ein Core-Widget — und bleiben deshalb hier, statt zu einem Plugin-übergreifenden
-     * Lookup zu werden, der beim Deinstallieren des Economy-Plugins nur noch den rohen
-     * Übersetzungsschlüssel anzeigt. Alles andere liegt jetzt unter
-     * plugged-host-economy::strings.credits.
-     */
-    'credits' => [
-        'credits' => 'Guthaben',
-        'store_description' => 'Limits im Shop upgraden',
-        'need_more_upgrade_store' => 'Mehr nötig? Im Ressourcen-Shop upgraden',
-
-        // Wird angezeigt, wenn bestehende Server mehr belegen als das aktuelle Limit
-        // erlaubt — Rolle entfernt, gesenkt oder Ressourcen zurückgeholt.
-        'over_quota' => 'Limit um :amount überschritten — Server verkleinern oder löschen',
-        'over_quota_slots' => 'Server-Limit um :amount überschritten — Server löschen',
-    ],
-
     // Die Warteseite, auf der ein Server bis zum Ende der Installation bleibt. Absichtlich
     // ohne Prozentanzeige: wings meldet keinen Fortschrittsanteil, ein Balken wäre erfunden.
     'installing' => [
@@ -408,8 +390,8 @@ return [
     ],
 
     // Speist alle Entdeckungs-Oberflächen über PluggedHost\Core\Services\PerkDiscovery.
-    // Die Beträge kommen zur Laufzeit aus den Rollen-Limits und den Shop-Preisen, hier steht
-    // also keine Zahl doppelt — ändert sich ein Rollen-Limit, ändert sich dieser Text mit.
+    // Die Beträge kommen zur Laufzeit aus den noprofit.space-Stufen und den Shop-Preisen, hier
+    // steht also keine Zahl doppelt — ändert sich eine Stufe, ändert sich dieser Text mit.
     'perks' => [
         'heading' => 'Hol mehr aus deinem Konto',
         // Die eingeklappte Einzeiler-Variante fürs Dashboard. Die Anzahl steht in der
@@ -427,33 +409,12 @@ return [
         'discord_earn_body_boost' => 'Lade mit deinem eigenen Invite-Link Leute ein oder booste den Server für :credits Guthaben — und gib alles für mehr Ressourcen aus.',
         'discord_earn_cta' => 'Invites ansehen',
         'store_title' => ':price Guthaben bringen :amount mehr RAM',
-        'store_body' => 'Du hast :balance Guthaben. Gib es für CPU, RAM, Speicherplatz oder einen weiteren Server-Slot aus.',
+        'store_body' => 'Du hast :balance Guthaben. Gib es für CPU, RAM oder Speicherplatz aus.',
         'store_cta' => 'Shop öffnen',
-        'gain_unlock' => 'eigene Server',
         'gain_cpu' => '+:amount CPU',
         'gain_memory' => '+:amount RAM',
         'gain_disk' => '+:amount Speicherplatz',
-        'gain_servers' => ':amount weitere Server',
-        'gain_unlimited_cpu' => 'unbegrenzte CPU',
-        'gain_unlimited_memory' => 'unbegrenztes RAM',
-        'gain_unlimited_disk' => 'unbegrenzten Speicherplatz',
-        'gain_unlimited_servers' => 'unbegrenzte Server',
         'gain_and' => 'und',
-    ],
-
-    // Die Topbar-Chips (PluggedHost\Core\Livewire\AccountChips). Überwiegend Tooltips: die
-    // Zahlen werden in der Komponente formatiert, damit sie in beiden Sprachen identisch
-    // sind — und ein Chip ohne Platz für ein Label muss sich beim Hovern selbst erklären.
-    //
-    // `store` ist die Ausnahme: ein echtes, sichtbares Label — und nur ein Fallback. Die
-    // Schaltfläche liest ihren Namen von der Seite, die sie öffnet
-    // (ResourceStorePage::getNavigationLabel()), damit Topbar und Seitenleiste dieselbe
-    // Seite nicht unterschiedlich benennen können.
-    'chips' => [
-        'tokens_title' => 'Tokens für die Startwarteschlange',
-        'credits_title' => 'Guthaben — Economy-Seite öffnen',
-        'quota_title' => "CPU :cpu\nRAM :memory\nSpeicherplatz :disk\nServer :servers",
-        'store' => 'Economy',
     ],
 
     // Willkommenstour beim ersten Login (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage).
@@ -509,34 +470,17 @@ return [
                 'heading' => 'Einstellungen und dein Guthaben',
                 'body' => 'Die Einstellungen sind eine Seite pro Server und enthalten alles zu diesem Server: umbenennen, mehr RAM geben, die Version wechseln oder neu installieren.',
                 'bullets' => [
-                    'Die Münze in der Topbar sind deine Tokens — damit überspringt ein Server die Startwarteschlange.',
-                    'Das $ daneben ist dein Guthaben. Ein Klick öffnet den Shop für mehr Ressourcen.',
+                    'Deine Tokens und dein Guthaben stehen unten in der Seitenleiste. Mit Tokens überspringt ein Server die Startwarteschlange; ausgeben kannst du sie im Token-Shop.',
+                    'Guthaben kauft mehr CPU, Arbeitsspeicher und Speicherplatz im Ressourcen-Shop. Ein Klick auf einen Kontostand öffnet seinen Shop.',
                     'Diese Tour kannst du jederzeit über das Menü bei deinem Avatar erneut öffnen.',
                 ],
             ],
         ],
     ],
 
-    // Erzwungenes Passwort für Konten, die per OAuth-Login angelegt wurden
-    // (PluggedHost\Core\Filament\App\Pages\SetPasswordPage).
-    'set_password' => [
-        'title' => 'Passwort festlegen',
-        'heading' => 'Konto fertig einrichten',
-        'subheading' => 'Du hast dich mit Discord registriert, deshalb hat dein Konto noch kein Passwort. Lege jetzt eines fest — damit kommst du wieder hinein, falls du den Zugang zu deinem Discord-Konto verlierst.',
-        'password' => 'Passwort',
-        'password_helper' => 'Mindestens 8 Zeichen. Lang ist besser als kompliziert.',
-        'confirmation' => 'Passwort bestätigen',
-        'submit' => 'Passwort speichern',
-        'logout' => 'Abmelden',
-        'saved' => 'Passwort festgelegt',
-        'saved_body' => 'Du kannst dich ab jetzt mit deiner E-Mail-Adresse und diesem Passwort anmelden — und weiterhin mit Discord.',
-        'gate_title' => 'Nur noch ein Schritt',
-        'gate_body' => 'Lege ein Passwort fest, bevor du weitermachst.',
-    ],
-
-    // Admin-Einstellungsformular (PluggedHostCorePlugin, über EnvironmentWriterTrait). Die
-    // Abschnitte Rechtliches, Registrierung und Seitenleiste tragen ihre eigenen Labels; diese
-    // Schlüssel decken die zusätzlich hinzugefügten Willkommenstour-Optionen ab.
+    // Admin-Einstellungsformular (PluggedHostCorePlugin, über EnvironmentWriterTrait). Der
+    // Abschnitt Seitenleiste trägt seine eigenen Labels; diese Schlüssel decken die
+    // Willkommenstour-Optionen ab.
     'settings' => [
         'section_tour' => 'Willkommenstour',
         'section_tour_hint' => 'Die Einführung beim ersten Login, durch die neue Benutzer geführt werden. Wird sie ausgeschaltet, entfällt die Weiterleitung für alle sofort.',
@@ -564,5 +508,15 @@ return [
         'managed_hint' => 'Anmeldedaten, Passkeys, Zwei-Faktor-Codes, deine Discord-Verknüpfung und das Löschen deines Kontos werden auf noprofit.space verwaltet.',
         'reset_moved' => 'Konto zu noprofit.space umgezogen? Dein Passwort liegt jetzt dort.',
         'reset_moved_link' => 'accounts.noprofit.space öffnen',
+        'identity_locked' => 'Wird auf noprofit.space verwaltet.',
+    ],
+
+    'admin_nav' => [
+        'servers' => 'Server',
+        'users' => 'Benutzer',
+        'community' => 'Ankündigungen & Status',
+        'subdomains' => 'Subdomains',
+        'panel' => 'Panel',
+        'advanced' => 'Erweitert',
     ],
 ];

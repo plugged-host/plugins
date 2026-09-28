@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- **Server slots are no longer sold.** Accounts have no server count any more (only their plan's
+  CPU, memory and disk), so the store's slot row, `CREDITS_PRICE_SERVER_SLOT`, slot reclaiming
+  and `user_credits.extra_server_limit` are gone. Migration
+  `014_drop_extra_server_limit_from_user_credits` (operator-run; nobody ever bought a slot).
+- **Fix:** `POST /api/client/economy/store/purchase` answered 422 even when the purchase worked
+  (it checked `ok`, the store returns `success`).
+
 ## 1.2.1
 
 - Version bump to 1.2.1 (plugged.host 2.1).

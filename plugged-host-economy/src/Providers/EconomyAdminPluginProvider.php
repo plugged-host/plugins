@@ -122,11 +122,10 @@ class EconomyAdminPluginProvider extends ServiceProvider
                         'cpu' => $store->purchaseCpu($user, $amount),
                         'memory' => $store->purchaseMemory($user, $amount),
                         'disk' => $store->purchaseDisk($user, $amount),
-                        'slot' => $store->purchaseServerSlot($user, $amount),
-                        default => ['ok' => false, 'reason' => 'unknown_resource'],
+                        default => ['success' => false, 'message' => 'Unknown resource.'],
                     };
 
-                    return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
+                    return response()->json($result, $result['success'] ? 200 : 422);
                 })->name('api:client:economy.store.purchase');
             });
     }

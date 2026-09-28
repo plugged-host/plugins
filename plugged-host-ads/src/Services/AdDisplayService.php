@@ -199,7 +199,8 @@ class AdDisplayService
             return false;
         }
 
-        if ($isAuthPage && !config('plugged-host-ads.show_auth_pages', true)) {
+        // Signed-out pages never show ads (see config: Panel Placements).
+        if ($isAuthPage) {
             return false;
         }
 

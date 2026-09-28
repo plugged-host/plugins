@@ -18,7 +18,6 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
 use PluggedHost\Servers\Filament\Server\Pages\ServerSettings;
-use PluggedHost\Core\Livewire\AccountChips;
 use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Core\Services\AllocationInvariant;
 use PluggedHost\Core\Services\GuardedBuildModificationService;
@@ -156,40 +155,23 @@ class CoreRuntimeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Livewire::component('plugged-host-account-chips', AccountChips::class);
-
         // --- Topbar ---------------------------------------------------------------------
         //
-        // Both hooks are registered *unscoped* and filter inside the closure, which is not
-        // laziness: ViewManager::renderHook() only renders `renderHooks[$name]['']` unless the
-        // call site passes scopes, and Filament's topbar.blade.php calls both of these with no
-        // scopes at all. A hook registered with `scopes: 'app'` would therefore never render.
+        // Registered *unscoped* and filtered inside the closure, which is not laziness:
+        // ViewManager::renderHook() only renders `renderHooks[$name]['']` unless the call site
+        // passes scopes, and Filament's topbar.blade.php calls it with no scopes at all.
 
         // The wordmark beside the logo. APP_LOGO is set, so Filament's logo component takes its
         // <img> branch and brandName is never drawn.
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_LOGO_AFTER,
             function (): Htmlable {
-                if (!in_array(Filament::getCurrentOrDefaultPanel()?->getId(), AccountChips::PANELS, true)) {
+                if (!in_array(Filament::getCurrentOrDefaultPanel()?->getId(), ['app', 'server'], true)) {
                     return new HtmlString('');
                 }
 
                 return new HtmlString(
                     (string) view('plugged-host-core::filament.components.brand-text')->render(),
-                );
-            },
-        );
-
-        // Tokens / credits / quota, immediately left of the notification bell.
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
-            function (): Htmlable {
-                if (!AccountChips::shouldRender()) {
-                    return new HtmlString('');
-                }
-
-                return new HtmlString(
-                    (string) view('plugged-host-core::filament.components.account-chips-host')->render(),
                 );
             },
         );

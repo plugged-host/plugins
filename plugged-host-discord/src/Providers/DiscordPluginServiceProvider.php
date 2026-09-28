@@ -3,34 +3,25 @@
 namespace PluggedHost\Discord\Providers;
 
 use App\Enums\TabPosition;
-use App\Extensions\OAuth\OAuthService;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Pages\Auth\EditProfile;
 use App\Models\User;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\View;
-use Filament\Support\Facades\FilamentView;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Filament\View\PanelsRenderHook;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
-use Laravel\Socialite\Facades\Socialite;
 use Livewire\Livewire;
-use PluggedHost\Discord\Http\Middleware\RedirectToDiscordProfileTab;
-use PluggedHost\Discord\Livewire\DiscordProfileTab;
+use PluggedHost\Discord\Livewire\DiscordRewards;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\DiscordVerificationService;
-use PluggedHost\Discord\Services\PluggedHostOAuthService;
 use PluggedHost\Discord\Support\DiscordBotSupervisor;
-use SocialiteProviders\Discord\Provider as DiscordSocialiteProvider;
 
 class DiscordPluginServiceProvider extends ServiceProvider
 {
@@ -41,66 +32,35 @@ class DiscordPluginServiceProvider extends ServiceProvider
         // Singleton because the gateway daemon keeps its lock handle on the instance
         // for its entire run — a second instance would be a second file descriptor.
         $this->app->singleton(DiscordBotSupervisor::class);
-
-        // Extend OAuthService so the generic OAuth tab on EditProfile hides Discord
-        // and completely hides the OAuth tab if Discord is the only enabled provider,
-        // while capturing OAuth tokens and profile info during linking.
-        $this->app->extend(OAuthService::class, function (OAuthService $service) {
-            $customService = new PluggedHostOAuthService();
-            foreach ($service->getAll() as $schema) {
-                $customService->register($schema);
-            }
-
-            return $customService;
-        });
     }
 
     public function boot(Router $router): void
     {
-        // 1. Ensure views and translations are loaded
-        $this->loadViewsFrom(plugin_path('plugged-host-discord', 'resources/views'), 'plugged-host-discord');
+        // 1. Translations and views
         $this->loadTranslationsFrom(plugin_path('plugged-host-discord', 'lang'), 'plugged-host-discord');
+        $this->loadViewsFrom(plugin_path('plugged-host-discord', 'resources/views'), 'plugged-host-discord');
 
-        // 2. Register OAuth callback redirect middleware
-        $router->pushMiddlewareToGroup('web', RedirectToDiscordProfileTab::class);
+        // 1b. The Discord rewards tab, first on the profile page. Linking Discord itself stays on
+        // noprofit.space; this shows what invites and boosts earned. Labels are closures: boot()
+        // runs before the user's language is applied.
+        Livewire::component('plugged-host-discord.rewards', DiscordRewards::class);
 
-        // 3. Ensure Socialite has the Discord driver registered
-        //
-        // The `guilds` scope is added here, and it is load-bearing rather than cosmetic:
-        // DiscordVerificationService::checkMembership() tries the *user's* token first
-        // (GET /users/@me/guilds) and only falls back to the bot token, which needs the
-        // privileged Server Members Intent. Without this scope that first attempt can
-        // only ever return 403, so every membership check silently depended on the bot.
-        // SocialiteProviders\Discord\Provider hardcodes ['identify', 'email'], and
-        // scopes() merges rather than replaces, so this adds a third without touching
-        // the other two.
-        //
-        // Existing links keep tokens that predate the scope; those still fall through to
-        // the bot path exactly as before, and pick the new scope up on their next re-link.
-        if (class_exists(Socialite::class) && class_exists(DiscordSocialiteProvider::class)) {
-            Socialite::extend('discord', function ($app) {
-                $config = $app['config']['services.discord'] ?? [
-                    'client_id' => env('OAUTH_DISCORD_CLIENT_ID'),
-                    'client_secret' => env('OAUTH_DISCORD_CLIENT_SECRET'),
-                    'redirect' => '/auth/oauth/callback/discord',
-                ];
+        EditProfile::registerCustomTabs(
+            TabPosition::Before,
+            Tab::make()
+                ->key(DiscordRewards::TAB_ID)
+                ->id(DiscordRewards::TAB_ID)
+                ->label(fn (): string => trans('plugged-host-discord::strings.rewards.tab'))
+                ->visible(fn (): bool => app(DiscordVerificationService::class)->isConfigured())
+                ->schema([View::make('plugged-host-discord::profile.rewards-tab')]),
+        );
 
-                return Socialite::buildProvider(
-                    DiscordSocialiteProvider::class,
-                    $config
-                )->scopes(['guilds']);
-            });
-        }
-
-        // 4. Register Livewire component for Discord Profile Tab
-        Livewire::component('plugged-host-discord.profile-tab', DiscordProfileTab::class);
-
-        // 5. Resolve User relation to DiscordLink
+        // 2. Resolve User relation to DiscordLink
         User::resolveRelationUsing('discordLink', function (User $user) {
             return $user->hasOne(DiscordLink::class, 'user_id');
         });
 
-        // 5b. Add Discord column and search support to Admin Panel Users resource
+        // 3. Add Discord column and search support to Admin Panel Users resource
         if (class_exists(UserResource::class)) {
             UserResource::modifyTable(function (Table $table): Table {
                 $discordColumn = TextColumn::make('discordLink.discord_username')
@@ -142,10 +102,8 @@ class DiscordPluginServiceProvider extends ServiceProvider
             });
         }
 
-        // 6. Discord linking is now managed centrally on noprofit.space accounts dashboard.
-        // The profile tab in Pelican panel is disabled.
-
-        // 7. Automatically sync Discord membership upon user login in background
+        // 4. Discord is linked on noprofit.space, which mirrors the link here
+        // (NoprofitServiceController::linkDiscord). Keep membership fresh on every sign-in.
         Event::listen(Login::class, function (Login $event): void {
             if ($event->user instanceof User && config('plugged-host-discord.sync_on_login', true)) {
                 try {
@@ -156,11 +114,11 @@ class DiscordPluginServiceProvider extends ServiceProvider
             }
         });
 
-        // 8. Register HTTP Interactions endpoint for Discord Slash Commands
+        // 5. Register HTTP Interactions endpoint for Discord Slash Commands
         $router->post('/api/discord/interactions', [\PluggedHost\Discord\Http\Controllers\DiscordInteractionsController::class, 'handle'])
             ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
-        // 9. Register console commands and scheduled task
+        // 6. Register console commands and scheduled task
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \PluggedHost\Discord\Console\Commands\DiscordSyncCommand::class,

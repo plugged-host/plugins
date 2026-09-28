@@ -86,19 +86,11 @@ return [
     'cpu' => 'CPU',
     'create_network_ports' => 'Nächsten Netzwerkport erstellen',
     'create_server' => 'Server erstellen',
-    'credits' => array (
-      'credits' => 'Guthaben',
-      'store_description' => 'Limits im Shop upgraden',
-      'need_more_upgrade_store' => 'Mehr nötig? Im Ressourcen-Shop upgraden',
-      'over_quota' => 'Limit um :amount überschritten — Server verkleinern oder löschen',
-      'over_quota_slots' => 'Server-Limit um :amount überschritten — Server löschen',
-    ),
     'danger_zone' => 'Gefahrenzone',
     'deploy_server' => 'Server erstellen',
     'disk' => 'Speicherplatz',
     'eula_agree' => 'Ich stimme der Minecraft-Endbenutzer-Lizenzvereinbarung (EULA) zu',
     'eula_description' => 'Mit dem Erstellen dieses Servers stimmst du der Minecraft-EULA zu (https://aka.ms/MinecraftEULA). Die EULA wird automatisch auf dem Server akzeptiert, damit er direkt startet.',
-    'hint_unlimited' => '0 bedeutet Unbegrenzt',
     'left' => 'übrig',
     'location_unavailable' => 'Keine Kapazität für die gewählten Ressourcen',
     'unlock' => 'Freischalten',
@@ -119,7 +111,6 @@ return [
     'name' => 'Server Name',
     'no_games' => 'Keine Spiele verfügbar',
     'no_games_description' => 'Es gibt derzeit keine Spiele, die du erstellen kannst. Bitte wende dich an einen Panel Admin.',
-    'no_limit' => 'Kein Limit',
     'no_locations' => 'Es sind keine Standorte konfiguriert. Bitte wende dich an einen Panel Admin.',
     'notifications' => array (
       'server_resources_updated' => 'Server Ressourcen Limits aktualisiert',
@@ -169,10 +160,8 @@ return [
     'plan_unavailable' => 'Übersteigt dein verbleibendes Limit',
     'resize_plan_description' => 'Wähle ein Paket oder wechsle zu Erweitert für eigene Werte.',
     'role' => 'Rolle|Rollen',
-    'role_resource_limits' => 'Rollen-Ressourcenlimit|Rollen-Ressourcenlimits',
     'server_details' => 'Details',
     'server_details_description' => 'Benenne deinen Server und passe die Startup Variablen an.',
-    'server_limit' => 'Server Limit',
     'server_settings' => array (
       'sections' => 
       array (

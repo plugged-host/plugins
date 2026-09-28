@@ -55,7 +55,6 @@ abstract class AccountTool implements Tool
     {
         return new InvalidArgumentException(match ($e->reason) {
             'no_resource_limits' => 'This account cannot create servers (no resource allowance).',
-            'server_limit_reached' => 'The account has reached its server limit.',
             'resources_required' => 'CPU, memory and disk must all be above 0.',
             'over_quota' => 'That does not fit in the account\'s remaining allowance; check account_overview and pick a smaller size or plan.',
             'unknown_plan' => 'Unknown plan id; use list_create_options.',

@@ -3,7 +3,7 @@
     "name": "plugged.host Economy",
     "author": "plugged.host",
     "version": "1.2.1",
-    "description": "The two plugged.host currencies and the resource store: credits earned from Discord rewards buy CPU, memory, disk and server slots; tokens earned from sponsored links buy priority in the start queue.",
+    "description": "The two plugged.host currencies and the resource store: credits earned from Discord rewards buy CPU, memory and disk; tokens earned from sponsored links buy priority in the start queue.",
     "category": "plugin",
     "url": null,
     "update_url": null,

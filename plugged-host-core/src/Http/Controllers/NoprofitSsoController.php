@@ -10,10 +10,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PluggedHost\Core\Services\NoprofitAccountSync;
 use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Core\Support\NoprofitMigrationToken;
 use PluggedHost\Core\Support\NoprofitToken;
+use PluggedHost\Economy\Services\NoprofitCreditSync;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 /**
  * Sign-in through noprofit.space, and the password-proven "Continue with plugged.host" hand-off.
@@ -196,7 +199,10 @@ final class NoprofitSsoController
             'is_managed_externally' => true,
         ]);
 
+        // noprofit.space learns right away which panel user the account now has (it had none,
+        // or one that no longer exists).
         NoprofitLink::remember($user, $accountId);
+        NoprofitAccountSync::reportLink($accountId, (int) $user->getKey());
 
         return $user;
     }
@@ -210,7 +216,32 @@ final class NoprofitSsoController
         auth()->guard('web')->login($user, true);
         $request->session()->regenerate();
 
+        $this->pullPlanIfMissing($user);
+
         return redirect()->intended('/');
+    }
+
+    /**
+     * CPU, memory and disk are the account's plan on noprofit.space, with no panel fallback
+     * (AccountAllowance::forUser), so an account that never synced -- a first sign-in --
+     * fetches it now rather than waiting for noprofit:credits-sync.
+     */
+    private function pullPlanIfMissing(User $user): void
+    {
+        $accountId = NoprofitLink::accountId($user);
+
+        if ($accountId === null
+            || !class_exists(NoprofitCreditSync::class)
+            || !NoprofitCreditSync::enabled()
+            || NoprofitCreditSync::plan($user) !== null) {
+            return;
+        }
+
+        try {
+            NoprofitCreditSync::pullAccounts([$accountId]);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     private function toAccountsSso(): RedirectResponse

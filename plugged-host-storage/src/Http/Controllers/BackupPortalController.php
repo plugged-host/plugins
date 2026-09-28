@@ -66,8 +66,11 @@ class BackupPortalController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            $userServers = $servers->map(function (Server $server) use ($panelUrl) {
-                $info = $this->storageService->backupInfo($server->uuid);
+            // One concurrent round to the storage agent for every server, not one after another.
+            $infos = $this->storageService->backupInfoMany($servers->pluck('uuid')->all());
+
+            $userServers = $servers->map(function (Server $server) use ($panelUrl, $infos) {
+                $info = $infos[$server->uuid] ?? null;
                 $hasBackup = (bool) ($info['exists'] ?? false);
                 $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $server->name);
                 $filename = "backup-{$cleanName}-{$server->uuid_short}.tar.gz";
@@ -84,10 +87,15 @@ class BackupPortalController extends Controller
                     'disk' => $server->disk,
                     'has_backup' => $hasBackup,
                     'bytes' => $info['bytes'] ?? null,
+                    // Set when the archive is already built: the download then starts at full
+                    // speed with a known size; otherwise it streams while it is being packed.
+                    'archive_bytes' => $info['archive_bytes'] ?? null,
                     'mtime' => $info['mtime'] ?? null,
                     // Signed, short-lived storage link; only ever built for the owner's own servers.
+                    // stream=1: the agent sends the archive while it packs it, so the browser's
+                    // download starts at once instead of after the whole archive is built.
                     'download_url' => $hasBackup
-                        ? $this->storageService->archiveUrlForIdentifier($server->uuid, $filename)
+                        ? $this->storageService->archiveUrlForIdentifier($server->uuid, $filename) . '&stream=1'
                         : null,
                     'manage_url' => "{$panelUrl}/server/{$server->uuid_short}",
                     'backups_url' => "{$panelUrl}/server/{$server->uuid_short}/backups",

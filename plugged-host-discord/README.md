@@ -4,19 +4,15 @@ A Pelican Panel plugin providing Discord account linking, guild membership verif
 
 ## Features
 
-- **Discord Account Linking**: Integrates with Pelican's Discord OAuth2 authentication.
-- **Guild Membership Verification**: Uses a Discord Bot Token to check whether a linked user is an active member in your Discord server (`GET /guilds/{guild_id}/members/{user_id}`).
-- **Panel Role Assignment**: Automatically assigns the configured panel role (e.g. `Discord Linked`) when membership is confirmed.
-- **Invite Rewards & 30-Day Anti-Alt Verification**: Tracks invites and verifies joined user account ages via Snowflake timestamps. Only accounts $\ge 30\text{ days}$ old are rewarded.
-- **Server Boost Rewards**: Automatically detects active Discord server boosters (1 boost = ~10 invites / 500 credits, 2 boosts = ~25 invites / 1,250 credits) and awards credit bonuses.
-- **Discord Bot & `/invites [user]` Slash Command**: Slash command allowing members and administrators to inspect anyone's invite count, valid invites, ineligible alt joins, boost status, and panel credits.
-- **Resource Store Synergy**: Credits earned from invites and boosts can be spent directly in the Resource Store to permanently upgrade CPU, RAM, Disk, and Server limits.
-- **Resource Limits Synergy**: Assigning the panel role grants the user the resource limits configured on that role under **Admin Area → Roles → Role Resource Limits**.
-- **Automated Revocation**: Automatically revokes the panel role if a user unlinks their Discord account or leaves the Discord server.
+- **Linked on noprofit.space**: Discord accounts are linked and unlinked on noprofit.space, which mirrors the link to the panel (`POST /api/noprofit/discord/link`). The panel never links or unlinks one itself, admins included.
+- **Guild Membership Verification**: Uses a Discord Bot Token to check whether a linked user is an active member in your Discord server (`GET /guilds/{guild_id}/members/{user_id}`). Being in the server is what gives an account noprofit.space's Discord tier (more memory); the panel role (e.g. `Discord Linked`) only marks it.
+- **Invite Rewards & 30-Day Anti-Alt Verification**: Tracks invites and verifies joined user account ages via Snowflake timestamps. Only accounts at least 30 days old are rewarded.
+- **Server Boost Rewards**: Detects active Discord server boosters and pays each boost level once (1 boost = 500 credits, 2 boosts = 1,250 in total by default).
+- **Discord rewards tab** on the profile page (`/profile?tab=discord-rewards`, `Livewire\DiscordRewards`): credits earned on Discord, invites paid / waiting (with the next payout time) / left / too new / owed back, both boost levels, the rules, a "Check for new rewards" button (once a minute) and the reward history. The Resource Store and the perk cards link here. Without a linked Discord it points to noprofit.space.
+- **Discord Bot & Slash Commands**: `/invites [user]` and `/topinvites` for everyone; `/setboost` only for members with the Administrator permission (checked server-side). The HTTP interactions endpoint refuses every request without a valid Ed25519 signature, and refuses everything while no public key is set.
 - **Invite Escrow & Clawback**: An invite counts on join but only pays after the invited member has stayed for the hold period, and is uncounted (with credits recovered) if they leave. A departure is only ever recorded on an affirmative Discord `404` — a timeout, a rate limit or a revoked token leaves the row alone and retries, because uncounting on a maybe silently deletes an inviter's credit. `--restore` re-checks rows marked as gone and puts back any member Discord still reports as present.
-- **Giveaway Rewards**: Admin page (**Admin → Users → Giveaway Rewards**) that pays a list of Discord user ids a prize in credits or tokens. Unlinked winners are recorded and paid by **Retry unpaid** once they link their Discord.
+- **Giveaways moved to noprofit.space** (Admin › Giveaways, paid in credits). `php artisan plugged-host:discord-giveaways-export <file>` writes the panel's giveaway history for `noprofit:giveaways-import` there; the `discord_giveaways*` tables stay as history.
 - **Sync on Login & Hourly Cron**: Continuously verifies members upon panel login and via scheduled hourly artisan tasks.
-- **User Dashboard & Server Banner**: Beautiful user dashboard at `/discord` and server list banner encouraging users to link their Discord account.
 
 ## Installation & Setup
 
@@ -53,9 +49,8 @@ A Pelican Panel plugin providing Discord account linking, guild membership verif
    You should not have to remember that command: if supervision ever stops (a
    rebuilt host, a wiped crontab), the panel notices and reinstalls it by itself.
 
-4. **Configure Role Resource Limits**:
-   - Go to **Admin Area → Roles → Discord Linked → Role Resource Limits**.
-   - Set the desired CPU, Memory, Disk, and Server limit for Discord-verified users.
+4. **Discord tier**: what members of the Discord server get in CPU, memory and disk is the
+   Discord tier on noprofit.space (Admin › Settings); there are no role limits on the panel.
 
 ## Artisan Commands
 

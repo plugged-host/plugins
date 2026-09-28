@@ -1,7 +1,6 @@
 <x-filament-panels::page
     id="form"
-    :wire:key="$this->getId() . '.forms.' . $this->getFormStatePath()"
-    wire:submit="save">
+    :wire:key="$this->getId() . '.forms.' . $this->getFormStatePath()">
 
     <style>
         .phc-page { display: flex; flex-direction: column; gap: 1.5rem; }
@@ -31,7 +30,7 @@
             @endif
 
             <x-filament::button
-                type="submit"
+                wire:click="save"
                 :color="$canDeploy ? 'primary' : 'gray'"
                 :disabled="! $canDeploy"
                 wire:loading.attr="disabled"

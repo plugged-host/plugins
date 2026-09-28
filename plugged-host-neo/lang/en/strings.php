@@ -101,14 +101,21 @@ return [
         'privacy' => 'What you type and what neo reads from your servers is sent to AI providers (Groq; Anthropic\'s Claude through a proxy as a fallback). Secrets are masked first.',
     ],
 
+    // The automatic log check above the console (LogCheckBanner).
+    'log_check' => [
+        'problems' => '{1} Your server log has a problem|[2,*] Your server log has :count problems',
+        'errors' => '{1} Your server log has an error in it|[2,*] Your server log has :count errors in it',
+        'errors_body' => 'No known cause was recognised, but neo can read the errors and fix it.',
+        'fix' => 'Fix: :fix',
+        'clean' => 'No problems found in the server log.',
+        'open' => 'View on mclo.gs',
+    ],
+
     'mclogs' => [
-        'problems_title' => '{1} mclo.gs found a problem in the log|[2,*] mclo.gs found :count problems in the log',
-        'errors_title' => '{1} The log has an error in it|[2,*] The log has :count errors in it',
-        'errors_body' => 'mclo.gs did not recognise a known problem, but neo can read the errors and fix the cause.',
         'more' => '…and :count more',
         'ask' => 'Ask neo to fix it',
         'view' => 'View log',
-        'expired' => 'That log is no longer available to neo. Upload the logs again.',
+        'expired' => 'That log is no longer available to neo. Reload the console to check the log again.',
         'ask_problems' => '{1} mclo.gs found a problem in my server log (:url). Please find the cause and fix it.|[2,*] mclo.gs found :count problems in my server log (:url). Please find the causes and fix them.',
         'ask_errors' => 'My server log (:url) has errors in it. Please find the cause and fix it.',
     ],

@@ -8,7 +8,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use Throwable;
 
 /**
@@ -25,11 +25,11 @@ class ServerResizer
         return (bool) config('plugged-host-servers.user-creatable-servers.can_users_update_servers');
     }
 
-    public function limits(Server $server): ?RoleResourceLimits
+    public function limits(Server $server): ?AccountAllowance
     {
-        RoleResourceLimits::forgetMemo($server->user);
+        AccountAllowance::forgetMemo($server->user);
 
-        return $this->enabled() ? RoleResourceLimits::forUser($server->user) : null;
+        return $this->enabled() ? AccountAllowance::forUser($server->user) : null;
     }
 
     /**
@@ -100,7 +100,7 @@ class ServerResizer
             'disk' => (int) $validated['disk'],
         ]);
 
-        RoleResourceLimits::forgetMemo($server->user);
+        AccountAllowance::forgetMemo($server->user);
 
         try {
             app(DaemonServerRepository::class)->setServer($server)->sync();

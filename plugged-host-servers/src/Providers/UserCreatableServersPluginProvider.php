@@ -2,16 +2,12 @@
 
 namespace PluggedHost\Servers\Providers;
 
-use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\App\Resources\Servers\Pages\ListServers;
 use App\Filament\Server\Resources\Allocations\AllocationResource;
 use App\Models\Allocation;
-use App\Models\Role;
 use App\Models\Server;
-use PluggedHost\Servers\Filament\Admin\Resources\Roles\RelationManagers\RoleResourceLimitRelationManager;
 use PluggedHost\Servers\Filament\Components\Actions\CreateServerAction;
 use PluggedHost\Servers\Filament\Components\Actions\CreateNetworkPortsAction;
-use PluggedHost\Servers\Models\RoleResourceLimits;
 use PluggedHost\Core\Services\AllocationInvariant;
 use Filament\Actions\DissociateAction;
 use Filament\Actions\DissociateBulkAction;
@@ -28,8 +24,6 @@ class UserCreatableServersPluginProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(AllocationSelectionService::class, BalancedAllocationSelectionService::class);
-
-        RoleResource::registerCustomRelations(RoleResourceLimitRelationManager::class);
 
         // Create Server sits in the server list's toolbar row, to the left of the search field
         // and the filter button — not in a row of its own above them.
@@ -52,7 +46,7 @@ class UserCreatableServersPluginProvider extends ServiceProvider
         // The row stays open for us with nothing selected: index.blade.php computes
         // $hasNonBulkToolbarAction from Action::isBulk(), which a plain Action reports as false.
         //
-        // The action keeps its own visible() guard, so a user with no resource profile still
+        // The action keeps its own visible() guard, so a user with no plan yet still
         // sees no button (anyone else can always click it; the create page explains a full
         // quota) — and an invisible action is filtered out before $hasNonBulkToolbarAction is computed, so it
         // cannot prop open a toolbar that would otherwise be empty.
@@ -137,15 +131,10 @@ class UserCreatableServersPluginProvider extends ServiceProvider
                 }
             });
         });
-
-        Role::registerCustomDefaultPermissions('roleResourceLimits');
-        Role::registerCustomModelIcon('roleResourceLimits', 'tabler-cube-plus');
     }
 
     public function boot(): void
     {
-        Role::resolveRelationUsing('resourceLimits', fn (Role $role) => $role->hasOne(RoleResourceLimits::class, 'role_id'));
-
         Event::listen(\App\Events\Server\Installed::class, function (\App\Events\Server\Installed $event): void {
             $server = $event->server;
             if (!$server || !$server->egg) {

@@ -101,14 +101,21 @@ return [
         'privacy' => 'Was du schreibst und was neo von deinen Servern liest, wird an KI-Anbieter gesendet (Groq; Claude von Anthropic über einen Proxy als Ausweichlösung). Geheimnisse werden vorher maskiert.',
     ],
 
+    // Die automatische Log-Prüfung über der Konsole (LogCheckBanner).
+    'log_check' => [
+        'problems' => '{1} Dein Server-Log hat ein Problem|[2,*] Dein Server-Log hat :count Probleme',
+        'errors' => '{1} Dein Server-Log enthält einen Fehler|[2,*] Dein Server-Log enthält :count Fehler',
+        'errors_body' => 'Es wurde keine bekannte Ursache erkannt, aber neo kann die Fehler lesen und sie beheben.',
+        'fix' => 'Lösung: :fix',
+        'clean' => 'Im Server-Log wurden keine Probleme gefunden.',
+        'open' => 'Auf mclo.gs ansehen',
+    ],
+
     'mclogs' => [
-        'problems_title' => '{1} mclo.gs hat ein Problem im Log gefunden|[2,*] mclo.gs hat :count Probleme im Log gefunden',
-        'errors_title' => '{1} Das Log enthält einen Fehler|[2,*] Das Log enthält :count Fehler',
-        'errors_body' => 'mclo.gs hat kein bekanntes Problem erkannt, aber neo kann die Fehler lesen und die Ursache beheben.',
         'more' => '…und :count weitere',
         'ask' => 'neo beheben lassen',
         'view' => 'Log ansehen',
-        'expired' => 'Dieses Log ist für neo nicht mehr verfügbar. Lade die Logs erneut hoch.',
+        'expired' => 'Dieses Log ist für neo nicht mehr verfügbar. Lade die Konsole neu, um das Log erneut zu prüfen.',
         'ask_problems' => '{1} mclo.gs hat ein Problem in meinem Server-Log gefunden (:url). Bitte finde die Ursache und behebe es.|[2,*] mclo.gs hat :count Probleme in meinem Server-Log gefunden (:url). Bitte finde die Ursachen und behebe sie.',
         'ask_errors' => 'Mein Server-Log (:url) enthält Fehler. Bitte finde die Ursache und behebe sie.',
     ],

@@ -82,7 +82,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
             $this->inviteTrackingCallout(),
             $this->gatewayDaemonCallout(),
             Section::make('Discord Server Connection')
-                ->description('Configure your Discord server. Verification checks if the user is in your Discord server using OAuth guilds permissions.')
+                ->description('Your Discord server. Accounts link Discord on noprofit.space; the bot checks who is in the server, and members get the Discord tier set on noprofit.space.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('guild_id')
@@ -118,7 +118,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-discord::strings.settings.' . ($hasPublicKey ? 'public_key_set_help' : 'public_key_unset_help'))),
                 ]),
             Section::make('Role & Membership Automation')
-                ->description('Configure the panel role that gets assigned to verified Discord server members. Resource limits are configured directly on the Role in Admin Area → Roles.')
+                ->description('The panel role given to members of your Discord server, so admins can see who is in it. What members get in CPU, memory and disk is the Discord tier on noprofit.space (Admin › Settings), not this role.')
                 ->columns(2)
                 ->schema([
                     Select::make('role_name')
@@ -126,18 +126,18 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                         ->options(fn () => Role::pluck('name', 'name'))
                         ->required()
                         ->searchable()
-                        ->helperText('The role in Pelican given to users when verified in your Discord server. Resource limits are managed on this role under Admin → Roles.')
+                        ->helperText('The panel role given to users while they are in your Discord server.')
                         ->default(fn () => config('plugged-host-discord.role_name', 'Discord Linked')),
                     Toggle::make('sync_on_login')
                         ->label('Verify membership on login')
-                        ->helperText('Automatically check Discord server membership every time a user logs into the panel.')
+                        ->helperText('Check Discord server membership every time a user signs in to the panel.')
                         ->inline(false)
                         ->onIcon(TablerIcon::Check)
                         ->offIcon(TablerIcon::X)
                         ->default(fn () => config('plugged-host-discord.sync_on_login', true)),
                     Toggle::make('unlinked_remove_role')
                         ->label('Remove role if not in server')
-                        ->helperText('Automatically remove the panel role if the user leaves the Discord server or unlinks their account.')
+                        ->helperText('Remove the panel role when the user leaves the Discord server or unlinks Discord on noprofit.space.')
                         ->inline(false)
                         ->onIcon(TablerIcon::Check)
                         ->offIcon(TablerIcon::X)

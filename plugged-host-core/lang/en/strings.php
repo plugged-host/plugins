@@ -1,13 +1,16 @@
 <?php
 
 return [
-    'role_resource_limits' => 'Role Resource Limit|Role Resource Limits',
+    // The server sidebar's collapsed group (PluggedHost\Core\Filament\ServerNavigation).
+    'nav' => [
+        'more' => 'More',
+    ],
+
     'role' => 'Role|Roles',
     'user' => 'User|Users',
     'cpu' => 'CPU',
     'memory' => 'Memory',
     'disk' => 'Disk Space',
-    'server_limit' => 'Server Limit',
     'no_limit' => 'No Limit',
     'unlimited' => 'Unlimited',
     'hint_unlimited' => '0 means unlimited',
@@ -360,27 +363,6 @@ return [
         'locked_allocation_required_body' => 'This network allocation is locked and cannot be removed.',
     ],
 
-    /*
-     * What is left of the credits block now that the economy lives in
-     * plugged-host-economy.
-     *
-     * These five are still rendered by core code — UserResourceLimitsOverview is a core
-     * widget — so they stay here rather than becoming a cross-plugin lookup that degrades
-     * to a raw translation key the moment the economy plugin is uninstalled. Everything
-     * else that used to be under this key is now plugged-host-economy::strings.credits.
-     */
-    'credits' => [
-        'credits' => 'Credits',
-        'store_description' => 'Upgrade limits in Store',
-        'need_more_upgrade_store' => 'Need more? Upgrade in Resource Store',
-
-        // Shown when existing servers already allocate more than the current limit
-        // allows — a role was removed, lowered, or resources were reclaimed. Buying
-        // more is one fix, shrinking a server is the other.
-        'over_quota' => 'Over your limit by :amount — shrink or delete a server',
-        'over_quota_slots' => 'Over your server limit by :amount — delete a server',
-    ],
-
     // The waiting page a server sits on until its egg has installed. Deliberately free of
     // any percentage: wings reports no completion fraction, so a progress bar would be
     // invented. Phase, elapsed time and a clear failure state instead.
@@ -408,8 +390,8 @@ return [
     ],
 
     // Feeds every perk-discovery surface through PluggedHost\Core\Services\PerkDiscovery.
-    // Amounts are substituted at runtime from the role limit profiles and the store prices,
-    // so no figure is restated here — change a role's limits and this copy follows.
+    // Amounts are substituted at runtime from the noprofit.space tiers and the store prices,
+    // so no figure is restated here — change a tier and this copy follows.
     'perks' => [
         'heading' => 'Get more out of your account',
         // The dashboard's collapsed one-line variant. The count belongs in the heading because
@@ -427,32 +409,12 @@ return [
         'discord_earn_body_boost' => 'Invite people with your own invite link, or boost the server for :credits credits, then spend it all on more resources.',
         'discord_earn_cta' => 'View invites',
         'store_title' => ':price credits buys :amount more RAM',
-        'store_body' => 'You have :balance credits. Spend them on CPU, RAM, disk space or another server slot.',
+        'store_body' => 'You have :balance credits. Spend them on CPU, RAM or disk space.',
         'store_cta' => 'Open store',
-        'gain_unlock' => 'your own servers',
         'gain_cpu' => '+:amount CPU',
         'gain_memory' => '+:amount RAM',
         'gain_disk' => '+:amount disk space',
-        'gain_servers' => ':amount more servers',
-        'gain_unlimited_cpu' => 'unlimited CPU',
-        'gain_unlimited_memory' => 'unlimited RAM',
-        'gain_unlimited_disk' => 'unlimited disk space',
-        'gain_unlimited_servers' => 'unlimited servers',
         'gain_and' => 'and',
-    ],
-
-    // Topbar chips (PluggedHost\Core\Livewire\AccountChips). Mostly tooltips: the numbers
-    // themselves are formatted in the component so they stay identical in both languages,
-    // and a chip with no room for a label has to explain itself on hover.
-    //
-    // `store` is the exception — a real, visible label, and only ever a fallback. The
-    // button reads its name off the page it opens (ResourceStorePage::getNavigationLabel()),
-    // so the topbar and the sidebar cannot end up calling the same page two things.
-    'chips' => [
-        'tokens_title' => 'Start queue tokens',
-        'credits_title' => 'Credits — open the Economy page',
-        'quota_title' => "CPU :cpu\nMemory :memory\nDisk :disk\nServers :servers",
-        'store' => 'Economy',
     ],
 
     // First-login welcome tour (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage). Every
@@ -508,34 +470,16 @@ return [
                 'heading' => 'Settings, and your balance',
                 'body' => 'Settings is one page per server, and it holds everything about that server: rename it, give it more memory, change which version it runs, or reinstall it.',
                 'bullets' => [
-                    'The coin in the top bar is your tokens — they let a server skip the start queue.',
-                    'The $ next to it is your credits. Click it to open the store and buy more resources.',
+                    'Your tokens and credits are at the bottom of the sidebar. Tokens let a server skip the start queue; spend them in the Token Store.',
+                    'Credits buy more CPU, memory and disk in the Resource Store. Click either balance to open its store.',
                     'You can reopen this tour at any time from the menu under your avatar.',
                 ],
             ],
         ],
     ],
 
-    // Forced password for accounts created by an OAuth login
-    // (PluggedHost\Core\Filament\App\Pages\SetPasswordPage).
-    'set_password' => [
-        'title' => 'Set a password',
-        'heading' => 'Finish setting up your account',
-        'subheading' => 'You signed up with Discord, so your account has no password yet. Choose one now — it is how you get back in if you ever lose access to your Discord account.',
-        'password' => 'Password',
-        'password_helper' => 'At least 8 characters. Longer is better than complicated.',
-        'confirmation' => 'Confirm password',
-        'submit' => 'Save password',
-        'logout' => 'Sign out',
-        'saved' => 'Password set',
-        'saved_body' => 'You can now sign in with your email address and this password, as well as with Discord.',
-        'gate_title' => 'One more step',
-        'gate_body' => 'Set a password before you continue.',
-    ],
-
-    // Admin settings form (PluggedHostCorePlugin, over EnvironmentWriterTrait). Legal,
-    // registration and sidebar sections carry their own inline labels; these keys cover the
-    // welcome-tour knobs added on top of them.
+    // Admin settings form (PluggedHostCorePlugin, over EnvironmentWriterTrait). The sidebar
+    // section carries its own inline labels; these keys cover the welcome-tour knobs.
     'settings' => [
         'section_tour' => 'Welcome tour',
         'section_tour_hint' => 'The first-login guide new users are walked through. Turning it off stops the redirect for everyone immediately.',
@@ -563,5 +507,15 @@ return [
         'managed_hint' => 'Your sign-in details, passkeys, two-factor codes, Discord link and account deletion are managed on noprofit.space.',
         'reset_moved' => 'Moved your account to noprofit.space? Your password lives there now.',
         'reset_moved_link' => 'Open accounts.noprofit.space',
+        'identity_locked' => 'Managed on noprofit.space.',
+    ],
+
+    'admin_nav' => [
+        'servers' => 'Servers',
+        'users' => 'Users',
+        'community' => 'Announcements & status',
+        'subdomains' => 'Subdomains',
+        'panel' => 'Panel',
+        'advanced' => 'Advanced',
     ],
 ];

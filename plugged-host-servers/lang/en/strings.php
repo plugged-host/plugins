@@ -38,7 +38,7 @@ return [
 
     'uptime' => [
         'free' => 'No uptime guarantee',
-        'plus' => '95% uptime',
+        'plus' => 'Best Performance',
         'premium' => '99.99% uptime',
     ],
 
@@ -86,19 +86,11 @@ return [
     'cpu' => 'CPU',
     'create_network_ports' => 'Create next network port',
     'create_server' => 'Create server',
-    'credits' => array (
-      'credits' => 'Credits',
-      'store_description' => 'Upgrade limits in Store',
-      'need_more_upgrade_store' => 'Need more? Upgrade in Resource Store',
-      'over_quota' => 'Over your limit by :amount — shrink or delete a server',
-      'over_quota_slots' => 'Over your server limit by :amount — delete a server',
-    ),
     'danger_zone' => 'Danger Zone',
     'deploy_server' => 'Deploy server',
     'disk' => 'Disk Space',
     'eula_agree' => 'I agree to the Minecraft End User License Agreement (EULA)',
     'eula_description' => 'By creating this server, you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA). The EULA will be automatically accepted on your server so it starts immediately without pausing.',
-    'hint_unlimited' => '0 means unlimited',
     'left' => 'left',
     'location_unavailable' => 'No capacity for the selected resources',
     'unlock' => 'Unlock',
@@ -119,7 +111,6 @@ return [
     'name' => 'Server Name',
     'no_games' => 'No games available',
     'no_games_description' => 'There are no games you can deploy right now. Please contact the panel admin.',
-    'no_limit' => 'No Limit',
     'no_locations' => 'No locations are configured. Please contact the panel admin.',
     'notifications' => array (
       'server_resources_updated' => 'Server Resource Limits updated',
@@ -169,10 +160,8 @@ return [
     'plan_unavailable' => 'Exceeds your remaining allowance',
     'resize_plan_description' => 'Pick a plan, or switch to advanced to set custom values.',
     'role' => 'Role|Roles',
-    'role_resource_limits' => 'Role Resource Limit|Role Resource Limits',
     'server_details' => 'Details',
     'server_details_description' => 'Name your server and adjust its startup variables.',
-    'server_limit' => 'Server Limit',
     'server_settings' => array (
       'sections' => 
       array (
