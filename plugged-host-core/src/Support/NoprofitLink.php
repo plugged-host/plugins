@@ -131,7 +131,11 @@ final class NoprofitLink
         ];
     }
 
-    private static function available(): bool
+    /**
+     * Whether the link column exists yet (plugins migration 011), so callers can tell "not
+     * linked" from "linking not installed".
+     */
+    public static function available(): bool
     {
         if (self::$available !== null) {
             return self::$available;

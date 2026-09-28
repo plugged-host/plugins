@@ -8,6 +8,10 @@
   admin user page username and email are read-only, the password field, the toggle and
   upstream's OAuth section with its Unlink buttons are gone, and "create user" is closed
   (`/admin/users/create` 404s). Roles, credits, language and time zone stay editable.
+- **Unlinked panel sessions go through noprofit.space once** (`RequireNoprofitLink`, on every
+  panel): a user still signed in from before the move (session or remember-me) is signed out
+  and sent to sign in, where "Continue with plugged.host" or Discord links the account and
+  brings them back. Inert until the link column exists and `NOPROFIT_SSO_SECRET` is set.
 - **Admin sidebar regrouped** (`AdminNavigation`, applied by `HiddenNavigationManager`): Servers,
   Users, Announcements & status, Subdomains, Panel, and a collapsed Advanced group.
 

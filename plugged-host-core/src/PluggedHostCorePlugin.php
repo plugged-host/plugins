@@ -9,6 +9,7 @@ use PluggedHost\Core\Filament\App\Pages\WelcomeTourPage;
 use PluggedHost\Core\Filament\HiddenNavigationManager;
 use PluggedHost\Core\Filament\ServerNavigation;
 use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
+use PluggedHost\Core\Http\Middleware\RequireNoprofitLink;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
@@ -51,8 +52,11 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
         // panel serves no sign-up form of its own (/admin/register and /server/register
         // used to, which created panel accounts around noprofit.space).
 
+        // RequireNoprofitLink: a panel session of an account that is not linked to
+        // noprofit.space yet (from before the move) goes through noprofit.space once.
         $panel->authMiddleware([
             EnsureRememberMeCookie::class,
+            RequireNoprofitLink::class,
         ]);
 
         if ($panel->getId() === 'server') {
