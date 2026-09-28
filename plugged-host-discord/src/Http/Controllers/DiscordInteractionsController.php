@@ -16,19 +16,14 @@ class DiscordInteractionsController extends Controller
         DiscordBotService $botService
     ): JsonResponse {
         $content = $request->getContent();
-        $signature = $request->header('X-Signature-Ed25519');
-        $timestamp = $request->header('X-Signature-Timestamp');
-        $publicKey = config('plugged-host-discord.public_key', '');
 
-        // Verify Ed25519 signature if public key is configured and sodium is available
-        if (!empty($publicKey) && $signature && $timestamp && function_exists('sodium_crypto_sign_verify_detached')) {
-            $msg = $timestamp . $content;
-            $binSignature = hex2bin($signature);
-            $binPublicKey = hex2bin($publicKey);
-
-            if (!$binSignature || !$binPublicKey || !sodium_crypto_sign_verify_detached($binSignature, $msg, $binPublicKey)) {
-                return response()->json(['error' => 'Invalid signature'], 401);
-            }
+        // Only Discord may call this: every request must carry a valid Ed25519 signature from
+        // the application's public key. Without a configured key there is nothing to check
+        // against, so the endpoint refuses everything (slash commands then arrive over the
+        // gateway daemon instead). It used to skip the check whenever the key or the headers
+        // were missing, which let anyone post a /setboost and mint credits.
+        if (!$this->hasValidSignature($request, $content)) {
+            return response()->json(['error' => 'Invalid signature'], 401);
         }
 
         $data = json_decode($content, true);
@@ -52,6 +47,7 @@ class DiscordInteractionsController extends Controller
                 $targetUserId = null;
                 $targetUsername = null;
                 $targetAvatar = null;
+                $targetMemberData = null;
 
                 foreach ($options as $opt) {
                     if (($opt['name'] ?? '') === 'user' && !empty($opt['value'])) {
@@ -100,6 +96,10 @@ class DiscordInteractionsController extends Controller
             }
 
             if ($commandName === 'setboost') {
+                if (!DiscordBotService::invokerIsAdministrator($data)) {
+                    return response()->json(['type' => 4, 'data' => $botService->setBoostDeniedResponse()]);
+                }
+
                 $options = $data['data']['options'] ?? [];
                 $targetUserId = null;
                 $targetUsername = null;
@@ -128,6 +128,23 @@ class DiscordInteractionsController extends Controller
         }
 
         return response()->json(['error' => 'Unhandled interaction type'], 400);
+    }
+
+    private function hasValidSignature(Request $request, string $content): bool
+    {
+        $publicKey = (string) config('plugged-host-discord.public_key', '');
+        $signature = (string) $request->header('X-Signature-Ed25519', '');
+        $timestamp = (string) $request->header('X-Signature-Timestamp', '');
+
+        if ($publicKey === '' || $signature === '' || $timestamp === '' || !function_exists('sodium_crypto_sign_verify_detached')) {
+            return false;
+        }
+
+        if (!ctype_xdigit($signature) || strlen($signature) !== 128 || !ctype_xdigit($publicKey) || strlen($publicKey) !== 64) {
+            return false;
+        }
+
+        return sodium_crypto_sign_verify_detached(hex2bin($signature), $timestamp . $content, hex2bin($publicKey));
     }
 }
 
