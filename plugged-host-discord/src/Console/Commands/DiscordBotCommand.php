@@ -681,6 +681,13 @@ class DiscordBotCommand extends Command
                 $this->error("       ✖ Failed to send interaction callback response.");
             }
         } elseif ($commandName === 'setboost') {
+            if (!DiscordBotService::invokerIsAdministrator($data)) {
+                $this->warn(" [CMD] /setboost refused for {$executorName}: not an administrator");
+                $botService->respondToInteraction($interactionId, $token, $botService->setBoostDeniedResponse());
+
+                return;
+            }
+
             $targetUserId = null;
             $targetUsername = null;
             $count = 2;

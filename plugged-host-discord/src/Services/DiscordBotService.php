@@ -257,7 +257,44 @@ class DiscordBotService
     }
 
     /**
-     * Handle /setboost command execution.
+     * Whether the member who ran an interaction has Discord's Administrator permission in the
+     * guild. /setboost pays credits, so it is checked here rather than trusting the command's
+     * default_member_permissions, which a guild admin can widen under Integrations.
+     *
+     * `member.permissions` is the member's resolved permission bitfield as a decimal string
+     * (owners have every bit). Only bit 3 (ADMINISTRATOR, 0x8) matters, and n mod 16 depends
+     * only on the last four decimal digits (10000 is a multiple of 16), so the bit is read from
+     * those instead of casting a number that can exceed PHP_INT_MAX. A DM interaction has no
+     * member and is never an admin.
+     *
+     * @param  array<string, mixed>  $interaction
+     */
+    public static function invokerIsAdministrator(array $interaction): bool
+    {
+        $permissions = $interaction['member']['permissions'] ?? null;
+
+        if (!is_string($permissions) || !ctype_digit($permissions)) {
+            return false;
+        }
+
+        return ((int) substr($permissions, -4) & 0x8) === 0x8;
+    }
+
+    /**
+     * The reply to a /setboost from someone who is not an administrator (only they see it).
+     *
+     * @return array<string, mixed>
+     */
+    public function setBoostDeniedResponse(): array
+    {
+        return [
+            'content' => 'Only server administrators can use /setboost.',
+            'flags' => 64,
+        ];
+    }
+
+    /**
+     * Handle /setboost command execution. Callers check invokerIsAdministrator() first.
      */
     public function handleSetBoostCommand(string $targetUserId, int $count, ?string $targetUsername = null): array
     {
