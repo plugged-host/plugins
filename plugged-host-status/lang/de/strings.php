@@ -25,4 +25,8 @@ return [
         'resource_threshold_percent' => 'Schwellenwert für Ressourcenauslastung (%)',
         'resource_threshold_percent_hint' => 'Eine CPU-, RAM- oder Speicherauslastung über diesem Prozentwert markiert einen Node als ausgelastet.',
     ],
+
+    'admin' => [
+        'status_page' => 'Statusseite',
+    ],
 ];

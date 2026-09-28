@@ -42,6 +42,7 @@ class PluggedHostStatusPlugin implements HasPluginSettings, Plugin
         $panel->discoverPages(plugin_path($this->getId(), "src/Filament/$id/Pages"), "PluggedHost\\Status\\Filament\\$id\\Pages");
         $panel->discoverResources(plugin_path($this->getId(), "src/Filament/$id/Resources"), "PluggedHost\\Status\\Filament\\$id\\Resources");
         $panel->discoverWidgets(plugin_path($this->getId(), "src/Filament/$id/Widgets"), "PluggedHost\\Status\\Filament\\$id\\Widgets");
+        $panel->discoverClusters(plugin_path($this->getId(), "src/Filament/$id/Clusters"), "PluggedHost\\Status\\Filament\\$id\\Clusters");
     }
 
     public function boot(Panel $panel): void {}

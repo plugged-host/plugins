@@ -2,7 +2,6 @@
 
 namespace PluggedHost\Status\Filament\Admin\Resources\StatusNodes;
 
-use App\Enums\CustomizationKey;
 use App\Models\Node;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -10,6 +9,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use PluggedHost\Status\Filament\Admin\Clusters\StatusPage;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -22,15 +22,16 @@ class StatusNodeResource extends Resource
 {
     protected static ?string $model = StatusNodeSetting::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'tabler-server-cog';
+    // A tab of the Status page cluster: no icon of its own, since the tab says what it is.
+    protected static ?string $cluster = StatusPage::class;
 
-    protected static ?int $navigationSort = 80;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'display_name';
 
     public static function getNavigationLabel(): string
     {
-        return 'Public status nodes';
+        return 'Nodes';
     }
 
     public static function getModelLabel(): string
@@ -41,15 +42,6 @@ class StatusNodeResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return 'public status nodes';
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        if (user()?->getCustomization(CustomizationKey::TopNavigation) === 'topbar') {
-            return null;
-        }
-
-        return trans('admin/dashboard.server');
     }
 
     public static function canViewAny(): bool

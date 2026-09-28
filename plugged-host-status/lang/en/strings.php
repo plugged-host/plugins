@@ -25,4 +25,8 @@ return [
         'resource_threshold_percent' => 'Resource pressure threshold (%)',
         'resource_threshold_percent_hint' => 'CPU, memory or disk usage above this percentage marks a node as under pressure.',
     ],
+
+    'admin' => [
+        'status_page' => 'Status page',
+    ],
 ];
