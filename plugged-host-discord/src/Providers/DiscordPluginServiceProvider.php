@@ -3,6 +3,7 @@
 namespace PluggedHost\Discord\Providers;
 
 use App\Enums\TabPosition;
+use App\Extensions\OAuth\OAuthService;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Pages\Auth\EditProfile;
 use App\Models\User;
@@ -17,11 +18,14 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Socialite\Facades\Socialite;
 use Livewire\Livewire;
 use PluggedHost\Discord\Livewire\DiscordRewards;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\DiscordVerificationService;
+use PluggedHost\Discord\Services\PluggedHostOAuthService;
 use PluggedHost\Discord\Support\DiscordBotSupervisor;
+use PluggedHost\Discord\Support\PluggedHostDiscordSocialiteProvider;
 
 class DiscordPluginServiceProvider extends ServiceProvider
 {
@@ -32,6 +36,18 @@ class DiscordPluginServiceProvider extends ServiceProvider
         // Singleton because the gateway daemon keeps its lock handle on the instance
         // for its entire run — a second instance would be a second file descriptor.
         $this->app->singleton(DiscordBotSupervisor::class);
+
+        // Extend OAuthService so the generic OAuth tab on EditProfile hides Discord
+        // and completely hides the OAuth tab if Discord is the only enabled provider,
+        // while enforcing anti-takeover protections (strict email verification & zero auto-linking).
+        $this->app->extend(OAuthService::class, function (OAuthService $service) {
+            $customService = new PluggedHostOAuthService();
+            foreach ($service->getAll() as $schema) {
+                $customService->register($schema);
+            }
+
+            return $customService;
+        });
     }
 
     public function boot(Router $router): void
@@ -39,6 +55,22 @@ class DiscordPluginServiceProvider extends ServiceProvider
         // 1. Translations and views
         $this->loadTranslationsFrom(plugin_path('plugged-host-discord', 'lang'), 'plugged-host-discord');
         $this->loadViewsFrom(plugin_path('plugged-host-discord', 'resources/views'), 'plugged-host-discord');
+
+        // 1a. Ensure Socialite has the custom Discord driver registered with email verification mapping
+        if (class_exists(Socialite::class) && class_exists(PluggedHostDiscordSocialiteProvider::class)) {
+            Socialite::extend('discord', function ($app) {
+                $config = $app['config']['services.discord'] ?? [
+                    'client_id' => env('OAUTH_DISCORD_CLIENT_ID'),
+                    'client_secret' => env('OAUTH_DISCORD_CLIENT_SECRET'),
+                    'redirect' => '/auth/oauth/callback/discord',
+                ];
+
+                return Socialite::buildProvider(
+                    PluggedHostDiscordSocialiteProvider::class,
+                    $config
+                )->scopes(['guilds']);
+            });
+        }
 
         // 1b. The Discord rewards tab, first on the profile page. Linking Discord itself stays on
         // noprofit.space; this shows what invites and boosts earned. Labels are closures: boot()

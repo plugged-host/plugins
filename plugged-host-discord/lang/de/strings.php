@@ -3,6 +3,11 @@
 return [
     'discord' => 'Discord',
 
+    'link_taken_title' => 'Discord-Konto bereits verbunden',
+    'link_taken_body' => 'Dieses Discord-Konto ist bereits mit einem anderen Panel-Konto verbunden. Ein Discord-Konto kann nur mit einem Panel-Konto verbunden sein — trenne es dort zuerst oder melde dich mit dem Konto an, dem es gehört.',
+    'unverified_email_title' => 'Discord-E-Mail nicht verifiziert',
+    'unverified_email_body' => 'Die E-Mail-Adresse deines Discord-Kontos ist nicht verifiziert. Bitte verifiziere deine E-Mail auf Discord, bevor du das Konto verknüpfst.',
+
     // Credit ledger descriptions for Discord rewards.
     'tx_invite_reward' => 'Belohnung für :count Discord-Einladung(en)',
     'tx_boost_reward' => 'Belohnung für Discord-Server-Boost (Stufe :count)',

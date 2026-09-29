@@ -3,6 +3,11 @@
 return [
     'discord' => 'Discord',
 
+    'link_taken_title' => 'Discord account already linked',
+    'link_taken_body' => 'That Discord account is already linked to a different panel account. One Discord account can only be linked to one panel account — unlink it there first, or sign in with the account that owns it.',
+    'unverified_email_title' => 'Discord email not verified',
+    'unverified_email_body' => 'Your Discord account email is not verified. Please verify your email on Discord before linking.',
+
     // Credit ledger descriptions for Discord rewards.
     'tx_invite_reward' => 'Reward for :count Discord invite(s)',
     'tx_boost_reward' => 'Reward for Discord server boost (Tier :count)',
