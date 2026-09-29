@@ -2,6 +2,17 @@
 
 ## Unreleased (2.1)
 
+- **The welcome tour shows the real panel** (`Livewire\PanelTourOverlay`, steps in
+  `Support\PanelTourSteps`): instead of a text card on its own page, it dims the panel and
+  spotlights each part in place, with the step beside it (a sheet on phones). Part one runs on
+  the server list: the sidebar, usage and balance, the account menu, Create server and the
+  server cards, ending with "Show me <server>" (or "Create my first server" for a new account).
+  Part two runs on a server's console the first time one is opened: console, power buttons,
+  address, the server sidebar, Settings and the way back. Sidebar steps open the sidebar on
+  phones. `RequirePanelTour` now sends first-time users to the server list, `/welcome` only
+  restarts the tour (user menu, now on the server panel too), and `users.panel_tour` gains
+  `server_step` / `server_done_at` (no migration, it is JSON). Tour version default `2`, so
+  everyone sees the new tour once.
 - **Sign-in details are noprofit.space's only** (`AccountIdentityLockPluginProvider`): the panel
   never changes a user's username, email, password or "managed externally" flag, whatever route
   tries (admin form, application API, client API; the change is put back and logged). On the

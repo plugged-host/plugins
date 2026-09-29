@@ -7,10 +7,13 @@
     compact columns with the address underneath, wide cards all four in a row.
 
     The whole card opens the console; the power menu and the address stop that click.
+
+    data-server is how core's welcome tour finds the card of the server it is about to open.
 --}}
 <div
     @unless ($loading) wire:poll.15s @endunless
     class="phv2-server"
+    data-server="{{ $server->uuid_short }}"
     x-on:click="{{ $component->redirectUrl() }}"
     x-on:auxclick.prevent="if ($event.button === 1) {{ $component->redirectUrl(true) }}"
 >

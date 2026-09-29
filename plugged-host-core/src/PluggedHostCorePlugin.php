@@ -75,10 +75,15 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             $panel->authMiddleware([
                 RequirePanelTour::class,
             ]);
+        }
 
-            // Getting back in afterwards. The URL is resolved in a closure because routes do
-            // not exist yet at panel-build time, and restartUrl() returns null rather than
-            // throwing — a user menu that throws takes the topbar down on every page.
+        if (in_array($panel->getId(), ['app', 'server'], true)) {
+            // Getting back in afterwards, from the account menu on both panels people browse
+            // (the tour's last step, on a server's console, points at it). The URL is resolved
+            // in a closure because routes do not exist yet at panel-build time, and
+            // restartUrl() returns null rather than throwing — a user menu that throws takes
+            // the sidebar footer down on every page. It is an absolute app-panel URL, so it
+            // works from the server panel too.
             $panel->userMenuItems([
                 Action::make('plugged_host_tour')
                     ->label(fn () => trans('plugged-host-core::strings.tour.menu'))
@@ -169,7 +174,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
     {
         $data = [
             'tour_enabled' => (bool) config('plugged-host-core.tour.enabled', true),
-            'tour_version' => (string) config('plugged-host-core.tour.version', '1'),
+            'tour_version' => (string) config('plugged-host-core.tour.version', '2'),
         ];
 
         // One Select per panel, because a navigation key is a class name and a class only
@@ -207,7 +212,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-core::strings.settings.tour_version_hint'))
                         ->required()
                         ->maxLength(64)
-                        ->default(fn () => (string) config('plugged-host-core.tour.version', '1')),
+                        ->default(fn () => (string) config('plugged-host-core.tour.version', '2')),
                 ]),
             Section::make('Sidebar visibility')
                 ->description('Hide navigation entries you do not want users to see. The pages stay reachable by URL — this only removes them from the sidebar.')

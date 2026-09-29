@@ -417,63 +417,116 @@ return [
         'gain_and' => 'und',
     ],
 
-    // Willkommenstour beim ersten Login (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage).
-    // Jeder Schritt nennt ein echtes Bedienelement so, wie es in der Oberfläche wirklich heißt --
-    // genau darum geht es: wer "geh in die Einstellungen" hört, soll die Einstellungen finden.
+    // Die Willkommenstour (PluggedHost\Core\Livewire\PanelTourOverlay, Schritte in
+    // Support\PanelTourSteps). Sie liegt über dem echten Panel, also steht jeder Schritt neben
+    // dem, was er erklärt, und nennt es so, wie es auf dem Bildschirm heißt -- genau darum geht
+    // es: wer "geh in die Einstellungen" hört, soll die Einstellungen finden.
     //
-    // `bullets` ist ein Array und die View rendert so viele, wie da sind; der Intro-Schritt hat
-    // absichtlich keine, denn eine Textwand ist das, was übersprungen wird.
+    // `panel` ist der erste Teil auf der Serverliste, `server` der zweite auf der Konsole eines
+    // Servers. `bullets` ist optional; Schritte kurz halten, eine Textwand wird übersprungen.
     'tour' => [
         'title' => 'Willkommen',
         'progress' => 'Schritt :step von :total',
-        'acknowledge' => 'Verstanden',
+        'acknowledge' => 'Zeig mir alles',
         'next' => 'Weiter',
         'back' => 'Zurück',
-        'skip' => 'Rest überspringen',
-        'finish' => 'Zu meinen Servern',
+        'skip' => 'Tour überspringen',
+        'finish' => 'Fertig',
+        'done_here' => 'Später',
+        'open_server' => ':name zeigen',
+        'create_server' => 'Ersten Server erstellen',
         'menu' => 'Willkommenstour erneut ansehen',
-        'steps' => [
-            'intro' => [
+        'panel' => [
+            'welcome' => [
                 'heading' => 'Willkommen bei plugged.host',
-                'body' => 'Das ist dein Panel für Gameserver. Alles, was du bei uns mietest, findest du hier: Server starten und stoppen, Dateien bearbeiten und ändern, was darauf läuft — alles an einer Stelle. Die nächsten Schritte zeigen dir, wo das jeweils liegt. Das dauert etwa eine Minute.',
+                'body' => 'Das ist dein Panel für Gameserver: Alles, was du bei uns mietest, findest du hier. Wir heben jeden Bereich hervor und sagen dir, wofür er da ist. Das dauert etwa eine Minute.',
+            ],
+            'navigation' => [
+                'heading' => 'Die Seitenleiste',
+                'body' => 'Jede Seite deines Kontos ist hier einen Klick entfernt.',
+                'bullets' => [
+                    'Startseite — deine Server. Hier bist du gerade.',
+                    'Ressourcen-Shop — mehr CPU, Arbeitsspeicher und Speicherplatz für dein Guthaben.',
+                    'Token-Shop — mit Tokens die Startwarteschlange überspringen oder kostenpflichtige Standorte freischalten.',
+                    'Backups — ein Backup jedes deiner Server herunterladen.',
+                    'Profileinstellungen — Sprache, Zeitzone und dein Konto.',
+                ],
+            ],
+            'balance' => [
+                'heading' => 'Verbrauch und Guthaben',
+                'body' => 'Die Balken zeigen, wie viel deines Tarifs deine Server zusammen belegen. Darunter stehen deine Tokens und dein Guthaben.',
+                'bullets' => [
+                    'Guthaben kauft mehr Ressourcen im Ressourcen-Shop.',
+                    'Mit Tokens überspringt ein Server die Startwarteschlange; ausgeben kannst du sie im Token-Shop.',
+                    'Ein Klick auf die Balken oder einen Kontostand öffnet den passenden Shop.',
+                ],
+            ],
+            'account' => [
+                'heading' => 'Dein Konto',
+                'body' => 'Dein Name öffnet das Kontomenü: dein Profil, Abmelden und diese Tour, falls du sie noch einmal sehen willst.',
+            ],
+            'create' => [
+                'heading' => 'Server erstellen',
+                'body' => 'Hier erstellst du einen neuen Server. Wähle ein Spiel, einen Standort und eine Größe, eine Minute später ist er bereit.',
             ],
             'servers' => [
                 'heading' => 'Deine Server',
-                'body' => 'Die Serverliste ist deine Startseite. Jeder Server, den du hast, ist dort eine Zeile.',
-                'bullets' => [
-                    'Klicke auf den Namen eines Servers, um ihn zu öffnen.',
-                    'Server erstellen liegt in der Leiste über der Liste, links neben dem Suchfeld.',
-                    'Der farbige Punkt in jeder Zeile zeigt, ob dieser Server läuft.',
-                ],
+                'body' => 'Jeder deiner Server ist eine Karte wie diese. Der Balken links zeigt, ob er läuft, die Zahlen, was er gerade verbraucht. Ein Klick auf eine Karte öffnet den Server — lass uns :name zusammen öffnen.',
             ],
+            'empty' => [
+                'heading' => 'Deine Server',
+                'body' => 'Hier erscheinen deine Server, je eine Karte, mit Status und Verbrauch. Du hast noch keinen.',
+            ],
+            'create_first' => [
+                'heading' => 'Erstelle deinen ersten Server',
+                'body' => 'Fang hier an: Wähle ein Spiel, einen Standort und eine Größe. Wenn du deinen neuen Server zum ersten Mal öffnest, zeigt dir die Tour, was darin steckt.',
+            ],
+        ],
+        'server' => [
             'console' => [
                 'heading' => 'Die Konsole',
-                'body' => 'Wenn du einen Server öffnest, landest du auf seiner Konsole — der laufenden Ausgabe des Servers selbst und dem schnellsten Weg zu sehen, was er tut.',
-                'bullets' => [
-                    'Starten, Stoppen und Neustarten sind die Schaltflächen oben auf dieser Seite.',
-                    'Befehle kannst du direkt in das Feld unter dem Log eingeben.',
-                    'Ein neuer Minecraft-Server zeigt hier eine Einrichtungshilfe — folge ihr, danach ist der Server spielbereit.',
-                ],
+                'body' => 'Die laufende Ausgabe deines Servers: Alles, was er schreibt, erscheint hier sofort. Tippe einen Befehl in die Zeile darunter und drücke Enter, um ihn auszuführen.',
             ],
-            'inside' => [
-                'heading' => 'Alles Weitere zu einem Server',
-                'body' => 'Solange ein Server geöffnet ist, gehört die Seitenleiste links zu genau diesem Server. Die Einträge, die du am häufigsten brauchst:',
+            'power' => [
+                'heading' => 'Starten, Neustarten, Stoppen',
+                'body' => 'Die Schaltflächen zum Ein- und Ausschalten dieses Servers. Stoppen lässt das Spiel speichern und sauber herunterfahren; hängt es dabei, wird aus Stoppen „Stopp erzwingen“.',
+            ],
+            'address' => [
+                'heading' => 'Name, Status und Adresse',
+                'body' => 'Die Adresse geben Spieler zum Beitreten ein. Klick darauf, um sie zu kopieren, und schick sie deinen Freunden. CPU, Arbeitsspeicher und Speicher sind Live-Werte.',
+            ],
+            'setup' => [
+                'heading' => 'Einrichtung abschließen',
+                'body' => 'Für diesen Server wartet noch die Einrichtungshilfe: Sie wählt Minecraft-Version und Software und macht den Server spielbereit.',
+            ],
+            'sidebar' => [
+                'heading' => 'Alles zu diesem Server',
+                'body' => 'Solange ein Server geöffnet ist, gehört die Seitenleiste zu ihm.',
                 'bullets' => [
                     'Dateien — alles auf dem Server hochladen, bearbeiten und löschen.',
                     'Backups — vor einer Änderung eines anlegen und zurückspielen, wenn etwas kaputtgeht.',
-                    'Spieler — Whitelist, Operatoren und Bans, ohne eine Konfigurationsdatei zu bearbeiten.',
-                    'Datenbanken — eine MySQL-Datenbank für ein Plugin oder eine Mod anlegen, die eine braucht.',
-                    'Netzwerk — die Ports und Adressen, über die sich andere verbinden.',
+                    'Mehr — die Seiten, die du seltener brauchst: Subdomains, Netzwerk-Ports, Datenbanken, Zeitpläne, Benutzer und das Aktivitätsprotokoll.',
+                ],
+            ],
+            'sidebar_minecraft' => [
+                'heading' => 'Alles zu diesem Server',
+                'body' => 'Solange ein Server geöffnet ist, gehört die Seitenleiste zu ihm.',
+                'bullets' => [
+                    'Dateien — alles auf dem Server hochladen, bearbeiten und löschen.',
+                    'Plugins oder Mods — installieren und aktualisieren aus Modrinth, CurseForge und SpigotMC.',
+                    'Welten und Spieler — Welten wechseln, Whitelist, Operatoren und Bans verwalten.',
+                    'Spieleinstellungen — die server.properties als Formular.',
+                    'Backups — vor einer Änderung eines anlegen und zurückspielen, wenn etwas kaputtgeht.',
+                    'Mehr — die Seiten, die du seltener brauchst: Subdomains, Netzwerk-Ports, Datenbanken und mehr.',
                 ],
             ],
             'settings' => [
-                'heading' => 'Einstellungen und dein Guthaben',
-                'body' => 'Die Einstellungen sind eine Seite pro Server und enthalten alles zu diesem Server: umbenennen, mehr RAM geben, die Version wechseln oder neu installieren.',
-                'bullets' => [
-                    'Deine Tokens und dein Guthaben stehen unten in der Seitenleiste. Mit Tokens überspringt ein Server die Startwarteschlange; ausgeben kannst du sie im Token-Shop.',
-                    'Guthaben kauft mehr CPU, Arbeitsspeicher und Speicherplatz im Ressourcen-Shop. Ein Klick auf einen Kontostand öffnet seinen Shop.',
-                    'Diese Tour kannst du jederzeit über das Menü bei deinem Avatar erneut öffnen.',
-                ],
+                'heading' => 'Einstellungen',
+                'body' => 'Eine Seite für alles zu diesem Server: umbenennen, mehr Arbeitsspeicher geben, die Version wechseln oder neu installieren.',
+            ],
+            'home' => [
+                'heading' => 'Zurück zu deinen Servern',
+                'body' => 'Das Logo bringt dich zurück zur Serverliste. Das war die Tour — du kannst sie jederzeit über das Menü unter deinem Namen erneut ansehen.',
             ],
         ],
     ],

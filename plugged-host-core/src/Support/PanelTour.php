@@ -10,9 +10,15 @@ use Throwable;
  * One place that knows about users.panel_tour.
  *
  * The column is added by 009_add_panel_tour_to_users and holds the welcome tour's state as
- * JSON: which tour version was seen, when it was acknowledged, finished or skipped, and
- * which step the person stopped on. Three callers share it -- RequirePanelTour reads it,
- * WelcomeTourPage writes it, and the user-menu entry restarts it.
+ * JSON: which tour version was seen, when it was acknowledged, finished or skipped, which
+ * step the person stopped on, and the same for the tour's second part inside a server
+ * (server_step, server_done_at). RequirePanelTour reads it, the PanelTourOverlay
+ * component writes it, and WelcomeTourPage (the user-menu entry) restarts it.
+ *
+ * The tour has two parts because it runs on the real pages rather than describing them:
+ * the first on the server list (sidebar, balance, account, servers, Create server), the
+ * second on a server's console (console, power buttons, address, server sidebar). A brand-new
+ * account has no server yet, so the second part waits for the first console they open.
  *
  * The one thing that makes this a class rather than a couple of inline attribute reads:
  *
@@ -57,7 +63,7 @@ final class PanelTour
      */
     public static function version(): string
     {
-        return (string) config('plugged-host-core.tour.version', '1');
+        return (string) config('plugged-host-core.tour.version', '2');
     }
 
     /**
@@ -66,7 +72,7 @@ final class PanelTour
      * State written by an older version is reported as empty rather than merged: "you saw
      * tour 1" is not an answer to "have you seen tour 2".
      *
-     * @return array{version: string, acknowledged_at: ?string, completed_at: ?string, skipped_at: ?string, step: int}
+     * @return array{version: string, acknowledged_at: ?string, completed_at: ?string, skipped_at: ?string, step: int, server_step: int, server_done_at: ?string}
      */
     public static function state(?User $user): array
     {
@@ -76,6 +82,8 @@ final class PanelTour
             'completed_at' => null,
             'skipped_at' => null,
             'step' => 1,
+            'server_step' => 1,
+            'server_done_at' => null,
         ];
 
         if ($user === null) {
@@ -98,6 +106,8 @@ final class PanelTour
             'completed_at' => is_string($raw['completed_at'] ?? null) ? $raw['completed_at'] : null,
             'skipped_at' => is_string($raw['skipped_at'] ?? null) ? $raw['skipped_at'] : null,
             'step' => max(1, (int) ($raw['step'] ?? 1)),
+            'server_step' => max(1, (int) ($raw['server_step'] ?? 1)),
+            'server_done_at' => is_string($raw['server_done_at'] ?? null) ? $raw['server_done_at'] : null,
         ];
     }
 
@@ -138,6 +148,30 @@ final class PanelTour
     }
 
     /**
+     * Should the first part run on the server list? Until it is finished or skipped: someone
+     * who closed the tab halfway picks it up where they left it.
+     */
+    public static function panelPartActive(?User $user): bool
+    {
+        return $user instanceof User && self::enabled() && self::available() && !self::isFinished($user);
+    }
+
+    /**
+     * Should the second part run on this server console? Only once the first part is out of
+     * the way (the two never overlap), and never after "Skip tour", which ends both.
+     */
+    public static function serverPartActive(?User $user): bool
+    {
+        if (!$user instanceof User || !self::enabled() || !self::available()) {
+            return false;
+        }
+
+        $state = self::state($user);
+
+        return $state['completed_at'] !== null && $state['skipped_at'] === null && $state['server_done_at'] === null;
+    }
+
+    /**
      * Step 1 has been read. This is the write the gate depends on, so it also sets the
      * session flag -- see the class docblock.
      */
@@ -159,6 +193,15 @@ final class PanelTour
         self::merge($user, ['step' => $step]);
     }
 
+    public static function advanceServer(User $user, int $step): void
+    {
+        self::merge($user, ['server_step' => $step]);
+    }
+
+    /**
+     * "Skip tour" ends both parts: someone who waved the first part away does not want the
+     * second one to open by itself on their console later.
+     */
     public static function skip(User $user): void
     {
         session()->put(self::SESSION_KEY, self::version());
@@ -166,6 +209,7 @@ final class PanelTour
         self::merge($user, [
             'acknowledged_at' => self::state($user)['acknowledged_at'] ?? now()->toDateTimeString(),
             'skipped_at' => now()->toDateTimeString(),
+            'server_done_at' => self::state($user)['server_done_at'] ?? now()->toDateTimeString(),
         ]);
     }
 
@@ -181,8 +225,20 @@ final class PanelTour
     }
 
     /**
-     * Show it again from the top, without re-arming the gate: acknowledged_at stays, so
-     * abandoning a replay halfway cannot start redirecting the person again.
+     * The part inside a server is over, finished or skipped alike: it is short, and asking
+     * again on the next console visit would be the nagging this tour is meant not to do.
+     */
+    public static function completeServer(User $user): void
+    {
+        self::merge($user, [
+            'server_done_at' => now()->toDateTimeString(),
+            'server_step' => 1,
+        ]);
+    }
+
+    /**
+     * Show both parts again from the top, without re-arming the gate: acknowledged_at stays,
+     * so abandoning a replay halfway cannot start redirecting the person again.
      */
     public static function restart(User $user): void
     {
@@ -190,6 +246,8 @@ final class PanelTour
             'completed_at' => null,
             'skipped_at' => null,
             'step' => 1,
+            'server_step' => 1,
+            'server_done_at' => null,
         ]);
     }
 

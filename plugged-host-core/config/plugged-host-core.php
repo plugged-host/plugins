@@ -7,8 +7,9 @@ return [
     // plan and the store prices are set on noprofit.space (Admin > Settings) since 2.1.
 
     /*
-     * The first-login welcome tour (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage,
-     * gated by RequirePanelTour, state in users.panel_tour via Support\PanelTour).
+     * The first-login welcome tour (PluggedHost\Core\Livewire\PanelTourOverlay over the server
+     * list and a server's console, gated by RequirePanelTour, state in users.panel_tour via
+     * Support\PanelTour; /welcome?restart=1 replays it).
      *
      * enabled is the kill switch. It is read on the request path, so turning it off in .env
      * stops the redirect for everyone immediately -- which is the thing you want to be able
@@ -19,7 +20,8 @@ return [
      */
     'tour' => [
         'enabled' => (bool) env('TOUR_ENABLED', true),
-        'version' => env('TOUR_VERSION', '1'),
+        // 2: the tour moved from a text card onto the real pages (PanelTourOverlay).
+        'version' => env('TOUR_VERSION', '2'),
     ],
 
     /*

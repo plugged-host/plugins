@@ -417,63 +417,117 @@ return [
         'gain_and' => 'and',
     ],
 
-    // First-login welcome tour (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage). Every
-    // step names a real control by the label it actually carries in the interface -- the whole
-    // point is that someone told "go to Settings" can then find Settings.
+    // The welcome tour (PluggedHost\Core\Livewire\PanelTourOverlay, steps in
+    // Support\PanelTourSteps). It is drawn over the real panel, so every step sits next to the
+    // thing it describes and names it by the label it carries on screen -- the whole point is
+    // that someone told "go to Settings" can then find Settings.
     //
-    // `bullets` is an array and the view renders however many there are; the intro step has
-    // none on purpose, because a wall of text is the thing people skip.
+    // `panel` is the first part, on the server list; `server` the second, on a server's
+    // console. `bullets` is an optional array; keep steps short, a wall of text is the thing
+    // people skip.
     'tour' => [
         'title' => 'Welcome',
         'progress' => 'Step :step of :total',
-        'acknowledge' => 'Got it',
+        'acknowledge' => 'Show me around',
         'next' => 'Next',
         'back' => 'Back',
-        'skip' => 'Skip the rest',
-        'finish' => 'Take me to my servers',
+        'skip' => 'Skip tour',
+        'finish' => 'Finish',
+        'done_here' => 'Not now',
+        'open_server' => 'Show me :name',
+        'create_server' => 'Create my first server',
         'menu' => 'Replay the welcome tour',
-        'steps' => [
-            'intro' => [
+        'panel' => [
+            'welcome' => [
                 'heading' => 'Welcome to plugged.host',
-                'body' => 'This is your game server panel. Everything you rent from us lives here: you start and stop your servers, edit their files, and change what they run — all in one place. The next few screens show you where each of those things is. It takes about a minute.',
+                'body' => 'This is your game server panel: everything you rent from us lives here. We\'ll light up each part of it and tell you what it does. It takes about a minute.',
+            ],
+            'navigation' => [
+                'heading' => 'The sidebar',
+                'body' => 'Every page of your account is one click away here.',
+                'bullets' => [
+                    'Home — your servers. You are on it now.',
+                    'Resource Store — more CPU, memory and disk for your credits.',
+                    'Token Store — skip the start queue or unlock paid locations with tokens.',
+                    'Backups — download a backup of any of your servers.',
+                    'Profile Settings — your language, time zone and account.',
+                ],
+            ],
+            'balance' => [
+                'heading' => 'Your usage and balance',
+                'body' => 'The bars show how much of your plan your servers use together. Underneath are your tokens and credits.',
+                'bullets' => [
+                    'Credits buy more resources in the Resource Store.',
+                    'Tokens let a server skip the start queue; spend them in the Token Store.',
+                    'Click the bars or a balance to open its store.',
+                ],
+            ],
+            'account' => [
+                'heading' => 'Your account',
+                'body' => 'Your name opens the account menu: your profile, signing out, and this tour if you want to see it again.',
+            ],
+            'create' => [
+                'heading' => 'Create server',
+                'body' => 'This makes a new server. Pick a game, a location and a size, and it is ready a minute later.',
             ],
             'servers' => [
                 'heading' => 'Your servers',
-                'body' => 'The server list is your home page. Every server you own is a row on it.',
-                'bullets' => [
-                    'Click the name of a server to open it.',
-                    'Create server sits in the toolbar above the list, to the left of the search box.',
-                    'The coloured dot on each row tells you whether that server is running.',
-                ],
+                'body' => 'Every server you have is a card like this one. The bar on its left shows whether it is running, the numbers what it uses right now. Click a card to open that server — let\'s open :name together.',
             ],
+            'empty' => [
+                'heading' => 'Your servers',
+                'body' => 'Your servers show up here, one card each, with whether they are running and what they use. You do not have one yet.',
+            ],
+            'create_first' => [
+                'heading' => 'Create your first server',
+                'body' => 'Start here: pick a game, a location and a size. The first time you open your new server, the tour shows you around inside it.',
+            ],
+        ],
+        'server' => [
             'console' => [
                 'heading' => 'The console',
-                'body' => 'Opening a server drops you on its console — the live output of the server itself, and the fastest way to see what it is doing.',
-                'bullets' => [
-                    'Start, Stop and Restart are the buttons at the top of that page.',
-                    'You can type commands straight into the box below the log.',
-                    'A brand-new Minecraft server shows a setup guide here — follow it and the server is ready to play on.',
-                ],
+                'body' => 'Your server\'s live output: everything it prints shows up here as it happens. Type a command in the line underneath and press Enter to run it.',
             ],
-            'inside' => [
-                'heading' => 'Everything else about a server',
-                'body' => 'While a server is open, the sidebar on the left belongs to that one server. The entries you will need most:',
+            'power' => [
+                'heading' => 'Start, Restart, Stop',
+                'body' => 'The power buttons for this server. Stop lets the game save and shut down cleanly; if it hangs while stopping, Stop turns into Kill.',
+            ],
+            'address' => [
+                'heading' => 'Name, status and address',
+                'body' => 'The Address is what players type to join. Click it to copy it, then send it to your friends. CPU, memory and disk are live.',
+            ],
+            'setup' => [
+                'heading' => 'Finish the setup',
+                'body' => 'This server still has its setup guide waiting: it picks the Minecraft version and software and gets the server ready to play on.',
+            ],
+            'sidebar' => [
+                'heading' => 'Everything about this server',
+                'body' => 'While a server is open, the sidebar belongs to it.',
                 'bullets' => [
                     'Files — upload, edit and delete anything on the server.',
-                    'Backups — take one before you change something, restore it if you break it.',
-                    'Players — whitelist, operators and bans, without editing a config file.',
-                    'Databases — create a MySQL database for a plugin or mod that needs one.',
-                    'Network — the ports and addresses people connect to.',
+                    'Backups — take one before you change something, restore it if something breaks.',
+                    'More — the pages you need less often: subdomains, network ports, databases, schedules, users and the activity log.',
+                ],
+            ],
+            'sidebar_minecraft' => [
+                'heading' => 'Everything about this server',
+                'body' => 'While a server is open, the sidebar belongs to it.',
+                'bullets' => [
+                    'Files — upload, edit and delete anything on the server.',
+                    'Plugins or Mods — install and update them from Modrinth, CurseForge and SpigotMC.',
+                    'Worlds and Players — switch worlds, manage the whitelist, operators and bans.',
+                    'Game Settings — the server.properties as a form.',
+                    'Backups — take one before you change something, restore it if something breaks.',
+                    'More — the pages you need less often: subdomains, network ports, databases and more.',
                 ],
             ],
             'settings' => [
-                'heading' => 'Settings, and your balance',
-                'body' => 'Settings is one page per server, and it holds everything about that server: rename it, give it more memory, change which version it runs, or reinstall it.',
-                'bullets' => [
-                    'Your tokens and credits are at the bottom of the sidebar. Tokens let a server skip the start queue; spend them in the Token Store.',
-                    'Credits buy more CPU, memory and disk in the Resource Store. Click either balance to open its store.',
-                    'You can reopen this tour at any time from the menu under your avatar.',
-                ],
+                'heading' => 'Settings',
+                'body' => 'One page for everything about this server: rename it, give it more memory, change the version it runs, or reinstall it.',
+            ],
+            'home' => [
+                'heading' => 'Back to your servers',
+                'body' => 'The logo takes you back to your server list. That is the tour — replay it any time from the menu under your name.',
             ],
         ],
     ],
