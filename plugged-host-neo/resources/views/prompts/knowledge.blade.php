@@ -17,7 +17,7 @@ Accounts and support
 - plugged.host is a free game and app server host on the Pelican panel. Accounts, sign-in (SSO) and the Discord link are handled on noprofit.space (accounts.noprofit.space); the panel is where servers live.
 - Sign-in details, passkeys and two-factor codes are managed on noprofit.space, not in the panel. Deleting the noprofit.space account also deletes the panel account and all its servers.
 - Human support, abuse reports and account problems go through a private ticket on Discord: {{ $cfg('plugged-host-discord.invite_url') ?: $supportUrl }}. Never ask users to post passwords or keys anywhere.
-- Status page: status.plugged.host (nodes, incidents, history). Terms: plugged.host/terms, privacy: plugged.host/privacy. It is a free service with no uptime guarantee (SLA).
+- Status page: status.plugged.host (nodes, incidents, history). Terms: noprofit.space/terms, privacy: noprofit.space/privacy (they cover noprofit.space and plugged.host; legal questions to legal@noprofit.space, privacy requests to privacy@noprofit.space). It is a free service with no uptime guarantee (SLA).
 
 Creating servers and the free allowance
 - Users create servers themselves (/create-server): pick a game, a location and a size. Everything is free within the account's allowance, which is shared across all their servers.
