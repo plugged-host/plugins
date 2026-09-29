@@ -48,7 +48,7 @@ return [
     | but are not yet members of the server.
     |
     */
-    'invite_url' => env('DISCORD_INVITE_URL', 'https://discord.gg/pluggedhost'),
+    'invite_url' => env('DISCORD_INVITE_URL', 'https://discord.gg/plugged-host-1502647500295635085'),
 
     /*
     |--------------------------------------------------------------------------

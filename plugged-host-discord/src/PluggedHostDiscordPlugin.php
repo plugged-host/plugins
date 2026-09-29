@@ -50,7 +50,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
             // Secret: never surface the stored key. Empty means "unchanged" on save.
             'public_key' => '',
             'role_name' => config('plugged-host-discord.role_name', 'Discord Linked'),
-            'invite_url' => config('plugged-host-discord.invite_url', 'https://discord.gg/pluggedhost'),
+            'invite_url' => config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085'),
             'sync_on_login' => (bool) config('plugged-host-discord.sync_on_login', true),
             'unlinked_remove_role' => (bool) config('plugged-host-discord.unlinked_remove_role', true),
             'credits_per_invite' => (int) config('plugged-host-discord.credits_per_invite', 50),
@@ -97,7 +97,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->placeholder('https://discord.gg/yourinvite')
                         ->helperText('Presented to users who linked their Discord but haven\'t joined the server yet.')
-                        ->default(fn () => config('plugged-host-discord.invite_url', 'https://discord.gg/pluggedhost')),
+                        ->default(fn () => config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085')),
                     TextInput::make('bot_token')
                         ->label('Discord Bot Token')
                         ->password()

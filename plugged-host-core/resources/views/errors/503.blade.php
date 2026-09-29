@@ -11,7 +11,7 @@
     $appName = config('app.name', 'plugged.host');
     $appLogo = config('app.logo');
     $appFavicon = config('app.favicon', '/pelican.ico');
-    $discordUrl = config('plugged-host-discord.invite_url', 'https://discord.gg/pluggedhost');
+    $discordUrl = config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085');
     $statusUrl = 'https://status.plugged.host';
 
     $customMessage = null;

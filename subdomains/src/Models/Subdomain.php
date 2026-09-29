@@ -170,7 +170,7 @@ class Subdomain extends Model implements HasLabel
             } catch (\Throwable) {}
         }
 
-        return (string) config('plugged-host-discord.invite_url', 'https://discord.gg/RuzP2yaRrN');
+        return (string) config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085');
     }
 
     public static function isUserInDiscordGuild(?User $user): bool

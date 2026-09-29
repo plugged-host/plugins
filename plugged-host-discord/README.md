@@ -29,7 +29,7 @@ A Pelican Panel plugin providing Discord account linking, guild membership verif
      - **Discord Guild / Server ID**: Your Discord server snowflake ID.
      - **Discord Bot Token**: Your bot's secret token.
      - **Minimum Account Age for Invites**: Default `30` days.
-     - **Discord Server Invite URL**: e.g., `https://discord.gg/pluggedhost`.
+     - **Discord Server Invite URL**: e.g., `https://discord.gg/plugged-host-1502647500295635085`.
      - **Assigned Panel Role**: The role to assign (default: `Discord Linked`).
    - Click **Save**.
 
