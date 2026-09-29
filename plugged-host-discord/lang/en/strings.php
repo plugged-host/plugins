@@ -18,6 +18,8 @@ return [
     'link_discord_account' => 'Link Discord Account',
     'link_taken_title' => 'Discord account already linked',
     'link_taken_body' => 'That Discord account is already linked to a different panel account. One Discord account can only be linked to one panel account — unlink it there first, or sign in with the account that owns it.',
+    'unverified_email_title' => 'Discord email not verified',
+    'unverified_email_body' => 'Your Discord account email is not verified. Please verify your email on Discord before linking.',
 
     'action_required' => 'Action Required: Join Server',
     'join_server_help' => 'Your Discord account is connected, but you have not joined our Discord server yet. Click "Join Discord Server" above to join, then click "Verify Membership" to receive the :role role.',

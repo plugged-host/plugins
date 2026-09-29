@@ -18,6 +18,8 @@ return [
     'link_discord_account' => 'Discord-Konto verbinden',
     'link_taken_title' => 'Discord-Konto bereits verbunden',
     'link_taken_body' => 'Dieses Discord-Konto ist bereits mit einem anderen Panel-Konto verbunden. Ein Discord-Konto kann nur mit einem Panel-Konto verbunden sein — trenne es dort zuerst oder melde dich mit dem Konto an, dem es gehört.',
+    'unverified_email_title' => 'Discord-E-Mail nicht verifiziert',
+    'unverified_email_body' => 'Die E-Mail-Adresse deines Discord-Kontos ist nicht verifiziert. Bitte verifiziere deine E-Mail auf Discord, bevor du das Konto verknüpfst.',
 
     'action_required' => 'Aktion erforderlich: Server beitreten',
     'join_server_help' => 'Dein Discord-Konto ist verbunden, aber du bist unserem Discord-Server noch nicht beigetreten. Klicke oben auf "Discord-Server beitreten" und danach auf "Mitgliedschaft prüfen", um die :role-Rolle zu erhalten.',

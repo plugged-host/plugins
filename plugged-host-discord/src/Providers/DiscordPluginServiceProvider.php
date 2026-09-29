@@ -31,7 +31,7 @@ use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\DiscordVerificationService;
 use PluggedHost\Discord\Services\PluggedHostOAuthService;
 use PluggedHost\Discord\Support\DiscordBotSupervisor;
-use SocialiteProviders\Discord\Provider as DiscordSocialiteProvider;
+use PluggedHost\Discord\Support\PluggedHostDiscordSocialiteProvider;
 
 class DiscordPluginServiceProvider extends ServiceProvider
 {
@@ -78,7 +78,7 @@ class DiscordPluginServiceProvider extends ServiceProvider
         //
         // Existing links keep tokens that predate the scope; those still fall through to
         // the bot path exactly as before, and pick the new scope up on their next re-link.
-        if (class_exists(Socialite::class) && class_exists(DiscordSocialiteProvider::class)) {
+        if (class_exists(Socialite::class) && class_exists(PluggedHostDiscordSocialiteProvider::class)) {
             Socialite::extend('discord', function ($app) {
                 $config = $app['config']['services.discord'] ?? [
                     'client_id' => env('OAUTH_DISCORD_CLIENT_ID'),
@@ -87,7 +87,7 @@ class DiscordPluginServiceProvider extends ServiceProvider
                 ];
 
                 return Socialite::buildProvider(
-                    DiscordSocialiteProvider::class,
+                    PluggedHostDiscordSocialiteProvider::class,
                     $config
                 )->scopes(['guilds']);
             });

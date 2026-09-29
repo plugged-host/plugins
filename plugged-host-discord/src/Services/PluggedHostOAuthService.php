@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Contracts\User as OAuthUser;
 use Livewire\Livewire;
 use PluggedHost\Discord\Models\DiscordLink;
+use PluggedHost\Discord\Support\PluggedHostDiscordSchemaWrapper;
 
 class PluggedHostOAuthService extends BaseOAuthService
 {
@@ -58,22 +59,62 @@ class PluggedHostOAuthService extends BaseOAuthService
         return request()->routeIs('*edit-profile*') || request()->is('*profile*');
     }
 
+    public function register(OAuthSchemaInterface $schema): void
+    {
+        if ($schema->getId() === 'discord' && !($schema instanceof PluggedHostDiscordSchemaWrapper)) {
+            $schema = new PluggedHostDiscordSchemaWrapper($schema);
+        }
+
+        parent::register($schema);
+    }
+
+    public function get(string $id): ?OAuthSchemaInterface
+    {
+        $schema = parent::get($id);
+
+        if ($id === 'discord' && $schema !== null && !($schema instanceof PluggedHostDiscordSchemaWrapper)) {
+            return new PluggedHostDiscordSchemaWrapper($schema);
+        }
+
+        return $schema;
+    }
+
     public function linkUser(User $user, OAuthSchemaInterface $schema, OAuthUser $oauthUser): User
     {
-        if ($schema->getId() === 'discord' && $this->discordIdIsClaimedByAnother($user, (string) $oauthUser->getId())) {
-            Notification::make()
-                ->danger()
-                ->title(trans('plugged-host-discord::strings.link_taken_title'))
-                ->body(trans('plugged-host-discord::strings.link_taken_body'))
-                ->persistent()
-                ->send();
+        if ($schema->getId() === 'discord') {
+            $rawUser = method_exists($oauthUser, 'getRaw') ? $oauthUser->getRaw() : ($oauthUser->user ?? []);
 
-            Log::warning('[Discord] Refused to link an already-claimed Discord account', [
-                'attempted_by_user' => $user->id,
-                'discord_id' => (string) $oauthUser->getId(),
-            ]);
+            if (empty($rawUser['verified'])) {
+                Notification::make()
+                    ->danger()
+                    ->title(trans('plugged-host-discord::strings.unverified_email_title'))
+                    ->body(trans('plugged-host-discord::strings.unverified_email_body'))
+                    ->persistent()
+                    ->send();
 
-            return $user;
+                Log::warning('[Discord] Refused to link an unverified Discord account', [
+                    'attempted_by_user' => $user->id,
+                    'discord_id' => (string) $oauthUser->getId(),
+                ]);
+
+                return $user;
+            }
+
+            if ($this->discordIdIsClaimedByAnother($user, (string) $oauthUser->getId())) {
+                Notification::make()
+                    ->danger()
+                    ->title(trans('plugged-host-discord::strings.link_taken_title'))
+                    ->body(trans('plugged-host-discord::strings.link_taken_body'))
+                    ->persistent()
+                    ->send();
+
+                Log::warning('[Discord] Refused to link an already-claimed Discord account', [
+                    'attempted_by_user' => $user->id,
+                    'discord_id' => (string) $oauthUser->getId(),
+                ]);
+
+                return $user;
+            }
         }
 
         $user = parent::linkUser($user, $schema, $oauthUser);
