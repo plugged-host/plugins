@@ -34,6 +34,12 @@ class RestoreFromLimboPage extends Page
     /** The move back is in flight: the page shows progress instead of the button. */
     public bool $restoring = false;
 
+    /** Its own location has no room: the owner picks one of theirs instead. */
+    public bool $needsLocation = false;
+
+    /** The picked location code, when $needsLocation. */
+    public ?string $location = null;
+
     /** Whether the current request is this page — for the ads interstitial registry (WP4/WP5). */
     public static function isCurrentRoute(): bool
     {
@@ -77,6 +83,22 @@ class RestoreFromLimboPage extends Page
             $this->cost = app(LimboService::class)->cost($state);
             $this->enteredAt = $state->limbo_at?->diffForHumans();
             $this->restoring = $state->state === 'restoring';
+            $this->needsLocation = !$this->restoring && !app(LimboService::class)->canRestoreHome($server);
+        }
+    }
+
+    /** @return array<int, array<string, mixed>> the owner's unlocked locations with room */
+    public function locations(): array
+    {
+        $server = Filament::getTenant();
+
+        return $server instanceof Server && $this->needsLocation ? app(LimboService::class)->restoreLocations($server) : [];
+    }
+
+    public function pick(string $code): void
+    {
+        if (in_array($code, array_column($this->locations(), 'code'), true)) {
+            $this->location = $code;
         }
     }
 
@@ -122,6 +144,7 @@ class RestoreFromLimboPage extends Page
             Action::make('restore')
                 ->label(trans('plugged-host-limbo::strings.restore'))
                 ->visible(fn () => !$this->restoring)
+                ->disabled(fn () => $this->needsLocation && $this->location === null)
                 ->requiresConfirmation()
                 ->modalDescription(fn () => trans('plugged-host-limbo::strings.confirm', ['cost' => $this->cost]))
                 ->action('restore'),
@@ -137,7 +160,7 @@ class RestoreFromLimboPage extends Page
             return;
         }
 
-        $result = app(LimboService::class)->restore($user, $server);
+        $result = app(LimboService::class)->restore($user, $server, $this->needsLocation ? $this->location : null);
 
         if ($result['ok'] ?? false) {
             Notification::make()->title(trans('plugged-host-limbo::strings.restored'))->success()->send();
@@ -149,9 +172,17 @@ class RestoreFromLimboPage extends Page
         $reason = $result['reason'] ?? 'error';
         Log::warning(sprintf('plugged-host-limbo: restore of server %d refused: %s', $server->id, $reason));
 
-        $key = $reason === 'insufficient_tokens'
-            ? 'plugged-host-limbo::strings.insufficient'
-            : 'plugged-host-limbo::strings.failed';
+        // Its own location filled up since the page opened, or the picked one just did.
+        if ($reason === 'no_destination' || $reason === 'location_full') {
+            $this->needsLocation = true;
+            $this->location = null;
+        }
+
+        $key = match ($reason) {
+            'insufficient_tokens' => 'plugged-host-limbo::strings.insufficient',
+            'no_destination', 'location_full' => 'plugged-host-limbo::strings.location_full',
+            default => 'plugged-host-limbo::strings.failed',
+        };
 
         Notification::make()->title(trans($key, ['cost' => $result['cost'] ?? $this->cost]))->danger()->send();
     }
