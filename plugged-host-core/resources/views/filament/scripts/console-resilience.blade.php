@@ -128,10 +128,73 @@
             return bundle;
         };
 
+        // ---- 2. A terminal that fits a phone ----------------------------------------
+        //
+        // Upstream builds the terminal at the user's font size, 14px unless they changed it in
+        // their profile, which leaves a phone about 37 columns and wraps nearly every log line.
+        // Below Filament's `sm` breakpoint that default becomes 12px; a size somebody picked
+        // themselves is left alone. The rest of the phone layout is CSS, in theme v2.
+        const PHONE = '(max-width: 39.99rem)';
+        const UPSTREAM_FONT_SIZE = 14; // CustomizationKey::ConsoleFontSize's default
+        const PHONE_FONT_SIZE = 12;
+
+        // Theme v2 pads the terminal and paints the padding with this colour. Upstream's is
+        // rgba(19,26,32,0.7), which the WebGL canvas blends over whatever lies beneath it and
+        // the DOM renderer shows over xterm's black, so each lands on a different shade. Opaque,
+        // every layer agrees.
+        const opaque = (color) => {
+            const match = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[\d.]+\s*\)$/i.exec(String(color || ''));
+
+            return match ? `rgb(${match[1]}, ${match[2]}, ${match[3]})` : color;
+        };
+
+        const fitTerminal = (bundle) => {
+            const Native = bundle && bundle.Terminal;
+
+            if (typeof Native !== 'function' || Native.pluggedHostFitted) {
+                return bundle;
+            }
+
+            class Terminal extends Native {
+                constructor(options = {}, ...rest) {
+                    const fitted = { ...options };
+
+                    if (options.theme) {
+                        fitted.theme = { ...options.theme, background: opaque(options.theme.background) };
+                    }
+
+                    if (options.fontSize === UPSTREAM_FONT_SIZE && window.matchMedia(PHONE).matches) {
+                        fitted.fontSize = PHONE_FONT_SIZE;
+                    }
+
+                    super(fitted, ...rest);
+                }
+            }
+
+            Terminal.pluggedHostFitted = true;
+            bundle.Terminal = Terminal;
+
+            return bundle;
+        };
+
         // resources/js/console.js assigns window.Xterm once, from a module, so it normally
         // lands after this script has run: intercept the assignment rather than race it.
+        const prepare = (bundle) => {
+            try {
+                guardWebgl(bundle);
+            } catch (error) {
+                warn('Could not guard the WebGL addon.', error);
+            }
+
+            try {
+                fitTerminal(bundle);
+            } catch (error) {
+                warn('Could not fit the terminal to this screen.', error);
+            }
+        };
+
         if (window.Xterm) {
-            guardWebgl(window.Xterm);
+            prepare(window.Xterm);
         } else {
             let bundle;
 
@@ -141,17 +204,12 @@
                 get: () => bundle,
                 set: (value) => {
                     bundle = value;
-
-                    try {
-                        guardWebgl(value);
-                    } catch (error) {
-                        warn('Could not guard the WebGL addon.', error);
-                    }
+                    prepare(value);
                 },
             });
         }
 
-        // ---- 2. A console socket that comes back ------------------------------------
+        // ---- 3. A console socket that comes back ------------------------------------
         //
         // The one live console connection. A new console page retires the previous one:
         // under wire:navigate the old @script closure survives the page that created it,
@@ -536,6 +594,55 @@
                 current.retire();
             }
         });
+
+        // ---- 4. A command line the phone keyboard leaves alone ----------------------
+        //
+        // Brigadier's literals are case-sensitive, so a keyboard that turns "say" into "Say"
+        // turns a command into "Unknown or incomplete command", and autocorrect does the same
+        // to player names. The input is upstream's, so the attributes go on here -- and onto
+        // the incoming markup before every morph, because each re-render of the console widget
+        // (a stats frame every few seconds) would otherwise strip what its HTML does not carry.
+        const COMMAND_ATTRIBUTES = {
+            autocapitalize: 'none',
+            autocomplete: 'off',
+            autocorrect: 'off',
+            spellcheck: 'false',
+            enterkeyhint: 'send',
+        };
+
+        const dressCommandInput = (input) => {
+            for (const [name, value] of Object.entries(COMMAND_ATTRIBUTES)) {
+                if (input.getAttribute(name) !== value) {
+                    input.setAttribute(name, value);
+                }
+            }
+        };
+
+        const dressCurrentCommandInput = () => {
+            const input = document.getElementById('send-command');
+
+            if (input) {
+                dressCommandInput(input);
+            }
+        };
+
+        const watchMorphs = () => {
+            window.Livewire.hook('morph.updating', ({ el, toEl }) => {
+                if (el && el.id === 'send-command' && toEl && toEl.nodeType === Node.ELEMENT_NODE) {
+                    dressCommandInput(toEl);
+                }
+            });
+        };
+
+        // A full load runs this before Livewire exists; arriving by wire:navigate, after.
+        if (window.Livewire) {
+            watchMorphs();
+        } else {
+            document.addEventListener('livewire:init', watchMorphs, { once: true });
+        }
+
+        dressCurrentCommandInput();
+        document.addEventListener('livewire:navigated', dressCurrentCommandInput);
     })();
 </script>
 @endverbatim
