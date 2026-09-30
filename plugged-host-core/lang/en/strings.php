@@ -543,6 +543,21 @@ return [
         'tour_version_hint' => 'Bump this to show the tour again to everyone who has already seen it. Leave it alone for wording fixes.',
     ],
 
+    'suspended' => [
+        'title' => 'Server suspended',
+        'body' => 'This server is suspended. It cannot be started or managed until the suspension is lifted.',
+        'by_abuse_scan' => 'Suspended :time by our automated abuse scan.',
+        'by_admin' => 'Suspended :time by an administrator.',
+        'by_system' => 'Suspended :time.',
+        'note_label' => 'Reason',
+        'findings_label' => 'What the scan found',
+        'more' => 'and :count more',
+        'help' => 'If you think this is a mistake, ask us on Discord and include the server\'s name.',
+        'help_action' => 'Get help on Discord',
+        'reason_field' => 'Reason',
+        'reason_hint' => 'Shown to the server\'s owner on its suspended page.',
+    ],
+
     'maintenance' => [
         'title' => 'Scheduled Maintenance',
         'badge' => 'Maintenance Mode',

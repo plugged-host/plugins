@@ -8,6 +8,7 @@ use App\Models\Server;
 use App\Repositories\Daemon\DaemonFileRepository;
 use App\Services\Servers\SuspensionService;
 use Illuminate\Console\Command;
+use PluggedHost\Core\Support\SuspensionReason;
 use Throwable;
 
 /**
@@ -235,7 +236,10 @@ class ScanAbuseCommand extends Command
 
         if ($shouldSuspend && !$server->isSuspended()) {
             try {
-                $suspensionService->handle($server, SuspendAction::Suspend);
+                SuspensionReason::with(
+                    ['source' => SuspensionReason::SOURCE_ABUSE_SCAN, 'reasons' => $detectedReasons],
+                    fn () => $suspensionService->handle($server, SuspendAction::Suspend),
+                );
                 $actionResult = 'Suspended Successfully';
             } catch (Throwable $exception) {
                 $actionResult = 'Suspension Failed: ' . $exception->getMessage();

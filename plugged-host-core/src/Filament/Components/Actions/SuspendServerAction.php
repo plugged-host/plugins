@@ -8,7 +8,9 @@ use App\Models\Server;
 use App\Services\Servers\SuspensionService;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use PluggedHost\Core\Support\SuspensionReason;
 use Throwable;
 
 /**
@@ -69,7 +71,19 @@ class SuspendServerAction extends Action
 
         $this->authorize(fn () => user()?->can('update server'));
 
-        $this->action(function (SuspensionService $suspensionService) {
+        // Suspending asks for a reason, shown to the owner on their suspended page
+        // (SuspendedServerPage). Unsuspending stays one click.
+        $this->modalHidden(fn () => $this->getServer()?->isSuspended() ?? false);
+        $this->modalHeading(fn () => trans('admin/server.suspend'));
+        $this->schema([
+            Textarea::make('reason')
+                ->label(trans('plugged-host-core::strings.suspended.reason_field'))
+                ->helperText(trans('plugged-host-core::strings.suspended.reason_hint'))
+                ->maxLength(1000)
+                ->rows(3),
+        ]);
+
+        $this->action(function (SuspensionService $suspensionService, array $data) {
             $targetServer = $this->getServer();
 
             if (!$targetServer) {
@@ -78,7 +92,10 @@ class SuspendServerAction extends Action
 
             try {
                 $action = $targetServer->isSuspended() ? SuspendAction::Unsuspend : SuspendAction::Suspend;
-                $suspensionService->handle($targetServer, $action);
+                SuspensionReason::with(
+                    ['source' => SuspensionReason::SOURCE_ADMIN, 'note' => $data['reason'] ?? null],
+                    fn () => $suspensionService->handle($targetServer, $action),
+                );
 
                 Notification::make()
                     ->success()
