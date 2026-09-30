@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+- `StorageService::excludePatterns()`: the agent's `EXCLUDES` list, read from `agent/agent.mjs`, so
+  limbo can apply the same exemptions before a move without keeping a second copy.
+- Version bump to 1.2.2.
+
 ## Agent 1.3.0 (plugged.host 2.1)
 
 - **Downloads start at once.** A browser download (backups portal, `stream=1`, or a browser

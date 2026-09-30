@@ -7,6 +7,7 @@ use App\Facades\Activity;
 use App\Models\Allocation;
 use App\Models\Node;
 use App\Models\Server;
+use App\Models\ServerTransfer;
 use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Servers\TransferServerService;
 use Carbon\CarbonInterface;
@@ -147,6 +148,40 @@ class LimboService
         return null;
     }
 
+    /**
+     * How many new moves to the limbo node may start now: the in-flight cap, unless the limbo
+     * node is refusing work. When the last three moves there all failed, none start for an hour
+     * after the latest failure, then one at a time as a probe until one lands — so a broken limbo
+     * node costs one server's exempt files an hour (see ExemptionPruner), not a sweep's worth.
+     */
+    public function moveBudget(int $cap): int
+    {
+        $inFlight = ServerLimboState::query()->where('state', 'hibernating')->count();
+        $budget = max(0, $cap - $inFlight);
+        $node = $this->limboNode();
+
+        if ($budget === 0 || $node === null) {
+            return $budget;
+        }
+
+        $recent = ServerTransfer::query()
+            ->where('new_node', $node->getKey())
+            ->whereNotNull('successful')
+            ->orderByDesc('id')
+            ->limit(3)
+            ->get(['successful', 'updated_at']);
+
+        if ($recent->count() < 3 || $recent->contains(fn (ServerTransfer $transfer) => (bool) $transfer->successful)) {
+            return $budget;
+        }
+
+        if ($recent->first()->updated_at?->gt(now()->subHour())) {
+            return 0;
+        }
+
+        return $inFlight > 0 ? 0 : 1;
+    }
+
     /** Cost to restore, per the ransom window measured from limbo_at. */
     public function cost(ServerLimboState $state): int
     {
@@ -242,6 +277,8 @@ class LimboService
             return false;
         }
 
+        $this->pruneExemptions($server);
+
         $state = ServerLimboState::query()->updateOrCreate(
             ['server_id' => $server->getKey()],
             [
@@ -263,6 +300,26 @@ class LimboService
         $state->update(['state' => 'failed']);
 
         return false;
+    }
+
+    /**
+     * The storage exemptions (node_modules, caches, logs, …) are not worth carrying to the
+     * limbo node, and a wings transfer cannot skip them, so they are deleted first. A failure
+     * here only means a bigger move.
+     */
+    private function pruneExemptions(Server $server): void
+    {
+        try {
+            $paths = app(ExemptionPruner::class)->prune($server);
+        } catch (Throwable $e) {
+            report($e);
+
+            return;
+        }
+
+        if ($paths !== []) {
+            Log::info(sprintf('plugged-host-limbo: removed %d exempt paths from server %d before the move.', count($paths), $server->id), ['paths' => array_slice($paths, 0, 50)]);
+        }
     }
 
     /**

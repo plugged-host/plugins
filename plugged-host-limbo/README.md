@@ -14,8 +14,10 @@ node capacity that would otherwise be held indefinitely. New in v1.2.0 (WP5). **
 | Restore ≤ 72 h after entering limbo | 5 tokens |
 | Restore > 72 h after entering limbo | 10 tokens |
 
-"Activity" is the most recent `activity_logs` row for that server (falling back to
-`servers.created_at`) — a single console page view resets the clock. `IdleDetector` is one seam
+"Activity" is the most recent `activity_logs` row with that server as subject (falling back to
+`servers.created_at`), whoever the actor is: the owner, a subuser or an admin (console commands,
+file changes, SFTP, power actions) — and system events too (`server:crashed`, scheduled backups,
+limbo's own stop, transfers). Merely opening the console logs nothing and does not count. `IdleDetector` is one seam
 (`LimboService::lastActivityAt()`) so switching to daemon-sampling later is a one-method change.
 
 ## What it does
@@ -25,6 +27,15 @@ node capacity that would otherwise be held indefinitely. New in v1.2.0 (WP5). **
   conflict-state / installing / restoring / suspended / maintenance / unbounded-disk servers;
   checks with wings that the server is offline; caps moves in flight (`LIMBO_MAX_PER_RUN`); backs
   off 24 h after a failed move; global kill switch.
+- **Exemptions** (`ExemptionPruner`): before a move, the storage agent's exclude list
+  (plugged-host-storage `StorageService::excludePatterns()`, read from `agent.mjs` `EXCLUDES`:
+  node_modules, caches, logs, …) is deleted from the server, because a wings transfer cannot skip
+  anything. They do not come back on restore, as with a storage failover. `alpine` (FiveM's
+  runtime) and everything under it is kept (`prune_keep`). Found with wings' file search and checked
+  with rsync semantics; `node_modules`, which that search never sees, is found next to
+  `package.json` / lockfiles. `LIMBO_PRUNE=false` turns it off.
+- **Circuit breaker**: when the last three moves to the limbo node all failed, no new move starts
+  for an hour after the latest failure, then one probe at a time until one lands.
 - **Reconcile** (first step of every sweep, also while the kill switch is off): a transfer is
   asynchronous, so markers only change once wings reports the outcome. Landed on limbo → suspend
   (parked). Failed → unsuspend, marker `failed`. Restore landed → `restored`; failed → refund and
@@ -48,6 +59,7 @@ Marker states: `stopped` → `hibernating` → `limbo` → `restoring` → `rest
 |---|---|---|
 | `enabled` | `LIMBO_ENABLED` (`false`) | Global kill switch — ships dark |
 | `stop_hours` / `transfer_hours` | `LIMBO_STOP_HOURS` (`48`) / `LIMBO_TRANSFER_HOURS` (`72`) | Thresholds |
+| `prune` | `LIMBO_PRUNE` (`true`) | Delete the storage exemptions before a move (`prune_keep`: `alpine`) |
 | `node_tag` | `LIMBO_NODE_TAG` (`limbo`) | The limbo node's tag (not a country code; keep out of `UCS_DEPLOYMENT_TAGS`) |
 | `max_per_run` | `LIMBO_MAX_PER_RUN` (`3`) | Cap on moves to the limbo node in flight at once (and stops per sweep) |
 | `cost_early` / `cost_late` / `cost_window_hours` | `LIMBO_COST_*` | Ransom |
