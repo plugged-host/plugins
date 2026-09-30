@@ -569,6 +569,32 @@ return [
         'discord' => 'Discord Support',
         'status_page' => 'Public Status',
         'service_unavailable' => '503 • Service Temporarily Unavailable',
+        'checking' => 'Checking…',
+    ],
+
+    'errors' => [
+        'home' => 'Back to the panel',
+        'status' => 'Public Status',
+        'code' => 'Error :code',
+        'titles' => [
+            '400' => 'Bad request',
+            '401' => 'Sign in required',
+            '403' => 'No access',
+            '404' => 'Page not found',
+            '419' => 'Page expired',
+            '429' => 'Too many requests',
+            '500' => 'Something went wrong',
+        ],
+        'messages' => [
+            '400' => 'This request could not be handled. Go back and try again.',
+            '401' => 'Sign in to see this page.',
+            '403' => "You don't have access to this page.",
+            '404' => "This page doesn't exist or has moved.",
+            '419' => 'This page was open too long. Reload it and try again.',
+            '429' => 'Too many requests in a short time. Wait a moment, then try again.',
+            '500' => 'We ran into a problem on our side. Try again in a moment.',
+            'default' => 'Something went wrong with this request.',
+        ],
     ],
 
     'noprofit' => [
