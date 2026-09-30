@@ -1,13 +1,16 @@
 <?php
 
 return [
-    'role_resource_limits' => 'Role Resource Limit|Role Resource Limits',
+    // The server sidebar's collapsed group (PluggedHost\Core\Filament\ServerNavigation).
+    'nav' => [
+        'more' => 'More',
+    ],
+
     'role' => 'Role|Roles',
     'user' => 'User|Users',
     'cpu' => 'CPU',
     'memory' => 'Memory',
     'disk' => 'Disk Space',
-    'server_limit' => 'Server Limit',
     'no_limit' => 'No Limit',
     'unlimited' => 'Unlimited',
     'hint_unlimited' => '0 means unlimited',
@@ -293,10 +296,7 @@ return [
         'no_available_port' => 'No available port was found after the current primary port.',
     ],
 
-    'delete_account' => 'Delete account',
     'danger_zone' => 'Danger Zone',
-    'delete_account_description' => 'Permanently delete your plugged.host account and all associated personal data.',
-    'current_password' => 'Current Password',
 
     'admin_delete_user' => [
         'label' => 'Delete user & servers',
@@ -313,11 +313,6 @@ return [
         'delete_server_confirm' => 'Are you sure you want to delete this server?',
         'delete_server_warning' => 'This action cannot be undone and all data will be permanently lost.',
         'delete_server' => 'Delete Server',
-        'delete_account_confirm' => 'Are you sure you want to delete your account? This action is permanent and cannot be undone.',
-        'delete_account_warning' => 'All your personal data, API keys, and SSH keys will be permanently removed.',
-        'delete_account_servers' => 'You still own :count server(s): :servers. Deleting your account destroys them and everything on them, including worlds, files, databases and backups.',
-        'delete_account_servers_ack' => 'Yes, permanently delete my :count server(s) and everything on them',
-        'delete_account_confirm_username' => 'Type your username (:username) to confirm',
     ],
 
     'notifications' => [
@@ -336,9 +331,6 @@ return [
         'invalid_loader' => 'That server software is not available for this game.',
         'unsupported_version' => 'Minecraft :version is not available for :loader.',
 
-        'account_deleted' => 'Account Deleted',
-        'account_deleted_success' => 'Your account has been deleted successfully.',
-        'account_deleted_with_servers' => 'Your account and :count server(s) have been deleted.',
         'account_delete_failed' => 'Could not delete account',
         'account_delete_has_servers' => 'Cannot delete an account with active servers. Please delete your servers first.',
         'account_delete_last_admin' => 'Cannot delete the last root administrator.',
@@ -371,27 +363,6 @@ return [
         'locked_allocation_required_body' => 'This network allocation is locked and cannot be removed.',
     ],
 
-    /*
-     * What is left of the credits block now that the economy lives in
-     * plugged-host-economy.
-     *
-     * These five are still rendered by core code — UserResourceLimitsOverview is a core
-     * widget — so they stay here rather than becoming a cross-plugin lookup that degrades
-     * to a raw translation key the moment the economy plugin is uninstalled. Everything
-     * else that used to be under this key is now plugged-host-economy::strings.credits.
-     */
-    'credits' => [
-        'credits' => 'Credits',
-        'store_description' => 'Upgrade limits in Store',
-        'need_more_upgrade_store' => 'Need more? Upgrade in Resource Store',
-
-        // Shown when existing servers already allocate more than the current limit
-        // allows — a role was removed, lowered, or resources were reclaimed. Buying
-        // more is one fix, shrinking a server is the other.
-        'over_quota' => 'Over your limit by :amount — shrink or delete a server',
-        'over_quota_slots' => 'Over your server limit by :amount — delete a server',
-    ],
-
     // The waiting page a server sits on until its egg has installed. Deliberately free of
     // any percentage: wings reports no completion fraction, so a progress bar would be
     // invented. Phase, elapsed time and a clear failure state instead.
@@ -419,8 +390,8 @@ return [
     ],
 
     // Feeds every perk-discovery surface through PluggedHost\Core\Services\PerkDiscovery.
-    // Amounts are substituted at runtime from the role limit profiles and the store prices,
-    // so no figure is restated here — change a role's limits and this copy follows.
+    // Amounts are substituted at runtime from the noprofit.space tiers and the store prices,
+    // so no figure is restated here — change a tier and this copy follows.
     'perks' => [
         'heading' => 'Get more out of your account',
         // The dashboard's collapsed one-line variant. The count belongs in the heading because
@@ -438,115 +409,131 @@ return [
         'discord_earn_body_boost' => 'Invite people with your own invite link, or boost the server for :credits credits, then spend it all on more resources.',
         'discord_earn_cta' => 'View invites',
         'store_title' => ':price credits buys :amount more RAM',
-        'store_body' => 'You have :balance credits. Spend them on CPU, RAM, disk space or another server slot.',
+        'store_body' => 'You have :balance credits. Spend them on CPU, RAM or disk space.',
         'store_cta' => 'Open store',
-        'gain_unlock' => 'your own servers',
         'gain_cpu' => '+:amount CPU',
         'gain_memory' => '+:amount RAM',
         'gain_disk' => '+:amount disk space',
-        'gain_servers' => ':amount more servers',
-        'gain_unlimited_cpu' => 'unlimited CPU',
-        'gain_unlimited_memory' => 'unlimited RAM',
-        'gain_unlimited_disk' => 'unlimited disk space',
-        'gain_unlimited_servers' => 'unlimited servers',
         'gain_and' => 'and',
     ],
 
-    // Topbar chips (PluggedHost\Core\Livewire\AccountChips). Mostly tooltips: the numbers
-    // themselves are formatted in the component so they stay identical in both languages,
-    // and a chip with no room for a label has to explain itself on hover.
+    // The welcome tour (PluggedHost\Core\Livewire\PanelTourOverlay, steps in
+    // Support\PanelTourSteps). It is drawn over the real panel, so every step sits next to the
+    // thing it describes and names it by the label it carries on screen -- the whole point is
+    // that someone told "go to Settings" can then find Settings.
     //
-    // `store` is the exception — a real, visible label, and only ever a fallback. The
-    // button reads its name off the page it opens (ResourceStorePage::getNavigationLabel()),
-    // so the topbar and the sidebar cannot end up calling the same page two things.
-    'chips' => [
-        'tokens_title' => 'Start queue tokens',
-        'credits_title' => 'Credits — open the Economy page',
-        'quota_title' => "CPU :cpu\nMemory :memory\nDisk :disk\nServers :servers",
-        'store' => 'Economy',
-    ],
-
-    // First-login welcome tour (PluggedHost\Core\Filament\App\Pages\WelcomeTourPage). Every
-    // step names a real control by the label it actually carries in the interface -- the whole
-    // point is that someone told "go to Settings" can then find Settings.
-    //
-    // `bullets` is an array and the view renders however many there are; the intro step has
-    // none on purpose, because a wall of text is the thing people skip.
+    // `panel` is the first part, on the server list; `server` the second, on a server's
+    // console. `bullets` is an optional array; keep steps short, a wall of text is the thing
+    // people skip.
     'tour' => [
         'title' => 'Welcome',
         'progress' => 'Step :step of :total',
-        'acknowledge' => 'Got it',
+        'acknowledge' => 'Show me around',
         'next' => 'Next',
         'back' => 'Back',
-        'skip' => 'Skip the rest',
-        'finish' => 'Take me to my servers',
+        'skip' => 'Skip tour',
+        'finish' => 'Finish',
+        'done_here' => 'Not now',
+        'open_server' => 'Show me :name',
+        'create_server' => 'Create my first server',
         'menu' => 'Replay the welcome tour',
-        'steps' => [
-            'intro' => [
+        'panel' => [
+            'welcome' => [
                 'heading' => 'Welcome to plugged.host',
-                'body' => 'This is your game server panel. Everything you rent from us lives here: you start and stop your servers, edit their files, and change what they run — all in one place. The next few screens show you where each of those things is. It takes about a minute.',
+                'body' => 'This is your game server panel: everything you rent from us lives here. We\'ll light up each part of it and tell you what it does. It takes about a minute.',
+            ],
+            'navigation' => [
+                'heading' => 'The sidebar',
+                'body' => 'Every page of your account is one click away here.',
+                'bullets' => [
+                    'Home — your servers. You are on it now.',
+                    'Resource Store — more CPU, memory and disk for your credits.',
+                    'Token Store — skip the start queue or unlock paid locations with tokens.',
+                    'Backups — download a backup of any of your servers.',
+                    'Profile Settings — your language, time zone and account.',
+                ],
+            ],
+            'balance' => [
+                'heading' => 'Your usage and balance',
+                'body' => 'The bars show how much of your plan your servers use together. Underneath are your tokens and credits.',
+                'bullets' => [
+                    'Credits buy more resources in the Resource Store.',
+                    'Tokens let a server skip the start queue; spend them in the Token Store.',
+                    'Click the bars or a balance to open its store.',
+                ],
+            ],
+            'account' => [
+                'heading' => 'Your account',
+                'body' => 'Your name opens the account menu: your profile, signing out, and this tour if you want to see it again.',
+            ],
+            'create' => [
+                'heading' => 'Create server',
+                'body' => 'This makes a new server. Pick a game, a location and a size, and it is ready a minute later.',
             ],
             'servers' => [
                 'heading' => 'Your servers',
-                'body' => 'The server list is your home page. Every server you own is a row on it.',
-                'bullets' => [
-                    'Click the name of a server to open it.',
-                    'Create server sits in the toolbar above the list, to the left of the search box.',
-                    'The coloured dot on each row tells you whether that server is running.',
-                ],
+                'body' => 'Every server you have is a card like this one. The bar on its left shows whether it is running, the numbers what it uses right now. Click a card to open that server — let\'s open :name together.',
             ],
+            'empty' => [
+                'heading' => 'Your servers',
+                'body' => 'Your servers show up here, one card each, with whether they are running and what they use. You do not have one yet.',
+            ],
+            'create_first' => [
+                'heading' => 'Create your first server',
+                'body' => 'Start here: pick a game, a location and a size. The first time you open your new server, the tour shows you around inside it.',
+            ],
+        ],
+        'server' => [
             'console' => [
                 'heading' => 'The console',
-                'body' => 'Opening a server drops you on its console — the live output of the server itself, and the fastest way to see what it is doing.',
-                'bullets' => [
-                    'Start, Stop and Restart are the buttons at the top of that page.',
-                    'You can type commands straight into the box below the log.',
-                    'A brand-new Minecraft server shows a setup guide here — follow it and the server is ready to play on.',
-                ],
+                'body' => 'Your server\'s live output: everything it prints shows up here as it happens. Type a command in the line underneath and press Enter to run it.',
             ],
-            'inside' => [
-                'heading' => 'Everything else about a server',
-                'body' => 'While a server is open, the sidebar on the left belongs to that one server. The entries you will need most:',
+            'power' => [
+                'heading' => 'Start, Restart, Stop',
+                'body' => 'The power buttons for this server. Stop lets the game save and shut down cleanly; if it hangs while stopping, Stop turns into Kill.',
+            ],
+            'address' => [
+                'heading' => 'Name, status and address',
+                'body' => 'The Address is what players type to join. Click it to copy it, then send it to your friends. CPU, memory and disk are live.',
+            ],
+            'setup' => [
+                'heading' => 'Finish the setup',
+                'body' => 'This server still has its setup guide waiting: it picks the Minecraft version and software and gets the server ready to play on.',
+            ],
+            'sidebar' => [
+                'heading' => 'Everything about this server',
+                'body' => 'While a server is open, the sidebar belongs to it.',
                 'bullets' => [
                     'Files — upload, edit and delete anything on the server.',
-                    'Backups — take one before you change something, restore it if you break it.',
-                    'Players — whitelist, operators and bans, without editing a config file.',
-                    'Databases — create a MySQL database for a plugin or mod that needs one.',
-                    'Network — the ports and addresses people connect to.',
+                    'Backups — take one before you change something, restore it if something breaks.',
+                    'More — the pages you need less often: subdomains, network ports, databases, schedules, users and the activity log.',
+                ],
+            ],
+            'sidebar_minecraft' => [
+                'heading' => 'Everything about this server',
+                'body' => 'While a server is open, the sidebar belongs to it.',
+                'bullets' => [
+                    'Files — upload, edit and delete anything on the server.',
+                    'Plugins or Mods — install and update them from Modrinth, CurseForge and SpigotMC.',
+                    'Worlds and Players — switch worlds, manage the whitelist, operators and bans.',
+                    'Game Settings — the server.properties as a form.',
+                    'Backups — take one before you change something, restore it if something breaks.',
+                    'More — the pages you need less often: subdomains, network ports, databases and more.',
                 ],
             ],
             'settings' => [
-                'heading' => 'Settings, and your balance',
-                'body' => 'Settings is one page per server, and it holds everything about that server: rename it, give it more memory, change which version it runs, or reinstall it.',
-                'bullets' => [
-                    'The coin in the top bar is your tokens — they let a server skip the start queue.',
-                    'The $ next to it is your credits. Click it to open the store and buy more resources.',
-                    'You can reopen this tour at any time from the menu under your avatar.',
-                ],
+                'heading' => 'Settings',
+                'body' => 'One page for everything about this server: rename it, give it more memory, change the version it runs, or reinstall it.',
+            ],
+            'home' => [
+                'heading' => 'Back to your servers',
+                'body' => 'The logo takes you back to your server list. That is the tour — replay it any time from the menu under your name.',
             ],
         ],
     ],
 
-    // Forced password for accounts created by an OAuth login
-    // (PluggedHost\Core\Filament\App\Pages\SetPasswordPage).
-    'set_password' => [
-        'title' => 'Set a password',
-        'heading' => 'Finish setting up your account',
-        'subheading' => 'You signed up with Discord, so your account has no password yet. Choose one now — it is how you get back in if you ever lose access to your Discord account.',
-        'password' => 'Password',
-        'password_helper' => 'At least 8 characters. Longer is better than complicated.',
-        'confirmation' => 'Confirm password',
-        'submit' => 'Save password',
-        'logout' => 'Sign out',
-        'saved' => 'Password set',
-        'saved_body' => 'You can now sign in with your email address and this password, as well as with Discord.',
-        'gate_title' => 'One more step',
-        'gate_body' => 'Set a password before you continue.',
-    ],
-
-    // Admin settings form (PluggedHostCorePlugin, over EnvironmentWriterTrait). Legal,
-    // registration and sidebar sections carry their own inline labels; these keys cover the
-    // welcome-tour knobs added on top of them.
+    // Admin settings form (PluggedHostCorePlugin, over EnvironmentWriterTrait). The sidebar
+    // section carries its own inline labels; these keys cover the welcome-tour knobs.
     'settings' => [
         'section_tour' => 'Welcome tour',
         'section_tour_hint' => 'The first-login guide new users are walked through. Turning it off stops the redirect for everyone immediately.',
@@ -567,5 +554,22 @@ return [
         'discord' => 'Discord Support',
         'status_page' => 'Public Status',
         'service_unavailable' => '503 • Service Temporarily Unavailable',
+    ],
+
+    'noprofit' => [
+        'manage_account' => 'Manage on noprofit.space',
+        'managed_hint' => 'Your sign-in details, passkeys, two-factor codes, Discord link and account deletion are managed on noprofit.space.',
+        'reset_moved' => 'Moved your account to noprofit.space? Your password lives there now.',
+        'reset_moved_link' => 'Open accounts.noprofit.space',
+        'identity_locked' => 'Managed on noprofit.space.',
+    ],
+
+    'admin_nav' => [
+        'servers' => 'Servers',
+        'users' => 'Users',
+        'community' => 'Announcements & status',
+        'subdomains' => 'Subdomains',
+        'panel' => 'Panel',
+        'advanced' => 'Advanced',
     ],
 ];

@@ -24,6 +24,8 @@ class CardSelect extends Field
 
     protected int|Closure $cardColumns = 3;
 
+    protected bool|Closure $centered = false;
+
     /**
      * @param  array<int, array<string, mixed>>|Closure  $options
      */
@@ -39,6 +41,18 @@ class CardSelect extends Field
         $this->cardColumns = $columns;
 
         return $this;
+    }
+
+    public function centered(bool|Closure $centered = true): static
+    {
+        $this->centered = $centered;
+
+        return $this;
+    }
+
+    public function isCentered(): bool
+    {
+        return (bool) $this->evaluate($this->centered);
     }
 
     /**

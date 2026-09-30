@@ -4,8 +4,7 @@ return [
     'nav' => [
         'notifications' => 'Notifications',
         'home' => 'Home',
-        'new_server' => 'New Server',
-        'store' => 'Store',
+        'backups' => 'Backups',
         'profile_settings' => 'Profile Settings',
         'admin_panel' => 'Admin Panel',
     ],
@@ -13,8 +12,20 @@ return [
     'balance' => [
         'tokens' => 'tokens',
         'credits' => 'credits',
-        'go_to_store' => 'Go to the store',
+        'open_tokens' => 'Open the Token Store',
+        'open_credits' => 'Open the Resource Store',
+    ],
+
+    'usage' => [
+        'cpu' => 'CPU',
+        'memory' => 'RAM',
+        'disk' => 'Disk',
+        'open_store' => 'Get more in the Resource Store',
     ],
 
     'beta' => 'v2 beta',
+
+    'profile' => [
+        'language_time' => 'Language and time zone',
+    ],
 ];

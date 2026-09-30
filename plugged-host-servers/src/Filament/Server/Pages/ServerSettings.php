@@ -14,7 +14,6 @@ use App\Filament\Server\Pages\Console;
 use App\Filament\Server\Pages\ServerFormPage;
 use App\Models\Server;
 use App\Models\ServerVariable;
-use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Servers\ReinstallServerService;
 use App\Services\Servers\ServerDeletionService;
 use BackedEnum;
@@ -37,11 +36,12 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Validator;
-use PluggedHost\Servers\Filament\App\Widgets\UserResourceLimitsOverview;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
+use PluggedHost\Servers\Exceptions\ProvisioningException;
+use PluggedHost\Servers\Services\ServerResizer;
+use Illuminate\Validation\ValidationException;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Minecraft\Services\MinecraftVersionCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
@@ -132,7 +132,6 @@ class ServerSettings extends ServerFormPage
     {
         return Section::make(trans('server/setting.server_info.title'))
             ->id('general')
-            ->icon(TablerIcon::Server)
             ->columnSpanFull()
             ->extraAttributes(['class' => 'scroll-mt-24'])
             ->schema([
@@ -197,7 +196,6 @@ class ServerSettings extends ServerFormPage
     {
         return Section::make(trans('server/setting.server_info.sftp.title'))
             ->id('sftp')
-            ->icon('tabler-folder-share')
             ->description('Connect via any SFTP client (e.g. FileZilla, Cyberduck, WinSCP) to manage your server files directly.')
             ->columnSpanFull()
             ->visible(fn () => $this->hasSftpAccess())
@@ -224,7 +222,7 @@ class ServerSettings extends ServerFormPage
             return [];
         }
 
-        $resourceLimits = RoleResourceLimits::forUser($server->user);
+        $resourceLimits = AccountAllowance::forUser($server->user);
 
         if (!$resourceLimits) {
             return [];
@@ -240,13 +238,11 @@ class ServerSettings extends ServerFormPage
             Section::make(trans('plugged-host-servers::strings.choose_plan'))
                 ->id('resources')
                 ->description(trans('plugged-host-servers::strings.resize_plan_description'))
-                ->icon(TablerIcon::Cpu)
                 ->columnSpanFull()
                 ->extraAttributes(['class' => 'scroll-mt-24'])
                 ->footerActions([
                     Action::make('save_resources')
                         ->label(trans('plugged-host-servers::strings.server_settings.save_resources'))
-                        ->icon('tabler-device-floppy')
                         ->color('primary')
                         ->action('saveResources'),
                 ])
@@ -283,6 +279,7 @@ class ServerSettings extends ServerFormPage
                         }),
 
                     Section::make()
+                        ->contained(false)
                         ->visible(fn (Get $get) => (bool) $get('advanced'))
                         ->columns([
                             'default' => 1,
@@ -337,7 +334,14 @@ class ServerSettings extends ServerFormPage
             return false;
         }
 
-        return RoleResourceLimits::forUser($server->user) !== null;
+        // Resizing spends the OWNER's allowance, so only the owner (or an admin who may update
+        // the server) can do it -- not every subuser who can open Settings.
+        $user = auth()->user();
+        if (!$user || ((int) $server->owner_id !== (int) $user->id && !$user->can('update server', $server))) {
+            return false;
+        }
+
+        return AccountAllowance::forUser($server->user) !== null;
     }
 
     protected function resourceState(Server $server): array
@@ -363,7 +367,7 @@ class ServerSettings extends ServerFormPage
 
     protected function planOptions(
         Server $server,
-        RoleResourceLimits $resourceLimits,
+        AccountAllowance $resourceLimits,
         string $suffix,
         int $maxCpu,
         int $maxMemory,
@@ -418,68 +422,30 @@ class ServerSettings extends ServerFormPage
 
         abort_unless($this->canEditResources(), 403);
 
-        $resourceLimits = RoleResourceLimits::forUser($server->user);
-
-        abort_if(!$resourceLimits, 403);
-
-        $maxCpu = $server->cpu + ($resourceLimits->getCpuLeft($server->user) ?? 0);
-        $maxMemory = $server->memory + ($resourceLimits->getMemoryLeft($server->user) ?? 0);
-        $maxDisk = $server->disk + ($resourceLimits->getDiskLeft($server->user) ?? 0);
-
-        $validator = Validator::make($this->data ?? [], [
-            'cpu' => $this->limitRules($resourceLimits->cpu, $maxCpu),
-            'memory' => $this->limitRules($resourceLimits->memory, $maxMemory),
-            'disk' => $this->limitRules($resourceLimits->disk, $maxDisk),
-        ], [], [
-            'cpu' => trans('plugged-host-servers::strings.cpu'),
-            'memory' => trans('plugged-host-servers::strings.memory'),
-            'disk' => trans('plugged-host-servers::strings.disk'),
-        ]);
-
-        if ($validator->fails()) {
+        try {
+            $synced = app(ServerResizer::class)->resize($server, $this->data ?? [], [
+                'cpu' => trans('plugged-host-servers::strings.cpu'),
+                'memory' => trans('plugged-host-servers::strings.memory'),
+                'disk' => trans('plugged-host-servers::strings.disk'),
+            ]);
+        } catch (ValidationException $exception) {
             Notification::make()
                 ->title(trans('plugged-host-servers::strings.notifications.server_resources_not_updated'))
-                ->body(implode(' ', $validator->errors()->all()))
+                ->body(implode(' ', $exception->validator->errors()->all()))
                 ->danger()
                 ->send();
 
             return;
+        } catch (ProvisioningException) {
+            abort(403);
         }
 
-        $validated = $validator->validated();
-
-        $server->update([
-            'cpu' => (int) $validated['cpu'],
-            'memory' => (int) $validated['memory'],
-            'disk' => (int) $validated['disk'],
-        ]);
-
-        try {
-            app(DaemonServerRepository::class)->setServer($server)->sync();
-
-            Notification::make()
-                ->title(trans('plugged-host-servers::strings.notifications.server_resources_updated'))
-                ->body(trans('plugged-host-servers::strings.notifications.might_need_restart'))
-                ->success()
-                ->persistent()
-                ->send();
-        } catch (ConnectionException) {
-            Notification::make()
-                ->title(trans('plugged-host-servers::strings.notifications.server_resources_updated'))
-                ->body(trans('plugged-host-servers::strings.notifications.manual_restart_needed'))
-                ->warning()
-                ->persistent()
-                ->send();
-        } catch (Exception $exception) {
-            report($exception);
-
-            Notification::make()
-                ->title(trans('plugged-host-servers::strings.notifications.server_resources_updated'))
-                ->body(trans('plugged-host-servers::strings.notifications.manual_restart_needed'))
-                ->warning()
-                ->persistent()
-                ->send();
-        }
+        Notification::make()
+            ->title(trans('plugged-host-servers::strings.notifications.server_resources_updated'))
+            ->body(trans('plugged-host-servers::strings.notifications.' . ($synced ? 'might_need_restart' : 'manual_restart_needed')))
+            ->{$synced ? 'success' : 'warning'}()
+            ->persistent()
+            ->send();
 
         $url = static::getUrl(panel: 'server', tenant: $server);
 
@@ -514,8 +480,6 @@ class ServerSettings extends ServerFormPage
         return [
             Section::make(trans('plugged-host-servers::strings.server_settings.sections.startup_command'))
                 ->id('startup')
-                ->icon(TablerIcon::PlayerPlay)
-                ->description('Configure the server startup command, Docker environment image, and configuration variables.')
                 ->columnSpanFull()
                 ->extraAttributes(['class' => 'scroll-mt-24'])
                 ->schema([
@@ -565,9 +529,9 @@ class ServerSettings extends ServerFormPage
                         ]),
 
                     // Variables subsection
+                    // A heading inside the startup card, not a second card nested in it.
                     Section::make(trans('server/startup.variables'))
-                        ->icon(TablerIcon::Adjustments)
-                        ->description('Runtime environment variables provided to the egg.')
+                        ->contained(false)
                         ->columnSpanFull()
                         ->schema([
                             Repeater::make('server_variables')
@@ -734,16 +698,18 @@ class ServerSettings extends ServerFormPage
             Section::make(trans('plugged-host-servers::strings.change_version_section'))
                 ->id('version')
                 ->description(trans('plugged-host-servers::strings.change_version_section_description'))
-                ->icon('tabler-versions')
                 ->columnSpanFull()
                 ->columns(2)
                 ->extraAttributes(['class' => 'scroll-mt-24'])
                 ->footerActions([
                     Action::make('apply_version')
                         ->label(trans('plugged-host-servers::strings.change_version_apply'))
-                        ->icon('tabler-refresh')
-                        ->color('danger')
+                        // Reinstalls the server: a secondary button on the page, the red
+                        // belongs to the confirmation's own submit.
+                        ->color('gray')
                         ->requiresConfirmation()
+                        ->modalIconColor('danger')
+                        ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                         ->modalHeading(trans('plugged-host-servers::strings.change_version_confirm'))
                         ->modalDescription(trans('plugged-host-servers::strings.change_version_warning'))
                         ->modalSubmitActionLabel(trans('plugged-host-servers::strings.change_version_apply'))
@@ -901,8 +867,6 @@ class ServerSettings extends ServerFormPage
     {
         return Section::make(trans('server/setting.notifications.title'))
             ->id('notifications')
-            ->icon(TablerIcon::Bell)
-            ->description('Manage notifications for automated and manual backups.')
             ->columnSpanFull()
             ->extraAttributes(['class' => 'scroll-mt-24'])
             ->schema([
@@ -1003,9 +967,10 @@ class ServerSettings extends ServerFormPage
         if (user()?->can(SubuserPermission::SettingsReinstall, $server)) {
             $actions[] = Action::make('reinstall_server')
                 ->label(trans('server/setting.reinstall.action'))
-                ->color('danger')
-                ->icon('tabler-refresh')
+                ->color('gray')
                 ->requiresConfirmation()
+                ->modalIconColor('danger')
+                ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                 ->modalHeading(trans('server/setting.reinstall.modal'))
                 ->modalDescription(trans('server/setting.reinstall.modal_description'))
                 ->modalSubmitActionLabel(trans('server/setting.reinstall.yes'))
@@ -1015,9 +980,10 @@ class ServerSettings extends ServerFormPage
         if ($this->canDeleteServer($server)) {
             $actions[] = Action::make('delete_server_danger')
                 ->label(trans('plugged-host-servers::strings.modals.delete_server'))
-                ->color('danger')
-                ->icon('tabler-trash')
+                ->color('gray')
                 ->requiresConfirmation()
+                ->modalIconColor('danger')
+                ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                 ->modalHeading(trans('plugged-host-servers::strings.modals.delete_server_confirm'))
                 ->modalDescription(trans('plugged-host-servers::strings.modals.delete_server_warning'))
                 ->modalSubmitActionLabel(trans('plugged-host-servers::strings.modals.delete_server'))
@@ -1026,12 +992,8 @@ class ServerSettings extends ServerFormPage
 
         return Section::make(trans('plugged-host-servers::strings.danger_zone'))
             ->id('danger')
-            ->icon(TablerIcon::AlertTriangle)
-            ->description('Irreversible and destructive actions for this server container.')
             ->columnSpanFull()
-            ->extraAttributes([
-                'class' => 'scroll-mt-24 border-danger-500/30 dark:border-danger-500/20 bg-danger-500/[0.03]',
-            ])
+            ->extraAttributes(['class' => 'scroll-mt-24'])
             ->visible(fn () => user()?->can(SubuserPermission::SettingsReinstall, $server) || $this->canDeleteServer($server))
             ->footerActions($actions)
             ->footerActionsAlignment(Alignment::Right)
@@ -1119,12 +1081,7 @@ class ServerSettings extends ServerFormPage
         $this->redirect($homeUrl, navigate: false);
     }
 
-    // -- 8. Header Widgets & Actions ----------------------------------------------
-
-    protected function getHeaderWidgets(): array
-    {
-        return $this->canEditResources() ? [UserResourceLimitsOverview::class] : [];
-    }
+    // -- 8. Header Actions ----------------------------------------------------------
 
     protected function getHeaderActions(): array
     {
@@ -1138,9 +1095,10 @@ class ServerSettings extends ServerFormPage
         return [
             Action::make('delete_server')
                 ->label(trans('plugged-host-servers::strings.modals.delete_server'))
-                ->color('danger')
-                ->icon('tabler-trash')
+                ->color('gray')
                 ->requiresConfirmation()
+                ->modalIconColor('danger')
+                ->modalSubmitAction(fn (Action $action) => $action->color('danger'))
                 ->modalHeading(trans('plugged-host-servers::strings.modals.delete_server_confirm'))
                 ->modalDescription(trans('plugged-host-servers::strings.modals.delete_server_warning'))
                 ->modalSubmitActionLabel(trans('plugged-host-servers::strings.modals.delete_server'))

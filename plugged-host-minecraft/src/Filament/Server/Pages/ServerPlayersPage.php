@@ -166,7 +166,6 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
         if ($this->unreachable) {
             return $schema->components([
                 Section::make(trans('plugged-host-minecraft::strings.players.unreachable_heading'))
-                    ->icon(TablerIcon::UserOff)
                     ->description(trans('plugged-host-minecraft::strings.players.unreachable'))
                     ->columnSpanFull(),
             ]);
@@ -176,7 +175,6 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
             ->statePath('data')
             ->components([
                 Section::make(trans('plugged-host-minecraft::strings.players.enforcement'))
-                    ->icon(TablerIcon::ShieldCheck)
                     ->description(trans('plugged-host-minecraft::strings.players.enforcement_description'))
                     ->columnSpanFull()
                     ->schema([
@@ -215,8 +213,7 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
                 TextColumn::make('level')
                     ->label(trans('plugged-host-minecraft::strings.players.col_operator'))
                     ->badge()
-                    ->color('warning')
-                    ->icon(TablerIcon::Shield)
+                    ->color('gray')
                     ->formatStateUsing(fn ($state): string => trans(
                         'plugged-host-minecraft::strings.players.op_level',
                         ['level' => (int) $state],
@@ -292,8 +289,8 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
                 ->label(fn (array $record): string => trans($record['whitelisted']
                     ? 'plugged-host-minecraft::strings.players.unwhitelist'
                     : 'plugged-host-minecraft::strings.players.whitelist'))
-                ->icon(fn (array $record): TablerIcon => $record['whitelisted'] ? TablerIcon::UserOff : TablerIcon::UserCheck)
-                ->color(fn (array $record): string => $record['whitelisted'] ? 'danger' : 'success')
+                // Text links: removing access is the danger one, granting it stays neutral.
+                ->color(fn (array $record): string => $record['whitelisted'] ? 'danger' : 'gray')
                 // Only removals ask: taking access away disconnects whoever is playing, while
                 // granting it is undone by the other half of the same button.
                 ->requiresConfirmation(fn (array $record): bool => (bool) $record['whitelisted'])
@@ -309,8 +306,7 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
                 ->label(fn (array $record): string => trans($record['operator']
                     ? 'plugged-host-minecraft::strings.players.deop'
                     : 'plugged-host-minecraft::strings.players.op'))
-                ->icon(fn (array $record): TablerIcon => $record['operator'] ? TablerIcon::ShieldOff : TablerIcon::Shield)
-                ->color(fn (array $record): string => $record['operator'] ? 'danger' : 'warning')
+                ->color(fn (array $record): string => $record['operator'] ? 'danger' : 'gray')
                 ->requiresConfirmation()
                 ->modalHeading(fn (array $record): string => trans($record['operator']
                     ? 'plugged-host-minecraft::strings.players.deop_confirm'
@@ -327,7 +323,6 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
     {
         return Action::make('add')
             ->label(trans('plugged-host-minecraft::strings.players.add'))
-            ->icon(TablerIcon::UserPlus)
             ->visible(fn (): bool => $this->canWrite())
             ->schema([
                 TextInput::make('username')
@@ -374,7 +369,9 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
         return [
             Action::make('refresh')
                 ->label(trans('plugged-host-minecraft::strings.players.refresh'))
+                ->iconButton()
                 ->icon(TablerIcon::Refresh)
+                ->tooltip(trans('plugged-host-minecraft::strings.players.refresh'))
                 ->color('gray')
                 // The server rewrites both files itself whenever someone is added from the
                 // console or in game, so what this page loaded can go stale while it is open.

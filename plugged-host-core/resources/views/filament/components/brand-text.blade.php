@@ -15,6 +15,6 @@
     its branding from the sidebar header instead. An extra `hidden sm:inline-block` here only
     looked like it was doing something.
 --}}
-<span class="fi-ph-brand truncate text-base font-semibold tracking-tight text-gray-950 dark:text-white">
+<span class="fi-ph-brand truncate text-base font-semibold">
     {{ config('app.name') }}
 </span>

@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
 
@@ -51,7 +51,7 @@ class CreditsResetCommand extends Command
             $this->newLine();
             $this->line("Would zero {$before['credit_rows_positive']} balance(s) totalling {$before['credits_total']} credits.");
             $this->line("Would zero invite counters on {$before['links']} Discord link(s) and delete {$before['tracked']} tracked join(s).");
-            $this->line("Would keep {$before['extra_memory']} MB memory, {$before['extra_disk']} MB disk, {$before['extra_cpu']}% CPU and {$before['extra_slots']} server slot(s) already purchased.");
+            $this->line("Would keep {$before['extra_memory']} MB memory, {$before['extra_disk']} MB disk, and {$before['extra_cpu']}% CPU already purchased.");
             $this->line('Would keep all ' . $before['transactions'] . ' ledger row(s).');
             $this->newLine();
             $this->reportRoleReconcile(true);
@@ -87,8 +87,7 @@ class CreditsResetCommand extends Command
              COALESCE(SUM(credits), 0) as credits_total,
              COALESCE(SUM(extra_cpu), 0) as extra_cpu,
              COALESCE(SUM(extra_memory), 0) as extra_memory,
-             COALESCE(SUM(extra_disk), 0) as extra_disk,
-             COALESCE(SUM(extra_server_limit), 0) as extra_slots'
+             COALESCE(SUM(extra_disk), 0) as extra_disk'
         )->first();
 
         $links = ['links' => 0, 'invite_count' => 0, 'invites_rewarded' => 0, 'invites_left' => 0, 'invite_debt' => 0];
@@ -112,7 +111,6 @@ class CreditsResetCommand extends Command
             'extra_cpu' => (int) ($credits->extra_cpu ?? 0),
             'extra_memory' => (int) ($credits->extra_memory ?? 0),
             'extra_disk' => (int) ($credits->extra_disk ?? 0),
-            'extra_slots' => (int) ($credits->extra_slots ?? 0),
             'transactions' => (int) DB::table('credit_transactions')->count(),
             'links' => (int) ($links['links'] ?? 0),
             'invite_count' => (int) ($links['invite_count'] ?? 0),
@@ -141,7 +139,6 @@ class CreditsResetCommand extends Command
                 ['purchased CPU (kept)', $snapshot['extra_cpu'] . '%'],
                 ['purchased memory (kept)', $snapshot['extra_memory'] . ' MB'],
                 ['purchased disk (kept)', $snapshot['extra_disk'] . ' MB'],
-                ['purchased server slots (kept)', $snapshot['extra_slots']],
                 ['credit_transactions rows (kept)', $snapshot['transactions']],
                 ['discord_links rows', $snapshot['links']],
                 ['sum invite_count', $snapshot['invite_count']],
@@ -178,7 +175,6 @@ class CreditsResetCommand extends Command
                             'kept_extra_cpu' => (int) $row->extra_cpu,
                             'kept_extra_memory' => (int) $row->extra_memory,
                             'kept_extra_disk' => (int) $row->extra_disk,
-                            'kept_extra_server_limit' => (int) $row->extra_server_limit,
                         ],
                         'created_at' => now(),
                     ]);
@@ -274,7 +270,7 @@ class CreditsResetCommand extends Command
 
         User::query()->has('servers')->chunkById(100, function ($users) use (&$rows) {
             foreach ($users as $user) {
-                $limits = RoleResourceLimits::forUser($user);
+                $limits = AccountAllowance::forUser($user);
 
                 if (!$limits) {
                     continue;
@@ -292,7 +288,6 @@ class CreditsResetCommand extends Command
                     $overage['cpu'] . '%',
                     $overage['memory'] . ' MB',
                     $overage['disk'] . ' MB',
-                    $overage['server_limit'],
                 ];
             }
         });
@@ -306,6 +301,6 @@ class CreditsResetCommand extends Command
         }
 
         $this->warn('Over their effective limits — they can keep or shrink existing servers, but cannot create or upsize:');
-        $this->table(['ID', 'User', 'CPU over', 'Memory over', 'Disk over', 'Slots over'], $rows);
+        $this->table(['ID', 'User', 'CPU over', 'Memory over', 'Disk over'], $rows);
     }
 }

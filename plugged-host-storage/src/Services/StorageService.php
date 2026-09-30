@@ -4,6 +4,8 @@ namespace PluggedHost\Storage\Services;
 
 use App\Models\Node;
 use App\Models\Server;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use PluggedHost\Storage\Models\ServerReplica;
 
@@ -130,6 +132,59 @@ class StorageService
         return null;
     }
 
+
+    /**
+     * backupInfo() for several servers at once: one concurrent round of requests to the agent
+     * instead of one after another, each answer remembered for a minute (the mirror only
+     * changes every half hour). Keyed by identifier; null where the agent did not answer.
+     *
+     * @param  array<int, string>  $identifiers
+     * @return array<string, ?array<string, mixed>>
+     */
+    public function backupInfoMany(array $identifiers): array
+    {
+        $identifiers = array_values(array_unique(array_filter($identifiers)));
+        $results = array_fill_keys($identifiers, null);
+
+        if (!$this->configured() || $identifiers === []) {
+            return $results;
+        }
+
+        $missing = [];
+        foreach ($identifiers as $id) {
+            $cached = Cache::get('plugged-host-storage:backup-info:' . $id);
+            is_array($cached) ? $results[$id] = $cached : $missing[] = $id;
+        }
+
+        if ($missing === []) {
+            return $results;
+        }
+
+        $expires = time() + 300;
+
+        try {
+            $responses = Http::pool(fn (Pool $pool) => array_map(
+                fn (string $id) => $pool->as($id)->timeout(6)->connectTimeout(3)->get($this->agentUrl() . '/info/' . rawurlencode($id), [
+                    'expires' => $expires,
+                    'sig' => hash_hmac('sha256', "info:$id:$expires", $this->secret()),
+                ]),
+                $missing,
+            ));
+        } catch (\Throwable) {
+            return $results;
+        }
+
+        foreach ($missing as $id) {
+            $response = $responses[$id] ?? null;
+
+            if ($response instanceof \Illuminate\Http\Client\Response && $response->successful() && is_array($response->json())) {
+                $results[$id] = $response->json();
+                Cache::put('plugged-host-storage:backup-info:' . $id, $results[$id], 60);
+            }
+        }
+
+        return $results;
+    }
 
     /**
      * Second witness: ask the agent, over its own path to the node, whether the node's wings

@@ -218,7 +218,6 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
         $loaders = $this->loaders();
 
         return Step::make(trans('plugged-host-minecraft::strings.onboarding.step_software'))
-            ->icon(TablerIcon::Versions)
             ->description(trans('plugged-host-minecraft::strings.onboarding.step_software_hint'))
             ->visible($this->canReinstall() && $loaders->isNotEmpty())
             ->schema([
@@ -226,7 +225,7 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
                     ->label(trans('plugged-host-minecraft::strings.server_software'))
                     ->cardColumns(2)
                     // Without live binding the selected ring renders from stale state — the same
-                    // reason ConfigureServerPage's cards are live.
+                    // reason the create page's cards are live.
                     ->live()
                     ->required()
                     ->cardOptions($loaders->values()->all())
@@ -276,7 +275,6 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
     protected function modpackStep(): Step
     {
         return Step::make(trans('plugged-host-minecraft::strings.onboarding.step_modpack'))
-            ->icon(TablerIcon::Package)
             ->description(trans('plugged-host-minecraft::strings.onboarding.step_modpack_hint'))
             ->visible(fn () => $this->canReinstall() && $this->supportsModpacks($this->chosenLoader()))
             ->schema([
@@ -342,7 +340,6 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
     protected function bedrockStep(): Step
     {
         return Step::make(trans('plugged-host-minecraft::strings.onboarding.step_bedrock'))
-            ->icon(TablerIcon::DeviceMobile)
             ->description(trans('plugged-host-minecraft::strings.onboarding.step_bedrock_hint'))
             ->visible(fn () => $this->canReinstall() && GeyserService::loaderSupported($this->chosenLoader()))
             ->schema([
@@ -357,13 +354,11 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
                             'value' => 'yes',
                             'label' => trans('plugged-host-minecraft::strings.onboarding.bedrock_yes'),
                             'description' => trans('plugged-host-minecraft::strings.onboarding.bedrock_yes_description'),
-                            'icon' => TablerIcon::DeviceMobile->value,
                         ],
                         [
                             'value' => 'no',
                             'label' => trans('plugged-host-minecraft::strings.onboarding.bedrock_no'),
                             'description' => trans('plugged-host-minecraft::strings.onboarding.bedrock_no_description'),
-                            'icon' => TablerIcon::DeviceDesktop->value,
                         ],
                     ]),
 
@@ -381,7 +376,6 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
     protected function onlineModeStep(): Step
     {
         return Step::make(trans('plugged-host-minecraft::strings.onboarding.step_accounts'))
-            ->icon(TablerIcon::ShieldCheck)
             ->description(trans('plugged-host-minecraft::strings.onboarding.step_accounts_hint'))
             ->schema([
                 CardSelect::make('online_mode')
@@ -395,13 +389,11 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
                             'value' => 'premium',
                             'label' => trans('plugged-host-minecraft::strings.onboarding.premium'),
                             'description' => trans('plugged-host-minecraft::strings.onboarding.premium_description'),
-                            'icon' => TablerIcon::ShieldCheck->value,
                         ],
                         [
                             'value' => 'cracked',
                             'label' => trans('plugged-host-minecraft::strings.onboarding.cracked'),
                             'description' => trans('plugged-host-minecraft::strings.onboarding.cracked_description'),
-                            'icon' => TablerIcon::LockOpen->value,
                         ],
                     ]),
 
@@ -420,7 +412,6 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
     protected function accessStep(): Step
     {
         return Step::make(trans('plugged-host-minecraft::strings.onboarding.step_access'))
-            ->icon(TablerIcon::Lock)
             ->description(trans('plugged-host-minecraft::strings.onboarding.step_access_hint'))
             ->schema([
                 CardSelect::make('access')
@@ -434,13 +425,11 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
                             'value' => 'private',
                             'label' => trans('plugged-host-minecraft::strings.onboarding.private'),
                             'description' => trans('plugged-host-minecraft::strings.onboarding.private_description'),
-                            'icon' => TablerIcon::Lock->value,
                         ],
                         [
                             'value' => 'public',
                             'label' => trans('plugged-host-minecraft::strings.onboarding.public'),
                             'description' => trans('plugged-host-minecraft::strings.onboarding.public_description'),
-                            'icon' => TablerIcon::World->value,
                         ],
                     ]),
 
@@ -460,7 +449,6 @@ class ServerOnboardingPage extends MinecraftPage implements HasForms
     protected function playersStep(): Step
     {
         return Step::make(trans('plugged-host-minecraft::strings.onboarding.step_players'))
-            ->icon(TablerIcon::Users)
             ->description(trans('plugged-host-minecraft::strings.onboarding.step_players_hint'))
             ->schema([
                 TagsInput::make('players')

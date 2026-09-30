@@ -12,7 +12,6 @@ use PluggedHost\Economy\Services\Rewards\LinkvertiseProvider;
 use PluggedHost\Economy\Services\Rewards\RewardProvider;
 use PluggedHost\Economy\Services\TokenEarnService;
 use PluggedHost\Economy\Support\EarnOffers;
-use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use Throwable;
 
 /**
@@ -23,7 +22,7 @@ use Throwable;
  * is the trip: this is the only surface in the panel that hands a user to a sponsored
  * link and pays them for coming back.
  *
- * Not in the sidebar since 2026-09-01. The Economy page lists the same offers and links
+ * Not in the sidebar since 2026-09-01. The Token Store lists the same offers and links
  * here, so this became somewhere you arrive with a trip in mind rather than a second nav
  * entry about money — but it is still routed, and it has to be: see
  * `shouldRegisterNavigation()` for the four call sites that resolve it by string, and
@@ -79,7 +78,7 @@ class EarnTokensPage extends Page
     /**
      * Never in the sidebar, always routed.
      *
-     * Earning is presented on the Economy page now — one place for the balance, what it
+     * Earning is presented on the Token Store now — one place for the balance, what it
      * buys and how to get more — so a second sidebar entry saying "Earn tokens" split
      * the same subject across two nav links, which is the confusion this whole pass is
      * about. What did *not* move is the trip: the Full Script anchor has to be in HTML
@@ -278,7 +277,7 @@ class EarnTokensPage extends Page
     }
 
     /**
-     * Where a settled return trip ends: the Economy page.
+     * Where a settled return trip ends: the Token Store.
      *
      * That is where the user started, and where the balance they have just changed is on
      * display next to everything it buys. Before earning moved onto that page this
@@ -300,7 +299,7 @@ class EarnTokensPage extends Page
     /**
      * A fresh copy of *this* page, and therefore a freshly rendered anchor.
      *
-     * Deliberately not redirectClean(): the Economy page carries no outbound anchor, so
+     * Deliberately not redirectClean(): the Token Store carries no outbound anchor, so
      * it is no answer at all to a click on markup that predates a config change.
      */
     protected function redirectFresh(): void
@@ -309,20 +308,12 @@ class EarnTokensPage extends Page
     }
 
     /**
-     * The Economy page's URL, or null if plugged-host-economy is not installed.
-     *
-     * Same guard as AccountChips::storeUrl(): the import is a compile-time alias and
-     * costs nothing when the class is absent, and `class_exists` keeps a missing plugin
-     * from turning into a broken route.
+     * The Token Store's URL (where tokens are spent), or null when it cannot be opened.
      */
     protected function economyUrl(): ?string
     {
-        if (!class_exists(ResourceStorePage::class)) {
-            return null;
-        }
-
         try {
-            return ResourceStorePage::getUrl(panel: 'app');
+            return TokenStorePage::canAccess() ? TokenStorePage::getUrl(panel: 'app') : null;
         } catch (Throwable) {
             return null;
         }
@@ -509,7 +500,6 @@ class EarnTokensPage extends Page
 
             $actions[] = Action::make("earn_{$key}")
                 ->label(trans('plugged-host-economy::strings.tokens_earn_with', ['provider' => $provider->label()]))
-                ->icon('tabler-external-link')
                 ->color('gray')
                 ->action(fn () => $this->earn($key));
         }

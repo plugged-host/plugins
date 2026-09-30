@@ -6,60 +6,64 @@
     See PluggedHost\Economy\Filament\App\Pages\EarnTokensPage for why a return trip is
     verified inline rather than queued, and why the client is trusted with nothing
     but a nonce.
+
+    One section per job (balance, ways to earn, history). Ways to earn are full-width
+    rows; the first provider's button is the page's one filled button, any further
+    provider gets a gray one.
 --}}
 <x-filament-panels::page>
-    <div class="flex flex-col gap-6">
-        <x-filament::section class="rounded-2xl">
-            <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-5">
-                    <div class="flex size-14 shrink-0 items-center justify-center rounded-full bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
-                        <x-filament::icon icon="tabler-bolt" class="size-6 text-primary-600 dark:text-primary-400" />
-                    </div>
+    <style>
+        .ph-earn-value { font-size: 1.5rem; font-weight: 600; line-height: 2rem; font-variant-numeric: tabular-nums; color: var(--phv2-accent-bright); }
+        .ph-earn-title { font-size: 0.875rem; font-weight: 600; line-height: 1.25rem; color: var(--phv2-text); }
+        .ph-earn-text { font-size: 0.875rem; line-height: 1.25rem; color: var(--phv2-text); }
+        .ph-earn-muted { font-size: 0.8125rem; line-height: 1.25rem; color: var(--phv2-text-muted); }
+        .ph-earn-small { font-size: 0.75rem; line-height: 1.125rem; font-variant-numeric: tabular-nums; color: var(--phv2-text-faint); }
+        .ph-earn-rows > * + * { border-top: 1px solid var(--phv2-hairline); }
+        .ph-earn-row { display: flex; flex-direction: column; gap: 0.75rem; padding-block: 1rem; }
+        .ph-earn-row:first-child { padding-top: 0; }
+        .ph-earn-row:last-child { padding-bottom: 0; }
+        .ph-earn-action { display: flex; width: 100%; }
+        @media (min-width: 640px) {
+            .ph-earn-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 1.5rem; }
+            .ph-earn-action { width: 15rem; flex-shrink: 0; justify-content: flex-end; }
+        }
+        .ph-earn-tx { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.625rem; }
+        .ph-earn-tx:first-child { padding-top: 0; }
+        .ph-earn-tx:last-child { padding-bottom: 0; }
+        .ph-earn-amount { flex-shrink: 0; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .ph-earn-amount-in { color: var(--success-400); }
+        .ph-earn-amount-out { color: var(--phv2-text-muted); }
+    </style>
 
-                    <div class="flex min-w-0 flex-col gap-1.5">
-                        <span class="text-lg font-semibold tracking-tight text-gray-950 dark:text-white">
-                            {{ trans('plugged-host-economy::strings.tokens_balance', ['count' => $balance]) }}
-                        </span>
-                        <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                            {{ trans('plugged-host-economy::strings.tokens_explainer', [
-                                'cost' => $priorityCost,
-                                'days' => $priorityDays,
-                            ]) }}
-                        </p>
-                    </div>
-                </div>
+    <div class="flex flex-col gap-6">
+        <x-filament::section>
+            <div class="flex flex-col gap-1">
+                <span class="ph-earn-value">
+                    {{ trans('plugged-host-economy::strings.tokens_balance', ['count' => $balance]) }}
+                </span>
+                <p class="ph-earn-muted">
+                    {{ trans('plugged-host-economy::strings.tokens_explainer', [
+                        'cost' => $priorityCost,
+                        'days' => $priorityDays,
+                    ]) }}
+                </p>
             </div>
         </x-filament::section>
 
-        @if ($providers === [])
-            <x-filament::section class="rounded-2xl">
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ trans('plugged-host-economy::strings.tokens_none') }}
-                </p>
-            </x-filament::section>
-        @else
-            {{--
-                Linkvertise is the only provider wave 5 ships, and a two-column grid
-                holding one card leaves half a row of empty space beside it. So the
-                split only happens once there is a second card to put there, and a lone
-                card stretches its button across the full width instead of parking a
-                small one at the bottom-left of a wide box.
-            --}}
-            @php($single = count($providers) === 1)
-
-            <div @class(['grid gap-4', 'sm:grid-cols-2' => !$single])>
-                @foreach ($providers as $provider)
-                    <x-filament::section class="rounded-2xl">
-                        <div class="flex h-full flex-col gap-4">
-                            <div class="flex flex-col gap-1.5">
-                                <span class="text-base font-semibold text-gray-950 dark:text-white">
-                                    {{ $provider['label'] }}
-                                </span>
-                                <span class="text-sm text-gray-500 dark:text-gray-400">
+        <x-filament::section>
+            @if ($providers === [])
+                <p class="ph-earn-muted">{{ trans('plugged-host-economy::strings.tokens_none') }}</p>
+            @else
+                <div class="ph-earn-rows flex flex-col">
+                    @foreach ($providers as $provider)
+                        <div class="ph-earn-row">
+                            <div class="flex min-w-0 flex-col gap-0.5">
+                                <span class="ph-earn-title">{{ $provider['label'] }}</span>
+                                <span class="ph-earn-muted">
                                     {{ trans('plugged-host-economy::strings.tokens_reward', ['count' => $provider['reward']]) }}
                                 </span>
                                 @if ($provider['cap'] > 0)
-                                    <span class="text-xs tabular-nums text-gray-400 dark:text-gray-500">
+                                    <span class="ph-earn-small">
                                         {{ trans('plugged-host-economy::strings.tokens_used', [
                                             'used' => $provider['used'],
                                             'cap' => $provider['cap'],
@@ -68,7 +72,7 @@
                                 @endif
                             </div>
 
-                            <div class="mt-auto">
+                            <div class="ph-earn-action">
                                 @if ($provider['capped'])
                                     <x-filament::badge color="gray" size="sm">
                                         {{ trans('plugged-host-economy::strings.tokens_capped') }}
@@ -95,7 +99,7 @@
                                             sidebar link is wire:navigate, because
                                             upstream turns SPA mode on for the whole
                                             panel. DOMContentLoaded has therefore
-                                            already fired by the time this card
+                                            already fired by the time this row
                                             arrives, which is why
                                             linkvertise-fullscript.blade.php arms the
                                             vendor's handler itself instead of trusting
@@ -109,8 +113,8 @@
                                             tag="a"
                                             :href="$provider['url']"
                                             :spa-mode="false"
-                                            icon="tabler-external-link"
-                                            :class="$single ? 'w-full justify-center' : ''">
+                                            :color="$loop->first ? 'primary' : 'gray'"
+                                            class="w-full justify-center">
                                             {{ trans('plugged-host-economy::strings.tokens_earn_with', ['provider' => $provider['label']]) }}
                                         </x-filament::button>
                                     @else
@@ -122,35 +126,31 @@
                                     <x-filament::button
                                         wire:click="earn(@js($provider['key']))"
                                         wire:loading.attr="disabled"
-                                        icon="tabler-external-link"
-                                        :class="$single ? 'w-full justify-center' : ''">
+                                        :color="$loop->first ? 'primary' : 'gray'"
+                                        class="w-full justify-center">
                                         {{ trans('plugged-host-economy::strings.tokens_earn_with', ['provider' => $provider['label']]) }}
                                     </x-filament::button>
                                 @endif
                             </div>
                         </div>
-                    </x-filament::section>
-                @endforeach
-            </div>
-        @endif
+                    @endforeach
+                </div>
+            @endif
+        </x-filament::section>
 
         @if ($transactions !== [])
-            <x-filament::section class="rounded-2xl" :heading="trans('plugged-host-economy::strings.tokens_history')">
-                <div class="divide-y divide-gray-950/5 dark:divide-white/10">
+            <x-filament::section :heading="trans('plugged-host-economy::strings.tokens_history')">
+                <div class="ph-earn-rows flex flex-col">
                     @foreach ($transactions as $transaction)
-                        <div class="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+                        <div class="ph-earn-tx">
                             <div class="flex min-w-0 flex-col">
-                                <span class="truncate text-sm text-gray-950 dark:text-white">
-                                    {{ $transaction->description }}
-                                </span>
-                                <span class="text-xs text-gray-400 dark:text-gray-500">
-                                    {{ $transaction->created_at?->diffForHumans() }}
-                                </span>
+                                <span class="ph-earn-text truncate">{{ $transaction->description }}</span>
+                                <span class="ph-earn-small">{{ $transaction->created_at?->diffForHumans() }}</span>
                             </div>
                             <span @class([
-                                'shrink-0 text-sm font-semibold tabular-nums',
-                                'text-success-600 dark:text-success-400' => $transaction->amount > 0,
-                                'text-gray-500 dark:text-gray-400' => $transaction->amount <= 0,
+                                'ph-earn-amount',
+                                'ph-earn-amount-in' => $transaction->amount > 0,
+                                'ph-earn-amount-out' => $transaction->amount <= 0,
                             ])>
                                 {{ $transaction->amount > 0 ? '+' : '' }}{{ $transaction->amount }}
                             </span>

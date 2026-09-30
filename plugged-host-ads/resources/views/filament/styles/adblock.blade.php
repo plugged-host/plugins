@@ -11,7 +11,8 @@
      follow the panel's palette and its light/dark switch without this file
      naming a single colour. What is left is layout, plus the modal backdrop —
      copied from Filament's own `fi-modal-close-overlay` values, because a real
-     fi-modal needs Alpine to drive it. --}}
+     fi-modal needs Alpine to drive it — and the dialog's modal surface, taken
+     from Theme v2's --phv2-modal token. --}}
 @verbatim
 <style data-plugged-host="adblock-notice">
     /* Whatever fi-section does with display, the hidden attribute has to win. */
@@ -55,6 +56,15 @@
         max-width: 30rem;
         text-align: start;
         animation: ph-support-in .2s ease-out;
+    }
+
+    /* The dialog stands in for a Filament modal, so it takes Theme v2's modal
+       surface and elevation rather than the translucent card surface it would
+       otherwise inherit as an fi-section. The selector outranks the theme's
+       `.fi-section:not(…):not(…)` rule on specificity, so load order is moot. */
+    .ph-support-overlay > .ph-support-dialog.fi-section.fi-section-has-header {
+        background-color: var(--phv2-modal, var(--gray-900));
+        box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5), 0 0 0 1px var(--phv2-hairline, transparent);
     }
 
     .ph-support-locked {

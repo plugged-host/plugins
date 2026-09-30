@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- **One "Status page" entry in the admin sidebar** (`Filament\Admin\Clusters\StatusPage`,
+  `/admin/status`) with Incidents, Nodes and Components as tabs, instead of three sidebar rows.
+  Their URLs moved under `/admin/status/…`.
+
+## 1.2.1
+
+- Version bump to 1.2.1 (plugged.host 2.1).
+
 ## 1.2.0
 
 - **New plugin**, extracted from `plugged-host-core` in the v2 re-division. Contains the status

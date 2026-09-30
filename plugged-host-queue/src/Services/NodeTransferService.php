@@ -29,6 +29,12 @@ use Throwable;
  */
 class NodeTransferService
 {
+    /**
+     * plugged-host-servers' transfer orchestrator (live progress, retries on another node,
+     * automatic start, rollback). By class-string so the queue still works without it.
+     */
+    protected const ORCHESTRATOR = 'PluggedHost\\Servers\\Services\\Transfers\\TransferService';
+
     public const RESULT_OK = 'ok';
 
     /** The offer should not have been visible: disabled, too big, or no pass. */
@@ -92,7 +98,21 @@ class NodeTransferService
             return false;
         }
 
+        if ($this->orchestrated()) {
+            try {
+                return app(self::ORCHESTRATOR)->blockedReason($server, $user, 'queue') === null;
+            } catch (Throwable) {
+                return false;
+            }
+        }
+
         return true;
+    }
+
+    /** Is plugged-host-servers' orchestrator there to run the move? */
+    public function orchestrated(): bool
+    {
+        return class_exists(self::ORCHESTRATOR);
     }
 
     public function requiresPriority(): bool
@@ -140,6 +160,11 @@ class NodeTransferService
 
         if ($candidates->isEmpty()) {
             return null;
+        }
+
+        // The orchestrator creates missing ports on the destination itself.
+        if ($this->orchestrated()) {
+            return $candidates->first();
         }
 
         $needed = $this->allocationsNeeded($server);
@@ -272,6 +297,10 @@ class NodeTransferService
             return self::RESULT_UNAVAILABLE;
         }
 
+        if ($this->orchestrated()) {
+            return $this->executeOrchestrated($server, $user);
+        }
+
         $needed = $this->allocationsNeeded($server);
         $node = null;
         $allocations = null;
@@ -322,6 +351,45 @@ class NodeTransferService
             'server_id' => $server->getKey(),
             'from_node' => $server->node_id,
             'to_node' => $node->getKey(),
+        ]);
+
+        return self::RESULT_OK;
+    }
+
+    /**
+     * Hand the move to plugged-host-servers: it picks among our candidates in our order,
+     * reports progress on the Transfer page, retries on the next candidate if a node fails,
+     * and starts the server when it lands (the user was waiting to start it).
+     */
+    protected function executeOrchestrated(Server $server, User $user): string
+    {
+        $candidates = $this->candidates($server)->map(fn (Node $node) => (int) $node->getKey())->values()->all();
+
+        if ($candidates === []) {
+            return self::RESULT_NO_NODE;
+        }
+
+        try {
+            app(self::ORCHESTRATOR)->start($server, $user, null, 'queue', $candidates, true);
+        } catch (Throwable $e) {
+            $reason = property_exists($e, 'reason') ? (string) $e->reason : '';
+
+            if ($reason === '') {
+                $this->log('transfer refused', $e);
+            }
+
+            return match ($reason) {
+                'no_node' => self::RESULT_NO_NODE,
+                'busy', 'installing', 'restoring', 'suspended', 'backup_running' => self::RESULT_CONFLICT,
+                '' => self::RESULT_FAILED,
+                default => self::RESULT_UNAVAILABLE,
+            };
+        }
+
+        Log::info('[plugged-host-queue] server transfer handed to the orchestrator from the start queue', [
+            'server_id' => $server->getKey(),
+            'from_node' => $server->node_id,
+            'candidates' => $candidates,
         ]);
 
         return self::RESULT_OK;

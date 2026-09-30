@@ -5,7 +5,7 @@ namespace PluggedHost\Core\Services;
 use App\Models\Server;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\TokenService;
 use Throwable;
@@ -14,7 +14,7 @@ use Throwable;
  * One flat, cheap snapshot of everything the topbar chips display.
  *
  * This exists because the chips render on *every* page of the app and server panels, and the
- * obvious way to build them is ruinous: RoleResourceLimits::getCpuLeft(), getMemoryLeft() and
+ * obvious way to build them is ruinous: AccountAllowance::getCpuLeft(), getMemoryLeft() and
  * getDiskLeft() each run their own `$user->servers()->sum(...)`, and getOverage() runs four
  * more. Reusing those would put half a dozen aggregate queries on every request in the panel
  * to render three small numbers.
@@ -32,7 +32,7 @@ use Throwable;
 class AccountSummary
 {
     /**
-     * Keyed by user id. Holds null for a user with no resource profile, which is a real
+     * Keyed by user id. Holds null for a user with no plan yet, which is a real
      * answer and must be cached as one, hence array_key_exists() rather than ??.
      *
      * @var array<int, ?array<string, int|null>>
@@ -43,7 +43,7 @@ class AccountSummary
      * @return null|array{
      *     tokens: ?int, credits: ?int,
      *     cpu_used: int, cpu_limit: int, memory_used: int, memory_limit: int,
-     *     disk_used: int, disk_limit: int, servers_used: int, servers_limit: ?int,
+     *     disk_used: int, disk_limit: int, servers_used: int,
      * }
      */
     public function forUser(?User $user): ?array
@@ -109,7 +109,7 @@ class AccountSummary
     /** @return ?array<string, int|null> */
     private function build(User $user): ?array
     {
-        $limits = RoleResourceLimits::forUser($user);
+        $limits = AccountAllowance::forUser($user);
 
         if (!$limits) {
             return null;
@@ -136,7 +136,6 @@ class AccountSummary
             'disk_used' => (int) ($used->disk_used ?? 0),
             'disk_limit' => (int) $limits->disk,
             'servers_used' => (int) ($used->servers_used ?? 0),
-            'servers_limit' => $limits->server_limit === null ? null : (int) $limits->server_limit,
         ];
     }
 

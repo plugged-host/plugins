@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- `PowerActionInterceptor::interceptFor(User, Server, action)` extracted as the single public definition of the start chain (limbo → start queue → ad gate); the Livewire hook and plugged-host-neo both use it.
+- The waiting-room URL is built before the start is sent, so a failure after dispatch can no longer lead to a second start.
+- Version bump to 1.2.1.
+
 ## 1.2.0
 
 - **Token earning moved out to `plugged-host-economy`.** `TokenEarnService`, `TokenClaim`,

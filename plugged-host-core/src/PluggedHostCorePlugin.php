@@ -4,15 +4,13 @@ namespace PluggedHost\Core;
 
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Enums\TablerIcon;
-use App\Models\Egg;
 use App\Traits\EnvironmentWriterTrait;
 use PluggedHost\Core\Filament\App\Pages\WelcomeTourPage;
 use PluggedHost\Core\Filament\HiddenNavigationManager;
-use PluggedHost\Core\Filament\Pages\Auth\Login;
-use PluggedHost\Core\Filament\Pages\Auth\Register;
+use PluggedHost\Core\Filament\ServerNavigation;
 use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
+use PluggedHost\Core\Http\Middleware\RequireNoprofitLink;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
-use PluggedHost\Core\Http\Middleware\RequirePasswordForOAuthSignup;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\CreateAction;
@@ -23,7 +21,6 @@ use Filament\Actions\ViewAction;
 use Filament\Contracts\Plugin;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -49,33 +46,23 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
         $panel->discoverPages(plugin_path($this->getId(), "src/Filament/$id/Pages"), "PluggedHost\\Core\\Filament\\$id\\Pages");
         $panel->discoverResources(plugin_path($this->getId(), "src/Filament/$id/Resources"), "PluggedHost\\Core\\Filament\\$id\\Resources");
         $panel->discoverWidgets(plugin_path($this->getId(), "src/Filament/$id/Widgets"), "PluggedHost\\Core\\Filament\\$id\\Widgets");
-        $panel->login(Login::class);
-        $panel->registration(Register::class);
 
-        // The server-panel installing/onboarding tenant middleware moved to
-        // PluggedHostMinecraftPlugin in v1.2.0 (WP1) — those middleware and pages now live there.
+        // Signing in and signing up happen on noprofit.space: MigrationEndpointServiceProvider
+        // points every panel's login and /register at it. No ->registration() here, so the
+        // panel serves no sign-up form of its own (/admin/register and /server/register
+        // used to, which created panel accounts around noprofit.space).
 
-        /*
-         * The OAuth set-password gate, on every panel a signed-in account can reach.
-         *
-         * This used to be `$router->pushMiddlewareToGroup('web', …)` in RegisterPluginProvider,
-         * which meant it never ran: PanelProvider gives each panel an explicit middleware list
-         * that does not include the `web` group (verified from `route:list --json` — an app-panel
-         * page route carries SetUpPanel, the cookie/session stack, Authenticate, 2FA and nothing
-         * else), so the gate only ever reached the handful of non-panel routes. The pending flag
-         * was written faithfully by GuardedUserCreationService and then never acted upon, so a
-         * Discord signup could browse the whole panel without ever setting a password.
-         *
-         * Registered before the tour gate below so the password is asked for first: being walked
-         * through a tour and *then* told to pick a password is the wrong order, and the tour's
-         * own buttons are Livewire calls the password gate deliberately does not intercept.
-         *
-         * Non-persistent (the authMiddleware() default), so POST /livewire/update never sees it.
-         */
+        // RequireNoprofitLink: a panel session of an account that is not linked to
+        // noprofit.space yet (from before the move) goes through noprofit.space once.
         $panel->authMiddleware([
-            RequirePasswordForOAuthSignup::class,
             EnsureRememberMeCookie::class,
+            RequireNoprofitLink::class,
         ]);
+
+        if ($panel->getId() === 'server') {
+            // The collapsed group ServerNavigation folds the rarely used server pages into.
+            $panel->navigationGroups([ServerNavigation::moreGroup()]);
+        }
 
         if ($panel->getId() === 'app') {
             // The welcome-tour gate. authMiddleware(), not pushMiddlewareToGroup('web'):
@@ -83,16 +70,20 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             // the `web` group, so a gate pushed there reaches ~20 non-panel routes and no page
             // anyone browses. See RequirePanelTour for the rest of that argument.
             //
-            // Appended, so it runs after Authenticate and RequireTwoFactorAuthentication — and
-            // not persistent, so POST /livewire/update (which the tour's own buttons use)
-            // never sees it.
+            // Appended, so it runs after Authenticate — and not persistent, so
+            // POST /livewire/update (which the tour's own buttons use) never sees it.
             $panel->authMiddleware([
                 RequirePanelTour::class,
             ]);
+        }
 
-            // Getting back in afterwards. The URL is resolved in a closure because routes do
-            // not exist yet at panel-build time, and restartUrl() returns null rather than
-            // throwing — a user menu that throws takes the topbar down on every page.
+        if (in_array($panel->getId(), ['app', 'server'], true)) {
+            // Getting back in afterwards, from the account menu on both panels people browse
+            // (the tour's last step, on a server's console, points at it). The URL is resolved
+            // in a closure because routes do not exist yet at panel-build time, and
+            // restartUrl() returns null rather than throwing — a user menu that throws takes
+            // the sidebar footer down on every page. It is an absolute app-panel URL, so it
+            // works from the server panel too.
             $panel->userMenuItems([
                 Action::make('plugged_host_tour')
                     ->label(fn () => trans('plugged-host-core::strings.tour.menu'))
@@ -181,13 +172,10 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
 
     public function getSettingsFormData(): array
     {
-        $data = array_merge(
-            config('plugged-host-core.legal', []),
-            config('plugged-host-core.register', []),
-        );
-
-        $data['tour_enabled'] = (bool) config('plugged-host-core.tour.enabled', true);
-        $data['tour_version'] = (string) config('plugged-host-core.tour.version', '1');
+        $data = [
+            'tour_enabled' => (bool) config('plugged-host-core.tour.enabled', true),
+            'tour_version' => (string) config('plugged-host-core.tour.version', '2'),
+        ];
 
         // One Select per panel, because a navigation key is a class name and a class only
         // ever belongs to one panel. Split the single stored string across them by asking
@@ -208,49 +196,6 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
     public function getSettingsForm(): array
     {
         return [
-            Section::make('Legal acceptance')
-                ->description('These documents are linked during every registration and authentication attempt. Change a version when its published document changes.')
-                ->columns(2)
-                ->schema([
-                    TextInput::make('terms_url')
-                        ->label('Terms of Service URL')
-                        ->url()
-                        ->required()
-                        ->default(fn () => config('plugged-host-core.legal.terms_url')),
-                    TextInput::make('terms_version')
-                        ->label('Terms version')
-                        ->required()
-                        ->maxLength(64)
-                        ->default(fn () => config('plugged-host-core.legal.terms_version')),
-                    TextInput::make('privacy_url')
-                        ->label('Privacy Policy URL')
-                        ->url()
-                        ->required()
-                        ->default(fn () => config('plugged-host-core.legal.privacy_url')),
-                    TextInput::make('privacy_version')
-                        ->label('Privacy version')
-                        ->required()
-                        ->maxLength(64)
-                        ->default(fn () => config('plugged-host-core.legal.privacy_version')),
-                ]),
-            Section::make('Registration methods')
-                ->description('Choose how new users can create accounts. OAuth providers must also be enabled and configured to create missing users in the panel OAuth settings.')
-                ->schema([
-                    Toggle::make('password_registration_enabled')
-                        ->label('Password registration')
-                        ->helperText('Allow users to register with a username, email address, and password.')
-                        ->inline(false)
-                        ->onIcon(TablerIcon::Check)
-                        ->offIcon(TablerIcon::X)
-                        ->default(fn () => config('plugged-host-core.register.password_registration_enabled', true)),
-                    Toggle::make('oauth_registration_enabled')
-                        ->label('OAuth registration')
-                        ->helperText('Allow enabled OAuth providers, including Discord and GitHub, to create new user accounts.')
-                        ->inline(false)
-                        ->onIcon(TablerIcon::Check)
-                        ->offIcon(TablerIcon::X)
-                        ->default(fn () => config('plugged-host-core.register.oauth_registration_enabled', true)),
-                ]),
             Section::make(trans('plugged-host-core::strings.settings.section_tour'))
                 ->description(trans('plugged-host-core::strings.settings.section_tour_hint'))
                 ->columns(2)
@@ -267,7 +212,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-core::strings.settings.tour_version_hint'))
                         ->required()
                         ->maxLength(64)
-                        ->default(fn () => (string) config('plugged-host-core.tour.version', '1')),
+                        ->default(fn () => (string) config('plugged-host-core.tour.version', '2')),
                 ]),
             Section::make('Sidebar visibility')
                 ->description('Hide navigation entries you do not want users to see. The pages stay reachable by URL — this only removes them from the sidebar.')
@@ -394,12 +339,6 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
     public function saveSettings(array $data): void
     {
         $this->writeToEnvironment([
-            'LEGAL_TERMS_URL' => $data['terms_url'],
-            'LEGAL_PRIVACY_URL' => $data['privacy_url'],
-            'LEGAL_TERMS_VERSION' => $data['terms_version'],
-            'LEGAL_PRIVACY_VERSION' => $data['privacy_version'],
-            'REGISTER_PASSWORD_REGISTRATION_ENABLED' => $data['password_registration_enabled'] ? 'true' : 'false',
-            'REGISTER_OAUTH_REGISTRATION_ENABLED' => $data['oauth_registration_enabled'] ? 'true' : 'false',
             'TOUR_ENABLED' => $data['tour_enabled'] ? 'true' : 'false',
             'TOUR_VERSION' => (string) $data['tour_version'],
             'NAV_HIDDEN_ITEMS' => implode(',', $this->hiddenNavigationFromForm($data)),

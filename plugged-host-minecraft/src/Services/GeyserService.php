@@ -6,7 +6,7 @@ use App\Facades\Activity;
 use App\Models\Allocation;
 use App\Models\Server;
 use App\Repositories\Daemon\DaemonFileRepository;
-use App\Repositories\Daemon\DaemonPowerRepository;
+use App\Repositories\Daemon\DaemonServerRepository;
 use Filament\Notifications\Notification;
 use Throwable;
 
@@ -126,7 +126,7 @@ class GeyserService
         }
 
         try {
-            app(DaemonPowerRepository::class)->setServer($server)->send('restart');
+            app(DaemonServerRepository::class)->setServer($server)->power('restart');
         } catch (Throwable) {
             // A failed restart is not fatal — the jars are in place for the next boot.
         }

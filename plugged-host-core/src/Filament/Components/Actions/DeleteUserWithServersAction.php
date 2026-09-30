@@ -15,7 +15,7 @@ use PluggedHost\Core\Services\AccountDeletionService;
 use Throwable;
 
 /**
- * The admin-side counterpart to DeleteAccountAction, for the case upstream's delete button gives up on.
+ * The admin-side delete for the case upstream's delete button gives up on.
  *
  * `EditUser`'s own `DeleteAction` is `disabled()` whenever the user owns a server, with a tooltip
  * explaining why. That is a defensible default -- but it is also a dead end: there is no admin

@@ -64,7 +64,7 @@ return [
     // Das Umzugsangebot.
     'transfer_heading' => 'Auf einen ruhigeren Node umziehen',
     'transfer_body' => 'Wir können diesen Server auf :node umziehen, der nicht ausgelastet ist. Deine Dateien kommen mit.',
-    'transfer_note' => 'Während des Kopierens ist der Server offline, und seine IP-Adresse und sein Port ändern sich. Nach dem Umzug startest du ihn selbst.',
+    'transfer_note' => 'Während des Kopierens ist der Server offline, und seine Adresse ändert sich. Nach dem Umzug startet er von selbst.',
     'transfer_confirm' => "Diesen Server auf :node umziehen?\n\nDer Server bleibt offline, bis das Kopieren fertig ist, und seine IP-Adresse und sein Port ändern sich. Alles, was auf die alte Adresse zeigt — eine Domain, ein Lesezeichen, die Serverliste eines Spielers — muss angepasst werden.",
     'transfer_cta' => 'Server umziehen',
     'transfer_too_big' => 'Dieser Server ist zu groß für einen schnellen Umzug — hier zu warten geht schneller.',
@@ -135,7 +135,7 @@ return [
     'pass_minutes_helper' => 'Nach einer Freigabe überspringen die nächsten Starts dieses Nutzers auf diesem Server sowohl die Warteschlange als auch das Werbe-Gate. Einmal warten und dann im anderen Wartebereich landen ist das Schlimmste, was diese Funktion tun kann.',
 
     'section_priority' => 'Priorität',
-    'section_priority_desc' => 'Wofür Tokens da sind. Ein Kauf, kontoweit, für ein Zeitfenster in Tagen — kein einzelnes Überspringen. Verkauft auf der Warteseite und im Ressourcen-Shop.',
+    'section_priority_desc' => 'Wofür Tokens da sind. Ein Kauf, kontoweit, für ein Zeitfenster in Tagen — kein einzelnes Überspringen. Verkauft auf der Warteseite und im Token-Shop.',
     'priority_token_cost' => 'Preis in Tokens',
     'priority_token_cost_helper' => 'Tokens werden vom Plugin plugged.host Ads ausgegeben. Dessen Verdienen-Seite liest diese Zahl, um den Preis zu erklären — hier geändert heißt dort geändert.',
     'priority_days' => 'Zeitfenster (Tage)',

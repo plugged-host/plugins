@@ -100,51 +100,11 @@ class PowerActionInterceptor
                 return;
             }
 
-            // Limbo is asked FIRST, ahead of the queue: a hibernated server is not waiting for
-            // capacity, it is parked on the limbo node and must be brought back (and paid for)
-            // before any start means anything. Same one-method contract as the queue, resolved
-            // by class-string so limbo can be uninstalled alone. Livewire runs every
-            // before('call') listener regardless of $returnEarly, so this must live in this one
-            // hook rather than as a second listener (fact 8).
-            if ($this->limboIntercepted($user, $server, $action, $component, $returnEarly)) {
+            $url = $this->interceptFor($user, $server, $action);
+
+            if ($url === null) {
                 return;
             }
-
-            // The start queue comes next, and it is asked before the gate's own
-            // isEnabled() check on purpose: the queue is about node capacity, not about
-            // ads, and it has to keep working on a panel where the ad gate is switched
-            // off entirely. It is also the only one of the two that can refuse a start
-            // rather than merely delay it.
-            if ($this->queueIntercepted($user, $server, $action, $component, $returnEarly)) {
-                return;
-            }
-
-            if (!$this->gate->isEnabled()) {
-                return;
-            }
-
-            if (!$this->gate->requiresGate($user, $server, requireStopped: !in_array($action, self::ALWAYS_GATED_ACTIONS, true))) {
-                return;
-            }
-
-            // The start goes out now, not when the ads finish. The room is where the
-            // user pays for the start by watching them, so it is ad time rather than a
-            // queue — and the console behind it shows the container already coming up.
-            // The accepted trade: closing the tab mid-wait costs the ad view, not the
-            // start.
-            if ($this->gate->dispatchPower($user, $server, $action)) {
-                $this->gate->markDispatched($user, $server);
-                cache()->put("servers.{$server->uuid}.status", ContainerStatus::Starting, now()->addSeconds(15));
-            } else {
-                // wings said no, or the node went away between the gate check and
-                // here. Remember what was asked for so the release replays it —
-                // a failed dispatch must not cost the user the start *and* the wait.
-                $this->gate->rememberStartIntent($user, $server, $action);
-            }
-
-            $this->gate->holdStartedAt($user, $server);
-
-            $url = StartGatePage::getUrl(panel: 'server', tenant: $server);
 
             $this->redirect($component, $url);
 
@@ -155,89 +115,100 @@ class PowerActionInterceptor
     }
 
     /**
-     * Ask plugged-host-limbo whether this start must first pass through the restore page.
+     * The whole start chain for one power action, independent of how it was requested.
      *
-     * Same contract and same reasoning as queueIntercepted(): one method returning a URL to send
-     * the user to, or null to fall through. Resolved by class-string behind class_exists() so
-     * limbo can be uninstalled alone. A URL means limbo now owns the flow — it charges the token
-     * ransom and performs the transfer back — so nothing below may dispatch the power action.
+     * Returns the URL to send the user to when limbo, the start queue or the ad gate now owns
+     * the action, and null when the caller may dispatch it itself. Public because it is the
+     * single definition of the chain's order: the Livewire hook above and plugged-host-neo's
+     * power tool both go through it, so neither can start a server the other would have held.
+     *
+     * A returned URL is a promise that nothing else may dispatch the action — for the gate
+     * that is because it has already sent it.
      */
-    protected function limboIntercepted(
-        User $user,
-        Server $server,
-        string $action,
-        mixed $component,
-        callable $returnEarly,
-    ): bool {
-        $service = 'PluggedHost\\Limbo\\Services\\LimboService';
-
-        if (!class_exists($service)) {
-            return false;
+    public function interceptFor(User $user, Server $server, string $action): ?string
+    {
+        if (!in_array($action, self::GATED_ACTIONS, true)) {
+            return null;
         }
 
+        // Limbo is asked FIRST, ahead of the queue: a hibernated server is not waiting for
+        // capacity, it is parked on the limbo node and must be brought back (and paid for)
+        // before any start means anything. Livewire runs every before('call') listener
+        // regardless of $returnEarly, so this must live in this one chain rather than as a
+        // second listener (fact 8).
+        $url = $this->askPlugin('PluggedHost\\Limbo\\Services\\LimboService', $user, $server, $action);
+        if ($url !== null) {
+            return $url;
+        }
+
+        // The start queue comes next, and it is asked before the gate's own isEnabled() check
+        // on purpose: the queue is about node capacity, not about ads, and it has to keep
+        // working on a panel where the ad gate is switched off entirely. It is also the only
+        // one of the two that can refuse a start rather than merely delay it.
+        $url = $this->askPlugin('PluggedHost\\Queue\\Services\\StartQueueService', $user, $server, $action);
+        if ($url !== null) {
+            return $url;
+        }
+
+        if (!$this->gate->isEnabled()) {
+            return null;
+        }
+
+        if (!$this->gate->requiresGate($user, $server, requireStopped: !in_array($action, self::ALWAYS_GATED_ACTIONS, true))) {
+            return null;
+        }
+
+        // Built before anything is sent: once the start has gone out, this method must hand
+        // back a URL no matter what, or the caller would send the same start a second time.
+        $url = StartGatePage::getUrl(panel: 'server', tenant: $server);
+
+        // The start goes out now, not when the ads finish. The room is where the user pays for
+        // the start by watching them, so it is ad time rather than a queue — and the console
+        // behind it shows the container already coming up. The accepted trade: closing the tab
+        // mid-wait costs the ad view, not the start.
         try {
-            $url = app($service)->interceptStart($user, $server, $action);
+            if ($this->gate->dispatchPower($user, $server, $action)) {
+                $this->gate->markDispatched($user, $server);
+                cache()->put("servers.{$server->uuid}.status", ContainerStatus::Starting, now()->addSeconds(15));
+            } else {
+                // wings said no, or the node went away between the gate check and here.
+                // Remember what was asked for so the release replays it — a failed dispatch
+                // must not cost the user the start *and* the wait.
+                $this->gate->rememberStartIntent($user, $server, $action);
+            }
+
+            $this->gate->holdStartedAt($user, $server);
         } catch (Throwable) {
-            // Fail open: a limbo lookup that cannot answer must not lose a start.
-            return false;
+            // Whatever happened after the attempt, the gate owns this start now.
         }
 
-        if (!is_string($url) || $url === '') {
-            return false;
-        }
-
-        $this->redirect($component, $url);
-
-        $returnEarly(null);
-
-        return true;
+        return $url;
     }
 
     /**
-     * Hand the start to plugged-host-queue and report whether it took it.
+     * Ask plugged-host-limbo or plugged-host-queue whether this start has to go through them.
      *
-     * Resolved by string rather than by import because the queue is a separate plugin
-     * that can be uninstalled, and because the dependency has to point this way: the
-     * queue needs the Livewire `call` hook, and Livewire runs *every* `before('call')`
-     * listener regardless of who called `$returnEarly` — so a second interceptor
-     * registered by the queue plugin would let this one send the same start it had just
-     * cancelled. One hook, asked in order, is the only safe shape.
+     * Both share a one-method contract: `interceptStart()` returns the URL of their page when
+     * the start must wait there, and null when it may go straight through. A URL also means
+     * that plugin now owns the power action (limbo charges the ransom and transfers back, the
+     * queue dispatches on release), so nothing after it may dispatch the action as well.
      *
-     * The contract is one method. `interceptStart()` returns the URL of the queue page
-     * when the start has to wait, and null when it may go straight through. A URL also
-     * means the queue now owns the power action — it dispatches on release, so nothing
-     * below here may dispatch it as well.
+     * Resolved by class-string behind class_exists() so either can be uninstalled alone, and
+     * fail-open: a plugin that cannot answer must not be the reason a start is lost.
      */
-    protected function queueIntercepted(
-        User $user,
-        Server $server,
-        string $action,
-        mixed $component,
-        callable $returnEarly,
-    ): bool {
-        $service = 'PluggedHost\\Queue\\Services\\StartQueueService';
-
+    protected function askPlugin(string $service, User $user, Server $server, string $action): ?string
+    {
         if (!class_exists($service)) {
-            return false;
+            return null;
         }
 
         try {
             $url = app($service)->interceptStart($user, $server, $action);
         } catch (Throwable) {
-            // Fail open, exactly as the gate does: a queue that cannot answer must not
-            // be the reason a start is lost.
-            return false;
+            return null;
         }
 
-        if (!is_string($url) || $url === '') {
-            return false;
-        }
-
-        $this->redirect($component, $url);
-
-        $returnEarly(null);
-
-        return true;
+        return is_string($url) && $url !== '' ? $url : null;
     }
 
     /**

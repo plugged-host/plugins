@@ -301,7 +301,6 @@ class GameConfigPage extends MinecraftPage
         $reason = $this->unreachable ? 'unreachable' : 'empty_body';
 
         return Section::make(trans('plugged-host-minecraft::strings.game_config.empty_heading'))
-            ->icon(TablerIcon::FileOff)
             ->columnSpanFull()
             ->schema([
                 TextEntry::make('empty')
@@ -316,14 +315,11 @@ class GameConfigPage extends MinecraftPage
     protected function fileTab(array $file): Tab
     {
         $yaml = (bool) $file['yaml'];
-        $icon = $yaml ? TablerIcon::FileCode : TablerIcon::FileSettings;
 
         return Tab::make($file['path'])
             ->id($file['id'])
-            ->icon($icon)
             ->schema([
                 Section::make($file['path'])
-                    ->icon($icon)
                     ->description($yaml
                         ? trans('plugged-host-minecraft::strings.game_config.yaml_notice', [
                             'file' => basename($file['path']) . self::BACKUP_SUFFIX,
@@ -435,7 +431,6 @@ class GameConfigPage extends MinecraftPage
     {
         return Action::make('save_' . $file['id'])
             ->label(trans('plugged-host-minecraft::strings.game_config.save'))
-            ->icon(TablerIcon::DeviceFloppy)
             ->disabled(!$this->canWrite())
             ->action(fn () => $this->saveFile($file['path']));
     }
@@ -454,7 +449,6 @@ class GameConfigPage extends MinecraftPage
     {
         return Action::make('raw_' . $file['id'])
             ->label(trans('plugged-host-minecraft::strings.game_config.raw_edit'))
-            ->icon(TablerIcon::Code)
             ->color('gray')
             ->disabled(!$this->canWrite())
             ->modalHeading($file['path'])
@@ -767,8 +761,11 @@ class GameConfigPage extends MinecraftPage
         return [
             Action::make('restart')
                 ->label(trans('plugged-host-minecraft::strings.game_config.restart'))
+                // A power control: icon-only, like the console's. Save stays the page's accent.
+                ->iconButton()
                 ->icon(TablerIcon::Refresh)
-                ->color('warning')
+                ->tooltip(trans('plugged-host-minecraft::strings.game_config.restart'))
+                ->color('gray')
                 ->visible(fn () => (bool) user()?->can(SubuserPermission::ControlRestart, $this->getServer()))
                 ->requiresConfirmation()
                 ->modalHeading(trans('plugged-host-minecraft::strings.game_config.restart_confirm'))

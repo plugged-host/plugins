@@ -9,12 +9,16 @@
 |
 | CurseForge (WP12) needs a server-wide Core API key. Without it, CurseForge
 | search / modpack install / fingerprint detection degrade cleanly and
-| Modrinth remains the zero-config default.
+| Modrinth remains the zero-config default. SpigotMC (plugins only, via
+| Spiget) needs no key and can be switched off.
 |
 */
 
 return [
     'curseforge_api_key' => env('CURSEFORGE_API_KEY', ''),
+
+    // SpigotMC plugins on Paper-family servers, read through Spiget (no key). See SpigotCatalog.
+    'spigotmc_enabled' => (bool) env('MINECRAFT_SPIGOTMC_ENABLED', true),
 
     // Cap on the number of files extracted from a CurseForge modpack's overrides/ tree,
     // mirroring InstallModpackJob's own guard against a hostile archive.

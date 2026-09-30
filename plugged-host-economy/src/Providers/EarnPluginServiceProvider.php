@@ -39,11 +39,11 @@ use Throwable;
 class EarnPluginServiceProvider extends ServiceProvider
 {
     /**
-     * The hook the Economy (resource store) page renders under its token wallet.
+     * The hook the Token Store renders under its token balance.
      *
      * A literal on both sides, and on purpose: matching it by string is what lets a render
      * hook put content on the store page without the page importing the hook. Economy's own
-     * copy is `ResourceStorePage::HOOK_AFTER_TOKENS` — if you rename one, grep for the string,
+     * copy is `TokenStorePage::HOOK_AFTER_TOKENS` — if you rename one, grep for the string,
      * not for the constant. (Both live in this plugin now, but the string contract is kept so
      * the page stays decoupled from who fills the slot.)
      */
@@ -120,7 +120,7 @@ class EarnPluginServiceProvider extends ServiceProvider
     }
 
     /**
-     * The earning offers, on the Economy (resource store) page, under the token wallet.
+     * The earning offers, on the Token Store, under the token balance.
      *
      * The user asked for one place for money, so the offers appear next to the balance they add
      * to. What does *not* move is the trip: the block renders links to EarnTokensPage, never the

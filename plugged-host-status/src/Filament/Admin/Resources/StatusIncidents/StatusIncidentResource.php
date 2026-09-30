@@ -2,7 +2,6 @@
 
 namespace PluggedHost\Status\Filament\Admin\Resources\StatusIncidents;
 
-use App\Enums\CustomizationKey;
 use App\Models\Node;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -14,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use PluggedHost\Status\Filament\Admin\Clusters\StatusPage;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -27,29 +27,21 @@ class StatusIncidentResource extends Resource
 {
     protected static ?string $model = StatusIncident::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'tabler-alert-triangle';
+    // A tab of the Status page cluster: no icon of its own, since the tab says what it is.
+    protected static ?string $cluster = StatusPage::class;
 
-    protected static ?int $navigationSort = 81;
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'title';
 
     public static function getNavigationLabel(): string
     {
-        return 'Status incidents';
+        return 'Incidents';
     }
 
     public static function getModelLabel(): string
     {
         return 'status incident';
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        if (user()?->getCustomization(CustomizationKey::TopNavigation) === 'topbar') {
-            return null;
-        }
-
-        return trans('admin/dashboard.server');
     }
 
     public static function canViewAny(): bool

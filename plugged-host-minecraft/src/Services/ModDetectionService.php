@@ -4,29 +4,50 @@ namespace PluggedHost\Minecraft\Services;
 
 use App\Models\Server;
 use App\Repositories\Daemon\DaemonFileRepository;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Detect the plugins/mods installed on a server (WP8), across Modrinth and CurseForge.
+ * What is installed in a server's plugins/ or mods/ folder, and what each jar is (WP8, v2).
  *
- * Two tiers, by cost:
- *  - cheap (default, cached): normalise the filename and search Modrinth (keyless), then
- *    CurseForge when a key is configured and Modrinth found nothing. Reports a confidence.
- *  - exact (on demand): SHA-1 the jar and ask Modrinth /version_file; if unknown, compute the
- *    CurseForge normalised Murmur2 fingerprint and ask /v1/fingerprints.
+ * Every jar is identified once and remembered (keyed by name, size and modification time, so a
+ * replaced jar is looked at again). Identification reads the jar itself:
  *
- * A jar neither platform recognises is shown honestly as *unknown* rather than guessed. No new
- * table — results cache against the server uuid + a hash of the directory listing.
+ *  1. its descriptor (plugin.yml, fabric.mod.json, mods.toml; see JarMetadataReader) gives the
+ *     real name, version, authors and, for plugins, hard dependencies;
+ *  2. its SHA-1 is looked up on Modrinth (cached per hash);
+ *  3. failing that, its CurseForge fingerprint (when a key is configured);
+ *  4. failing that, the descriptor's name on Modrinth, then (plugins only) on SpigotMC, both
+ *     as strict whole-name matches;
+ *  5. otherwise it stays identified by its own descriptor, or honestly unknown.
+ *
+ * Downloading jars (streamed to disk) is the expensive part, so list() never does it: it returns what is known and
+ * marks the rest pending, and the caller works through them with identifyPending() in
+ * batches downloaded in parallel, with one Modrinth request per batch. Updates (Modrinth only) are one extra bulk request per listing, cached.
  */
 class ModDetectionService
 {
-    private const LIST_TTL = 300;
+    // Jars bigger than this are only matched by name (FPM runs with 128 MB).
+    public const MAX_JAR_BYTES = 24 * 1024 * 1024;
+
+    // Jars identified per round trip. They download in parallel, so a round costs about as
+    // long as its biggest jar; wings' bandwidth, not the count, is what bounds it.
+    public const BATCH = 8;
+
+    private const IDENTITY_TTL_DAYS = 30;
+
+    private const WHITESPACE = ["\x09", "\x0a", "\x0d", "\x20"];
 
     public function __construct(
         private readonly ModrinthCatalog $modrinth,
         private readonly CurseForgeCatalog $curseforge,
+        private readonly SpigotCatalog $spigot,
         private readonly ServerSoftwareSwitcher $switcher,
+        private readonly JarMetadataReader $reader,
     ) {}
 
     /**
@@ -38,193 +59,431 @@ class ModDetectionService
     }
 
     /**
-     * List installed jars with a cheap identification each.
+     * Installed jars with everything known about them, pending ones marked.
      *
      * @return array<int, array<string, mixed>>
      */
     public function list(Server $server): array
     {
         $dir = $this->directory($server);
-        $files = $this->jarFiles($server, $dir);
+        ['jars' => $jars, 'folders' => $folders] = $this->listing($server, $dir);
 
-        if ($files === []) {
-            return [];
-        }
+        $rows = array_map(fn (array $jar): array => $this->row($jar, Cache::get($this->key($server, $jar)), $folders), $jars);
 
-        $cacheKey = 'plugged-host-minecraft:mods:' . $server->uuid . ':' . md5(implode('|', array_column($files, 'name')));
-
-        return Cache::remember($cacheKey, self::LIST_TTL, function () use ($server, $files) {
-            $mcVersion = $this->switcher->version($server);
-            $software = $this->switcher->loader($server);
-
-            return array_map(fn (array $file) => $this->identifyByName($file, $software, $mcVersion), $files);
-        });
+        return $this->withUpdates($server, $this->withMissingDependencies($rows));
     }
 
     /**
-     * Exact identification of one jar by content hash. Not cached in the list blob — called when
-     * the user asks "identify" on a specific row.
+     * Identify up to $limit jars nobody has looked at yet. Returns how many are still pending.
+     */
+    public function identifyPending(Server $server, int $limit = self::BATCH): int
+    {
+        $dir = $this->directory($server);
+        $pending = array_values(array_filter($this->listing($server, $dir)['jars'], fn (array $jar): bool => !Cache::has($this->key($server, $jar))));
+        $batch = array_slice($pending, 0, max(1, $limit));
+
+        if ($batch !== []) {
+            $this->identifyBatch($server, $dir, $batch);
+        }
+
+        return max(0, count($pending) - count($batch));
+    }
+
+    /**
+     * Look at one jar again (the row's "identify" button), ignoring what was remembered.
      *
      * @return array<string, mixed>
      */
     public function identifyExact(Server $server, string $file): array
     {
         $dir = $this->directory($server);
+        ['jars' => $jars, 'folders' => $folders] = $this->listing($server, $dir);
+        $jar = collect($jars)->firstWhere('name', $file);
+
+        if ($jar === null) {
+            return ['file' => $file, 'platform' => null, 'confidence' => 'unknown'];
+        }
+
+        Cache::forget($this->key($server, $jar));
+        $this->identifyBatch($server, $dir, [$jar]);
+
+        return $this->row($jar, Cache::get($this->key($server, $jar)), $folders);
+    }
+
+    // --- identification -----------------------------------------------------
+
+    /**
+     * @param  list<array{name: string, disabled: bool, size: int, modified: string}>  $jars
+     */
+    private function identifyBatch(Server $server, string $dir, array $jars): void
+    {
+        $software = $this->switcher->loader($server);
+        $items = [];
+
+        // Every jar of the batch is streamed from wings at the same time, each to its own
+        // temporary file, so memory stays flat whatever the sizes: read its descriptor and hash
+        // it, ask Modrinth about all the hashes in one request, and fingerprint for CurseForge
+        // only the jars Modrinth did not know.
+        $paths = $this->downloadAll($server, array_map(
+            fn (array $jar): ?string => $jar['size'] > 0 && $jar['size'] <= self::MAX_JAR_BYTES ? "/{$dir}/{$jar['name']}" : null,
+            $jars,
+        ));
 
         try {
-            $content = app(DaemonFileRepository::class)->setServer($server)->getContent('/' . $dir . '/' . ltrim($file, '/'));
-        } catch (Throwable) {
-            return ['file' => $file, 'platform' => null, 'confidence' => 'unknown'];
-        }
+            foreach ($jars as $i => $jar) {
+                $item = ['jar' => $jar, 'sha1' => null, 'fingerprint' => null, 'version' => null, 'meta' => JarMetadataReader::EMPTY];
 
-        if (!is_string($content) || $content === '') {
-            return ['file' => $file, 'platform' => null, 'confidence' => 'unknown'];
-        }
+                if (isset($paths[$i])) {
+                    try {
+                        $item['sha1'] = (string) sha1_file($paths[$i]);
+                        $item['meta'] = $this->reader->readFile($paths[$i]);
+                    } catch (Throwable) {
+                        //
+                    }
+                }
 
-        // Modrinth first (keyless): exact by SHA-1.
-        $version = $this->modrinth->versionFromHash(sha1($content));
-        if ($version !== null && filled($version['project_id'] ?? null)) {
-            $project = $this->modrinth->project((string) $version['project_id']);
+                $items[$i] = $item;
+            }
 
-            return [
-                'file' => $file,
-                'platform' => 'modrinth',
-                'title' => $project['title'] ?? $version['project_id'],
-                'project_id' => $version['project_id'],
-                'version' => $version['number'] ?? null,
-                'confidence' => 'hash',
-            ];
-        }
+            $versions = $this->safely(fn () => $this->modrinth->versionsFromHashes(array_values(array_filter(array_column($items, 'sha1')))), []);
 
-        // CurseForge fallback: normalised Murmur2 fingerprint.
-        if ($this->curseforge->configured()) {
-            $matches = $this->curseforge->fingerprints([$this->murmur2($content)]);
-            $match = $matches[0] ?? null;
+            foreach ($items as $i => $item) {
+                $items[$i]['version'] = $item['sha1'] !== null ? ($versions[$item['sha1']] ?? null) : null;
 
-            if (is_array($match)) {
-                $modId = (int) ($match['file']['modId'] ?? $match['id'] ?? 0);
-                $project = $modId > 0 ? $this->curseforge->project($modId) : null;
-
-                return [
-                    'file' => $file,
-                    'platform' => 'curseforge',
-                    'title' => $project['title'] ?? ('CurseForge #' . $modId),
-                    'project_id' => (string) $modId,
-                    'version' => (string) ($match['file']['displayName'] ?? ''),
-                    'url' => $project['url'] ?? null,
-                    'confidence' => 'fingerprint',
-                ];
+                if ($items[$i]['version'] === null && isset($paths[$i]) && $this->curseforge->configured()) {
+                    $items[$i]['fingerprint'] = $this->safely(fn () => $this->murmur2File($paths[$i]), null);
+                }
+            }
+        } finally {
+            foreach ($paths as $path) {
+                @unlink($path);
             }
         }
 
-        return ['file' => $file, 'platform' => null, 'confidence' => 'unknown'];
+        // 2. Modrinth by hash (projects fetched in one request).
+        $projects = $this->safely(fn () => $this->modrinth->projects(array_values(array_filter(array_map(fn (array $item): ?string => $item['version']['project_id'] ?? null, $items)))), []);
+
+        foreach ($items as $i => $item) {
+            $project = $item['version'] !== null ? ($projects[$item['version']['project_id']] ?? null) : null;
+
+            if ($project !== null) {
+                $items[$i]['identity'] = $this->identity($item, 'modrinth', $project, 'hash', $item['version']);
+            }
+        }
+
+        // 3. CurseForge by fingerprint, one request for what Modrinth did not know.
+        $fingerprints = array_filter(array_map(fn (array $item): ?int => isset($item['identity']) ? null : $item['fingerprint'], $items));
+        $matches = $fingerprints === [] ? [] : $this->safely(fn () => $this->curseforge->fingerprints(array_values($fingerprints)), []);
+
+        foreach ($matches as $match) {
+            $i = array_search((int) ($match['file']['fileFingerprint'] ?? 0), $fingerprints, true);
+            $modId = (int) ($match['file']['modId'] ?? $match['id'] ?? 0);
+            $project = $i !== false && $modId > 0 ? $this->safely(fn () => $this->curseforge->project($modId), null) : null;
+
+            if ($project !== null) {
+                $items[$i]['identity'] = $this->identity($items[$i], 'curseforge', $project, 'fingerprint', [
+                    'number' => (string) ($match['file']['displayName'] ?? ''),
+                ]);
+            }
+        }
+
+        // 4. By the jar's own name, strictly; 5. its own descriptor.
+        foreach ($items as $i => $item) {
+            if (!isset($item['identity'])) {
+                $items[$i]['identity'] = $this->identifyByName($item, $software);
+            }
+        }
+
+        foreach ($items as $item) {
+            Cache::put($this->key($server, $item['jar']), $item['identity'], now()->addDays(self::IDENTITY_TTL_DAYS));
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function identifyByName(array $item, ?string $software): array
+    {
+        $name = (string) ($item['meta']['name'] ?? '');
+        $query = $name !== '' ? $name : $this->normalizeName($item['jar']['name']);
+        $wanted = $this->comparable($query);
+
+        if ($wanted !== '') {
+            $hits = $this->safely(fn () => $this->modrinth->search($software === 'purpur' ? 'plugin' : 'mod', $this->modrinth->loaders($software), $query)['hits'] ?? [], []);
+
+            foreach ($hits as $hit) {
+                if (is_array($hit) && $this->comparable((string) ($hit['title'] ?? '')) === $wanted) {
+                    return $this->identity($item, 'modrinth', $hit, 'name');
+                }
+            }
+
+            if ($name !== '' && ($item['meta']['kind'] ?? null) === 'plugin' && $this->spigot->supports($software)) {
+                $hit = $this->safely(fn () => $this->spigot->findByName($name), null);
+
+                if ($hit !== null) {
+                    return $this->identity($item, 'spigotmc', $hit, 'name');
+                }
+            }
+        }
+
+        return $this->identity($item, null, null, $name !== '' ? 'metadata' : 'unknown');
+    }
+
+    /**
+     * What is remembered about one jar.
+     *
+     * @param  array<string, mixed>  $item
+     * @param  array<string, mixed>|null  $project
+     * @param  array<string, mixed>|null  $version
+     * @return array<string, mixed>
+     */
+    private function identity(array $item, ?string $platform, ?array $project, string $confidence, ?array $version = null): array
+    {
+        return [
+            'sha1' => $item['sha1'],
+            'meta' => $item['meta'],
+            'platform' => $platform,
+            'project_id' => $project['id'] ?? null,
+            'title' => $project['title'] ?? null,
+            'icon' => $project['icon'] ?? null,
+            'url' => $project['url'] ?? null,
+            'version_id' => $version['id'] ?? null,
+            'version_number' => $version['number'] ?? null,
+            'confidence' => $confidence,
+        ];
+    }
+
+    // --- rows ---------------------------------------------------------------
+
+    /**
+     * @param  array{name: string, disabled: bool, size: int, modified: string}  $jar
+     * @param  array<string, mixed>|null  $identity
+     * @param  list<string>  $folders
+     * @return array<string, mixed>
+     */
+    private function row(array $jar, mixed $identity, array $folders): array
+    {
+        $identity = is_array($identity) ? $identity : null;
+        $meta = (array) ($identity['meta'] ?? []);
+        $name = $meta['name'] ?? $identity['title'] ?? Str::title($this->normalizeName($jar['name']));
+        $dataFolder = ($meta['kind'] ?? null) === 'plugin' ? collect($folders)->first(fn (string $folder): bool => strcasecmp($folder, (string) $meta['name']) === 0) : null;
+
+        return [
+            'file' => $jar['name'],
+            'disabled' => $jar['disabled'],
+            'size' => $jar['size'],
+            'modified' => $jar['modified'],
+            'pending' => $identity === null,
+            'name' => $name,
+            'title' => $identity['title'] ?? $meta['name'] ?? null,
+            'version' => $meta['version'] ?? $identity['version_number'] ?? null,
+            'authors' => (array) ($meta['authors'] ?? []),
+            'description' => $meta['description'] ?? null,
+            'kind' => $meta['kind'] ?? null,
+            'platform' => $identity['platform'] ?? null,
+            'project_id' => $identity['project_id'] ?? null,
+            'url' => $identity['url'] ?? ($meta['website'] ?? null),
+            'icon' => $identity['icon'] ?? null,
+            'confidence' => $identity['confidence'] ?? 'unknown',
+            'sha1' => $identity['sha1'] ?? null,
+            'version_id' => $identity['version_id'] ?? null,
+            'depends' => (array) ($meta['depends'] ?? []),
+            'missing' => [],
+            'data_folder' => $dataFolder,
+            'update' => null,
+        ];
+    }
+
+    /**
+     * Hard plugin.yml dependencies no enabled plugin provides. Plugins only: mods bundle their
+     * libraries inside other jars, so a mod's declared ids are not a reliable "is it installed".
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function withMissingDependencies(array $rows): array
+    {
+        if (collect($rows)->contains('pending', true)) {
+            return $rows;
+        }
+
+        $present = collect($rows)
+            ->filter(fn (array $row): bool => !$row['disabled'] && $row['kind'] === 'plugin')
+            ->map(fn (array $row): string => strtolower((string) $row['name']))
+            ->all();
+
+        foreach ($rows as $i => $row) {
+            if ($row['kind'] === 'plugin' && !$row['disabled']) {
+                $rows[$i]['missing'] = array_values(array_filter($row['depends'], fn (string $dependency): bool => !in_array(strtolower($dependency), $present, true)));
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Newer builds on Modrinth for jars identified there by hash (one cached bulk request).
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function withUpdates(Server $server, array $rows): array
+    {
+        $hashes = collect($rows)->where('platform', 'modrinth')->where('confidence', 'hash')->pluck('sha1')->filter()->values()->all();
+
+        if ($hashes === []) {
+            return $rows;
+        }
+
+        $software = $this->switcher->loader($server);
+        $latest = $this->safely(fn () => $this->modrinth->latestFromHashes($hashes, $this->modrinth->loaders($software), app(ContentSearchService::class)->gameVersion($server)), []);
+
+        foreach ($rows as $i => $row) {
+            $version = $row['sha1'] !== null ? ($latest[$row['sha1']] ?? null) : null;
+
+            if ($version !== null && $version['id'] !== $row['version_id'] && $row['version_id'] !== null) {
+                $rows[$i]['update'] = ['id' => $version['id'], 'number' => $version['number'] ?: $version['name']];
+            }
+        }
+
+        return $rows;
     }
 
     // --- internals ----------------------------------------------------------
 
     /**
-     * @return array<int, array{name: string, disabled: bool}>
+     * The jars in the content folder, and the folder names beside them (plugin data folders).
+     *
+     * @return array{jars: list<array{name: string, disabled: bool, size: int, modified: string}>, folders: list<string>}
      */
-    private function jarFiles(Server $server, string $dir): array
+    private function listing(Server $server, string $dir): array
     {
         try {
-            $listing = app(DaemonFileRepository::class)->setServer($server)->getDirectory('/' . $dir);
+            $entries = app(DaemonFileRepository::class)->setServer($server)->getDirectory('/' . $dir);
         } catch (Throwable) {
-            return [];
+            return ['jars' => [], 'folders' => []];
         }
 
-        $out = [];
-        foreach (is_array($listing) ? $listing : [] as $entry) {
+        $jars = [];
+        $folders = [];
+        foreach (is_array($entries) ? $entries : [] as $entry) {
             $name = is_array($entry) ? (string) ($entry['name'] ?? '') : '';
             $lower = strtolower($name);
 
-            if (str_ends_with($lower, '.jar')) {
-                $out[] = ['name' => $name, 'disabled' => false];
-            } elseif (str_ends_with($lower, '.jar.disabled')) {
-                $out[] = ['name' => $name, 'disabled' => true];
+            if ($name === '') {
+                continue;
             }
-        }
 
-        return $out;
-    }
-
-    /**
-     * @param  array{name: string, disabled: bool}  $file
-     * @return array<string, mixed>
-     */
-    private function identifyByName(array $file, ?string $software, string $mcVersion): array
-    {
-        $normalised = $this->normalizeName($file['name']);
-        $base = [
-            'file' => $file['name'],
-            'disabled' => $file['disabled'],
-            'normalised' => $normalised,
-        ];
-
-        try {
-            $loaders = $this->modrinth->loaders($software);
-            $projectType = $software === 'purpur' ? 'plugin' : 'mod';
-            $hits = $this->modrinth->search($projectType, $loaders, $normalised, $mcVersion)['hits'] ?? [];
-            $hit = $this->bestMatch($hits, $normalised);
-
-            if ($hit !== null) {
-                return $base + [
-                    'platform' => 'modrinth',
-                    'title' => $hit['title'] ?? $normalised,
-                    'project_id' => $hit['id'] ?? null,
-                    'confidence' => 'name',
+            if (!($entry['file'] ?? true) || ($entry['directory'] ?? false)) {
+                $folders[] = $name;
+            } elseif (str_ends_with($lower, '.jar') || str_ends_with($lower, '.jar.disabled')) {
+                $jars[] = [
+                    'name' => $name,
+                    'disabled' => str_ends_with($lower, '.disabled'),
+                    'size' => (int) ($entry['size'] ?? 0),
+                    'modified' => (string) ($entry['modified'] ?? ''),
                 ];
             }
-        } catch (Throwable) {
-            //
         }
 
-        if ($this->curseforge->configured()) {
-            try {
-                $hits = $this->curseforge->search($software, $mcVersion, $normalised)['hits'] ?? [];
-                $hit = $this->bestMatch($hits, $normalised);
+        usort($jars, fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
 
-                if ($hit !== null) {
-                    return $base + [
-                        'platform' => 'curseforge',
-                        'title' => $hit['title'] ?? $normalised,
-                        'project_id' => $hit['id'] ?? null,
-                        'url' => $hit['url'] ?? null,
-                        'confidence' => 'name',
-                    ];
-                }
-            } catch (Throwable) {
-                //
-            }
-        }
-
-        return $base + ['platform' => null, 'confidence' => 'unknown'];
+        return ['jars' => $jars, 'folders' => $folders];
     }
 
     /**
-     * Loosely match a search hit to a normalised jar name. Only accepts a hit whose title
-     * normalises to something the jar name contains (or vice versa) — better to report *unknown*
-     * than to mis-identify (the WP8 acceptance test).
+     * Stream several files from wings at once, each into its own temporary file (never into
+     * memory). Returns the temporary paths under the same keys; a file that could not be
+     * fetched, or came out larger than allowed, is left out. Null paths are skipped.
      *
-     * @param  array<int, array<string, mixed>>  $hits
-     * @return array<string, mixed>|null
+     * Built by hand rather than with Http::daemon(): that macro lives on the HTTP factory, and
+     * a pool hands out bare pending requests, so the same token, base URL, TLS and connect
+     * settings are stated here.
+     *
+     * @param  array<int, string|null>  $paths
+     * @return array<int, string>
      */
-    private function bestMatch(array $hits, string $normalised): ?array
+    private function downloadAll(Server $server, array $paths): array
     {
-        foreach ($hits as $hit) {
-            if (!is_array($hit)) {
-                continue;
-            }
-            $title = $this->normalizeName((string) ($hit['title'] ?? ''));
-            if ($title === '') {
-                continue;
-            }
-            if ($title === $normalised || str_contains($normalised, $title) || str_contains($title, $normalised)) {
-                return $hit;
+        $files = [];
+        foreach (array_filter($paths) as $key => $path) {
+            $file = tempnam(sys_get_temp_dir(), 'phjar');
+
+            if ($file !== false) {
+                $files[$key] = $file;
             }
         }
 
-        return null;
+        if ($files === []) {
+            return [];
+        }
+
+        $node = $server->node;
+
+        try {
+            $responses = Http::pool(fn (Pool $pool): array => array_map(
+                fn (int $key): mixed => $pool->as((string) $key)
+                    ->withToken($node->daemon_token)
+                    ->withOptions(['verify' => app()->environment('production'), 'sink' => $files[$key]])
+                    ->connectTimeout((int) config('panel.guzzle.connect_timeout'))
+                    ->timeout(60)
+                    ->baseUrl($node->getConnectionAddress())
+                    ->get("/api/servers/{$server->uuid}/files/contents", ['file' => $paths[$key]]),
+                array_keys($files),
+            ), count($files));
+        } catch (Throwable) {
+            $responses = [];
+        }
+
+        $downloaded = [];
+        foreach ($files as $key => $file) {
+            $response = $responses[(string) $key] ?? null;
+            clearstatcache(true, $file);
+
+            if ($response instanceof Response && $response->successful() && filesize($file) > 0 && filesize($file) <= self::MAX_JAR_BYTES) {
+                $downloaded[$key] = $file;
+            } else {
+                @unlink($file);
+            }
+        }
+
+        return $downloaded;
+    }
+
+    /**
+     * Enabling or disabling a jar renames it; the identity follows the content, not the name.
+     *
+     * @param  array{name: string, size: int, modified: string}  $jar
+     */
+    private function key(Server $server, array $jar): string
+    {
+        $name = (string) preg_replace('/\.disabled$/i', '', $jar['name']);
+
+        return 'plugged-host-minecraft:jar:' . $server->uuid . ':' . md5($name . '|' . $jar['size']);
+    }
+
+    private function comparable(string $value): string
+    {
+        return (string) preg_replace('/[^a-z0-9]+/', '', strtolower($value));
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $call
+     * @param  T  $fallback
+     * @return T
+     */
+    private function safely(callable $call, mixed $fallback): mixed
+    {
+        try {
+            return $call() ?? $fallback;
+        } catch (Throwable $e) {
+            report($e);
+
+            return $fallback;
+        }
     }
 
     /**
@@ -250,47 +509,92 @@ class ModDetectionService
      */
     public function murmur2(string $data): int
     {
-        // Normalise: strip the four whitespace bytes.
-        $normalized = str_replace(["\x09", "\x0a", "\x0d", "\x20"], '', $data);
+        $normalized = str_replace(self::WHITESPACE, '', $data);
+        $blocks = intdiv(strlen($normalized), 4) * 4;
+        $h = $this->murmurBlocks($normalized, (1 ^ strlen($normalized)) & 0xffffffff, $blocks);
 
-        return $this->murmurHash2($normalized, 1);
+        return $this->murmurFinish($h, substr($normalized, $blocks));
     }
 
     /**
-     * 32-bit MurmurHash2 (the variant CurseForge uses), computed with 32-bit-safe arithmetic.
+     * The same fingerprint over a file, streamed in 1 MB chunks: one pass to learn the
+     * normalised length the hash is seeded with, one to hash.
      */
-    private function murmurHash2(string $data, int $seed): int
+    public function murmur2File(string $path): int
+    {
+        $handle = fopen($path, 'rb');
+
+        if ($handle === false) {
+            return 0;
+        }
+
+        try {
+            $length = 0;
+            while (!feof($handle)) {
+                $length += strlen(str_replace(self::WHITESPACE, '', (string) fread($handle, 1 << 20)));
+            }
+
+            rewind($handle);
+            $h = (1 ^ $length) & 0xffffffff;
+            $carry = '';
+
+            while (!feof($handle)) {
+                $data = $carry . str_replace(self::WHITESPACE, '', (string) fread($handle, 1 << 20));
+                $blocks = intdiv(strlen($data), 4) * 4;
+                $h = $this->murmurBlocks($data, $h, $blocks);
+                $carry = substr($data, $blocks);
+            }
+
+            return $this->murmurFinish($h, $carry);
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
+     * 32-bit MurmurHash2 (the variant CurseForge uses) over the first $blocks bytes, computed
+     * with 32-bit-safe arithmetic.
+     *
+     * This is the hot loop of a fingerprint (a quarter of a million rounds per MB), so the
+     * blocks are unpacked in one C call and mul32() is written out inline: the same maths,
+     * several times faster than an ord() per byte and a method call per multiply.
+     */
+    private function murmurBlocks(string $data, int $h, int $blocks): int
+    {
+        if ($blocks === 0) {
+            return $h;
+        }
+
+        $m = 0x5bd1e995;
+
+        foreach (unpack('V*', substr($data, 0, $blocks)) as $k) {
+            $k = ((((($k >> 16) * $m) & 0xffff) << 16) + (($k & 0xffff) * $m)) & 0xffffffff;
+            $k ^= $k >> 24;
+            $k = ((((($k >> 16) * $m) & 0xffff) << 16) + (($k & 0xffff) * $m)) & 0xffffffff;
+
+            $h = ((((($h >> 16) * $m) & 0xffff) << 16) + (($h & 0xffff) * $m)) & 0xffffffff;
+            $h ^= $k;
+        }
+
+        return $h;
+    }
+
+    /**
+     * The 0-3 trailing bytes and the final avalanche.
+     */
+    private function murmurFinish(int $h, string $tail): int
     {
         $m = 0x5bd1e995;
-        $length = strlen($data);
-        $h = ($seed ^ $length) & 0xffffffff;
-        $index = 0;
-
-        while ($length >= 4) {
-            $k = (ord($data[$index]) & 0xff)
-                | ((ord($data[$index + 1]) & 0xff) << 8)
-                | ((ord($data[$index + 2]) & 0xff) << 16)
-                | ((ord($data[$index + 3]) & 0xff) << 24);
-
-            $k = $this->mul32($k, $m);
-            $k ^= ($k >> 24) & 0xffffff; // logical shift
-            $k = $this->mul32($k, $m);
-
-            $h = $this->mul32($h, $m);
-            $h ^= $k;
-
-            $index += 4;
-            $length -= 4;
-        }
+        $length = strlen($tail);
 
         if ($length >= 3) {
-            $h ^= (ord($data[$index + 2]) & 0xff) << 16;
+            $h ^= (ord($tail[2]) & 0xff) << 16;
         }
         if ($length >= 2) {
-            $h ^= (ord($data[$index + 1]) & 0xff) << 8;
+            $h ^= (ord($tail[1]) & 0xff) << 8;
         }
         if ($length >= 1) {
-            $h ^= (ord($data[$index]) & 0xff);
+            $h ^= (ord($tail[0]) & 0xff);
             $h = $this->mul32($h, $m);
         }
 

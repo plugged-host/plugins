@@ -7,7 +7,12 @@ return [
     'restored' => 'Your server is being restored.',
     'insufficient' => 'You need :cost tokens to restore this server.',
     'failed' => 'Restore could not be completed. No tokens were spent.',
-    'body' => 'This server was idle for a while, so it was moved to hibernation to free up capacity. Restore it below to bring it back online.',
+    'body' => 'This server was idle for a while, so it was moved to hibernation to free up capacity. Restore it to bring it back online.',
+
+    'entered' => 'Hibernated :time',
+    'cost_label' => 'Restore cost',
+    'balance_label' => 'Your balance',
+    'tokens' => ':count tokens',
 
     'settings' => [
         'section_general' => 'General',

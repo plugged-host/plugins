@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 /**
@@ -22,7 +23,6 @@ use InvalidArgumentException;
  * @property int $extra_cpu
  * @property int $extra_memory
  * @property int $extra_disk
- * @property int $extra_server_limit
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read User $user
@@ -37,15 +37,14 @@ class UserCredits extends Model
         'extra_cpu',
         'extra_memory',
         'extra_disk',
-        'extra_server_limit',
     ];
 
     protected $casts = [
+        'noprofit_plan' => 'array',
         'credits' => 'integer',
         'extra_cpu' => 'integer',
         'extra_memory' => 'integer',
         'extra_disk' => 'integer',
-        'extra_server_limit' => 'integer',
     ];
 
     public function user(): BelongsTo
@@ -67,6 +66,7 @@ class UserCredits extends Model
     {
         if ($user) {
             unset(self::$userMemo[(int) $user->getKey()]);
+
             return;
         }
         self::$userMemo = [];
@@ -84,7 +84,7 @@ class UserCredits extends Model
         }
 
         if (self::$tableExists === null) {
-            self::$tableExists = \Illuminate\Support\Facades\Schema::hasTable('user_credits');
+            self::$tableExists = Schema::hasTable('user_credits');
         }
 
         if (!self::$tableExists) {
@@ -94,11 +94,11 @@ class UserCredits extends Model
         return self::$userMemo[$id] = self::firstOrCreate(
             ['user_id' => $id],
             [
-                'credits' => (int) config('plugged-host-economy.credits.starting_balance', 0),
+                // Starting credits are granted on noprofit.space and arrive with the sync.
+                'credits' => 0,
                 'extra_cpu' => 0,
                 'extra_memory' => 0,
                 'extra_disk' => 0,
-                'extra_server_limit' => 0,
             ]
         );
     }
@@ -196,13 +196,12 @@ class UserCredits extends Model
         });
     }
 
-    public function addExtraResources(int $cpu = 0, int $memory = 0, int $disk = 0, int $serverLimit = 0): void
+    public function addExtraResources(int $cpu = 0, int $memory = 0, int $disk = 0): void
     {
         $this->update([
             'extra_cpu' => max(0, $this->extra_cpu + $cpu),
             'extra_memory' => max(0, $this->extra_memory + $memory),
             'extra_disk' => max(0, $this->extra_disk + $disk),
-            'extra_server_limit' => max(0, $this->extra_server_limit + $serverLimit),
         ]);
     }
 
@@ -214,8 +213,8 @@ class UserCredits extends Model
      * limit — CreditRecoveryService owns that guard and only ever passes amounts
      * that fit in the unused headroom.
      */
-    public function reduceExtraResources(int $cpu = 0, int $memory = 0, int $disk = 0, int $serverLimit = 0): void
+    public function reduceExtraResources(int $cpu = 0, int $memory = 0, int $disk = 0): void
     {
-        $this->addExtraResources(-$cpu, -$memory, -$disk, -$serverLimit);
+        $this->addExtraResources(-$cpu, -$memory, -$disk);
     }
 }

@@ -10,7 +10,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * Deliberately thin: it validates only the *shape* of what the caller sends. Every value that
  * decides what the server actually gets — the plan, the location's validity, the egg's type
  * variant and runtime — is resolved server-side in CreateServerController against the caller's
- * RoleResourceLimits, exactly as ConfigureServerPage::save() does. That is what stops a payload
+ * AccountAllowance, exactly as ServerProvisioner::prepare() does. That is what stops a payload
  * from asking for a plan it may not have or a premium location it has not unlocked; there is no
  * point re-encoding those rules here where they could drift from the page.
  *
@@ -23,7 +23,7 @@ class CreateServerRequest extends FormRequest
     public function authorize(): bool
     {
         // The client-api middleware has already resolved the API key to a user; per-plan and
-        // per-location authorisation is enforced in the controller against RoleResourceLimits.
+        // per-location authorisation is enforced in the controller against AccountAllowance.
         return $this->user() !== null;
     }
 

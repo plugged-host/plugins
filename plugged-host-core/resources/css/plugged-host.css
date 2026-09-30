@@ -55,27 +55,6 @@
 @custom-variant dark (.dark &);
 
 /*
-    Phone topbar: make room for the balance chips.
-
-    `.fi-topbar-end` is `ms-auto flex items-center gap-x-4` upstream — 1rem between
-    items, sized for the two controls Filament puts there. AccountChips adds two more
-    on a bar that below `lg` has already lost the logo and brand text, and on a 360px
-    screen those three 1rem gaps are the difference between fitting and pushing the
-    user menu off the edge. Halved below `sm` only, and only when the chips are
-    actually present, so a panel without them (the admin panel, a signed-out page)
-    keeps upstream's spacing exactly.
-
-    :has() is unsupported in browsers older than Chrome 105 / Safari 15.4 / Firefox
-    121; there the rule is simply dropped and the bar spaces itself as it did before,
-    which is the reason this is a gap tweak rather than something load-bearing.
-*/
-@media (width < 40rem) {
-    .fi-topbar-end:has(.fi-ph-chips) {
-        column-gap: 0.5rem;
-    }
-}
-
-/*
     Resolve gray/primary/danger/... against the panel's runtime palette, exactly
     as vendor/filament/support/resources/css/index.css does, so `text-gray-500`
     written in a plugin view is the same Nord grey a Filament component renders
@@ -153,4 +132,141 @@
     --color-warning-800: var(--warning-800);
     --color-warning-900: var(--warning-900);
     --color-warning-950: var(--warning-950);
+}
+
+/*
+    Shared surfaces for the plugged.host plugin views.
+
+    Every value is a theme v2 token (plugged-host-theme-v2/resources/css/theme.css), with the
+    literal value as the var() fallback so a view rendered outside the themed panel — the 503
+    page, when no panel could be resolved — still comes out the same. Unlayered on purpose:
+    these have to beat Filament's layered component CSS, exactly as theme.css does.
+
+    Deliberately flat: one card surface (--phv2-raise, radius 1rem, no border, no shadow),
+    rows separated by a single hairline instead of nested boxes, and no gradients, glows or
+    decorative glyph boxes anywhere.
+*/
+
+/* The one card surface — what the theme gives `.fi-section`. */
+.ph-card {
+    background-color: var(--phv2-raise, rgb(255 255 255 / 0.05));
+    border-radius: 1rem;
+    padding: 1.5rem;
+}
+
+.ph-card-compact {
+    padding: 1rem;
+}
+
+/* A full-width row: text on the left, its actions on the right; stacked on phones. */
+.ph-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+@media (min-width: 40rem) {
+    .ph-row {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+    }
+}
+
+/* Several rows in one card: whitespace plus a single hairline between them. */
+.ph-rows > .ph-row {
+    padding-block: 1rem;
+}
+
+.ph-rows > .ph-row:first-child {
+    padding-top: 0;
+}
+
+.ph-rows > .ph-row:last-child {
+    padding-bottom: 0;
+}
+
+.ph-rows > .ph-row + .ph-row {
+    border-top: 1px solid var(--phv2-hairline, rgb(255 255 255 / 0.05));
+}
+
+.ph-row-text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ph-row-actions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Section heading (1rem/600) and row title (.875rem/600). */
+.ph-heading {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+    color: var(--phv2-text, #ffffff);
+}
+
+.ph-row-title {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: var(--phv2-text, #ffffff);
+}
+
+.ph-row-body {
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    color: var(--phv2-text-muted, #9ca3af);
+}
+
+.ph-row-body strong {
+    font-weight: 500;
+    color: var(--phv2-text-nav, #d1d5db);
+}
+
+/* Tiny uppercase caption. */
+.ph-caption {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--phv2-text-muted, #9ca3af);
+}
+
+/* A large figure (a cost, a balance); pair with `font-mono`. */
+.ph-figure {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--phv2-text, #ffffff);
+}
+
+/* Flat progress bar: raise track, accent fill; warning/danger fills are set inline. */
+.ph-meter-track {
+    width: 100%;
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background-color: var(--phv2-raise, rgb(255 255 255 / 0.05));
+}
+
+.ph-meter-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background-color: var(--phv2-accent-bright, #3b82f6);
+    transition: width 300ms ease;
+}
+
+.fi-ph-brand {
+    color: var(--phv2-text, #ffffff);
 }

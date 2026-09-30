@@ -1,46 +1,56 @@
+{{--
+    One resource's usage: label and percentage, a flat bar, then used / available / total.
+
+    The bar is the chart. It used to sit beside a conic-gradient pie showing the same number,
+    which said everything twice; the bar is the theme's own progress shape (raise track, flat
+    accent fill, warning/danger fills from the status colours) so it reads like the sidebar's
+    resource rows. Styles: `.ph-card`, `.ph-meter-*` in plugged-host.css.
+--}}
 @php
-    $barColor = $metric['percentage'] >= 90
-        ? 'bg-danger-500'
-        : ($metric['percentage'] >= 75 ? 'bg-warning-500' : 'bg-success-500');
-    $pieColor = $metric['percentage'] >= 90
-        ? '#ef4444'
-        : ($metric['percentage'] >= 75 ? '#f59e0b' : '#22c55e');
-    $pieStyle = "background: conic-gradient({$pieColor} {$metric['percentage']}%, #d1d5db {$metric['percentage']}% 100%);";
+    $fillColor = $metric['percentage'] >= 90
+        ? 'var(--danger-500, #ef4444)'
+        : ($metric['percentage'] >= 75 ? 'var(--warning-500, #f59e0b)' : null);
 @endphp
 
-<div class="flex gap-4 rounded-xl border border-gray-950/5 bg-gray-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-    <div class="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style="{{ $pieStyle }}" role="img" aria-label="{{ $definition['label'] }}: {{ $metric['percentage'] }}% used">
-        <div class="flex h-14 w-14 items-center justify-center rounded-full bg-white text-center dark:bg-gray-900">
-            <span class="text-sm font-bold text-gray-950 dark:text-white">{{ $metric['percentage'] }}%</span>
-        </div>
-    </div>
-
-    <div class="min-w-0 flex-1 space-y-2">
-        <div class="flex items-center gap-2">
-            <x-filament::icon :icon="$definition['icon']" class="h-5 w-5 text-gray-500 dark:text-gray-400" />
-            <span class="font-medium text-gray-950 dark:text-white">{{ $definition['label'] }}</span>
-        </div>
+<div class="ph-card ph-card-compact flex flex-col gap-3">
+    <div class="flex items-center justify-between gap-2">
+        <span class="ph-row-title">{{ $definition['label'] }}</span>
 
         @if ($metric['total'] > 0)
-            <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div class="h-full rounded-full transition-all duration-500 {{ $barColor }}" style="width: {{ $metric['percentage'] }}%"></div>
-            </div>
-            <dl class="space-y-1 text-sm">
-                <div class="flex justify-between gap-2">
-                    <dt class="text-gray-500 dark:text-gray-400">Used</dt>
-                    <dd class="font-medium text-gray-950 dark:text-white">{{ $metric['usedLabel'] }}</dd>
-                </div>
-                <div class="flex justify-between gap-2">
-                    <dt class="text-gray-500 dark:text-gray-400">Available</dt>
-                    <dd class="font-medium text-success-600 dark:text-success-400">{{ $metric['availableLabel'] }}</dd>
-                </div>
-                <div class="flex justify-between gap-2">
-                    <dt class="text-gray-500 dark:text-gray-400">Total</dt>
-                    <dd class="font-medium text-gray-950 dark:text-white">{{ $metric['totalLabel'] }}</dd>
-                </div>
-            </dl>
-        @else
-            <p class="text-sm text-gray-500 dark:text-gray-400">Unavailable</p>
+            <span class="ph-row-title font-mono tabular-nums">{{ $metric['percentage'] }}%</span>
         @endif
     </div>
+
+    @if ($metric['total'] > 0)
+        <div
+            class="ph-meter-track"
+            role="progressbar"
+            aria-label="{{ $definition['label'] }}"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="{{ $metric['percentage'] }}"
+        >
+            <div
+                class="ph-meter-fill"
+                style="width: {{ $metric['percentage'] }}%;{{ $fillColor ? ' background-color: ' . $fillColor . ';' : '' }}"
+            ></div>
+        </div>
+
+        <dl class="ph-row-body flex flex-col gap-1">
+            <div class="flex justify-between gap-2">
+                <dt>Used</dt>
+                <dd><strong class="font-mono tabular-nums">{{ $metric['usedLabel'] }}</strong></dd>
+            </div>
+            <div class="flex justify-between gap-2">
+                <dt>Available</dt>
+                <dd><strong class="font-mono tabular-nums">{{ $metric['availableLabel'] }}</strong></dd>
+            </div>
+            <div class="flex justify-between gap-2">
+                <dt>Total</dt>
+                <dd><strong class="font-mono tabular-nums">{{ $metric['totalLabel'] }}</strong></dd>
+            </div>
+        </dl>
+    @else
+        <p class="ph-row-body">Unavailable</p>
+    @endif
 </div>

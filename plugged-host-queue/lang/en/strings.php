@@ -66,7 +66,7 @@ return [
     // The transfer offer.
     'transfer_heading' => 'Move to a quieter node',
     'transfer_body' => 'We can move this server to :node, which is not busy. Your files come with it.',
-    'transfer_note' => 'The server goes offline while it copies, and its IP address and port change. You start it yourself once the move finishes.',
+    'transfer_note' => 'The server goes offline while it copies and its address changes. It starts again by itself once the move finishes.',
     'transfer_confirm' => "Move this server to :node?\n\nThe server stays offline until the copy finishes, and its IP address and port will change. Anything pointing at the old address — a domain, a bookmark, a player's server list — has to be updated.",
     'transfer_cta' => 'Move the server',
     'transfer_too_big' => 'This server is too large to move quickly, so waiting here is the faster option.',
@@ -137,7 +137,7 @@ return [
     'pass_minutes_helper' => 'After a release, this user\'s next starts on that server skip this queue and the ad gate. Sitting through one wait and landing in the other is the worst thing this feature can do.',
 
     'section_priority' => 'Priority',
-    'section_priority_desc' => 'What tokens buy. One purchase, account-wide, for a window of days — not a single skip. Sold on the waiting page and in the resource store.',
+    'section_priority_desc' => 'What tokens buy. One purchase, account-wide, for a window of days — not a single skip. Sold on the waiting page and in the Token Store.',
     'priority_token_cost' => 'Token cost',
     'priority_token_cost_helper' => 'Tokens are minted by the plugged.host Ads plugin. Its earn page reads this number to explain the price, so changing it here changes it there.',
     'priority_days' => 'Window (days)',

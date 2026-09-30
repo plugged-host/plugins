@@ -4,7 +4,7 @@ namespace PluggedHost\Economy\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\UserCredits;
 
 /**
@@ -35,13 +35,13 @@ class CreditRecoveryService
      *     from_resources: int,
      *     recovered: int,
      *     shortfall: int,
-     *     reclaimed: array{cpu: int, memory: int, disk: int, server_limit: int},
+     *     reclaimed: array{cpu: int, memory: int, disk: int},
      *     balance_after: int
      * }
      */
     public function recover(User $user, int $amount, string $type, string $description, array $metadata = []): array
     {
-        $reclaimed = ['cpu' => 0, 'memory' => 0, 'disk' => 0, 'server_limit' => 0];
+        $reclaimed = ['cpu' => 0, 'memory' => 0, 'disk' => 0];
         $result = [
             'requested' => max(0, $amount),
             'from_credits' => 0,
@@ -98,10 +98,9 @@ class CreditRecoveryService
      * back into credits at the store rate.
      *
      * Disk goes first because it is the least performance-sensitive and usually
-     * has the most slack; server slots go last because losing one can block a
-     * user from ever recreating a server they deleted.
+     * has the most slack.
      *
-     * @return array{0: int, 1: array{cpu: int, memory: int, disk: int, server_limit: int}, 2: int}
+     * @return array{0: int, 1: array{cpu: int, memory: int, disk: int}, 2: int}
      */
     protected function reclaimResources(
         User $user,
@@ -111,7 +110,7 @@ class CreditRecoveryService
         string $description,
         array $metadata
     ): array {
-        $reclaimed = ['cpu' => 0, 'memory' => 0, 'disk' => 0, 'server_limit' => 0];
+        $reclaimed = ['cpu' => 0, 'memory' => 0, 'disk' => 0];
         $recovered = 0;
 
         $headroom = $this->resourceHeadroom($user, $userCredits);
@@ -132,11 +131,6 @@ class CreditRecoveryService
                 'per_unit' => $this->store->getPriceForMemory(1024) / 1024,
                 'available' => min((int) $userCredits->extra_memory, $headroom['memory']),
                 'price' => fn (int $units): int => $this->store->getPriceForMemory($units),
-            ],
-            'server_limit' => [
-                'per_unit' => (float) $this->store->getPriceForServerSlot(1),
-                'available' => min((int) $userCredits->extra_server_limit, $headroom['server_limit']),
-                'price' => fn (int $units): int => $this->store->getPriceForServerSlot($units),
             ],
         ];
 
@@ -169,7 +163,6 @@ class CreditRecoveryService
                     cpu: $resource === 'cpu' ? $units : 0,
                     memory: $resource === 'memory' ? $units : 0,
                     disk: $resource === 'disk' ? $units : 0,
-                    serverLimit: $resource === 'server_limit' ? $units : 0,
                 );
             });
 
@@ -204,37 +197,35 @@ class CreditRecoveryService
      * How much of each purchased resource can be taken back without pushing the
      * user's effective limit below what their existing servers already allocate.
      *
-     * A limit of 0 means "unlimited" in this codebase, and RoleResourceLimits
+     * A limit of 0 means "unlimited" in this codebase, and AccountAllowance
      * does not apply extras on top of an unlimited limit — so in that case the
      * whole purchased amount is inert and free to reclaim.
      *
-     * @return array{cpu: int, memory: int, disk: int, server_limit: int}
+     * @return array{cpu: int, memory: int, disk: int}
      */
     public function resourceHeadroom(User $user, ?UserCredits $userCredits = null): array
     {
         $userCredits ??= UserCredits::forUser($user);
-        $limits = RoleResourceLimits::forUser($user);
+        $limits = AccountAllowance::forUser($user);
 
         if (!$userCredits) {
-            return ['cpu' => 0, 'memory' => 0, 'disk' => 0, 'server_limit' => 0];
+            return ['cpu' => 0, 'memory' => 0, 'disk' => 0];
         }
 
         $usedCpu = (int) $user->servers()->sum('cpu');
         $usedMemory = (int) $user->servers()->sum('memory');
         $usedDisk = (int) $user->servers()->sum('disk');
-        $usedSlots = (int) $user->servers()->count();
 
         return [
             'cpu' => $this->headroomFor($limits?->cpu, $usedCpu, (int) $userCredits->extra_cpu),
             'memory' => $this->headroomFor($limits?->memory, $usedMemory, (int) $userCredits->extra_memory),
             'disk' => $this->headroomFor($limits?->disk, $usedDisk, (int) $userCredits->extra_disk),
-            'server_limit' => $this->headroomFor($limits?->server_limit, $usedSlots, (int) $userCredits->extra_server_limit),
         ];
     }
 
     protected function headroomFor(?int $limit, int $used, int $purchased): int
     {
-        // null (unlimited slots) or 0 (unlimited resource): the extra is not being
+        // null (no plan) or 0 (unlimited resource): the extra is not being
         // applied to anything, so reclaiming it cannot put a server over quota.
         if ($limit === null || $limit <= 0) {
             return $purchased;

@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- **The welcome tour shows the real panel** (`Livewire\PanelTourOverlay`, steps in
+  `Support\PanelTourSteps`): instead of a text card on its own page, it dims the panel and
+  spotlights each part in place, with the step beside it (a sheet on phones). Part one runs on
+  the server list: the sidebar, usage and balance, the account menu, Create server and the
+  server cards, ending with "Show me <server>" (or "Create my first server" for a new account).
+  Part two runs on a server's console the first time one is opened: console, power buttons,
+  address, the server sidebar, Settings and the way back. Sidebar steps open the sidebar on
+  phones. `RequirePanelTour` now sends first-time users to the server list, `/welcome` only
+  restarts the tour (user menu, now on the server panel too), and `users.panel_tour` gains
+  `server_step` / `server_done_at` (no migration, it is JSON). Tour version default `2`, so
+  everyone sees the new tour once.
+- **Sign-in details are noprofit.space's only** (`AccountIdentityLockPluginProvider`): the panel
+  never changes a user's username, email, password or "managed externally" flag, whatever route
+  tries (admin form, application API, client API; the change is put back and logged). On the
+  admin user page username and email are read-only, the password field, the toggle and
+  upstream's OAuth section with its Unlink buttons are gone, and "create user" is closed
+  (`/admin/users/create` 404s). Roles, credits, language and time zone stay editable.
+- **Unlinked panel sessions go through noprofit.space once** (`RequireNoprofitLink`, on every
+  panel): a user still signed in from before the move (session or remember-me) is signed out
+  and sent to sign in, where "Continue with plugged.host" or Discord links the account and
+  brings them back. Inert until the link column exists and `NOPROFIT_SSO_SECRET` is set.
+- **Admin sidebar regrouped** (`AdminNavigation`, applied by `HiddenNavigationManager`): Servers,
+  Users, Announcements & status, Subdomains, Panel, and a collapsed Advanced group.
+
+## 1.2.1
+
+- **noprofit.space SSO hardening (account takeover).** `/sso/callback` finds the panel user only by the stored noprofit account id (`users.noprofit_account_id`, migration `011_add_noprofit_account_id_to_users`, operator-run) or by the plugged.host id noprofit.space linked through a password-proven migration; never by email or username. An email already used by an unlinked panel account shows a "connect your account" page instead of signing in.
+- Tokens are audience-scoped (`plugged-host:sso` / `noprofit:migrate`) with separate secrets (`NOPROFIT_SSO_SECRET`, `NOPROFIT_MIGRATION_SECRET`), `iat`/`exp` and single-use nonces. Committed secret defaults removed.
+- The panel's own 2FA (authenticator app with recovery codes, email codes) is now enforced after SSO and before `/migrate` issues a token; SSO sign-ins bypassed it before.
+- `/migrate`: throttled, fixed callback target, no password hash in the token. New `/sso/link` for signed-in users.
+- Fix: a "403 | Forbidden" modal no longer covers the console when a server stops or crashes with the page open (Pelican's charts 403 their own poll once `canView()` turns false; `ConsoleResiliencePluginProvider` lets that poll pass).
+- New shared `Services\NoprofitClient` (HMAC-signed calls to noprofit.space's internal API) and `Support\NoprofitLink`.
+- Version bump to 1.2.1.
+
 ## 1.2.0
 
 - **Split into focused plugins.** The monolith went from 141 to 44 src files: server

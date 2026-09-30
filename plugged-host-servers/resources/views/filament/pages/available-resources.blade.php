@@ -2,7 +2,6 @@
     @if ($nodes->isEmpty())
         <x-filament::section>
             <div class="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <x-filament::icon icon="tabler-device-desktop-analytics" class="h-10 w-10 text-gray-400" />
                 <h2 class="text-lg font-semibold text-gray-950 dark:text-white">No nodes available</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400">There are no nodes available to display.</p>
             </div>
@@ -34,8 +33,6 @@
                                 {{ $node->name }}
                             @endif
                         </x-slot>
-
-                        <x-slot name="description">Node overview</x-slot>
 
                         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                             @livewire(\App\Filament\Admin\Resources\Nodes\Widgets\NodeCpuChart::class, ['node' => $node], key("available-resources-node-{$node->id}-cpu"))

@@ -507,8 +507,9 @@ allowed to load.
   a blocked user then sees two things asking for the same thing. Ship the gate with `notice`.
 - Turning the gate on has prerequisites outside this plugin: forcing ad views as a condition of service
   has to be disclosed, and so does sending users to a third-party link shortener to earn tokens. That
-  means editing `html/terms.html` / `html/privacy.html` **and** bumping `LEGAL_TERMS_VERSION` /
-  `LEGAL_PRIVACY_VERSION`, or nobody re-accepts.
+  means editing `terms.html` / `privacy.html` in the noprofit.space site (repo noprofit-space/site)
+  **and** bumping the Terms and Privacy versions on noprofit.space (Admin › Settings), so the new
+  versions are recorded as accepted.
 - `ads_start_gate_events` is the measurement, not decoration. Its `outcome` column (`ads`, `exempt`,
   `failopen`, plus historical `credit` rows) is what tells you whether the mechanic earns anything and how
   often a node being unreachable is letting people straight through. The release rows also carry

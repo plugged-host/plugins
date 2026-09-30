@@ -76,7 +76,7 @@ class DiscordVerificationService
      */
     public function getInviteUrl(): string
     {
-        return (string) config('plugged-host-discord.invite_url', 'https://discord.gg/pluggedhost');
+        return (string) config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085');
     }
 
     /**

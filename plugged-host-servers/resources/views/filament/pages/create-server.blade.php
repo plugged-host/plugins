@@ -1,57 +1,51 @@
-<x-filament-panels::page>
-    @if ($games->isEmpty())
-        <x-filament::section>
-            <div class="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <x-filament::icon icon="tabler-egg-off" class="h-10 w-10 text-gray-400" />
-                <h2 class="text-lg font-semibold text-gray-950 dark:text-white">
-                    {{ trans('plugged-host-servers::strings.no_games') }}
-                </h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ trans('plugged-host-servers::strings.no_games_description') }}
-                </p>
-            </div>
-        </x-filament::section>
-    @else
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            @foreach ($games as $game)
-                <a
-                    href="{{ \PluggedHost\Servers\Filament\App\Pages\ConfigureServerPage::getUrl(['game' => $game['id']]) }}"
-                    wire:navigate
-                    class="group flex flex-col items-center gap-3 rounded-2xl bg-white p-5 text-center shadow-md ring-1 ring-gray-950/5 transition hover:ring-primary-500 dark:bg-gray-900 dark:ring-white/10 dark:hover:ring-primary-400"
-                >
-                    <div class="flex h-16 w-16 items-center justify-center">
-                        @if ($game['icon'])
-                            <img
-                                src="{{ $game['icon'] }}"
-                                alt="{{ $game['name'] }}"
-                                class="h-16 w-16 rounded-xl object-contain"
-                                loading="lazy"
-                            />
-                        @else
-                            <x-filament::icon
-                                icon="tabler-device-gamepad-2"
-                                class="h-10 w-10 text-gray-400 transition group-hover:text-primary-500 dark:group-hover:text-primary-400"
-                            />
-                        @endif
-                    </div>
+<x-filament-panels::page
+    id="form"
+    :wire:key="$this->getId() . '.forms.' . $this->getFormStatePath()">
 
-                    <div class="space-y-1">
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">
-                            {{ $game['name'] }}
-                        </h3>
+    <style>
+        .phc-page { display: flex; flex-direction: column; gap: 1.5rem; }
+        .phc-page .fi-section { scroll-margin-top: 5rem; }
+        .phc-deploy { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .75rem; }
+        .phc-deploy-reason { font-size: .8125rem; color: var(--danger-400); }
+        .phc-deploy-busy { display: inline-flex; align-items: center; gap: .5rem; }
+        @media (max-width: 640px) {
+            .phc-deploy { flex-direction: column; align-items: stretch; }
+            .phc-deploy > .fi-btn { justify-content: center; }
+        }
+    </style>
 
-                        @if ($game['description'])
-                            <p class="line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
-                                {{ $game['description'] }}
-                            </p>
-                        @endif
-                    </div>
-                </a>
-            @endforeach
+    <div class="phc-page">
+        {{-- Single scrollable form containing Game, Location, Plan, and Details sections --}}
+        {{ $this->form }}
+
+        {{-- Deploy Action --}}
+        @php
+            $canDeploy = $this->canDeploy();
+            $disabledReason = $this->getDeployDisabledReason();
+        @endphp
+
+        <div class="phc-deploy">
+            @if (! $canDeploy && $disabledReason)
+                <span class="phc-deploy-reason">{{ $disabledReason }}</span>
+            @endif
+
+            <x-filament::button
+                wire:click="save"
+                :color="$canDeploy ? 'primary' : 'gray'"
+                :disabled="! $canDeploy"
+                wire:loading.attr="disabled"
+                :title="(! $canDeploy && $disabledReason) ? $disabledReason : null"
+            >
+                <span wire:loading.remove wire:target="save">{{ trans('plugged-host-servers::strings.deploy_server') }}</span>
+
+                <span wire:loading wire:target="save" class="phc-deploy-busy">
+                    <x-filament::loading-indicator class="h-5 w-5" />
+                    <span>{{ trans('plugged-host-servers::strings.deploying') }}</span>
+                </span>
+            </x-filament::button>
         </div>
 
-        {{-- WP4: under the game grid on the create page. Renders nothing (no reserved space,
-             no layout shift) unless the slot is granted — see AdDisplayService::slot(). --}}
+        {{-- Ad slot under creation form --}}
         <x-plugged-host-ads::slot name="create-under-plan" />
-    @endif
+    </div>
 </x-filament-panels::page>

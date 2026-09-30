@@ -5,8 +5,8 @@
 | plugged-host-servers
 |--------------------------------------------------------------------------
 |
-| Provisioning: the create/configure pages, plans, locations, node capacity,
-| role resource limits and the network-ports action.
+| Provisioning: the create page, plans, locations, node capacity, the
+| account allowance (the noprofit.space plan) and the network-ports action.
 |
 | WP1: these two blocks moved out of plugged-host-core unchanged. The env
 | variable names are identical (UCS_*, NODES_*), so .env needs no edit.
@@ -16,14 +16,6 @@
 
 return [
     'user-creatable-servers' => [
-        'default_limits_enabled' => (bool) env('UCS_DEFAULT_LIMITS_ENABLED', false),
-        'default_cpu' => (int) env('UCS_DEFAULT_CPU', 0),
-        'default_memory' => (int) env('UCS_DEFAULT_MEMORY', 0),
-        'default_disk' => (int) env('UCS_DEFAULT_DISK', 0),
-        'default_server_limit' => filled(env('UCS_DEFAULT_SERVER_LIMIT'))
-            ? (int) env('UCS_DEFAULT_SERVER_LIMIT')
-            : null,
-
         'database_limit' => (int) env('UCS_DEFAULT_DATABASE_LIMIT', 0),
         'allocation_limit' => (int) env('UCS_DEFAULT_ALLOCATION_LIMIT', 0),
         'backup_limit' => (int) env('UCS_DEFAULT_BACKUP_LIMIT', 0),
@@ -183,6 +175,36 @@ return [
         'window_minutes' => (int) env('NODES_BALANCE_WINDOW_MINUTES', 5),
         'cpu_weight' => (float) env('NODES_BALANCE_CPU_WEIGHT', 1.0),
         'memory_weight' => (float) env('NODES_BALANCE_MEMORY_WEIGHT', 1.0),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Server transfers
+    |--------------------------------------------------------------------------
+    |
+    | Self-service moves to another location (Services\Transfers). The copy is
+    | wings' own streaming transfer; everything around it is ours: picking the
+    | node inside the location, a clean stop, live progress read from the
+    | source node's websocket, retries on another node, and putting the server
+    | back online where it was when a move gives up. The source copy is only
+    | ever deleted by upstream once the new node has verified its checksum.
+    |
+    | enabled — owners, and subusers given "transfer", can move their servers.
+    | cooldown_hours — minimum time between two finished moves of one server.
+    | max_attempts — nodes tried before a move gives up.
+    | stop_timeout — seconds a clean stop gets before the server is killed.
+    | stall_minutes — no bytes moving for this long while copying = stalled.
+    | finalize_minutes — after the last byte, how long the new node may take
+    |     to confirm (it may still be pulling the container image).
+    |
+    */
+    'transfers' => [
+        'enabled' => (bool) env('TRANSFERS_ENABLED', true),
+        'cooldown_hours' => (int) env('TRANSFERS_COOLDOWN_HOURS', 6),
+        'max_attempts' => (int) env('TRANSFERS_MAX_ATTEMPTS', 3),
+        'stop_timeout' => (int) env('TRANSFERS_STOP_TIMEOUT', 90),
+        'stall_minutes' => (int) env('TRANSFERS_STALL_MINUTES', 10),
+        'finalize_minutes' => (int) env('TRANSFERS_FINALIZE_MINUTES', 20),
     ],
 ];
 

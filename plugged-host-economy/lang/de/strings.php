@@ -9,66 +9,67 @@
 
 return [
     /*
-        Der Name der Seite, und die einzige Stelle, an der "Economy" definiert wird.
-        Die Klasse heißt weiter ResourceStorePage und der Slug weiter `store` — die
-        Umbenennung ist reine Beschriftung. "Ressourcen-Shop" bleibt als
-        `credits.resource_store`, weil damit der Upgrade-Abschnitt gemeint ist.
+        Die zwei Shop-Seiten. Guthaben kauft Ressourcen (ResourceStorePage, Slug `store`);
+        Tokens kaufen Vorrang und bezahlte Standorte (TokenStorePage, Slug `token-store`).
+        Die Währungen sind nicht austauschbar, deshalb hat jede ihre eigene Seite.
     */
-    'economy' => [
-        'title' => 'Economy',
-        'nav_label' => 'Economy',
-        'subheading' => 'Deine Guthaben, alles was sie kaufen, und wie du mehr davon bekommst.',
-        'earn_heading' => 'Tokens verdienen',
+    'resource_store' => [
+        'title' => 'Ressourcen-Shop',
+        'nav_label' => 'Ressourcen-Shop',
+        'subheading' => 'Gib Guthaben für mehr CPU, Arbeitsspeicher, Speicherplatz und Server aus. Was du kaufst, behältst du.',
+        'what_credits_buy' => 'Guthaben kauft CPU, Arbeitsspeicher und Speicherplatz, dauerhaft.',
+        'balance_hint' => 'Verdiene Guthaben, indem du Leute auf unseren Discord-Server einlädst oder ihn boostest.',
+        'resources_heading' => 'Deine Ressourcen',
+        'resources_hint' => 'Der helle Teil ist, was deine Server nutzen, der getönte Teil der Rest deines Limits, und der Balken reicht bis zum Höchstmaß, das du kaufen kannst.',
+        'of_limit' => 'von :limit',
+        'meter_label' => ':used von :limit in Benutzung',
+        'up_to' => 'Du kannst bis zu :cap kaufen.',
+        'at_cap' => 'Du hast das Höchstmaß, das es zu kaufen gibt.',
+        'over' => ':amount über deinem Limit. Verkleinere oder lösche einen Server, um Platz zu schaffen.',
+        'history' => 'Guthaben-Verlauf',
+    ],
+
+    'token_store' => [
+        'title' => 'Token-Shop',
+        'nav_label' => 'Token-Shop',
+        'subheading' => 'Gib Tokens für Vorrang in der Start-Warteschlange und für die Plus- und Premium-Standorte aus.',
+        'what_tokens_buy' => 'Tokens kaufen Vorrang in der Start-Warteschlange und die Plus- und Premium-Standorte. Subdomain-Pfand und das Aufwecken eines schlafenden Servers bezahlst du mit Tokens direkt am Server.',
+        'balance_hint' => 'Verdiene Tokens über einen gesponserten Link.',
+        'premium_heading' => 'Plus- und Premium-Standorte',
+        'premium_title' => 'Alle bezahlten Standorte freischalten',
+        'premium_body' => 'Bessere Hardware, die nie mit der kostenlosen Stufe geteilt wird. Ein Kauf schaltet alle Plus- und Premium-Standorte dauerhaft frei.',
+        'premium_owned' => 'Freigeschaltet',
+        'premium_confirm' => ':cost Tokens ausgeben, um die Plus- und Premium-Standorte freizuschalten?',
+        'premium_unlocked' => 'Plus- und Premium-Standorte freigeschaltet.',
+        'premium_short' => 'Du brauchst :cost Tokens, um die Plus- und Premium-Standorte freizuschalten.',
+        'premium_failed' => 'Die Plus- und Premium-Standorte konnten nicht freigeschaltet werden. Es wurden keine Tokens ausgegeben.',
+        'history' => 'Token-Verlauf',
+        'no_history' => 'Noch keine Token-Aktivität.',
+    ],
+
+    'store' => [
+        'balance_after' => 'danach :balance',
     ],
 
     'credits' => [
         'credits' => 'Guthaben',
         'credits_short' => 'Cr',
-        'resource_store' => 'Ressourcen-Shop',
-        'store_subheading' => 'Erweitere deine Serverressourcen und Limits mit Guthaben aus Discord-Belohnungen und Aktivitäten.',
-        'store_description' => 'Limits im Shop upgraden',
-        'current_balance' => 'Aktuelles Guthaben',
-        'balance_hint' => 'Verdiene Guthaben durch Discord-Verknüpfung, Einladen von Mitgliedern oder Server-Boosts.',
         'earn_discord_rewards' => 'Discord-Belohnungen verdienen',
-        'available_upgrades' => 'Ressourcen-Upgrades',
-        'available_upgrades_description' => 'Erweitere dein persönliches Kontingent. Aufgerüstete Ressourcen bleiben dauerhaft auf deinem Konto.',
-        'max_tier' => 'Maximalstufe',
-        'limit' => 'Aktuell',
-        'max' => 'Max. Limit',
-        'current_limit' => 'Aktuelles Limit',
-        'servers_count' => 'Server',
-        'server_slot' => 'Server-Slot',
-        'cpu_upgrade_desc' => 'Erhöhe dein CPU-Limit auf bis zu 600% für noch leistungsstärkere Server.',
-        'memory_upgrade_desc' => 'Erhöhe dein RAM-Limit auf bis zu 24 GB für größere Modpacks und Spielerzahlen.',
-        'disk_upgrade_desc' => 'Erhöhe deinen Speicherplatz auf bis zu 100 GB für Welten und Backups.',
-        'server_slot_upgrade_desc' => 'Erhöhe die Anzahl der Server, die du gleichzeitig erstellen kannst.',
         'confirm_purchase' => 'Möchtest du :item wirklich für :cost Guthaben kaufen?',
         'purchase_successful' => 'Kauf erfolgreich',
         'purchase_failed' => 'Kauf fehlgeschlagen',
         'insufficient_credits' => 'Du hast nicht genügend Guthaben für diesen Kauf.',
-        'max_cpu_reached' => 'Du hast das maximale CPU-Limit (600%) bereits erreicht.',
-        'max_memory_reached' => 'Du hast das maximale RAM-Limit (24 GB) bereits erreicht.',
-        'max_disk_reached' => 'Du hast das maximale Speicherplatz-Limit (100 GB) bereits erreicht.',
+        'store_unavailable' => 'CPU, Arbeitsspeicher und Speicherplatz können gerade nicht gekauft werden. Versuche es in einer Minute erneut.',
+        'max_cpu_reached' => 'Du hast bereits das Höchstmaß an CPU, das es zu kaufen gibt.',
+        'max_memory_reached' => 'Du hast bereits das Höchstmaß an Arbeitsspeicher, das es zu kaufen gibt.',
+        'max_disk_reached' => 'Du hast bereits das Höchstmaß an Speicherplatz, das es zu kaufen gibt.',
         'cpu_purchased' => 'Dein CPU-Limit wurde erfolgreich um +:amount% für :cost Guthaben erhöht.',
         'memory_purchased' => 'Dein RAM-Limit wurde erfolgreich um +:amount :unit für :cost Guthaben erhöht.',
         'disk_purchased' => 'Dein Speicherplatz wurde erfolgreich um +:amount :unit für :cost Guthaben erhöht.',
-        'server_slot_purchased' => 'Es wurden erfolgreich :slots Server-Slot(s) für :cost Guthaben hinzugefügt.',
         'tx_cpu_purchase' => '+:amount% CPU-Limit Upgrade gekauft',
         'tx_memory_purchase' => '+:amount :unit RAM-Limit Upgrade gekauft',
         'tx_disk_purchase' => '+:amount :unit Speicherplatz Upgrade gekauft',
-        'tx_server_slot_purchase' => '+:slots Server-Slot Upgrade gekauft',
-        'recent_transactions' => 'Letzte Transaktionen',
         'no_transactions' => 'Noch keine Guthaben-Transaktionen vorhanden.',
-        'date' => 'Datum',
-        'description' => 'Beschreibung',
-        'amount' => 'Betrag',
-        'balance' => 'Kontostand',
-        'need_more_upgrade_store' => 'Mehr nötig? Im Ressourcen-Shop upgraden',
-
-        // Wird angezeigt, wenn bestehende Server mehr belegen als das aktuelle Limit
-        // erlaubt — Rolle entfernt, gesenkt oder Ressourcen zurückgeholt.
-        'over_quota' => 'Limit um :amount überschritten — Server verkleinern oder löschen',
-        'over_quota_slots' => 'Server-Limit um :amount überschritten — Server löschen',
         'tx_economy_reset' => 'Guthaben-Wirtschaft zurückgesetzt',
         'tx_invite_clawback' => 'Invite-Belohnung zurückgenommen — eingeladenes Mitglied hat Discord verlassen',
         'tx_resource_reclaim' => 'Gekaufte Ressourcen zurückgeholt, um eine zurückgenommene Belohnung zu decken',
@@ -76,14 +77,9 @@ return [
 
     'tokens' => [
         'tokens' => 'Tokens',
-        'tokens_short' => 'Tk',
         'balance' => 'Token-Guthaben',
-        'balance_hint' => 'Tokens kaufen Vorrang in der Start-Warteschlange. Verdiene sie über einen gesponserten Link.',
         'earn_tokens' => 'Tokens verdienen',
-        'insufficient' => 'Du hast nicht genügend Tokens dafür.',
         'tx_daily' => 'Täglicher Token',
-        'what_credits_buy' => 'CPU, RAM, Speicher und Server-Plätze — dauerhaft.',
-        'what_tokens_buy' => 'Vorrang in der Start-Warteschlange, für einige Tage.',
     ],
 
     /*
@@ -101,8 +97,6 @@ return [
         'tier_standard' => 'Vorrang',
         'tier_ad_free' => 'Vorrang, werbefrei',
         'tier_days' => ':days Tage',
-        'badge_ads' => 'Mit Werbung',
-        'badge_no_ads' => 'Ohne Werbung',
         'perk_queue' => 'Jeder Start überspringt die Reihe',
         'perk_transfer' => 'Schaltet den Umzug auf ein ruhigeres Node frei',
         'perk_ads_stay' => 'Werbung bleibt wie sie ist',
@@ -126,7 +120,7 @@ return [
     'admin' => [
         'tab' => 'Economy',
         'credits_heading' => 'Credits',
-        'credits_hint' => 'Credits kaufen CPU, RAM, Speicher und Serverplätze im Shop. Verdient über Discord-Einladungen und Boosts.',
+        'credits_hint' => 'Credits kaufen CPU, RAM und Speicher im Shop. Verdient über Discord-Einladungen und Boosts.',
         'tokens_heading' => 'Tokens',
         'tokens_hint' => 'Tokens kaufen Vorrang in der Startwarteschlange. Verdient über gesponserte Links.',
         'balance_current' => 'Guthaben: :amount',
@@ -152,7 +146,7 @@ return [
     'tokens_title' => 'Tokens',
     'tokens_subheading' => 'Tokens verdienen und vorrücken, wenn die Nodes ausgelastet sind',
     'tokens_balance' => ':count Tokens',
-    'tokens_explainer' => 'Tokens kaufen Vorrang in der Start-Warteschlange: :cost davon setzen dich für :days Tage vor alle ohne Vorrang, auf allen deinen Servern. Eine teurere Stufe im Ressourcen-Shop kauft ein kürzeres Fenster, das zusätzlich jede Werbung abschaltet — auch die werbefinanzierte Wartezeit vor dem Start eines großen Servers.',
+    'tokens_explainer' => 'Tokens kaufen Vorrang in der Start-Warteschlange: :cost davon setzen dich für :days Tage vor alle ohne Vorrang, auf allen deinen Servern. Eine teurere Stufe im Token-Shop kauft ein kürzeres Fenster, das zusätzlich jede Werbung abschaltet — auch die werbefinanzierte Wartezeit vor dem Start eines großen Servers.',
     'tokens_none' => 'Derzeit ist keine Möglichkeit zum Verdienen von Tokens eingerichtet.',
     'tokens_reward' => ':count Tokens pro Abschluss',
     'tokens_used' => ':used von :cap heute',

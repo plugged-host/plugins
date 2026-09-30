@@ -100,7 +100,6 @@ class RestoreFromLimboPage extends Page
         return [
             Action::make('restore')
                 ->label(trans('plugged-host-limbo::strings.restore'))
-                ->icon('tabler-refresh')
                 ->requiresConfirmation()
                 ->modalDescription(fn () => trans('plugged-host-limbo::strings.confirm', ['cost' => $this->cost]))
                 ->action('restore'),

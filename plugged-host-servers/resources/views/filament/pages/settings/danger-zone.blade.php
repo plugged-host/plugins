@@ -1,6 +1,6 @@
 {{--
-    Danger Zone Content
-    Warning notices and clear explanations of destructive actions.
+    Danger Zone content: one line of advice, then what each action below does, as plain rows
+    split by a hairline. The buttons are the section's footer actions. Scoped plain CSS.
 --}}
 @php
     $server = $server ?? $getRecord();
@@ -8,51 +8,33 @@
     $canDelete = $canDelete ?? false;
 @endphp
 
-<div class="flex flex-col gap-5">
-    <div class="flex items-start gap-3 p-3.5 rounded-xl bg-danger-500/10 border border-danger-500/20 text-danger-700 dark:text-danger-300">
-        <x-filament::icon icon="tabler-alert-triangle" class="size-5 shrink-0 text-danger-500 mt-0.5" />
-        <div class="text-xs leading-relaxed">
-            <span class="font-bold">Caution:</span>
-            Actions in this area are destructive and directly affect your server runtime. Ensure you have backed up any critical data or world files before proceeding.
-        </div>
-    </div>
+<style>
+    .phset-danger-note { font-size: .8125rem; line-height: 1.25rem; color: var(--phv2-text-muted); }
+    .phset-danger-rows { display: flex; flex-direction: column; margin-top: .75rem; }
+    .phset-danger-row { padding: .75rem 0; }
+    .phset-danger-row + .phset-danger-row { border-top: 1px solid var(--phv2-hairline); }
+    .phset-danger-row strong { display: block; font-size: .875rem; font-weight: 600; color: var(--phv2-text); }
+    .phset-danger-row p { margin-top: .125rem; font-size: .8125rem; line-height: 1.25rem; color: var(--phv2-text-muted); }
+</style>
 
-    <div class="flex flex-col divide-y divide-gray-200/60 dark:divide-white/5">
+<div>
+    <p class="phset-danger-note">
+        Actions in this area are destructive and directly affect your server runtime. Ensure you have backed up any critical data or world files before proceeding.
+    </p>
+
+    <div class="phset-danger-rows">
         @if ($canReinstall)
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-3 first:pt-0">
-                <div class="flex items-start gap-3 min-w-0">
-                    <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning-500/10 text-warning-500 mt-0.5">
-                        <x-filament::icon icon="tabler-refresh" class="size-5" />
-                    </div>
-                    <div>
-                        <span class="block text-sm font-semibold text-gray-900 dark:text-white">
-                            {{ trans('server/setting.reinstall.title') }}
-                        </span>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                            {{ trans('server/setting.reinstall.body') }} {{ trans('server/setting.reinstall.body2') }}
-                        </p>
-                    </div>
-                </div>
+            <div class="phset-danger-row">
+                <strong>{{ trans('server/setting.reinstall.title') }}</strong>
+                <p>{{ trans('server/setting.reinstall.body') }} {{ trans('server/setting.reinstall.body2') }}</p>
             </div>
         @endif
 
         @if ($canDelete)
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-3 last:pb-0">
-                <div class="flex items-start gap-3 min-w-0">
-                    <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger-500/10 text-danger-500 mt-0.5">
-                        <x-filament::icon icon="tabler-trash" class="size-5" />
-                    </div>
-                    <div>
-                        <span class="block text-sm font-semibold text-danger-600 dark:text-danger-400">
-                            {{ trans('plugged-host-servers::strings.modals.delete_server') }}
-                        </span>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                            {{ trans('plugged-host-servers::strings.modals.delete_server_warning') }}
-                        </p>
-                    </div>
-                </div>
+            <div class="phset-danger-row">
+                <strong>{{ trans('plugged-host-servers::strings.modals.delete_server') }}</strong>
+                <p>{{ trans('plugged-host-servers::strings.modals.delete_server_warning') }}</p>
             </div>
         @endif
     </div>
 </div>
-

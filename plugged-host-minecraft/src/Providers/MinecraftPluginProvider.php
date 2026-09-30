@@ -28,6 +28,36 @@ class MinecraftPluginProvider extends ServiceProvider
         }
 
         $this->registerClientApi();
+        $this->registerNeoTools();
+    }
+
+    /**
+     * Contribute the Minecraft tools (content, software, modpacks, Geyser) to plugged-host-neo.
+     * By class-string behind class_exists so either plugin can be uninstalled alone; the tool
+     * classes themselves are only loaded when neo asks for them.
+     */
+    private function registerNeoTools(): void
+    {
+        $registry = 'PluggedHost\\Neo\\Tools\\NeoToolRegistry';
+
+        if (!class_exists($registry)) {
+            return;
+        }
+
+        foreach ([
+            \PluggedHost\Minecraft\Neo\Tools\MinecraftInfoTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\SearchContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\ContentVersionsTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\InstallContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\ListInstalledContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\ToggleContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\RemoveContentTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\InstallGeyserTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\SwitchSoftwareTool::class,
+            \PluggedHost\Minecraft\Neo\Tools\InstallModpackTool::class,
+        ] as $tool) {
+            $registry::register($tool);
+        }
     }
 
     /**
@@ -48,11 +78,21 @@ class MinecraftPluginProvider extends ServiceProvider
                         \App\Http\Middleware\Api\Client\Server\ResourceBelongsToServer::class,
                     ])
                     ->group(function (): void {
-                        \Illuminate\Support\Facades\Route::get('/mods', function (\App\Models\Server $server) {
-                            return response()->json(['data' => app(\PluggedHost\Minecraft\Services\ModDetectionService::class)->list($server)]);
+                        // Subuser permissions mirror the ServerContent page: reads need file.read,
+                        // installs need file.create (and Geyser also restarts the server).
+                        \Illuminate\Support\Facades\Route::get('/mods', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {
+                            abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::FileRead, $server), 403);
+
+                            $detection = app(\PluggedHost\Minecraft\Services\ModDetectionService::class);
+                            // One batch per call; rows still being identified say "pending".
+                            $detection->identifyPending($server);
+
+                            return response()->json(['data' => $detection->list($server)]);
                         })->name('api:client:minecraft.mods');
 
                         \Illuminate\Support\Facades\Route::post('/mods/geyser', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {
+                            abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::FileCreate, $server) && (bool) $request->user()?->can(\App\Enums\SubuserPermission::ControlRestart, $server), 403);
+
                             $result = app(\PluggedHost\Minecraft\Services\GeyserService::class)->install($server, $request->user()?->id);
 
                             return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
@@ -62,6 +102,8 @@ class MinecraftPluginProvider extends ServiceProvider
                         // client can page Modrinth (default) or CurseForge (when a key is set) for
                         // this server's software. Query: ?q=&kind=&game_version=&source=&page=.
                         \Illuminate\Support\Facades\Route::get('/content', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {
+                            abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::FileRead, $server), 403);
+
                             $svc = app(\PluggedHost\Minecraft\Services\ContentSearchService::class);
 
                             return response()->json(['data' => $svc->search($server, [
@@ -76,6 +118,8 @@ class MinecraftPluginProvider extends ServiceProvider
                         // Queue a modpack install (Modrinth .mrpack or CurseForge .zip). The heavy
                         // work is a job; this returns 202 once it is dispatched.
                         \Illuminate\Support\Facades\Route::post('/content/modpacks', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {
+                            abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::FileCreate, $server), 403);
+
                             $result = app(\PluggedHost\Minecraft\Services\ContentSearchService::class)->queueModpack(
                                 $server,
                                 (string) $request->input('project'),

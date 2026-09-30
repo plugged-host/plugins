@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- The "move to a quieter node" offer hands the move to plugged-host-servers' transfer
+  orchestrator when it is installed: live progress on the Transfer page, retries on the next
+  candidate node, and the server starts by itself on arrival (it used to be a bare upstream
+  transfer the user had to start afterwards). Missing destination ports are created instead of
+  hiding the offer.
+
+## 1.2.1
+
+- Version bump to 1.2.1 (plugged.host 2.1).
+
 ## 1.2.0
 
 - **WP11 — start queue repair.** `interceptStart` now checks `nodeSlotFree()` and

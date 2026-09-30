@@ -101,13 +101,14 @@ return [
     | - show_app_panel: Main user panel (dashboard, server list, account, etc.)
     | - show_server_panel: Server management area (console, files, databases, etc.)
     | - show_admin_panel: Admin control area
-    | - show_auth_pages: Authentication / simple layout pages (login, register)
+    |
+    | Signed-out pages never show ads: signing in happens on noprofit.space, and
+    | what is left here (the password reset notice) is not worth an ad.
     |
     */
     'show_app_panel' => env('ADS_SHOW_APP_PANEL', true),
     'show_server_panel' => env('ADS_SHOW_SERVER_PANEL', true),
     'show_admin_panel' => env('ADS_SHOW_ADMIN_PANEL', false),
-    'show_auth_pages' => env('ADS_SHOW_AUTH_PAGES', true),
 
     /*
     |--------------------------------------------------------------------------

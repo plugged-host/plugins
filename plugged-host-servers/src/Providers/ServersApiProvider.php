@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Servers\Http\Controllers\CreateServerController;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
@@ -33,7 +33,7 @@ class ServersApiProvider extends ServiceProvider
 
                     Route::get('/plans', function (Request $request) {
                         $user = $request->user();
-                        $limits = RoleResourceLimits::forUser($user);
+                        $limits = AccountAllowance::forUser($user);
 
                         return response()->json(['data' => $limits ? app(PlanCatalog::class)->forUser($user, $limits) : []]);
                     })->name('api:client:servers.provision.plans');
@@ -65,8 +65,8 @@ class ServersApiProvider extends ServiceProvider
 
                     // POST /provision/servers — create via API. A dedicated FormRequest +
                     // controller rather than a closure, because it must reproduce
-                    // ConfigureServerPage::save()'s server-side plan/location resolution and
-                    // RoleResourceLimits gating exactly. See CreateServerController.
+                    // ServerProvisioner::prepare()'s server-side plan/location resolution and
+                    // AccountAllowance gating exactly. See CreateServerController.
                     Route::post('/servers', CreateServerController::class)
                         ->name('api:client:servers.provision.create');
                 });

@@ -2,7 +2,6 @@
 
 namespace PluggedHost\Status\Filament\Admin\Resources\StatusComponentOverrides;
 
-use App\Enums\CustomizationKey;
 use App\Models\Node;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -11,6 +10,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\Resource;
+use PluggedHost\Status\Filament\Admin\Clusters\StatusPage;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -24,15 +24,16 @@ class StatusComponentOverrideResource extends Resource
 {
     protected static ?string $model = StatusComponentOverride::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'tabler-adjustments-alt';
+    // A tab of the Status page cluster: no icon of its own, since the tab says what it is.
+    protected static ?string $cluster = StatusPage::class;
 
-    protected static ?int $navigationSort = 82;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'component_key';
 
     public static function getNavigationLabel(): string
     {
-        return 'Status component controls';
+        return 'Components';
     }
 
     public static function getModelLabel(): string
@@ -43,15 +44,6 @@ class StatusComponentOverrideResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return 'component controls';
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        if (user()?->getCustomization(CustomizationKey::TopNavigation) === 'topbar') {
-            return null;
-        }
-
-        return trans('admin/dashboard.server');
     }
 
     public static function canViewAny(): bool

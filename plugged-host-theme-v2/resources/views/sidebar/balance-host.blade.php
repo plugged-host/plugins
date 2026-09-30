@@ -1,6 +1,5 @@
 {{--
-    Host for the balance Livewire component, mirroring plugged-host-core's
-    `filament/components/account-chips-host.blade.php`.
+    Host for the balance Livewire component.
 
     The indirection exists because a render hook has to hand back a rendered Htmlable — the
     provider calls ->render() inside its try/catch, since returning an unrendered View would

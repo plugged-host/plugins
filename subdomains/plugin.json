@@ -2,7 +2,7 @@
     "id": "subdomains",
     "name": "plugged.host Subdomains",
     "author": "plugged.host",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "Allows users to create subdomains for their servers with automated Minecraft and FiveM/RedM support",
     "category": "plugin",
     "url": "https://plugged.host",

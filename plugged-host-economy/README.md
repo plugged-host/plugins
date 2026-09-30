@@ -11,7 +11,7 @@ place that defines them. Earning stays where it was; the money lives here.
 |  | Credits | Tokens |
 |---|---|---|
 | Earned by | Discord invites and boosts (`plugged-host-discord`) | Linkvertise trips (`plugged-host-ads`) |
-| Spent on | resources: CPU, memory, disk, server slots | priority in the start queue (`plugged-host-queue`) |
+| Spent on | resources: CPU, memory, disk | priority in the start queue (`plugged-host-queue`) |
 | Ledger | `user_credits` + `credit_transactions` | `user_tokens` + `token_transactions` |
 | Model | `UserCredits`, `CreditTransaction` | `UserTokens`, `TokenTransaction` |
 | Service | `ResourceStoreService`, `CreditRecoveryService` | `TokenService` |
@@ -44,11 +44,9 @@ this plugin would sort *before* that create on a fresh database and rename nothi
 
 - **Earning.** `DiscordVerificationService` awards credits; `TokenEarnService` awards
   tokens. Both call into this plugin's models and neither is owned by it.
-- **The resource limits themselves.** `RoleResourceLimits` stays in
-  `plugged-host-core`: it is the thing the store *modifies*, and server creation
-  needs it whether or not an economy exists.
-- **`UserResourceLimitsOverview`** — the dashboard stat widget stays in core, for the
-  same reason. It reads balances from here.
+- **The resource limits themselves.** They are the account's plan on noprofit.space,
+  enforced by `AccountAllowance` in `plugged-host-servers`; the store buys extras that
+  noprofit.space adds to the plan.
 - **The start queue and its priority pass.** `plugged-host-queue` owns those and
   spends tokens through `TokenService`.
 

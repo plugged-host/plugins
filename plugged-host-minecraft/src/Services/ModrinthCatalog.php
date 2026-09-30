@@ -289,6 +289,122 @@ class ModrinthCatalog
     }
 
     /**
+     * versionFromHash() for many jars in one request (POST /version_files). Shares its per-hash
+     * cache, so a jar seen on any server is answered without asking again, and an unknown hash
+     * is remembered as unknown for the same TTL.
+     *
+     * @param  list<string>  $hashes
+     * @return array<string, array<string, mixed>> SHA-1 => normalised version (with 'project_id')
+     */
+    public function versionsFromHashes(array $hashes): array
+    {
+        $hashes = array_values(array_unique(array_filter($hashes)));
+        $payloads = [];
+        $missing = [];
+
+        foreach ($hashes as $hash) {
+            $cached = Cache::get("plugged-host-core:modrinth:hash:$hash");
+
+            if (is_array($cached)) {
+                $payloads[$hash] = $cached;
+            } else {
+                $missing[] = $hash;
+            }
+        }
+
+        if ($missing !== []) {
+            try {
+                $found = $this->post(self::BASE . '/version_files', ['hashes' => $missing, 'algorithm' => 'sha1']);
+            } catch (Throwable $exception) {
+                report($exception);
+                $found = null;
+            }
+
+            // Only remember answers: a failed request leaves the hashes to be asked again.
+            if ($found !== null) {
+                foreach ($missing as $hash) {
+                    $payload = is_array($found[$hash] ?? null) ? $found[$hash] : [];
+                    Cache::put("plugged-host-core:modrinth:hash:$hash", $payload, self::TTL);
+                    $payloads[$hash] = $payload;
+                }
+            }
+        }
+
+        $versions = [];
+        foreach ($payloads as $hash => $payload) {
+            if (isset($payload['id'])) {
+                $versions[$hash] = $this->normaliseVersion($payload) + ['project_id' => (string) ($payload['project_id'] ?? '')];
+            }
+        }
+
+        return $versions;
+    }
+
+    /**
+     * The newest version each jar could update to on this loader and Minecraft version.
+     *
+     * @param  list<string>  $hashes
+     * @param  list<string>  $loaders
+     * @return array<string, array<string, mixed>> SHA-1 => normalised version
+     */
+    public function latestFromHashes(array $hashes, array $loaders, ?string $gameVersion): array
+    {
+        $hashes = array_values(array_unique(array_filter($hashes)));
+
+        if ($hashes === [] || $loaders === []) {
+            return [];
+        }
+
+        sort($hashes);
+        $body = array_filter([
+            'hashes' => $hashes,
+            'algorithm' => 'sha1',
+            'loaders' => array_values($loaders),
+            'game_versions' => filled($gameVersion) ? [$gameVersion] : null,
+        ]);
+
+        $payload = $this->cached('updates:' . md5(json_encode($body)), self::TTL, fn () => $this->post(self::BASE . '/version_files/update', $body));
+
+        $versions = [];
+        foreach ($payload as $hash => $version) {
+            if (is_string($hash) && is_array($version) && isset($version['id'])) {
+                $versions[$hash] = $this->normaliseVersion($version);
+            }
+        }
+
+        return $versions;
+    }
+
+    /**
+     * Several projects by id in one request.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, array<string, mixed>> id => normalised project
+     */
+    public function projects(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter($ids)));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        sort($ids);
+        $payload = $this->cached('projects:' . md5(implode(',', $ids)), self::TTL, fn () => $this->json(self::BASE . '/projects', [
+            'ids' => json_encode($ids),
+        ]));
+
+        $projects = [];
+        foreach ($payload as $project) {
+            if (is_array($project) && isset($project['id'])) {
+                $projects[(string) $project['id']] = $this->normaliseHit($project);
+            }
+        }
+
+        return $projects;
+    }
+
+    /**
      * The file a version installs: its primary file, else its first.
      *
      * @param  array<string, mixed>  $version
@@ -362,6 +478,14 @@ class ModrinthCatalog
             'game_versions' => array_values(array_filter((array) ($version['game_versions'] ?? []), 'is_string')),
             'loaders' => array_values(array_filter((array) ($version['loaders'] ?? []), 'is_string')),
             'files' => is_array($version['files'] ?? null) ? $version['files'] : [],
+            // Required dependencies only (project ids), so an installer can say what else the
+            // jar needs to load.
+            'dependencies' => array_values(array_filter(array_map(
+                static fn ($dependency): ?string => is_array($dependency) && ($dependency['dependency_type'] ?? null) === 'required' && is_string($dependency['project_id'] ?? null)
+                    ? $dependency['project_id']
+                    : null,
+                (array) ($version['dependencies'] ?? []),
+            ))),
         ];
     }
 
@@ -385,6 +509,23 @@ class ModrinthCatalog
         });
 
         return is_array($cached) ? $cached : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     * @return array<array-key, mixed>
+     */
+    protected function post(string $url, array $body): array
+    {
+        $response = Http::timeout(self::TIMEOUT)
+            ->connectTimeout(4)
+            ->withHeaders(['User-Agent' => 'plugged.host-panel/1.0 (support@plugged.host)'])
+            ->asJson()
+            ->post($url, $body)
+            ->throw()
+            ->json();
+
+        return is_array($response) ? $response : [];
     }
 
     /**

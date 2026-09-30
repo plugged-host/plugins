@@ -2,13 +2,14 @@
 
 namespace PluggedHost\Core\Services;
 
-use App\Filament\Pages\Auth\EditProfile;
-use App\Models\Role;
 use App\Models\User;
-use PluggedHost\Servers\Models\RoleResourceLimits;
+use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\NoprofitCreditSync;
+use PluggedHost\Economy\Services\ResourceStoreService;
+use PluggedHost\Servers\Support\AccountAllowance;
 
 /**
  * The perks a user has not claimed yet, as a list any view can render.
@@ -18,13 +19,13 @@ use PluggedHost\Economy\Models\UserCredits;
  * page, the profile page and the dashboard, and each surface simply renders nothing once
  * there is nothing left to claim.
  *
- * Every number is derived, never written twice. The Discord headline in particular is a
- * diff between two RoleResourceLimits profiles — the roles the user has now versus those
- * plus the Discord role — so changing the role's limits in the admin panel changes the
- * copy, and a user who already bought RAM with credits is still told the role is worth
- * its full amount (see RoleResourceLimits::forRoleIds()).
+ * Every number is derived, never written twice. The Discord headline in particular is the
+ * difference between noprofit.space's Discord tier and its default tier (both sent with the
+ * credit sync), so changing a tier on noprofit.space changes the copy, and a user who
+ * already bought RAM with credits is still told the tier is worth its full amount.
  *
- * The Discord plugin is optional: every branch that touches it is guarded by class_exists.
+ * The Discord and economy plugins are optional: every branch that touches them is guarded
+ * by class_exists.
  */
 class PerkDiscovery
 {
@@ -45,7 +46,7 @@ class PerkDiscovery
 
         return $this->perks[$user->id] ??= array_values(array_filter(
             [
-                $this->discordRolePerk($user),
+                $this->discordTierPerk($user),
                 $this->discordEarnPerk($user),
                 $this->storePerk($user),
             ],
@@ -54,36 +55,14 @@ class PerkDiscovery
     }
 
     /**
-     * "Link Discord for +4 GB RAM" — or, once linked, "join the server to unlock it".
+     * "Join our Discord for +4 GB RAM" -- or, before linking, "link Discord" on noprofit.space.
      *
-     * Suppressed entirely when the user already holds the role, when the role has no limit
-     * profile attached, or when that profile would not actually improve on what they have.
+     * Suppressed entirely once the user is in the server, while the tiers are not known, or
+     * when the Discord tier would not improve on the default one.
      */
-    private function discordRolePerk(User $user): ?array
+    private function discordTierPerk(User $user): ?array
     {
-        if (!class_exists(DiscordLink::class)) {
-            return null;
-        }
-
-        $roleName = config('plugged-host-discord.role_name');
-
-        if (blank($roleName)) {
-            return null;
-        }
-
-        /** @var ?Role $role */
-        $role = Role::query()->where('name', $roleName)->first();
-
-        if (!$role || $user->roles()->where('roles.id', $role->id)->exists()) {
-            return null;
-        }
-
-        $roleIds = $user->roles()->pluck('roles.id')->all();
-
-        $gain = $this->describeGain(
-            RoleResourceLimits::forRoleIds($roleIds),
-            RoleResourceLimits::forRoleIds([...$roleIds, (int) $role->id]),
-        );
+        $gain = $this->discordTierGain($user);
 
         if ($gain === null) {
             return null;
@@ -92,9 +71,9 @@ class PerkDiscovery
         $link = $this->discordLink($user);
         $inviteUrl = config('plugged-host-discord.invite_url');
 
-        // Linked but not a member: the role lands on verified membership, so the next step
-        // is the invite rather than the profile tab they have already been through.
-        if ($link?->isLinked() && !$link->isVerified() && filled($inviteUrl)) {
+        // Linked but not a member: the tier follows verified membership, so the next step is
+        // the invite rather than linking again.
+        if ($link?->isLinked() && filled($inviteUrl)) {
             return [
                 'id' => 'discord-join',
                 'icon' => 'tabler-brand-discord',
@@ -114,9 +93,44 @@ class PerkDiscovery
             'title' => trans('plugged-host-core::strings.perks.discord_link_title', ['gain' => $gain]),
             'body' => trans('plugged-host-core::strings.perks.discord_link_body'),
             'cta' => trans('plugged-host-core::strings.perks.discord_link_cta'),
-            'url' => $this->profileDiscordUrl(),
-            'external' => false,
+            'url' => NoprofitLink::accountsUrl('/settings'),
+            'external' => true,
         ];
+    }
+
+    /**
+     * What noprofit.space's Discord tier adds to the default tier ("+4 GB RAM"), or null when
+     * the user is already in the Discord server, the tiers are unknown, or it adds nothing.
+     */
+    public function discordTierGain(User $user): ?string
+    {
+        if (!class_exists(DiscordLink::class) || !class_exists(NoprofitCreditSync::class)) {
+            return null;
+        }
+
+        if ($this->discordLink($user)?->isVerified()) {
+            return null;
+        }
+
+        $tiers = NoprofitCreditSync::tiers();
+
+        if ($tiers === null) {
+            return null;
+        }
+
+        $gains = [];
+
+        foreach (['memory', 'cpu', 'disk'] as $resource) {
+            $delta = (int) $tiers['discord'][$resource] - (int) $tiers['default'][$resource];
+
+            if ($delta > 0) {
+                $gains[] = trans("plugged-host-core::strings.perks.gain_$resource", [
+                    'amount' => $resource === 'cpu' ? $delta . '%' : $this->formatMebibytes($delta),
+                ]);
+            }
+        }
+
+        return $this->joinGains($gains);
     }
 
     /**
@@ -136,7 +150,12 @@ class PerkDiscovery
         $perInvite = (int) config('plugged-host-discord.credits_per_invite', 0);
         $perBoost = (int) config('plugged-host-discord.credits_per_boost_1', 0);
 
-        if ($perInvite <= 0 && $perBoost <= 0) {
+        // The Discord rewards tab on the profile page (plugged-host-discord).
+        $url = class_exists(\PluggedHost\Discord\Livewire\DiscordRewards::class)
+            ? \PluggedHost\Discord\Livewire\DiscordRewards::url()
+            : null;
+
+        if (($perInvite <= 0 && $perBoost <= 0) || $url === null) {
             return null;
         }
 
@@ -151,7 +170,7 @@ class PerkDiscovery
                 ? trans('plugged-host-core::strings.perks.discord_earn_body_boost', ['credits' => number_format($perBoost)])
                 : trans('plugged-host-core::strings.perks.discord_earn_body'),
             'cta' => trans('plugged-host-core::strings.perks.discord_earn_cta'),
-            'url' => $this->profileDiscordUrl(),
+            'url' => $url,
             'external' => false,
         ];
     }
@@ -166,11 +185,11 @@ class PerkDiscovery
             return null;
         }
 
-        if (RoleResourceLimits::forUser($user) === null) {
+        if (AccountAllowance::forUser($user) === null) {
             return null;
         }
 
-        $price = (int) config('plugged-host-economy.credits.price_memory_1024', 0);
+        $price = class_exists(ResourceStoreService::class) ? app(ResourceStoreService::class)->getPriceForMemory(1024) : 0;
 
         if ($price <= 0) {
             return null;
@@ -191,72 +210,6 @@ class PerkDiscovery
             'url' => ResourceStorePage::getUrl(panel: 'app'),
             'external' => false,
         ];
-    }
-
-    /**
-     * Turns a before/after limit profile into "+4 GB RAM" or "+4 GB RAM and +100% CPU".
-     *
-     * Returns null when nothing improves, which is what suppresses the whole perk. A limit
-     * of 0 means unlimited here, so it is compared before the subtraction: 0 on the "after"
-     * side is the largest possible gain, and 0 on the "before" side means no gain is
-     * possible at all.
-     */
-    private function describeGain(?RoleResourceLimits $from, ?RoleResourceLimits $to): ?string
-    {
-        if (!$to) {
-            return null;
-        }
-
-        if (!$from) {
-            return trans('plugged-host-core::strings.perks.gain_unlock');
-        }
-
-        $gains = [];
-
-        foreach (['memory', 'cpu', 'disk'] as $resource) {
-            if ($from->{$resource} === 0) {
-                continue;
-            }
-
-            if ($to->{$resource} === 0) {
-                $gains[] = trans("plugged-host-core::strings.perks.gain_unlimited_$resource");
-
-                continue;
-            }
-
-            $delta = $to->{$resource} - $from->{$resource};
-
-            if ($delta <= 0) {
-                continue;
-            }
-
-            $gains[] = trans("plugged-host-core::strings.perks.gain_$resource", [
-                'amount' => $resource === 'cpu' ? $delta . '%' : $this->formatMebibytes($delta),
-            ]);
-        }
-
-        return $this->joinGains([...$gains, ...$this->serverSlotGain($from, $to)]);
-    }
-
-    /** @return array<int, string> */
-    private function serverSlotGain(RoleResourceLimits $from, RoleResourceLimits $to): array
-    {
-        // null is unlimited for server slots, unlike 0 for the other three.
-        if ($from->server_limit === null) {
-            return [];
-        }
-
-        if ($to->server_limit === null) {
-            return [trans('plugged-host-core::strings.perks.gain_unlimited_servers')];
-        }
-
-        if ($to->server_limit <= $from->server_limit) {
-            return [];
-        }
-
-        return [trans('plugged-host-core::strings.perks.gain_servers', [
-            'amount' => $to->server_limit - $from->server_limit,
-        ])];
     }
 
     /** @param array<int, string> $gains */
@@ -295,14 +248,5 @@ class PerkDiscovery
         return $this->links[$user->id] ?? ($this->links[$user->id] = DiscordLink::query()
             ->where('user_id', $user->id)
             ->first());
-    }
-
-    private function profileDiscordUrl(): ?string
-    {
-        if (!class_exists(EditProfile::class)) {
-            return null;
-        }
-
-        return EditProfile::getUrl(['tab' => 'discord::data::tab'], panel: 'app');
     }
 }

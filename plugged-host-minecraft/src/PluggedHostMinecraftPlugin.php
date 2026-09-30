@@ -6,6 +6,7 @@ use App\Contracts\Plugins\HasPluginSettings;
 use App\Traits\EnvironmentWriterTrait;
 use Filament\Contracts\Plugin;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use PluggedHost\Minecraft\Http\Middleware\RedirectToServerInstallingPage;
@@ -67,6 +68,7 @@ class PluggedHostMinecraftPlugin implements HasPluginSettings, Plugin
             // Secret: never surface the stored key. Empty means "unchanged" on save.
             'curseforge_api_key' => '',
             'overrides_limit' => (int) config('plugged-host-minecraft.overrides_limit', 2000),
+            'spigotmc_enabled' => (bool) config('plugged-host-minecraft.spigotmc_enabled', true),
         ];
     }
 
@@ -95,6 +97,9 @@ class PluggedHostMinecraftPlugin implements HasPluginSettings, Plugin
                         ->minValue(0)
                         ->maxValue(100000)
                         ->required(),
+                    Toggle::make('spigotmc_enabled')
+                        ->label(trans('plugged-host-minecraft::strings.settings.spigotmc_enabled'))
+                        ->helperText(trans('plugged-host-minecraft::strings.settings.spigotmc_enabled_hint')),
                 ]),
         ];
     }
@@ -106,6 +111,7 @@ class PluggedHostMinecraftPlugin implements HasPluginSettings, Plugin
     {
         $values = [
             'MINECRAFT_OVERRIDES_LIMIT' => (string) max(0, min(100000, (int) ($data['overrides_limit'] ?? 2000))),
+            'MINECRAFT_SPIGOTMC_ENABLED' => !empty($data['spigotmc_enabled']) ? 'true' : 'false',
         ];
 
         // Save-if-changed: only rewrite the secret when the admin actually typed one.

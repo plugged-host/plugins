@@ -1,0 +1,21 @@
+{
+    "id": "mclogs-uploader",
+    "name": "Mclogs Uploader",
+    "author": "Boy132",
+    "version": "1.0.1",
+    "description": "Upload console logs to mclo.gs",
+    "category": "plugin",
+    "url": "https://hub.pelican.dev/plugins/mclogs-uploader",
+    "update_url": "https://hub.pelican.dev/plugins/mclogs-uploader/update.json",
+    "namespace": "Boy132\\MclogsUploader",
+    "class": "MclogsUploaderPlugin",
+    "panels": [
+        "server"
+    ],
+    "panel_version": null,
+    "composer_packages": null,
+    "meta": {
+        "status": "disabled",
+        "status_message": null
+    }
+}

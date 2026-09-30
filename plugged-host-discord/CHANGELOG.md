@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- **Discord rewards tab on the profile page** (first tab, `?tab=discord-rewards`): what invites
+  and boosts earned, what is waiting and when it pays, what left or did not count, what is
+  owed back, both boost levels and the reward history, with a "Check for new rewards" button.
+  Replaces noprofit.space's rewards page; linking Discord stays on noprofit.space.
+- **Giveaways moved to noprofit.space** (Admin › Giveaways). The panel's Giveaway Rewards page
+  and `GiveawayRewardService` are gone; `plugged-host:discord-giveaways-export` hands the
+  history over (paid winners as history, waiting winners are paid there once they link).
+- **Security fix** (also shipped to prod as a patch): the interactions endpoint refuses unsigned
+  requests, and `/setboost` requires the Administrator permission on both paths.
+- The panel role no longer decides any limit (role limits are gone, see plugged-host-servers).
+
+## 1.2.1
+
+- Version bump to 1.2.1 (plugged.host 2.1).
+
 ## 1.3.0
 
 - **Giveaway Rewards** (Admin → Users → Giveaway Rewards): paste a giveaway's winners by Discord

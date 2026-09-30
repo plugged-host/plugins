@@ -10,6 +10,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\View;
@@ -20,19 +21,22 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Pagination\LengthAwarePaginator;
-use PluggedHost\Minecraft\Jobs\InstallModpackJob;
+use InvalidArgumentException;
+use PluggedHost\Minecraft\Services\ContentInstallService;
+use PluggedHost\Minecraft\Services\ContentSearchService;
 use PluggedHost\Minecraft\Services\CurseForgeCatalog;
 use PluggedHost\Minecraft\Services\GeyserService;
+use PluggedHost\Minecraft\Services\InstalledContentService;
 use PluggedHost\Minecraft\Services\MinecraftVersionCatalog;
 use PluggedHost\Minecraft\Services\ModDetectionService;
 use PluggedHost\Minecraft\Services\ModrinthCatalog;
+use PluggedHost\Minecraft\Services\SpigotCatalog;
 use Throwable;
 
 /**
- * Browse and install Modrinth content: plugins on a Paper-family server, mods and modpacks
- * on a Fabric/Forge/NeoForge one.
+ * Browse and install Modrinth content (or CurseForge's, or SpigotMC's for plugins): plugins on
+ * a Paper-family server, mods and modpacks on a Fabric/Forge/NeoForge one.
  *
  * Without this page, installing anything means finding a jar in a browser, downloading it,
  * and uploading it through the file manager into the right directory — which is also the
@@ -91,6 +95,12 @@ class ServerContent extends MinecraftPage implements HasTable
     /** install | update | unavailable — drives the "Add Bedrock support" (Geyser) header button. */
     public string $geyserStatus = 'unavailable';
 
+    /**
+     * Bumped after every identification batch: the installed list keys its "keep going" trigger
+     * on it, so each re-render starts the next batch until nothing is pending.
+     */
+    public int $identifyRound = 0;
+
     public function mount(): void
     {
         $this->refreshList();
@@ -148,14 +158,16 @@ class ServerContent extends MinecraftPage implements HasTable
                 ->label(fn () => $this->geyserStatus === 'update'
                     ? trans('plugged-host-minecraft::strings.mods.geyser_update')
                     : trans('plugged-host-minecraft::strings.mods.geyser_install'))
-                ->icon('tabler-brand-minecraft')
+                ->color('gray')
                 ->visible(fn () => $this->geyserStatus !== 'unavailable')
                 ->requiresConfirmation()
                 ->action('installGeyser'),
 
             Action::make('refresh')
                 ->label(trans('plugged-host-minecraft::strings.mods.refresh'))
+                ->iconButton()
                 ->icon('tabler-refresh')
+                ->tooltip(trans('plugged-host-minecraft::strings.mods.refresh'))
                 ->color('gray')
                 ->action('refreshList'),
         ];
@@ -181,6 +193,152 @@ class ServerContent extends MinecraftPage implements HasTable
         }
     }
 
+    /**
+     * Identify the next few jars nobody has looked at yet (ModDetectionService downloads each
+     * one), then refresh the list. The view calls this again while rows are still pending.
+     */
+    public function identifyPending(): void
+    {
+        $server = Filament::getTenant();
+
+        if (!$server instanceof Server) {
+            return;
+        }
+
+        try {
+            app(ModDetectionService::class)->identifyPending($server);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        $this->identifyRound++;
+        $this->refreshList();
+    }
+
+    public function deleteJarAction(): Action
+    {
+        return Action::make('deleteJar')
+            ->iconButton()
+            ->icon(TablerIcon::Trash)
+            ->color('danger')
+            ->tooltip(trans('plugged-host-minecraft::strings.mods.delete'))
+            ->visible(fn (): bool => (bool) user()?->can(SubuserPermission::FileDelete, $this->getServer()))
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.delete_heading', ['name' => $this->rowFor($arguments)['name'] ?? '?']))
+            ->modalDescription(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.delete_body', [
+                'file' => $this->rowFor($arguments)['file'] ?? '?',
+                'directory' => app(ModDetectionService::class)->directory($this->getServer()),
+            ]))
+            ->schema(fn (array $arguments): array => filled($this->rowFor($arguments)['data_folder'] ?? null) ? [
+                Toggle::make('with_data')
+                    ->label(trans('plugged-host-minecraft::strings.mods.delete_data', ['folder' => $this->rowFor($arguments)['data_folder']]))
+                    ->helperText(trans('plugged-host-minecraft::strings.mods.delete_data_hint')),
+            ] : [])
+            ->modalSubmitActionLabel(trans('plugged-host-minecraft::strings.mods.delete'))
+            ->action(function (array $arguments, array $data): void {
+                $server = $this->getServer();
+                abort_unless((bool) user()?->can(SubuserPermission::FileDelete, $server), 403);
+
+                try {
+                    $deleted = app(InstalledContentService::class)->delete($server, (string) ($arguments['file'] ?? ''), (bool) ($data['with_data'] ?? false));
+                } catch (InvalidArgumentException) {
+                    $this->failed(trans('plugged-host-minecraft::strings.mods.gone'));
+
+                    return;
+                }
+
+                Activity::event('server:file.delete')
+                    ->property('directory', '/' . app(ModDetectionService::class)->directory($server))
+                    ->property('files', $deleted)
+                    ->log();
+
+                Notification::make()->success()->title(trans('plugged-host-minecraft::strings.mods.deleted', ['name' => $deleted[0]]))->body(trans('plugged-host-minecraft::strings.mods.restart_hint'))->send();
+                $this->refreshList();
+            });
+    }
+
+    public function toggleJarAction(): Action
+    {
+        return Action::make('toggleJar')
+            ->iconButton()
+            ->icon(fn (array $arguments): TablerIcon => ($this->rowFor($arguments)['disabled'] ?? false) ? TablerIcon::PlayerPlay : TablerIcon::PlayerPause)
+            ->color('gray')
+            ->tooltip(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.' . (($this->rowFor($arguments)['disabled'] ?? false) ? 'enable' : 'disable')))
+            ->visible(fn (): bool => (bool) user()?->can(SubuserPermission::FileUpdate, $this->getServer()))
+            ->action(function (array $arguments): void {
+                $server = $this->getServer();
+                abort_unless((bool) user()?->can(SubuserPermission::FileUpdate, $server), 403);
+
+                $row = $this->rowFor($arguments);
+
+                try {
+                    $name = app(InstalledContentService::class)->toggle($server, (string) ($arguments['file'] ?? ''), (bool) ($row['disabled'] ?? false));
+                } catch (InvalidArgumentException) {
+                    $this->failed(trans('plugged-host-minecraft::strings.mods.gone'));
+
+                    return;
+                }
+
+                Activity::event('server:file.rename')
+                    ->property('directory', '/' . app(ModDetectionService::class)->directory($server))
+                    ->property('files', [['from' => $arguments['file'], 'to' => $name]])
+                    ->log();
+
+                Notification::make()->success()->title(trans('plugged-host-minecraft::strings.mods.' . (($row['disabled'] ?? false) ? 'enabled' : 'disabled_done'), ['name' => $row['name'] ?? $name]))->body(trans('plugged-host-minecraft::strings.mods.restart_hint'))->send();
+                $this->refreshList();
+            });
+    }
+
+    public function updateJarAction(): Action
+    {
+        return Action::make('updateJar')
+            ->iconButton()
+            ->icon(TablerIcon::Download)
+            ->color('primary')
+            ->tooltip(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.update', ['version' => $this->rowFor($arguments)['update']['number'] ?? '']))
+            ->visible(fn (array $arguments): bool => ($this->rowFor($arguments)['update'] ?? null) !== null
+                && (bool) user()?->can(SubuserPermission::FileCreate, $this->getServer())
+                && (bool) user()?->can(SubuserPermission::FileDelete, $this->getServer()))
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $arguments): string => trans('plugged-host-minecraft::strings.mods.update_heading', [
+                'name' => $this->rowFor($arguments)['name'] ?? '?',
+                'version' => $this->rowFor($arguments)['update']['number'] ?? '?',
+            ]))
+            ->modalDescription(trans('plugged-host-minecraft::strings.mods.update_body'))
+            ->action(function (array $arguments): void {
+                $server = $this->getServer();
+                abort_unless((bool) user()?->can(SubuserPermission::FileCreate, $server) && (bool) user()?->can(SubuserPermission::FileDelete, $server), 403);
+
+                try {
+                    $file = app(InstalledContentService::class)->update($server, (string) ($arguments['file'] ?? ''));
+                } catch (InvalidArgumentException) {
+                    $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
+
+                    return;
+                }
+
+                Activity::event('server:file.pull')
+                    ->property('directory', '/' . app(ModDetectionService::class)->directory($server))
+                    ->property('file', $file)
+                    ->log();
+
+                Notification::make()->success()->title(trans('plugged-host-minecraft::strings.mods.updated', ['file' => $file]))->body(trans('plugged-host-minecraft::strings.mods.restart_hint'))->send();
+                $this->refreshList();
+            });
+    }
+
+    /**
+     * The listed row an action's "file" argument names (from the last refresh; the service
+     * re-checks against the live folder before changing anything).
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    protected function rowFor(array $arguments): array
+    {
+        return collect($this->rows)->firstWhere('file', (string) ($arguments['file'] ?? '')) ?? [];
+    }
+
     public function identify(string $file): void
     {
         $server = Filament::getTenant();
@@ -190,18 +348,12 @@ class ServerContent extends MinecraftPage implements HasTable
         }
 
         $result = app(ModDetectionService::class)->identifyExact($server, $file);
-
-        foreach ($this->rows as $i => $row) {
-            if (($row['file'] ?? null) === $file) {
-                $this->rows[$i] = array_merge($row, $result);
-                break;
-            }
-        }
+        $this->refreshList();
 
         Notification::make()
             ->title(($result['confidence'] ?? 'unknown') === 'unknown'
                 ? trans('plugged-host-minecraft::strings.mods.identify_unknown')
-                : trans('plugged-host-minecraft::strings.mods.identify_ok', ['name' => $result['title'] ?? $file]))
+                : trans('plugged-host-minecraft::strings.mods.identify_ok', ['name' => $result['name'] ?? $file]))
             ->send();
     }
 
@@ -239,7 +391,12 @@ class ServerContent extends MinecraftPage implements HasTable
             ->filters($this->filterBar())
             ->recordActions($this->rowActions())
             ->searchable()
-            ->searchPlaceholder(trans('plugged-host-minecraft::strings.content.search'))
+            // Follows the Source filter, so the box never names a platform that is not shown.
+            ->searchPlaceholder(fn (): string => trans('plugged-host-minecraft::strings.content.' . match ($this->sourceFrom($this->tableFilters ?? [])) {
+                'curseforge' => 'search_curseforge',
+                'spigotmc' => 'search_spigotmc',
+                default => 'search',
+            }))
             // Every keystroke is a Modrinth request; 600ms is long enough that typing a
             // project name costs one call rather than one per letter.
             ->searchDebounce('600ms')
@@ -275,20 +432,24 @@ class ServerContent extends MinecraftPage implements HasTable
                 ->toggleable(),
             TextColumn::make('downloads')
                 ->label(trans('plugged-host-minecraft::strings.content.col_downloads'))
-                ->numeric()
-                ->badge()
-                ->color('gray'),
+                ->numeric(),
             TextColumn::make('categories')
                 ->label(trans('plugged-host-minecraft::strings.content.col_categories'))
                 ->badge()
+                ->color('gray')
                 ->limitList(3)
                 ->toggleable(),
             TextColumn::make('status')
                 ->label('')
                 ->badge()
-                ->color('success')
-                ->icon(TablerIcon::Check)
-                ->state(fn (array $record): ?string => $this->isProjectInstalled($record) ? trans('plugged-host-minecraft::strings.content.installed_badge') : null),
+                ->color(fn (array $record): string => $this->isProjectInstalled($record) ? 'success' : 'gray')
+                ->tooltip(fn (array $record): ?string => ($record['installable'] ?? true) === false ? trans('plugged-host-minecraft::strings.content.spigot_external_hint') : null)
+                ->state(fn (array $record): ?string => match (true) {
+                    $this->isProjectInstalled($record) => trans('plugged-host-minecraft::strings.content.installed_badge'),
+                    // SpigotMC resources that are premium or hosted elsewhere can only be viewed.
+                    ($record['installable'] ?? true) === false => trans('plugged-host-minecraft::strings.content.spigot_external'),
+                    default => null,
+                }),
         ];
     }
 
@@ -307,22 +468,22 @@ class ServerContent extends MinecraftPage implements HasTable
         $software = $this->software();
         $types = app(ModrinthCatalog::class)->projectTypes($software);
         $versions = $software !== null ? app(MinecraftVersionCatalog::class)->versions($software) : [];
+        $sources = app(ContentSearchService::class)->sources($software);
 
         return [
             // WP12: the content source. Modrinth is the keyless default; CurseForge only
-            // appears when a Core API key is configured (CurseForgeCatalog::configured()),
-            // and it browses that platform's mods/plugins for this server's software. The
-            // records carry their own `platform`, so per-row install/version lookups branch
-            // on the record rather than on this filter — see versionOptions()/pullFile().
+            // appears when a Core API key is configured (CurseForgeCatalog::configured()), and
+            // SpigotMC on Paper-family servers (SpigotCatalog::supports()). The records carry
+            // their own `platform`, so per-row install/version lookups branch on the record
+            // rather than on this filter — see versionOptions()/pullFile().
             SelectFilter::make('source')
                 ->label(trans('plugged-host-minecraft::strings.content.filter_source'))
-                ->options([
-                    'modrinth' => trans('plugged-host-minecraft::strings.content.source_modrinth'),
-                    'curseforge' => trans('plugged-host-minecraft::strings.content.source_curseforge'),
-                ])
+                ->options(collect($sources)->mapWithKeys(fn (string $source): array => [
+                    $source => trans("plugged-host-minecraft::strings.content.source_$source"),
+                ])->all())
                 ->default('modrinth')
                 ->selectablePlaceholder(false)
-                ->hidden(!app(CurseForgeCatalog::class)->configured()),
+                ->hidden(count($sources) < 2),
             SelectFilter::make('kind')
                 ->label(trans('plugged-host-minecraft::strings.content.filter_kind'))
                 ->options(array_combine($types, array_map(
@@ -350,7 +511,6 @@ class ServerContent extends MinecraftPage implements HasTable
         return [
             Action::make('quick_install')
                 ->label(trans('plugged-host-minecraft::strings.content.quick_install'))
-                ->icon(TablerIcon::Download)
                 ->color('primary')
                 ->visible(fn (array $record): bool => ($record['kind'] ?? null) !== 'modpack')
                 ->disabled(fn (array $record): bool => $this->versionOptions($record) === [])
@@ -366,8 +526,8 @@ class ServerContent extends MinecraftPage implements HasTable
                 }),
             Action::make('install')
                 ->label(fn (array $record): string => ($record['kind'] ?? null) === 'modpack' ? trans('plugged-host-minecraft::strings.content.install') : trans('plugged-host-minecraft::strings.content.versions'))
-                ->icon(TablerIcon::Versions)
-                ->modalIcon(TablerIcon::Download)
+                // The row's one accent action: Install for a modpack, else quick install above.
+                ->color(fn (array $record): string => ($record['kind'] ?? null) === 'modpack' ? 'primary' : 'gray')
                 ->modalHeading(fn (array $record): string => trans(
                     'plugged-host-minecraft::strings.content.install_heading',
                     ['name' => $record['title']],
@@ -388,8 +548,18 @@ class ServerContent extends MinecraftPage implements HasTable
                 // Nothing to offer means the project has no build for this loader at all.
                 ->disabled(fn (array $record): bool => $this->versionOptions($record) === []),
             Action::make('modrinth')
-                ->label(trans('plugged-host-minecraft::strings.content.view'))
+                ->label(fn (array $record): string => trans('plugged-host-minecraft::strings.content.' . match ($this->platformOf($record)) {
+                    'curseforge' => 'view_curseforge',
+                    'spigotmc' => 'view_spigotmc',
+                    default => 'view',
+                }))
+                ->iconButton()
                 ->icon(TablerIcon::ExternalLink)
+                ->tooltip(fn (array $record): string => trans('plugged-host-minecraft::strings.content.' . match ($this->platformOf($record)) {
+                    'curseforge' => 'view_curseforge',
+                    'spigotmc' => 'view_spigotmc',
+                    default => 'view',
+                }))
                 ->color('gray')
                 ->url(fn (array $record): string => (string) $record['url'], true),
         ];
@@ -408,6 +578,10 @@ class ServerContent extends MinecraftPage implements HasTable
     {
         if ($this->sourceFrom($filters) === 'curseforge') {
             return $this->fetchCurseForge($search, $filters, $page, $recordsPerPage);
+        }
+
+        if ($this->sourceFrom($filters) === 'spigotmc') {
+            return $this->fetchSpigot($search, $page, $recordsPerPage);
         }
 
         $catalog = app(ModrinthCatalog::class);
@@ -466,8 +640,27 @@ class ServerContent extends MinecraftPage implements HasTable
     }
 
     /**
-     * Which content platform the table is browsing. Defaults to Modrinth, and can only be
-     * CurseForge when a key is configured — the filter that sets it is hidden otherwise.
+     * The SpigotMC branch of fetch(): free Paper-family plugins, most downloaded first. SpigotMC
+     * cannot filter by Minecraft version, so the version filter does not apply here; each
+     * build's tested versions show in the install modal instead.
+     */
+    protected function fetchSpigot(string $search, int $page, int|string $recordsPerPage): LengthAwarePaginator
+    {
+        $perPage = is_numeric($recordsPerPage) ? max(1, (int) $recordsPerPage) : SpigotCatalog::PAGE_SIZE;
+        $result = app(SpigotCatalog::class)->search($search, $perPage, $page);
+
+        return new LengthAwarePaginator(
+            items: collect($result['hits'])->keyBy('id'),
+            total: min($result['total'], 10000),
+            perPage: $perPage,
+            currentPage: $result['page'],
+            options: ['pageName' => $this->getTablePaginationPageName()],
+        );
+    }
+
+    /**
+     * Which content platform the table is browsing: Modrinth by default, otherwise one this
+     * server can browse (the filter only offers those).
      *
      * @param  array<string, array<string, mixed>>  $filters
      */
@@ -475,20 +668,30 @@ class ServerContent extends MinecraftPage implements HasTable
     {
         $source = $filters['source']['value'] ?? null;
 
-        return $source === 'curseforge' && app(CurseForgeCatalog::class)->configured()
-            ? 'curseforge'
+        return is_string($source) && in_array($source, app(ContentSearchService::class)->sources($this->software()), true)
+            ? $source
             : 'modrinth';
     }
 
     /**
-     * Whether a given record came from CurseForge. Records carry their own platform, so an
-     * install started before the source filter changed still resolves against the right API.
+     * Which platform a record came from. Records carry their own platform, so an install
+     * started before the source filter changed still resolves against the right API.
      *
+     * @param  array<string, mixed>  $record
+     */
+    protected function platformOf(array $record): string
+    {
+        $platform = $record['platform'] ?? null;
+
+        return in_array($platform, ContentInstallService::SOURCES, true) ? $platform : 'modrinth';
+    }
+
+    /**
      * @param  array<string, mixed>  $record
      */
     protected function isCurseForge(array $record): bool
     {
-        return ($record['platform'] ?? null) === 'curseforge';
+        return $this->platformOf($record) === 'curseforge';
     }
 
     /**
@@ -532,9 +735,10 @@ class ServerContent extends MinecraftPage implements HasTable
             return $this->projectVersions[$id];
         }
 
-        $versions = $this->isCurseForge($record)
-            ? $this->curseForgeVersions($id)
-            : $this->modrinthVersions($id);
+        $kind = is_string($record['kind'] ?? null) ? $record['kind'] : null;
+        $result = app(ContentInstallService::class)->versions($this->getServer(), $id, $this->platformOf($record), $kind);
+        $this->looseVersions[$id] = $result['loose'];
+        $versions = $result['versions'];
 
         $options = [];
 
@@ -543,54 +747,6 @@ class ServerContent extends MinecraftPage implements HasTable
         }
 
         return $this->projectVersions[$id] = $options;
-    }
-
-    /**
-     * Modrinth's builds for a project, with the loose-version fallback flagged. See the
-     * class docblock on versionOptions() for why the unfiltered second pass exists.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    protected function modrinthVersions(string $id): array
-    {
-        $catalog = app(ModrinthCatalog::class);
-        $loaders = $catalog->loaders($this->software());
-        $gameVersion = $this->gameVersion();
-
-        $versions = $catalog->versions($id, $loaders, $gameVersion);
-        $this->looseVersions[$id] = false;
-
-        if ($versions === [] && $gameVersion !== null) {
-            $versions = $catalog->versions($id, $loaders);
-            $this->looseVersions[$id] = $versions !== [];
-        }
-
-        return $versions;
-    }
-
-    /**
-     * CurseForge's files for a mod, filtered to this server's loader/version, with the same
-     * loose fallback Modrinth gets. CurseForge files carry no `number`, so versionLabel falls
-     * back to the display name.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    protected function curseForgeVersions(string $id): array
-    {
-        $catalog = app(CurseForgeCatalog::class);
-        $modId = (int) $id;
-        $loader = $this->software();
-        $gameVersion = $this->gameVersion();
-
-        $versions = $catalog->files($modId, $gameVersion, $loader);
-        $this->looseVersions[$id] = false;
-
-        if ($versions === [] && $gameVersion !== null) {
-            $versions = $catalog->files($modId, null, $loader);
-            $this->looseVersions[$id] = $versions !== [];
-        }
-
-        return $versions;
     }
 
     /**
@@ -621,13 +777,19 @@ class ServerContent extends MinecraftPage implements HasTable
     {
         $this->versionOptions($record);
 
-        if (!($this->looseVersions[(string) ($record['id'] ?? '')] ?? false)) {
-            return null;
+        $help = [];
+
+        if ($this->platformOf($record) === 'spigotmc') {
+            $help[] = trans('plugged-host-minecraft::strings.content.spigot_latest_only');
         }
 
-        return trans('plugged-host-minecraft::strings.content.version_loose', [
-            'version' => (string) $this->gameVersion(),
-        ]);
+        if ($this->looseVersions[(string) ($record['id'] ?? '')] ?? false) {
+            $help[] = trans('plugged-host-minecraft::strings.content.version_loose', [
+                'version' => (string) $this->gameVersion(),
+            ]);
+        }
+
+        return $help === [] ? null : implode(' ', $help);
     }
 
     /**
@@ -650,39 +812,13 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function findVersion(array $record, string $versionId): ?array
     {
-        $id = (string) ($record['id'] ?? '');
-
-        if ($this->isCurseForge($record)) {
-            $catalog = app(CurseForgeCatalog::class);
-            $loader = $this->software();
-
-            // Both passes, in the order curseForgeVersions() built them, so a pick made from
-            // the loose fallback still resolves.
-            foreach ([$this->gameVersion(), null] as $gameVersion) {
-                foreach ($catalog->files((int) $id, $gameVersion, $loader) as $version) {
-                    if ((string) $version['id'] === $versionId) {
-                        return $version;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        $catalog = app(ModrinthCatalog::class);
-        $loaders = $catalog->loaders($this->software());
-
-        // Both lists, in the order versionOptions() built them, so a pick made from the
-        // loose fallback still resolves.
-        foreach ([$this->gameVersion(), null] as $gameVersion) {
-            foreach ($catalog->versions($id, $loaders, $gameVersion) as $version) {
-                if ((string) $version['id'] === $versionId) {
-                    return $version;
-                }
-            }
-        }
-
-        return null;
+        return app(ContentInstallService::class)->find(
+            $this->getServer(),
+            (string) ($record['id'] ?? ''),
+            $versionId,
+            $this->platformOf($record),
+            is_string($record['kind'] ?? null) ? $record['kind'] : null,
+        );
     }
 
     /**
@@ -723,13 +859,21 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function queueModpack(Server $server, array $record, array $version): void
     {
-        InstallModpackJob::dispatch(
+        // One path for both platforms: the service dispatches the CurseForge job for CurseForge
+        // packs (their ids are mod/file numbers, which the Modrinth job cannot read).
+        $result = app(ContentSearchService::class)->queueModpack(
             $server,
             (string) $record['id'],
             (string) $version['id'],
-            (string) $record['title'],
+            $this->isCurseForge($record) ? 'curseforge' : 'modrinth',
             user()?->id,
         );
+
+        if (!($result['ok'] ?? false)) {
+            $this->failed(trans('plugged-host-minecraft::strings.content.modpack_failed'));
+
+            return;
+        }
 
         Notification::make()
             ->success()
@@ -757,7 +901,17 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function pullFile(array $record, array $version): void
     {
-        if ($this->isCurseForge($record)) {
+        if ($this->platformOf($record) === 'spigotmc') {
+            // SpigotCatalog already resolved where the jar can be fetched and a safe name for it.
+            $file = ['url' => (string) ($version['download_url'] ?? ''), 'filename' => (string) ($version['file_name'] ?? '')];
+            $directory = 'plugins';
+
+            if ($file['url'] === '' || $file['filename'] === '') {
+                $this->failed(trans('plugged-host-minecraft::strings.content.no_file'));
+
+                return;
+            }
+        } elseif ($this->isCurseForge($record)) {
             $cf = app(CurseForgeCatalog::class);
             $url = $cf->downloadUrl((int) ($record['id'] ?? 0), (int) ($version['id'] ?? 0));
 
@@ -782,37 +936,10 @@ class ServerContent extends MinecraftPage implements HasTable
             $directory = $catalog->directoryFor((string) ($record['kind'] ?? 'mod'));
         }
 
-        try {
-            // A server that has never booted has no plugins/ or mods/ yet, and wings will
-            // not invent one. Failing here is fine — either it already exists, or the pull
-            // below reports the real problem.
-            $this->files()->createDirectory($directory, '/');
-        } catch (Throwable) {
-            //
-        }
+        if (app(ContentInstallService::class)->pull($this->getServer(), $file['url'], $file['filename'], $directory) !== null) {
+            $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
 
-        $retries = 0;
-        while ($retries < 10) {
-            try {
-                $this->files()->pull($file['url'], $directory, ['filename' => $file['filename']]);
-                break;
-            } catch (RequestException $exception) {
-                if ($exception->response?->status() === 400 && str_contains($exception->response->body(), 'simultaneous remote file downloads')) {
-                    $retries++;
-                    usleep(500000);
-                    continue;
-                }
-
-                report($exception);
-                $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
-
-                return;
-            } catch (Throwable $exception) {
-                report($exception);
-                $this->failed(trans('plugged-host-minecraft::strings.content.pull_failed'));
-
-                return;
-            }
+            return;
         }
 
         Activity::event('server:file.pull')

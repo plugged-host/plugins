@@ -2,7 +2,7 @@
     "id": "plugged-host-queue",
     "name": "plugged.host Queue",
     "author": "plugged.host",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "Holds a server start back while its node is genuinely over capacity, parks the user on an ad-funded waiting page for as long as that lasts, and sells a place at the front of that line for tokens.",
     "category": "plugin",
     "url": null,

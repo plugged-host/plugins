@@ -12,18 +12,20 @@ use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
 use PluggedHost\Servers\Filament\Server\Pages\ServerSettings;
-use PluggedHost\Core\Livewire\AccountChips;
 use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Core\Services\AllocationInvariant;
 use PluggedHost\Core\Services\GuardedBuildModificationService;
 use PluggedHost\Core\Services\GuardedServerDeletionService;
 use PluggedHost\Core\Services\GuardedTransferServerService;
+use PluggedHost\Core\Livewire\PanelTourOverlay;
+use PluggedHost\Core\Support\PanelTour;
 use Throwable;
 
 class CoreRuntimeServiceProvider extends ServiceProvider
@@ -156,40 +158,44 @@ class CoreRuntimeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Livewire::component('plugged-host-account-chips', AccountChips::class);
+        Livewire::component('plugged-host-core.panel-tour', PanelTourOverlay::class);
+
+        // --- Welcome tour ---------------------------------------------------------------
+        //
+        // Drawn over the real pages, so each part is mounted only on the page it walks
+        // through: the first on the server list, the second on a server's console. BODY_END
+        // rather than PAGE_END so the overlay's position: fixed is relative to the window and
+        // not to some transformed ancestor inside the page. Scoped by page class, which
+        // base.blade.php passes to BODY_END, so every other page skips the closure entirely.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn (): Htmlable => $this->renderTour('panel'),
+            ListServers::class,
+        );
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn (): Htmlable => $this->renderTour('server'),
+            Console::class,
+        );
 
         // --- Topbar ---------------------------------------------------------------------
         //
-        // Both hooks are registered *unscoped* and filter inside the closure, which is not
-        // laziness: ViewManager::renderHook() only renders `renderHooks[$name]['']` unless the
-        // call site passes scopes, and Filament's topbar.blade.php calls both of these with no
-        // scopes at all. A hook registered with `scopes: 'app'` would therefore never render.
+        // Registered *unscoped* and filtered inside the closure, which is not laziness:
+        // ViewManager::renderHook() only renders `renderHooks[$name]['']` unless the call site
+        // passes scopes, and Filament's topbar.blade.php calls it with no scopes at all.
 
         // The wordmark beside the logo. APP_LOGO is set, so Filament's logo component takes its
         // <img> branch and brandName is never drawn.
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_LOGO_AFTER,
             function (): Htmlable {
-                if (!in_array(Filament::getCurrentOrDefaultPanel()?->getId(), AccountChips::PANELS, true)) {
+                if (!in_array(Filament::getCurrentOrDefaultPanel()?->getId(), ['app', 'server'], true)) {
                     return new HtmlString('');
                 }
 
                 return new HtmlString(
                     (string) view('plugged-host-core::filament.components.brand-text')->render(),
-                );
-            },
-        );
-
-        // Tokens / credits / quota, immediately left of the notification bell.
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
-            function (): Htmlable {
-                if (!AccountChips::shouldRender()) {
-                    return new HtmlString('');
-                }
-
-                return new HtmlString(
-                    (string) view('plugged-host-core::filament.components.account-chips-host')->render(),
                 );
             },
         );
@@ -224,5 +230,31 @@ class CoreRuntimeServiceProvider extends ServiceProvider
             },
             Console::class,
         );
+    }
+
+    /**
+     * The tour part due on this page, or nothing. Rendered inside the try, for the reason
+     * theme v2's sidebar hooks give: a render hook that throws takes the page down with it,
+     * and a tour is never worth that.
+     */
+    private function renderTour(string $part): Htmlable
+    {
+        try {
+            $user = auth()->user();
+            $due = $part === 'server' ? PanelTour::serverPartActive($user) : PanelTour::panelPartActive($user);
+
+            if (!$due) {
+                return new HtmlString('');
+            }
+
+            return new HtmlString(Blade::render(
+                "@livewire('plugged-host-core.panel-tour', ['part' => \$part])",
+                ['part' => $part],
+            ));
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return new HtmlString('');
+        }
     }
 }

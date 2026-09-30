@@ -4,8 +4,7 @@ return [
     'nav' => [
         'notifications' => 'Benachrichtigungen',
         'home' => 'Startseite',
-        'new_server' => 'Neuer Server',
-        'store' => 'Shop',
+        'backups' => 'Backups',
         'profile_settings' => 'Profileinstellungen',
         'admin_panel' => 'Admin-Bereich',
     ],
@@ -13,8 +12,20 @@ return [
     'balance' => [
         'tokens' => 'Tokens',
         'credits' => 'Credits',
-        'go_to_store' => 'Zum Shop',
+        'open_tokens' => 'Token-Shop öffnen',
+        'open_credits' => 'Ressourcen-Shop öffnen',
+    ],
+
+    'usage' => [
+        'cpu' => 'CPU',
+        'memory' => 'RAM',
+        'disk' => 'Speicher',
+        'open_store' => 'Mehr im Ressourcen-Shop holen',
     ],
 
     'beta' => 'v2 Beta',
+
+    'profile' => [
+        'language_time' => 'Sprache und Zeitzone',
+    ],
 ];

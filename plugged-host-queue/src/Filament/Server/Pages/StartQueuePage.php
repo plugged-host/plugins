@@ -325,8 +325,9 @@ class StartQueuePage extends Page
      * The wait is cancelled rather than released, and that distinction matters: a
      * server whose data directory is copying between nodes cannot start, so dispatching
      * the power action here would fail and look like the queue had lost the request.
-     * The user is told the transfer is running and sent to the console, where upstream's
-     * own transfer state is shown; they press Start themselves when it lands.
+     * The user is told the transfer is running and sent to the Transfer page, where the
+     * orchestrator in plugged-host-servers shows its progress and starts the server when it
+     * lands. Without that plugin they go to the console and press Start themselves.
      */
     public function takeTransfer(): void
     {
@@ -348,6 +349,15 @@ class StartQueuePage extends Page
             }
 
             $this->notify('transfer_started');
+
+            $page = 'PluggedHost\\Servers\\Filament\\Server\\Pages\\ServerTransferPage';
+
+            if ($this->transfers()->orchestrated() && class_exists($page)) {
+                $this->redirect($page::getUrl(tenant: $server), navigate: false);
+
+                return;
+            }
+
             $this->finish();
 
             return;
