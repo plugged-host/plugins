@@ -331,24 +331,79 @@ class LimboService
      *
      * @return array{ok: bool, reason?: string, cost?: int}
      */
-    public function restore(mixed $user, Server $server): array
+    public function restore(mixed $user, Server $server, ?string $location = null): array
     {
-        // On the server panel, Filament scopes every query on a server resource's model
-        // (allocations, backups, …) to the open server: the free ports on the destination node,
-        // and upstream's own port reservation for the transfer, would come back empty. The
-        // restore runs without that scope and puts the tenant back afterwards.
+        return $this->withoutTenant(fn (): array => $this->restoreUnscoped($user, $server, $location));
+    }
+
+    /**
+     * Whether the server can go back where it came from (its origin node, or a node with the
+     * same tags). When it cannot, the owner picks one of restoreLocations().
+     */
+    public function canRestoreHome(Server $server): bool
+    {
+        return $this->withoutTenant(function () use ($server): bool {
+            $state = $this->state($server);
+
+            return $state !== null && $this->restoreDestination($server, $state) !== null;
+        });
+    }
+
+    /**
+     * The owner's unlocked locations with room for this server, from plugged-host-servers'
+     * transfer planner (the same list the Transfer page offers).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function restoreLocations(Server $server): array
+    {
+        $planner = $this->planner();
+
+        if ($planner === null) {
+            return [];
+        }
+
+        return $this->withoutTenant(function () use ($planner, $server): array {
+            try {
+                return $planner->locations($server)
+                    ->filter(fn (array $location): bool => ($location['available'] ?? false)
+                        && ($location['unlocked'] ?? true)
+                        && !($location['current'] ?? false))
+                    ->values()
+                    ->all();
+            } catch (Throwable $e) {
+                report($e);
+
+                return [];
+            }
+        });
+    }
+
+    /**
+     * On the server panel, Filament scopes every query on a server resource's model
+     * (allocations, backups, …) to the open server: free ports on other nodes, and upstream's
+     * own port reservation for the transfer, would come back empty. Run without that scope
+     * and put the tenant back afterwards.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    private function withoutTenant(callable $callback): mixed
+    {
         $tenant = Filament::getTenant();
         Filament::setTenant(null, isQuiet: true);
 
         try {
-            return $this->restoreUnscoped($user, $server);
+            return $callback();
         } finally {
             Filament::setTenant($tenant, isQuiet: true);
         }
     }
 
     /** @return array{ok: bool, reason?: string, cost?: int} */
-    private function restoreUnscoped(mixed $user, Server $server): array
+    private function restoreUnscoped(mixed $user, Server $server, ?string $location): array
     {
         if (!$this->tableReady()) {
             return ['ok' => false, 'reason' => 'unavailable'];
@@ -363,6 +418,14 @@ class LimboService
 
         $cost = $this->cost($state);
         $destination = $this->restoreDestination($server, $state);
+
+        if ($destination === null && $location !== null) {
+            $destination = $this->locationDestination($server, $location);
+
+            if ($destination === null) {
+                return ['ok' => false, 'reason' => 'location_full', 'cost' => $cost];
+            }
+        }
 
         if ($destination === null) {
             return ['ok' => false, 'reason' => 'no_destination', 'cost' => $cost];
@@ -559,6 +622,43 @@ class LimboService
         }
 
         return null;
+    }
+
+    /**
+     * A node in $location with room and ports for the server, when $location is one of the
+     * owner's (the planner creates missing ports, keeping the numbers where they are free).
+     *
+     * @return array{0: Node, 1: int, 2: array<int, int>}|null
+     */
+    private function locationDestination(Server $server, string $location): ?array
+    {
+        $planner = $this->planner();
+
+        if ($planner === null || !in_array($location, array_column($this->restoreLocations($server), 'code'), true)) {
+            return null;
+        }
+
+        try {
+            foreach ($planner->destinations($server, $location) as $node) {
+                $allocations = $planner->allocationsOn($server, $node);
+
+                if ($allocations !== null) {
+                    return [$node, (int) $allocations['primary'], array_map(intval(...), $allocations['additional'])];
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return null;
+    }
+
+    /** plugged-host-servers' transfer planner (locations, nodes, ports), when installed. */
+    private function planner(): ?object
+    {
+        $planner = 'PluggedHost\\Servers\\Services\\Transfers\\TransferPlanner';
+
+        return class_exists($planner) ? app($planner) : null;
     }
 
     /** @return array<int, string> */

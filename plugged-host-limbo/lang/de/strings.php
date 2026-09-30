@@ -8,6 +8,11 @@ return [
     'restoring' => 'Dein Server ist auf dem Weg zurück auf einen aktiven Node. Das dauert ein paar Minuten; die Konsole öffnet sich wieder, sobald er angekommen ist.',
     'insufficient' => 'Du benötigst :cost Tokens, um diesen Server wiederherzustellen.',
     'failed' => 'Wiederherstellung konnte nicht gestartet werden. Es wurden keine Tokens abgebucht.',
+    'location_full' => 'Dort ist gerade kein Platz für diesen Server. Wähle unten einen Standort. Es wurden keine Tokens abgebucht.',
+    'pick_title' => 'Standort wählen',
+    'pick_body' => 'Der Standort, von dem dieser Server kam, ist gerade voll. Wähle einen deiner Standorte, um ihn dort wiederherzustellen. Seine Adresse ändert sich dabei.',
+    'pick_none' => 'Keiner deiner Standorte hat gerade Platz für diesen Server. Versuche es später noch einmal.',
+    'ms' => ':ms ms',
     'body' => 'Dieser Server war längere Zeit inaktiv und wurde in den Ruhezustand versetzt, um Kapazität freizugeben. Stelle ihn wieder her, um ihn wieder online zu bringen.',
 
     'entered' => ':time in den Ruhezustand versetzt',

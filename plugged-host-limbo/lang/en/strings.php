@@ -8,6 +8,11 @@ return [
     'restoring' => 'Your server is on its way back to a live node. This takes a few minutes; the console opens again as soon as it has arrived.',
     'insufficient' => 'You need :cost tokens to restore this server.',
     'failed' => 'Restore could not be started. No tokens were spent.',
+    'location_full' => 'There is no room for this server there right now. Pick a location below. No tokens were spent.',
+    'pick_title' => 'Choose a location',
+    'pick_body' => 'The location this server came from is full right now. Pick one of your locations to restore it there. Its address will change.',
+    'pick_none' => 'None of your locations has room for this server right now. Try again later.',
+    'ms' => ':ms ms',
     'body' => 'This server was idle for a while, so it was moved to hibernation to free up capacity. Restore it to bring it back online.',
 
     'entered' => 'Hibernated :time',
