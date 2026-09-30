@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.3
+
+- The storage exemptions now apply to limbo: before a server is moved to the limbo node, the
+  storage agent's exclude list (node_modules, caches, logs, …, read from `agent.mjs` through
+  plugged-host-storage's new `StorageService::excludePatterns()`, so there is one list) is deleted
+  from it, since a wings transfer cannot skip anything. FiveM's `alpine` runtime is kept.
+  `LIMBO_PRUNE=false` turns it off. (`ExemptionPruner`)
+- Circuit breaker: when the last three moves to the limbo node all failed, new moves pause for an
+  hour, then probe one at a time — so a limbo node that refuses transfers does not have the sweep
+  prune and fail its way through every idle server.
+- README: the idle clock counts every logged action on the server (owner, subuser, admin, and
+  system events such as crashes and scheduled backups); opening the console does not.
+- Version bump to 1.2.3.
+
 ## 1.2.2
 
 - Fix: a hibernated server had no way back. Upstream disables every power button on a suspended

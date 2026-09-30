@@ -2,7 +2,7 @@
     "id": "plugged-host-limbo",
     "name": "plugged.host Limbo",
     "author": "plugged.host",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "description": "Idle-server hibernation: stop, then park an idle server on the limbo node, restorable by the owner for a token ransom. Ships dark (LIMBO_ENABLED=false).",
     "category": "plugin",
     "url": null,

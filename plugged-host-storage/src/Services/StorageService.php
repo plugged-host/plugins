@@ -54,6 +54,35 @@ class StorageService
     }
 
     /**
+     * The folder/file exemptions the agent leaves out of mirrors and archives, read from the
+     * `EXCLUDES` list in agent/agent.mjs itself so there is one list and it cannot drift. Limbo
+     * applies the same list before a server is moved to the limbo node.
+     *
+     * rsync/tar semantics: a pattern without a slash matches a name at any depth, one with a
+     * slash matches trailing path components. Empty when the agent source cannot be read.
+     *
+     * @return array<int, string>
+     */
+    public function excludePatterns(): array
+    {
+        static $patterns = null;
+
+        if ($patterns !== null) {
+            return $patterns;
+        }
+
+        $source = @file_get_contents(plugin_path('plugged-host-storage', 'agent/agent.mjs'));
+
+        if (!is_string($source) || !preg_match('/const EXCLUDES = \[(.*?)\];/s', $source, $block)) {
+            return $patterns = [];
+        }
+
+        preg_match_all("/'([^']+)'/", (string) preg_replace('~//[^\n]*~', '', $block[1]), $matches);
+
+        return $patterns = array_values(array_unique($matches[1]));
+    }
+
+    /**
      * An HMAC-signed URL wings can pull a server's on-demand mirror tar from (fact 17). Null when
      * the plugin is unconfigured or the server has no fresh replica to restore.
      */

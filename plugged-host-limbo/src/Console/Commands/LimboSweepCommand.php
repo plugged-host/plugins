@@ -18,8 +18,8 @@ use Throwable;
  * Guards, all of them: skip conflict-state / installing / restoring / mid-transfer servers,
  * skip suspended, skip nodes under maintenance, skip disk=0 (unbounded volume), only move a
  * server the sweep has already stopped, back off a day after a failed move, cap the moves in
- * flight at once (not per run: a move takes minutes, and the limbo node is small), and the
- * global kill switch.
+ * flight at once (not per run: a move takes minutes, and the limbo node is small), pause moves
+ * while the limbo node refuses them (LimboService::moveBudget()), and the global kill switch.
  */
 class LimboSweepCommand extends Command
 {
@@ -54,7 +54,11 @@ class LimboSweepCommand extends Command
         $transferHours = (int) config('plugged-host-limbo.transfer_hours', 72);
         $cap = max(1, (int) config('plugged-host-limbo.max_per_run', 3));
 
-        $moveSlots = max(0, $cap - ServerLimboState::query()->where('state', 'hibernating')->count());
+        $moveSlots = $limbo->moveBudget($cap);
+
+        if ($moveSlots === 0 && ServerLimboState::query()->where('state', 'hibernating')->count() < $cap) {
+            $this->warn('The last moves to the limbo node all failed — new moves are paused (one probe an hour).');
+        }
 
         $stopped = 0;
         $hibernated = 0;

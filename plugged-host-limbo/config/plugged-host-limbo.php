@@ -23,8 +23,16 @@ return [
     // from UCS_DEPLOYMENT_TAGS). Owned by plugged-host-storage::StorageService::limboNode().
     'node_tag' => env('LIMBO_NODE_TAG', 'limbo'),
 
-    // Per-run cap so a first sweep after a long outage cannot start twenty transfers at once.
+    // Moves to the limbo node in flight at once (and stops per sweep): a move takes minutes and
+    // the limbo node is small.
     'max_per_run' => (int) env('LIMBO_MAX_PER_RUN', 3),
+
+    // Apply the storage exemptions (plugged-host-storage's agent EXCLUDES: node_modules, caches,
+    // logs, …) before a move: a wings transfer cannot skip them, so they are deleted from the
+    // server first and do not come back on restore. prune_keep patterns, and everything under
+    // them, are left alone (FiveM's `alpine` is its runtime; without it the server cannot start).
+    'prune' => (bool) env('LIMBO_PRUNE', true),
+    'prune_keep' => ['alpine'],
 
     // Ransom. Early = restored within the window after entering limbo; late = after it.
     'cost_early' => (int) env('LIMBO_COST_EARLY', 5),
