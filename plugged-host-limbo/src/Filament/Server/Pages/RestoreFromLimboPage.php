@@ -30,6 +30,9 @@ class RestoreFromLimboPage extends Page
 
     public ?string $enteredAt = null;
 
+    /** The move back is in flight: the page shows progress instead of the button. */
+    public bool $restoring = false;
+
     /** Whether the current request is this page — for the ads interstitial registry (WP4/WP5). */
     public static function isCurrentRoute(): bool
     {
@@ -58,9 +61,10 @@ class RestoreFromLimboPage extends Page
             return false;
         }
 
-        $state = app(LimboService::class)->state($server);
+        $limbo = app(LimboService::class);
+        $state = $limbo->state($server);
 
-        return $state !== null && in_array($state->state, ['limbo', 'restoring'], true);
+        return $state !== null && ($state->state === 'restoring' || $limbo->isParked($server, $state));
     }
 
     public function mount(): void
@@ -71,7 +75,23 @@ class RestoreFromLimboPage extends Page
         if ($state !== null) {
             $this->cost = app(LimboService::class)->cost($state);
             $this->enteredAt = $state->limbo_at?->diffForHumans();
+            $this->restoring = $state->state === 'restoring';
         }
+    }
+
+    /**
+     * Polled while the move back runs. Once it has settled, open the Console: it is the server
+     * again, or (a failed move, refunded) the Console sends the owner straight back here.
+     */
+    public function checkRestore(): void
+    {
+        $server = Filament::getTenant();
+
+        if (!$server instanceof Server || app(LimboService::class)->state($server)?->state === 'restoring') {
+            return;
+        }
+
+        $this->redirect(\App\Filament\Server\Pages\Console::getUrl(panel: 'server', tenant: $server));
     }
 
     public function getTitle(): string
@@ -100,6 +120,7 @@ class RestoreFromLimboPage extends Page
         return [
             Action::make('restore')
                 ->label(trans('plugged-host-limbo::strings.restore'))
+                ->visible(fn () => !$this->restoring)
                 ->requiresConfirmation()
                 ->modalDescription(fn () => trans('plugged-host-limbo::strings.confirm', ['cost' => $this->cost]))
                 ->action('restore'),
@@ -119,7 +140,7 @@ class RestoreFromLimboPage extends Page
 
         if ($result['ok'] ?? false) {
             Notification::make()->title(trans('plugged-host-limbo::strings.restored'))->success()->send();
-            $this->redirect(\App\Filament\Server\Pages\Console::getUrl(panel: 'server', tenant: $server));
+            $this->restoring = true;
 
             return;
         }

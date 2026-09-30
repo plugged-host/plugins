@@ -36,6 +36,12 @@ class PluggedHostLimboPlugin implements HasPluginSettings, Plugin
         $panel->discoverPages(plugin_path($this->getId(), "src/Filament/$id/Pages"), "PluggedHost\\Limbo\\Filament\\$id\\Pages");
         $panel->discoverResources(plugin_path($this->getId(), "src/Filament/$id/Resources"), "PluggedHost\\Limbo\\Filament\\$id\\Resources");
         $panel->discoverWidgets(plugin_path($this->getId(), "src/Filament/$id/Widgets"), "PluggedHost\\Limbo\\Filament\\$id\\Widgets");
+
+        if ($panel->getId() === 'server') {
+            $panel->tenantMiddleware([
+                \PluggedHost\Limbo\Http\Middleware\RedirectToRestorePage::class,
+            ]);
+        }
     }
 
     public function boot(Panel $panel): void {}

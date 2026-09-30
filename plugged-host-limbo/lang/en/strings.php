@@ -5,8 +5,9 @@ return [
     'restore' => 'Restore server',
     'confirm' => 'Restoring will spend :cost tokens and move your server back to a live node.',
     'restored' => 'Your server is being restored.',
+    'restoring' => 'Your server is on its way back to a live node. This takes a few minutes; the console opens again as soon as it has arrived.',
     'insufficient' => 'You need :cost tokens to restore this server.',
-    'failed' => 'Restore could not be completed. No tokens were spent.',
+    'failed' => 'Restore could not be started. No tokens were spent.',
     'body' => 'This server was idle for a while, so it was moved to hibernation to free up capacity. Restore it to bring it back online.',
 
     'entered' => 'Hibernated :time',
@@ -28,8 +29,8 @@ return [
         'transfer_hours_hint' => 'Hours of no panel activity before a stopped server is moved to the limbo node.',
         'node_tag' => 'Limbo node tag',
         'node_tag_hint' => 'Tag that identifies the limbo node. Must not be a country code and must be excluded from UCS deployment tags.',
-        'max_per_run' => 'Max transfers per run',
-        'max_per_run_hint' => 'Cap on how many servers a single sweep may move, so one run after an outage cannot start dozens of transfers at once.',
+        'max_per_run' => 'Max transfers at once',
+        'max_per_run_hint' => 'How many servers may be on their way to the limbo node at the same time (also the most servers one sweep stops). A move takes minutes, so this keeps the limbo node from being flooded.',
 
         'section_ransom' => 'Restore cost',
         'section_ransom_hint' => 'Token ransom the owner pays to restore a hibernated server back to a live node.',

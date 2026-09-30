@@ -12,12 +12,20 @@ use Throwable;
  * The idle sweep (WP5). Scheduled every minute (LimboPluginProvider), and runnable by hand with
  * --status / --dry-run. Nothing here depends on a page being open.
  *
+ * Every run first settles moves wings has finished (LimboService::reconcile()) — also while
+ * LIMBO_ENABLED is false, so switching limbo off never strands a server mid-move.
+ *
  * Guards, all of them: skip conflict-state / installing / restoring / mid-transfer servers,
- * skip suspended, skip nodes under maintenance, skip disk=0 (unbounded volume), a per-run cap
- * so a first run after an outage cannot start twenty transfers, and the global kill switch.
+ * skip suspended, skip nodes under maintenance, skip disk=0 (unbounded volume), only move a
+ * server the sweep has already stopped, back off a day after a failed move, cap the moves in
+ * flight at once (not per run: a move takes minutes, and the limbo node is small), and the
+ * global kill switch.
  */
 class LimboSweepCommand extends Command
 {
+    /** Hours before a server whose move to limbo failed is tried again. */
+    private const RETRY_HOURS = 24;
+
     protected $signature = 'plugged-host:limbo-sweep {--dry-run : Report actions without taking them} {--status : Alias for --dry-run}';
 
     protected $description = 'Stop and hibernate idle servers, and hand hibernated ones to the limbo node.';
@@ -31,9 +39,12 @@ class LimboSweepCommand extends Command
         }
 
         $dryRun = (bool) ($this->option('dry-run') || $this->option('status'));
-        $enabled = $limbo->enabled();
 
-        if (!$enabled && !$dryRun) {
+        foreach ($limbo->reconcile($dryRun) as $line) {
+            $this->line('  ' . $line);
+        }
+
+        if (!$limbo->enabled() && !$dryRun) {
             $this->warn('LIMBO_ENABLED is false — limbo is dark. Use --status to preview.');
 
             return self::SUCCESS;
@@ -43,12 +54,13 @@ class LimboSweepCommand extends Command
         $transferHours = (int) config('plugged-host-limbo.transfer_hours', 72);
         $cap = max(1, (int) config('plugged-host-limbo.max_per_run', 3));
 
+        $moveSlots = max(0, $cap - ServerLimboState::query()->where('state', 'hibernating')->count());
+
         $stopped = 0;
         $hibernated = 0;
-        $acted = 0;
 
         foreach ($this->candidates() as $server) {
-            if ($acted >= $cap) {
+            if ($stopped >= $cap && $hibernated >= $moveSlots) {
                 break;
             }
 
@@ -60,22 +72,36 @@ class LimboSweepCommand extends Command
             $existing = $limbo->state($server);
             $current = $existing?->state;
 
-            // Past transfer threshold and not already in limbo → hibernate.
-            if ($idle >= $transferHours && !in_array($current, ['limbo', 'restoring'], true)) {
-                $this->line(sprintf('  HIBERNATE  %s (idle %.1fh)', $server->uuid, $idle));
-                if (!$dryRun && $limbo->hibernate($server)) {
-                    $hibernated++;
-                    $acted++;
+            // Stopped by us and past the transfer threshold (or a failed move, after the back-off)
+            // → move it to limbo.
+            $retry = $current === 'failed' && $existing->updated_at?->lte(now()->subHours(self::RETRY_HOURS));
+
+            if ($idle >= $transferHours && ($current === 'stopped' || $retry)) {
+                if ($hibernated >= $moveSlots) {
+                    continue;
                 }
+
+                $this->line(sprintf('  HIBERNATE  %s (idle %.1fh)', $server->uuid, $idle));
+                $hibernated++;
+
+                if (!$dryRun) {
+                    $limbo->hibernate($server);
+                }
+
                 continue;
             }
 
-            // Past stop threshold and still running (no marker yet) → stop.
-            if ($idle >= $stopHours && $current === null) {
+            // Past stop threshold and no marker yet (or back from limbo) → stop.
+            if ($idle >= $stopHours && in_array($current, [null, 'restored'], true)) {
+                if ($stopped >= $cap) {
+                    continue;
+                }
+
                 $this->line(sprintf('  STOP       %s (idle %.1fh)', $server->uuid, $idle));
-                if (!$dryRun && $limbo->stop($server)) {
-                    $stopped++;
-                    $acted++;
+                $stopped++;
+
+                if (!$dryRun) {
+                    $limbo->stop($server);
                 }
             }
         }
