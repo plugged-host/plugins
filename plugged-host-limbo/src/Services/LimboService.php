@@ -11,6 +11,7 @@ use App\Models\ServerTransfer;
 use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Servers\TransferServerService;
 use Carbon\CarbonInterface;
+use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -331,6 +332,23 @@ class LimboService
      * @return array{ok: bool, reason?: string, cost?: int}
      */
     public function restore(mixed $user, Server $server): array
+    {
+        // On the server panel, Filament scopes every query on a server resource's model
+        // (allocations, backups, …) to the open server: the free ports on the destination node,
+        // and upstream's own port reservation for the transfer, would come back empty. The
+        // restore runs without that scope and puts the tenant back afterwards.
+        $tenant = Filament::getTenant();
+        Filament::setTenant(null, isQuiet: true);
+
+        try {
+            return $this->restoreUnscoped($user, $server);
+        } finally {
+            Filament::setTenant($tenant, isQuiet: true);
+        }
+    }
+
+    /** @return array{ok: bool, reason?: string, cost?: int} */
+    private function restoreUnscoped(mixed $user, Server $server): array
     {
         if (!$this->tableReady()) {
             return ['ok' => false, 'reason' => 'unavailable'];
