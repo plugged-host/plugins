@@ -1602,6 +1602,123 @@ body {
 }
 
 /* =============================================================================
+ * Server console (upstream filament.components.server-console, Console page).
+ *
+ * The terminal's inner padding, at every width. Upstream's console.css pads each DOM-renderer
+ * row by 10px, which FitAddon cannot see: it sizes the grid for the full width and the padding
+ * pushes the last characters of every wrapped line out of view (the WebGL renderer draws no
+ * rows, so there the text touched the edge instead). Padding `.xterm` itself is what FitAddon
+ * subtracts. That uncovers xterm.css's black `.xterm-viewport`, so the viewport takes upstream's
+ * terminal colour, opaque: core's console script makes the theme's `rgba(19,26,32,0.7)` opaque
+ * too, and blending a colour over itself changes nothing, so the padding, the DOM renderer and
+ * the WebGL canvas all come out the same.
+ * ============================================================================= */
+
+#terminal .xterm {
+    padding: 0.25rem 0.625rem;
+}
+
+#terminal .xterm .xterm-rows > div {
+    padding: 0;
+}
+
+#terminal .xterm .xterm-viewport {
+    background-color: rgb(19 26 32);
+}
+
+/* Phones (below Filament's `sm`): the power buttons beside the title as icons (their labels stay
+   as accessible text), the six stat cards as one card with a line each (the server cards' narrow
+   layout), a 1rem gutter so the terminal gets the width, and a command line with a real touch
+   target. The terminal's 12px font is set in core's console script: xterm takes it from JS. */
+@media (max-width: 39.99rem) {
+    .fi-main:has(.fi-console-page) {
+        padding-inline: 1rem;
+    }
+
+    .fi-console-page .fi-page-header-main-ctn {
+        row-gap: 1.25rem;
+    }
+
+    .fi-console-page .fi-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .fi-console-page .fi-header-actions-ctn {
+        flex: none;
+    }
+
+    .fi-console-page .fi-header-actions-ctn .fi-btn-group > .fi-btn:not(.fi-link) {
+        width: 2.75rem !important;
+        height: 2.75rem;
+        padding: 0;
+        gap: 0;
+        justify-content: center;
+        font-size: 0;
+    }
+
+    .fi-console-page .fi-page-content > .fi-wi {
+        row-gap: 1rem;
+    }
+
+    .fi-console-page .fi-wi-stats-overview .fi-section-content {
+        gap: 0.625rem;
+        padding: 1.125rem 1.25rem;
+        border-radius: 1rem;
+        background-color: var(--phv2-raise);
+    }
+
+    .fi-console-page .fi-small-stat-block {
+        padding: 0;
+        border-radius: 0;
+        background-color: transparent;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .fi-console-page .fi-small-stat-block > span {
+        display: flex;
+        min-width: 0;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+        line-height: 1.25rem;
+    }
+
+    .fi-console-page .fi-small-stat-block > span > span:first-child {
+        flex: none;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--phv2-text-muted);
+    }
+
+    .fi-console-page .fi-small-stat-block > span > span:last-child {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--phv2-text);
+    }
+
+    .fi-console-page div:has(> #send-command) {
+        min-height: 2.75rem;
+        padding-inline: 0.625rem 0.25rem;
+        gap: 0.375rem;
+    }
+
+    /* 16px, or iOS zooms the whole page into the field on focus. */
+    .fi-console-page #send-command {
+        padding-block: 0.625rem;
+        font-size: 1rem;
+    }
+}
+
+/* =============================================================================
  * Sections — same card treatment: "bg-white/5 rounded-2xl", p-6 body, no ring.
  * ============================================================================= */
 

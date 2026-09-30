@@ -63,6 +63,11 @@ use Throwable;
  * and swaps `window.WebSocket` for a reconnecting facade, but only for the daemon's console
  * URL. The listeners below fix (3) by seeding `$status` from the daemon, and (4) by letting
  * that one poll pass without a render.
+ *
+ * The same script carries the two console changes CSS cannot make for phones: the terminal's
+ * default font drops to 12px below Filament's `sm` breakpoint (its background goes opaque at
+ * every width, to match theme v2's padding), and the command input stops the keyboard from
+ * capitalising or autocorrecting commands. The rest of the phone layout is theme v2's.
  */
 class ConsoleResiliencePluginProvider extends ServiceProvider
 {
