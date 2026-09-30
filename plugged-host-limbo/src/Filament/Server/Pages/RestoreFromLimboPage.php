@@ -7,6 +7,7 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Log;
 use PluggedHost\Limbo\Services\LimboService;
 use Throwable;
 
@@ -146,6 +147,8 @@ class RestoreFromLimboPage extends Page
         }
 
         $reason = $result['reason'] ?? 'error';
+        Log::warning(sprintf('plugged-host-limbo: restore of server %d refused: %s', $server->id, $reason));
+
         $key = $reason === 'insufficient_tokens'
             ? 'plugged-host-limbo::strings.insufficient'
             : 'plugged-host-limbo::strings.failed';
