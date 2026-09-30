@@ -4,8 +4,9 @@
 
     Standalone like the migrate and sso-connect pages, on the same styles: an error page cannot
     count on the panel theme, which needs the Vite manifest, a resolved panel and the plugin CSS
-    that broke the old layout (global-search-modal's `.bg-white` utility outranked Filament's dark
-    card, so the card went white under white text).
+    that broke the old layout (global-search-modal's white-background utility outranked Filament's
+    dark card, so the card went white under white text). Don't spell that class out here: core's
+    plugged-host.css scans this file, and the name alone makes Tailwind ship the utility again.
 
     Expects $heading and $message (and optionally $documentTitle for the tab); sections
     `ph-error-actions` (in the card, under the message), `ph-error-after` (below the card) and
