@@ -569,6 +569,32 @@ return [
         'discord' => 'Discord Support',
         'status_page' => 'Öffentlicher Status',
         'service_unavailable' => '503 • Dienst vorübergehend nicht verfügbar',
+        'checking' => 'Wird geprüft…',
+    ],
+
+    'errors' => [
+        'home' => 'Zurück zum Panel',
+        'status' => 'Öffentlicher Status',
+        'code' => 'Fehler :code',
+        'titles' => [
+            '400' => 'Ungültige Anfrage',
+            '401' => 'Anmeldung erforderlich',
+            '403' => 'Kein Zugriff',
+            '404' => 'Seite nicht gefunden',
+            '419' => 'Seite abgelaufen',
+            '429' => 'Zu viele Anfragen',
+            '500' => 'Etwas ist schiefgelaufen',
+        ],
+        'messages' => [
+            '400' => 'Diese Anfrage konnte nicht verarbeitet werden. Geh zurück und versuch es noch einmal.',
+            '401' => 'Melde dich an, um diese Seite zu sehen.',
+            '403' => 'Du hast keinen Zugriff auf diese Seite.',
+            '404' => 'Diese Seite gibt es nicht oder sie wurde verschoben.',
+            '419' => 'Diese Seite war zu lange offen. Lade sie neu und versuch es noch einmal.',
+            '429' => 'Zu viele Anfragen in kurzer Zeit. Warte einen Moment und versuch es dann noch einmal.',
+            '500' => 'Bei uns ist ein Problem aufgetreten. Versuch es gleich noch einmal.',
+            'default' => 'Bei dieser Anfrage ist etwas schiefgelaufen.',
+        ],
     ],
 
     'noprofit' => [
