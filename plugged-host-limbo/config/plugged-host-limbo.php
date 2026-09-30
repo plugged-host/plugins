@@ -31,7 +31,9 @@ return [
     // logs, …) before a move: a wings transfer cannot skip them, so they are deleted from the
     // server first and do not come back on restore. prune_keep patterns, and everything under
     // them, are left alone (FiveM's `alpine` is its runtime; without it the server cannot start).
-    'prune' => (bool) env('LIMBO_PRUNE', true),
+    // Off by default: the patterns match by name at any depth, so on 2026-09-30 they deleted a
+    // Forge library (`core`) and Next.js source folders (`logs`), before moves that then failed.
+    'prune' => (bool) env('LIMBO_PRUNE', false),
     'prune_keep' => ['alpine'],
 
     // Ransom. Early = restored within the window after entering limbo; late = after it.
