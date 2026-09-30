@@ -5,7 +5,9 @@ namespace PluggedHost\Limbo\Services;
 use App\Enums\ServerState;
 use App\Facades\Activity;
 use App\Models\Allocation;
+use App\Models\Node;
 use App\Models\Server;
+use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Servers\TransferServerService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -25,9 +27,18 @@ use Throwable;
  *
  * The idle definition has ONE seam — lastActivityAt() — so switching from panel-activity to the
  * daemon-sampling variant later is a one-method change, not a redesign.
+ *
+ * Marker states: stopped → hibernating → limbo → restoring → restored, plus failed (a move to
+ * the limbo node that did not land; retried later). A wings transfer is asynchronous, so the
+ * two moving states are only settled by reconcile(), once the panel's transfer row has an
+ * outcome: nothing is suspended, unsuspended or marked restored on the strength of a transfer
+ * merely having been asked for.
  */
 class LimboService
 {
+    /** Rows reconcile() looks at. */
+    private const UNSETTLED = ['hibernating', 'limbo', 'restoring'];
+
     private static bool $missingTableLogged = false;
 
     public function enabled(): bool
@@ -94,6 +105,17 @@ class LimboService
     }
 
     /**
+     * Parked: moved to the limbo node and waiting there for its owner. The only state the
+     * restore button applies to.
+     */
+    public function isParked(Server $server, ?ServerLimboState $state = null): bool
+    {
+        $state ??= $this->state($server);
+
+        return $state?->state === 'limbo' && $this->onLimboNode($server, $state) && $server->transfer === null;
+    }
+
+    /**
      * The PowerActionInterceptor seam (ads → limbo, first in the chain). Returns the restore
      * page URL when the server is parked in limbo, else null (start proceeds).
      */
@@ -109,9 +131,10 @@ class LimboService
             return null;
         }
 
-        // A container that was only stopped (not yet transferred) starts normally; clear the
-        // marker so the sweep does not immediately re-stop it — the click is itself activity.
-        if ($state->state === 'stopped') {
+        // A container that was only stopped (or whose move to limbo failed) is still on its
+        // own node and starts normally; clear the marker so the sweep does not immediately
+        // re-stop it — the click is itself activity.
+        if (in_array($state->state, ['stopped', 'failed'], true)) {
             $state->delete();
 
             return null;
@@ -152,7 +175,7 @@ class LimboService
             // Stop first, record second: a stop wings refused must not leave a running server
             // marked as stopped. (DaemonPowerRepository does not exist in this Pelican; power
             // lives on DaemonServerRepository and throws on a refused call.)
-            app(\App\Repositories\Daemon\DaemonServerRepository::class)->setServer($server)->power('stop');
+            app(DaemonServerRepository::class)->setServer($server)->power('stop');
 
             ServerLimboState::query()->updateOrCreate(
                 ['server_id' => $server->getKey()],
@@ -170,14 +193,14 @@ class LimboService
     }
 
     /**
-     * Move an idle-past-transfer server (72h) to the limbo node and park it (suspended).
+     * Start moving a stopped, idle server (72h) to the limbo node.
      *
      * Reuses upstream TransferServerService (the limbo node is a live wings node, so a real
      * transfer works — unlike failover's dead-node case). Origin node + allocations are recorded
-     * first so restore can return it to the same location tag.
+     * first so restore can return it to the same node and ports.
      *
-     * VERIFY IN PHASE C: that Server::validateTransferState() permits transferring before the
-     * server is suspended; if not, suspend must happen after arrival (handled in restore()).
+     * The server is NOT suspended here. It is parked by reconcile() once wings reports the
+     * transfer as successful; a transfer that fails leaves it untouched on its own node.
      */
     public function hibernate(Server $server): bool
     {
@@ -193,49 +216,60 @@ class LimboService
             return false;
         }
 
-        try {
-            $needed = max(1, (int) $server->allocations()->count());
-            $allocationIds = $this->pickAllocations($limboNode, $needed);
+        if ((int) $server->node_id === (int) $limboNode->getKey() || $server->transfer !== null) {
+            return false;
+        }
 
-            if ($allocationIds === []) {
-                Log::warning("plugged-host-limbo: limbo node has no free allocations for server {$server->id}.");
+        // The marker says stopped, but anything can have started it since (a schedule, a
+        // start from outside the panel). Never carry a running server off to limbo; one that
+        // is running loses its marker, so the sweep treats it as a fresh idle server.
+        $offline = $this->isOffline($server);
 
-                return false;
+        if ($offline !== true) {
+            if ($offline === false) {
+                ServerLimboState::query()->where('server_id', $server->getKey())->delete();
             }
-
-            $originAllocations = $server->allocations()->pluck('id')->map(fn ($id) => (int) $id)->all();
-
-            ServerLimboState::query()->updateOrCreate(
-                ['server_id' => $server->getKey()],
-                [
-                    'state' => 'limbo',
-                    'limbo_at' => now(),
-                    'origin_node_id' => $server->node_id,
-                    'origin_allocation_id' => $server->allocation_id,
-                    'origin_allocations' => $originAllocations,
-                ],
-            );
-
-            $primary = (int) array_shift($allocationIds);
-            app(TransferServerService::class)->handle($server, (int) $limboNode->getKey(), $primary, $allocationIds);
-
-            // Park it: Suspended makes isInConflictState() true, greys the server out and refuses
-            // power actions with no new code.
-            $server->forceFill(['status' => ServerState::Suspended->value])->saveQuietly();
-
-            Activity::event('server:limbo.hibernate')->subject($server)->property('limbo_node', $limboNode->getKey())->log();
-
-            return true;
-        } catch (Throwable $e) {
-            report($e);
 
             return false;
         }
+
+        $needed = max(1, (int) $server->allocations()->count());
+        $allocationIds = $this->pickAllocations($limboNode, $needed);
+
+        if ($allocationIds === []) {
+            Log::warning("plugged-host-limbo: limbo node has no free allocations for server {$server->id}.");
+
+            return false;
+        }
+
+        $state = ServerLimboState::query()->updateOrCreate(
+            ['server_id' => $server->getKey()],
+            [
+                'state' => 'hibernating',
+                'limbo_at' => null,
+                'origin_node_id' => $server->node_id,
+                'origin_allocation_id' => $server->allocation_id,
+                'origin_allocations' => $server->allocations()->pluck('id')->map(fn ($id) => (int) $id)->all(),
+            ],
+        );
+
+        $primary = (int) array_shift($allocationIds);
+
+        if ($this->transfer($server, $limboNode, $primary, $allocationIds)) {
+            return true;
+        }
+
+        // Nothing is in flight: the server never left. Back off (see reconcile()).
+        $state->update(['state' => 'failed']);
+
+        return false;
     }
 
     /**
-     * Restore a limbo server: charge the ransom (before the transfer), move it back toward its
-     * origin, unsuspend. Refund if the transfer is refused. Owner-only is enforced by the page.
+     * Restore a parked server: charge the ransom, unsuspend, and move it back to its origin
+     * node (its old ports when they are still free), else to a node sharing the origin's tags.
+     * The transfer is settled by reconcile(): a failed one is refunded and re-parked.
+     * Owner-only is enforced by the page and the API route.
      *
      * @return array{ok: bool, reason?: string, cost?: int}
      */
@@ -245,13 +279,19 @@ class LimboService
             return ['ok' => false, 'reason' => 'unavailable'];
         }
 
+        $server->refresh();
         $state = $this->state($server);
 
-        if ($state === null || !in_array($state->state, ['limbo', 'restoring'], true)) {
+        if ($state === null || !$this->isParked($server, $state)) {
             return ['ok' => false, 'reason' => 'not_in_limbo'];
         }
 
         $cost = $this->cost($state);
+        $destination = $this->restoreDestination($server, $state);
+
+        if ($destination === null) {
+            return ['ok' => false, 'reason' => 'no_destination', 'cost' => $cost];
+        }
 
         // Charge first, via economy by class-string. spend() returns false (not throws) on an
         // insufficient balance and re-reads under a lock, so a stale button cannot overdraw.
@@ -261,43 +301,276 @@ class LimboService
 
         $state->update(['state' => 'restoring', 'restore_cost' => $cost]);
 
-        try {
-            $node = $this->originNode($state) ?? $this->limboNode();
-            $needed = max(1, count($state->origin_allocations ?? []) ?: 1);
-            $allocationIds = $node ? $this->pickAllocations($node, $needed) : [];
+        // Unsuspend before the move so the destination wings builds it as a normal server and
+        // it can be started the moment the transfer lands.
+        $this->setSuspended($server, false);
 
-            if ($node === null || $allocationIds === []) {
-                $this->refundTokens($user, $cost);
-                $state->update(['state' => 'limbo']);
+        [$node, $primary, $additional] = $destination;
 
-                return ['ok' => false, 'reason' => 'no_destination', 'cost' => $cost];
-            }
-
-            // Unsuspend before transfer so validateTransferState() permits it; re-suspend on
-            // failure is handled by the catch restoring the limbo marker.
-            $server->forceFill(['status' => null])->saveQuietly();
-
-            $primary = (int) array_shift($allocationIds);
-            app(TransferServerService::class)->handle($server->refresh(), (int) $node->getKey(), $primary, $allocationIds);
-
-            $state->update(['state' => 'restored', 'restored_at' => now()]);
-
-            Activity::event('server:limbo.restore')->subject($server)->property('cost', $cost)->log();
-
-            return ['ok' => true, 'cost' => $cost];
-        } catch (Throwable $e) {
-            report($e);
+        if (!$this->transfer($server, $node, $primary, $additional)) {
             $this->refundTokens($user, $cost);
-            $server->forceFill(['status' => ServerState::Suspended->value])->saveQuietly();
-            $state->update(['state' => 'limbo']);
+            $this->setSuspended($server, true);
+            $state->update(['state' => 'limbo', 'restore_cost' => null]);
 
             return ['ok' => false, 'reason' => 'transfer_failed', 'cost' => $cost];
         }
+
+        Activity::event('server:limbo.restore')->subject($server)->property('cost', $cost)->log();
+
+        return ['ok' => true, 'cost' => $cost];
+    }
+
+    /**
+     * Settle every move once wings has an outcome for it, and unpark servers that never left.
+     * Run by the sweep every minute, whether or not the sweep itself is enabled, so a move in
+     * flight when limbo is switched off still lands (or is undone) properly.
+     *
+     * @return array<int, string> one line per action taken (or, with $dryRun, that would be)
+     */
+    public function reconcile(bool $dryRun = false): array
+    {
+        if (!$this->tableReady()) {
+            return [];
+        }
+
+        $lines = [];
+
+        $rows = ServerLimboState::query()
+            ->whereIn('state', self::UNSETTLED)
+            // A row written this minute may be waiting for its transfer to be created.
+            ->where('updated_at', '<', now()->subMinute())
+            ->get();
+
+        foreach ($rows as $state) {
+            try {
+                $server = Server::query()->find($state->server_id);
+
+                if (!$server instanceof Server || $server->transfer !== null) {
+                    continue;
+                }
+
+                $line = match ($state->state) {
+                    'hibernating', 'limbo' => $this->settleHibernation($server, $state, $dryRun),
+                    'restoring' => $this->settleRestore($server, $state, $dryRun),
+                    default => null,
+                };
+
+                if ($line !== null) {
+                    $lines[] = sprintf('%-9s %s (#%d)', $line, $server->uuid, $server->id);
+                }
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $lines;
+    }
+
+    private function settleHibernation(Server $server, ServerLimboState $state, bool $dryRun): ?string
+    {
+        if ($this->onLimboNode($server, $state)) {
+            if ($state->state === 'limbo' && $server->isSuspended()) {
+                return null;
+            }
+
+            if (!$dryRun) {
+                // Park it: Suspended makes isInConflictState() true, greys the server out and
+                // refuses power actions with no new code.
+                $this->setSuspended($server, true);
+
+                if ($state->state === 'hibernating') {
+                    $state->update(['state' => 'limbo', 'limbo_at' => now()]);
+                    Activity::event('server:limbo.hibernate')->subject($server)->property('limbo_node', $server->node_id)->log();
+                }
+            }
+
+            return 'PARKED';
+        }
+
+        // Still on its own node: the transfer failed. Hand the server back as it was — the
+        // pre-fix code suspended it the moment the transfer was asked for.
+        if (!$dryRun) {
+            if ($server->isSuspended()) {
+                $this->setSuspended($server, false);
+            }
+
+            $state->update(['state' => 'failed', 'limbo_at' => null]);
+            Log::warning("plugged-host-limbo: move of server {$server->id} to the limbo node failed; left on node {$server->node_id}.");
+        }
+
+        return 'UNPARKED';
+    }
+
+    private function settleRestore(Server $server, ServerLimboState $state, bool $dryRun): string
+    {
+        if (!$this->onLimboNode($server, $state)) {
+            if (!$dryRun) {
+                if ($server->isSuspended()) {
+                    $this->setSuspended($server, false);
+                }
+
+                $state->update(['state' => 'restored', 'restored_at' => now()]);
+            }
+
+            return 'RESTORED';
+        }
+
+        // The move back failed: refund the owner (who paid — restore is owner-only) and re-park.
+        if (!$dryRun) {
+            $cost = (int) $state->restore_cost;
+            $this->refundTokens($server->user, $cost);
+            $this->setSuspended($server, true);
+            $state->update(['state' => 'limbo', 'restore_cost' => null]);
+            Log::warning("plugged-host-limbo: restore of server {$server->id} failed; refunded {$cost} tokens.");
+        }
+
+        return 'REFUNDED';
+    }
+
+    /**
+     * Whether the server sits on the limbo node rather than where it came from. The recorded
+     * origin decides first, so a renamed limbo tag cannot make every parked server look lost.
+     */
+    private function onLimboNode(Server $server, ServerLimboState $state): bool
+    {
+        if ($state->origin_node_id !== null && (int) $server->node_id === (int) $state->origin_node_id) {
+            return false;
+        }
+
+        $limbo = $this->limboNode();
+
+        return $limbo === null || (int) $server->node_id === (int) $limbo->getKey();
+    }
+
+    /**
+     * Where a restore goes: the origin node with the server's original allocations when those
+     * are all still free (same address as before hibernation), else free ones on the origin,
+     * else a node that shares the origin's tags.
+     *
+     * @return array{0: Node, 1: int, 2: array<int, int>}|null
+     */
+    private function restoreDestination(Server $server, ServerLimboState $state): ?array
+    {
+        $origin = $this->originNode($state);
+        $limbo = $this->limboNode();
+        $needed = max(1, count($state->origin_allocations ?? []));
+
+        $nodes = collect($origin ? [$origin] : []);
+
+        // Same tags exactly: same location and tier, so a restore never upgrades a free server
+        // onto a paid node or moves it to another country.
+        $tags = $origin ? $this->tagSet($origin) : [];
+
+        if ($tags !== []) {
+            $nodes = $nodes->merge(
+                Node::query()->get()->filter(fn (Node $node) => $node->getKey() !== $origin->getKey()
+                    && $node->getKey() !== $limbo?->getKey()
+                    && $this->tagSet($node) === $tags)
+            );
+        }
+
+        foreach ($nodes as $node) {
+            if ($node->isUnderMaintenance() || !$node->isViable((int) $server->memory, (int) $server->disk, (int) $server->cpu)) {
+                continue;
+            }
+
+            $ids = $node->is($origin) ? $this->originalAllocations($state) : [];
+            $ids = $ids !== [] ? $ids : $this->pickAllocations($node, $needed);
+
+            if ($ids !== []) {
+                return [$node, (int) array_shift($ids), $ids];
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array<int, string> */
+    private function tagSet(Node $node): array
+    {
+        $tags = array_values(array_unique(array_filter(array_map(strval(...), (array) $node->tags))));
+        sort($tags);
+
+        return $tags;
+    }
+
+    /** @return array<int, int> the original allocations, primary first, if every one is still free */
+    private function originalAllocations(ServerLimboState $state): array
+    {
+        $ids = array_map(intval(...), $state->origin_allocations ?? []);
+
+        if ($ids === [] || $state->origin_node_id === null) {
+            return [];
+        }
+
+        $free = Allocation::query()
+            ->whereIn('id', $ids)
+            ->where('node_id', $state->origin_node_id)
+            ->whereNull('server_id')
+            ->count();
+
+        if ($free !== count($ids)) {
+            return [];
+        }
+
+        $primary = (int) $state->origin_allocation_id;
+
+        return in_array($primary, $ids, true)
+            ? array_values(array_merge([$primary], array_diff($ids, [$primary])))
+            : $ids;
+    }
+
+    /**
+     * Ask for the transfer. True when one is now in flight — also when the notify call to
+     * wings threw after the transfer row was written, since wings may well have taken it;
+     * reconcile() settles it either way. False when nothing is moving (node not viable, or
+     * refused before a row existed).
+     */
+    private function transfer(Server $server, Node $node, int $primary, array $additional): bool
+    {
+        try {
+            if (app(TransferServerService::class)->handle($server, (int) $node->getKey(), $primary, $additional)) {
+                return true;
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return $server->refresh()->transfer !== null;
+    }
+
+    /**
+     * Park or unpark, and tell wings (as upstream's SuspensionService does, minus its admin UI
+     * notifications). A wings that cannot be reached picks the state up on its next sync.
+     */
+    private function setSuspended(Server $server, bool $suspended): void
+    {
+        $server->forceFill(['status' => $suspended ? ServerState::Suspended->value : null])->saveQuietly();
+
+        try {
+            app(DaemonServerRepository::class)->setServer($server)->sync();
+        } catch (Throwable $e) {
+            Log::info("plugged-host-limbo: wings sync for server {$server->id} failed: {$e->getMessage()}");
+        }
+    }
+
+    /** Whether wings reports the container offline; null when wings cannot be asked. */
+    private function isOffline(Server $server): ?bool
+    {
+        try {
+            $details = app(DaemonServerRepository::class)->setServer($server)->getDetails();
+        } catch (Throwable) {
+            return null;
+        }
+
+        $state = $details['state'] ?? null;
+
+        return is_string($state) ? $state === 'offline' : null;
     }
 
     // --- seams to storage + economy -----------------------------------------
 
-    private function limboNode()
+    private function limboNode(): ?Node
     {
         $storage = 'PluggedHost\\Storage\\Services\\StorageService';
 
@@ -312,9 +585,9 @@ class LimboService
         return null;
     }
 
-    private function originNode(ServerLimboState $state)
+    private function originNode(ServerLimboState $state): ?Node
     {
-        return $state->origin_node_id ? \App\Models\Node::query()->find($state->origin_node_id) : null;
+        return $state->origin_node_id ? Node::query()->find($state->origin_node_id) : null;
     }
 
     private function spendTokens(mixed $user, int $cost): bool
@@ -336,7 +609,7 @@ class LimboService
     {
         $service = 'PluggedHost\\Economy\\Services\\TokenService';
 
-        if (!class_exists($service)) {
+        if ($cost <= 0 || !class_exists($service)) {
             return;
         }
 
@@ -348,7 +621,7 @@ class LimboService
     }
 
     /** @return array<int, int> */
-    private function pickAllocations($node, int $needed): array
+    private function pickAllocations(Node $node, int $needed): array
     {
         try {
             $free = Allocation::query()
