@@ -8,7 +8,7 @@
 --}}
 <x-filament-panels::page>
     @if ($restoring)
-        <div class="ph-card flex flex-col gap-1" wire:poll.10s="checkRestore">
+        <div class="ph-card flex flex-col gap-1" wire:poll.3s="checkRestore">
             <p class="ph-row-body">
                 {{ trans('plugged-host-limbo::strings.restoring') }}
             </p>

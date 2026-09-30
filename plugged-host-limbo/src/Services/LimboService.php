@@ -391,6 +391,7 @@ class LimboService
         }
 
         Activity::event('server:limbo.restore')->subject($server)->property('cost', $cost)->log();
+        $this->watchTransfer($server);
 
         return ['ok' => true, 'cost' => $cost];
     }
@@ -644,6 +645,31 @@ class LimboService
     }
 
     // --- seams to storage + economy -----------------------------------------
+
+    /**
+     * Hand the move to plugged-host-servers' transfer watcher now, so the owner sees its progress
+     * on the restore page (the watcher only adopts other plugins' transfers after a minute, and a
+     * restore is often done by then).
+     */
+    private function watchTransfer(Server $server): void
+    {
+        $service = 'PluggedHost\\Servers\\Services\\Transfers\\TransferService';
+        $watcher = 'PluggedHost\\Servers\\Services\\Transfers\\TransferWatcher';
+
+        if (!class_exists($service) || !method_exists($service, 'adopt')) {
+            return;
+        }
+
+        try {
+            $transfer = $server->refresh()->transfer;
+
+            if ($transfer !== null && app($service)->adopt($transfer) !== null && class_exists($watcher)) {
+                $watcher::ensureRunning();
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
 
     private function limboNode(): ?Node
     {
