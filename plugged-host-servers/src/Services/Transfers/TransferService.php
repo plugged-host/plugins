@@ -394,33 +394,48 @@ class TransferService
         $adopted = 0;
 
         foreach ($orphans as $transfer) {
-            if (ServerRelocation::activeFor((int) $transfer->server_id) !== null) {
-                continue;
+            if ($this->adopt($transfer) !== null) {
+                $adopted++;
             }
-
-            $relocation = new ServerRelocation([
-                'server_id' => $transfer->server_id,
-                'origin' => ServerRelocation::ORIGIN_EXTERNAL,
-                'location' => $this->planner->locationOf($transfer->newNode),
-                'from_node_id' => $transfer->old_node,
-                'to_node_id' => $transfer->new_node,
-                'transfer_id' => $transfer->getKey(),
-                'state' => ServerRelocation::COPYING,
-                'phase' => ServerRelocation::PHASE_ARCHIVE,
-                'max_attempts' => 1,
-            ]);
-            $relocation->state_at = now();
-            $relocation->progress_at = now();
-            $relocation->remember('from_location', $this->planner->locationOf($transfer->oldNode));
-            $relocation->remember('launched_at', $transfer->created_at?->getTimestamp() ?? now()->getTimestamp());
-            $relocation->remember('backups', []);
-            $relocation->event('adopted');
-            $relocation->save();
-
-            $adopted++;
         }
 
         return $adopted;
+    }
+
+    /**
+     * Watch one transfer somebody else started, right away: limbo hands over its restores
+     * here, which often finish before adoptExternal()'s one-minute grace. Null when the
+     * transfer is settled, already watched, or the server has a move of its own.
+     */
+    public function adopt(ServerTransfer $transfer): ?ServerRelocation
+    {
+        if (!ServerRelocation::ready()
+            || $transfer->successful !== null
+            || ServerRelocation::query()->where('transfer_id', $transfer->getKey())->exists()
+            || ServerRelocation::activeFor((int) $transfer->server_id) !== null) {
+            return null;
+        }
+
+        $relocation = new ServerRelocation([
+            'server_id' => $transfer->server_id,
+            'origin' => ServerRelocation::ORIGIN_EXTERNAL,
+            'location' => $this->planner->locationOf($transfer->newNode),
+            'from_node_id' => $transfer->old_node,
+            'to_node_id' => $transfer->new_node,
+            'transfer_id' => $transfer->getKey(),
+            'state' => ServerRelocation::COPYING,
+            'phase' => ServerRelocation::PHASE_ARCHIVE,
+            'max_attempts' => 1,
+        ]);
+        $relocation->state_at = now();
+        $relocation->progress_at = now();
+        $relocation->remember('from_location', $this->planner->locationOf($transfer->oldNode));
+        $relocation->remember('launched_at', $transfer->created_at?->getTimestamp() ?? now()->getTimestamp());
+        $relocation->remember('backups', []);
+        $relocation->event('adopted');
+        $relocation->save();
+
+        return $relocation;
     }
 
     /**
