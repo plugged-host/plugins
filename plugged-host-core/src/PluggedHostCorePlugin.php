@@ -10,6 +10,7 @@ use PluggedHost\Core\Filament\HiddenNavigationManager;
 use PluggedHost\Core\Filament\ServerNavigation;
 use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
 use PluggedHost\Core\Http\Middleware\RequireNoprofitLink;
+use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
@@ -62,6 +63,11 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
         if ($panel->getId() === 'server') {
             // The collapsed group ServerNavigation folds the rarely used server pages into.
             $panel->navigationGroups([ServerNavigation::moreGroup()]);
+
+            // A suspended server's pages show why it is suspended (SuspendedServerPage).
+            $panel->tenantMiddleware([
+                RedirectToSuspendedPage::class,
+            ]);
         }
 
         if ($panel->getId() === 'app') {

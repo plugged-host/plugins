@@ -543,6 +543,21 @@ return [
         'tour_version_hint' => 'Erhöhe diesen Wert, um die Tour allen erneut zu zeigen, die sie bereits gesehen haben. Bei reinen Textkorrekturen unverändert lassen.',
     ],
 
+    'suspended' => [
+        'title' => 'Server gesperrt',
+        'body' => 'Dieser Server ist gesperrt. Er kann nicht gestartet oder verwaltet werden, bis die Sperre aufgehoben ist.',
+        'by_abuse_scan' => ':time von unserem automatischen Missbrauchs-Scan gesperrt.',
+        'by_admin' => ':time von einem Administrator gesperrt.',
+        'by_system' => ':time gesperrt.',
+        'note_label' => 'Grund',
+        'findings_label' => 'Was der Scan gefunden hat',
+        'more' => 'und :count weitere',
+        'help' => 'Wenn du denkst, dass das ein Fehler ist, frag uns auf Discord und nenne den Namen des Servers.',
+        'help_action' => 'Hilfe auf Discord',
+        'reason_field' => 'Grund',
+        'reason_hint' => 'Wird dem Besitzer des Servers auf seiner Sperrseite angezeigt.',
+    ],
+
     'maintenance' => [
         'title' => 'Geplante Wartungsarbeiten',
         'badge' => 'Wartungsmodus',
