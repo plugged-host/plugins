@@ -20,6 +20,12 @@ use Throwable;
  * locally with rsync semantics, so a search hit like `usercache.json` for `cache` is not deleted.
  * Wings' search never enters or reports `node_modules` (nor `.git`, `vendor`), so those are
  * found through the npm files that sit next to them instead.
+ *
+ * The patterns are rsync excludes, which match a name at any depth: harmless for a mirror,
+ * destructive for a delete (on 2026-09-30 `core` took a Forge library and `logs` took Next.js
+ * source folders). So a match is deleted only when it is what the pattern means: file
+ * patterns only delete files, tool folders are deleted by name, a virtualenv only when it is
+ * one, and any other folder only when nothing in it is source code.
  */
 class ExemptionPruner
 {
@@ -27,6 +33,24 @@ class ExemptionPruner
     private const ROUNDS = 5;
 
     private const BATCH = 100;
+
+    /** Patterns that name files (core dumps): a folder with the same name is something else. */
+    private const FILE_ONLY = ['core', 'core.[0-9]*', '.DS_Store', 'Thumbs.db', '.directory', '.env.bak'];
+
+    /** Folders whose name says what they are; their tools rebuild them. */
+    private const TOOL_FOLDERS = ['node_modules', '.npm', '.pnpm-store', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.tox', '.fabric', '.quilt', '.cache'];
+
+    /** Python virtualenvs: deleted only when they hold a pyvenv.cfg. */
+    private const VENVS = ['venv', '.venv', 'env'];
+
+    /** Extensions that make a folder source code, never pruned (`logs/route.ts`, `cache/index.js`). */
+    private const CODE_EXTENSIONS = [
+        'js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'vue', 'svelte', 'py', 'lua', 'java', 'kt', 'kts',
+        'class', 'php', 'rb', 'go', 'rs', 'cs', 'c', 'h', 'cpp', 'html', 'css', 'scss', 'sql', 'sh', 'bat', 'ps1',
+    ];
+
+    /** Folder listings spent looking inside one candidate; a bigger tree is kept. */
+    private const INSPECT_BUDGET = 40;
 
     /** Directory names wings' search skips, and the files that show where they would be. */
     private const SEARCH_BLIND = [
@@ -125,7 +149,11 @@ class ExemptionPruner
                     continue;
                 }
 
-                if ($this->excluded($path, $patterns) && !$this->shielded($path)) {
+                if (!$this->excluded($path, $patterns) || $this->shielded($path)) {
+                    continue;
+                }
+
+                if ($this->deletable($files, $path, $entry, $patterns)) {
                     $found[$path] = true;
                 }
             }
@@ -238,6 +266,105 @@ class ExemptionPruner
             }
 
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a search hit is what its pattern means (see the class doc). Unknown entry types
+     * are kept.
+     *
+     * @param  array<string, mixed>  $entry
+     * @param  array<int, string>  $patterns
+     */
+    private function deletable(DaemonFileRepository $files, string $path, array $entry, array $patterns): bool
+    {
+        $isDirectory = $entry['directory'] ?? null;
+        $isFile = $entry['file'] ?? null;
+        $filePatterns = array_values(array_filter($patterns, fn (string $pattern): bool => $this->isFilePattern($pattern)));
+        $folderPatterns = array_values(array_diff($patterns, $filePatterns));
+
+        if ($isFile === true && $isDirectory !== true) {
+            return $this->excluded($path, $filePatterns);
+        }
+
+        if ($isDirectory !== true || !$this->excluded($path, $folderPatterns)) {
+            return false;
+        }
+
+        $name = basename($path);
+
+        if (in_array($name, self::TOOL_FOLDERS, true) || str_ends_with('/' . $path, '/server-data/cache')) {
+            return true;
+        }
+
+        if (in_array($name, self::VENVS, true)) {
+            return $this->isVirtualenv($files, $path);
+        }
+
+        return !$this->holdsCode($files, $path);
+    }
+
+    /** A pattern for files: a glob, or one of the known file names. */
+    private function isFilePattern(string $pattern): bool
+    {
+        return in_array($pattern, self::FILE_ONLY, true) || strpbrk(basename($pattern), '*?[') !== false;
+    }
+
+    private function isVirtualenv(DaemonFileRepository $files, string $path): bool
+    {
+        try {
+            $entries = (array) $files->getDirectory('/' . $path);
+        } catch (Throwable) {
+            return false;
+        }
+
+        foreach ($entries as $entry) {
+            if (($entry['name'] ?? null) === 'pyvenv.cfg' && ($entry['file'] ?? false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Whether any file under $path is source code; true too when it cannot be fully checked. */
+    private function holdsCode(DaemonFileRepository $files, string $path): bool
+    {
+        $queue = ['/' . $path];
+        $listed = 0;
+
+        while ($queue !== []) {
+            if (++$listed > self::INSPECT_BUDGET) {
+                return true;
+            }
+
+            $directory = array_shift($queue);
+
+            try {
+                $entries = (array) $files->getDirectory($directory);
+            } catch (Throwable) {
+                return true;
+            }
+
+            foreach ($entries as $entry) {
+                $name = (string) ($entry['name'] ?? '');
+
+                if ($name === '' || $name === '.' || $name === '..') {
+                    continue;
+                }
+
+                if ($entry['directory'] ?? false) {
+                    $queue[] = $directory . '/' . $name;
+
+                    continue;
+                }
+
+                if (in_array(strtolower(pathinfo($name, PATHINFO_EXTENSION)), self::CODE_EXTENSIONS, true)) {
+                    return true;
+                }
+            }
         }
 
         return false;

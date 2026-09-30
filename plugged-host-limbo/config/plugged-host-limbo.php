@@ -29,12 +29,12 @@ return [
 
     // Apply the storage exemptions (plugged-host-storage's agent EXCLUDES: node_modules, caches,
     // logs, …) before a move: a wings transfer cannot skip them, so they are deleted from the
-    // server first and do not come back on restore. prune_keep patterns, and everything under
-    // them, are left alone (FiveM's `alpine` is its runtime; without it the server cannot start).
-    // Off by default: the patterns match by name at any depth, so on 2026-09-30 they deleted a
-    // Forge library (`core`) and Next.js source folders (`logs`), before moves that then failed.
-    'prune' => (bool) env('LIMBO_PRUNE', false),
-    'prune_keep' => ['alpine'],
+    // server first and do not come back on restore. ExemptionPruner only deletes a match that is
+    // what its pattern means (no source code, no folder named like a file pattern). prune_keep
+    // names, and everything under them, are left alone: FiveM's `alpine` is its runtime,
+    // `libraries` holds Minecraft loaders' jars, `src` is source code.
+    'prune' => (bool) env('LIMBO_PRUNE', true),
+    'prune_keep' => ['alpine', 'libraries', 'src'],
 
     // Ransom. Early = restored within the window after entering limbo; late = after it.
     'cost_early' => (int) env('LIMBO_COST_EARLY', 5),
