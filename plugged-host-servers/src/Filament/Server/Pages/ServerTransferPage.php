@@ -145,12 +145,13 @@ class ServerTransferPage extends Page
             ->modalIcon(TablerIcon::AlertTriangle)
             ->modalHeading(trans('plugged-host-servers::strings.transfers.cancel_heading'))
             ->modalDescription(trans('plugged-host-servers::strings.transfers.cancel_body'))
-            ->visible(fn (): bool => (bool) $this->active()?->isCancellable())
+            ->visible(fn (): bool => (bool) $this->active()?->isCancellable() && $this->mayCancel($this->active()))
             ->action(function (): void {
                 $relocation = $this->active();
                 $user = user();
 
                 abort_unless(TransferService::canUse($user, $this->getServer()), 403);
+                abort_unless($relocation === null || $this->mayCancel($relocation), 403);
 
                 if ($relocation === null || !$user instanceof User || !$this->service()->cancel($relocation, $user)) {
                     Notification::make()->title(trans('plugged-host-servers::strings.transfers.cancel_failed'))->warning()->send();
@@ -300,6 +301,16 @@ class ServerTransferPage extends Page
         $this->ownRelocation($relocation);
 
         return trans('plugged-host-servers::strings.transfers.state.' . $relocation->headlineKey());
+    }
+
+    /**
+     * Users cancel the moves they (or the start queue) started; a move an admin started, or
+     * limbo/failover adopted, is only cancelled by an admin.
+     */
+    private function mayCancel(ServerRelocation $relocation): bool
+    {
+        return in_array($relocation->origin, [ServerRelocation::ORIGIN_USER, ServerRelocation::ORIGIN_QUEUE], true)
+            || (bool) user()?->can('update server', $this->getServer());
     }
 
     /**
