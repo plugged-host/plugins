@@ -630,6 +630,10 @@ class GameConfigPage extends MinecraftPage
     {
         abort_unless($this->canWrite(), 403);
 
+        // Public, so callable from the browser with any array: only the files this page read
+        // (the #[Locked] $configFiles) may be written, as saveFile() does.
+        $file = $this->fileFor((string) ($file['path'] ?? ''));
+
         if (!$this->write($file, $contents)) {
             return;
         }
