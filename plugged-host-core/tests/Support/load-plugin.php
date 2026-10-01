@@ -16,8 +16,14 @@ if (!function_exists('loadPluginForTest')) {
         /** @var Plugin $plugin */
         $plugin = Plugin::query()->findOrFail($id);
 
+        // Every plugin's namespace first, as PluginService does: plugins look each other up with
+        // class_exists(), and Composer remembers a class it once failed to find.
         $classLoader = require base_path('vendor/autoload.php');
-        $classLoader->setPsr4($plugin->namespace . '\\', plugin_path($id, 'src/'));
+        foreach (Plugin::query()->get() as $any) {
+            if (!array_key_exists($any->namespace . '\\', $classLoader->getPrefixesPsr4())) {
+                $classLoader->setPsr4($any->namespace . '\\', plugin_path($any->id, 'src/'));
+            }
+        }
 
         $config = plugin_path($id, 'config', $id . '.php');
         if (file_exists($config)) {
