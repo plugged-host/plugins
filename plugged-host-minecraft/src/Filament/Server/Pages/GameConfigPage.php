@@ -218,11 +218,19 @@ class GameConfigPage extends MinecraftPage
 
         if ($yaml) {
             foreach ($config->flatten($config->yaml($raw)) as $key => $value) {
+                if (!self::plainKey($key)) {
+                    continue;
+                }
+
                 $fields[$key] = $config->yamlType($value);
                 $values[$key] = $value;
             }
         } else {
             foreach ($config->properties($raw) as $key => $value) {
+                if (!self::plainKey($key)) {
+                    continue;
+                }
+
                 $type = $this->propertyType($config, $key, $value);
 
                 $fields[$key] = $type;
@@ -243,6 +251,17 @@ class GameConfigPage extends MinecraftPage
             ],
             $values,
         ];
+    }
+
+    /**
+     * Whether a key from the file can be a form field. Keys become Filament state paths, which
+     * end up in HTML attributes and Alpine expressions, and the file is written by whoever runs
+     * the server. Real config keys are plain; any other key is left out of the form and stays
+     * in the file untouched (the raw editor still shows it).
+     */
+    protected static function plainKey(string $key): bool
+    {
+        return preg_match('/^[A-Za-z0-9_.:-]+$/', $key) === 1;
     }
 
     /**
