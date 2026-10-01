@@ -90,11 +90,10 @@ return [
     'reply' => [
         'not_admin' => 'Ich nehme nur Befehle von noprofit.space-Admins an.',
         'noprofit_down' => 'Ich erreiche noprofit.space nicht, um zu prüfen, wer du bist. Versuch es in einer Minute noch einmal.',
-        'limit' => 'Dein neo-Limit ist bis :time aufgebraucht.',
         'unavailable' => 'Ich kann gerade nicht denken: Die KI ist nicht erreichbar. Versuch es in ein paar Minuten noch einmal.',
-        'not_linked' => 'Dein noprofit.space-Konto kann neo nicht nutzen, also kann ich nicht für dich denken.',
         'too_fast' => 'Einen Moment, ich bin noch bei deinem letzten Befehl.',
         'failed' => 'Bei mir ist etwas schiefgegangen. Es wurde nichts weiter getan.',
+        'done_without_summary' => 'Erledigt, aber die KI ist gerade zu ausgelastet für eine Zusammenfassung. Was ich getan habe:',
         'done' => 'Erledigt.',
     ],
 ];

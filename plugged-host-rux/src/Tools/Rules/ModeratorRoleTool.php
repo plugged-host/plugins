@@ -24,7 +24,7 @@ final class ModeratorRoleTool extends RuxTool
 
     public function description(): string
     {
-        return 'Give a role mod permissions, or take them away. Its members can then give rux moderation orders (warn, timeout, kick, ban, purge, lock, look up members; not giveaways, rules or roles, and never against staff), paid from the neo limits of the admin who granted it. By default the role also gets Discord\'s own Timeout, Kick, Ban and Manage Messages permissions.';
+        return 'Give a role mod permissions, or take them away. Its members can then give rux moderation orders (warn, timeout, kick, ban, purge, lock, look up members; not giveaways, rules or roles, and never against staff). By default the role also gets Discord\'s own Timeout, Kick, Ban and Manage Messages permissions.';
     }
 
     public function parameters(): array
@@ -49,7 +49,6 @@ final class ModeratorRoleTool extends RuxTool
                 'role' => "<@&{$role['id']}>",
                 'rux_moderators' => true,
                 'discord_permissions_added' => $result['permissions_added'] ?: 'none (it already had them, or not asked)',
-                'paid_by_account' => $context->actorAccountId,
             ]);
         }
 

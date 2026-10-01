@@ -5,10 +5,9 @@ namespace PluggedHost\Rux\Watch;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use PluggedHost\Rux\Agent\Gateway\GatewayBusyException;
-use PluggedHost\Rux\Agent\Gateway\GatewayException;
-use PluggedHost\Rux\Agent\Gateway\LimitReachedException;
-use PluggedHost\Rux\Agent\RuxGateway;
+use PluggedHost\Rux\Agent\Ai\AiBusyException;
+use PluggedHost\Rux\Agent\Ai\AiException;
+use PluggedHost\Rux\Agent\Ai\RuxAi;
 use PluggedHost\Rux\Discord\DiscordException;
 use PluggedHost\Rux\Discord\DiscordRest;
 use PluggedHost\Rux\Models\RuxRule;
@@ -25,10 +24,10 @@ use Throwable;
  *
  * The daemon only queues them (enqueue()). One worker at a time (drain()) checks them in batches
  * of up to 20 per model call against the standing rules and the always-on guidelines, so a busy
- * channel costs a fraction of one call per message. The AI's limits can still be reached: a
- * batch that waited too long for a busy provider is dropped, messages older than ten minutes are
- * not checked any more, and when the neo limits of the account paying for it run out, watching
- * pauses until they reset. Staff are never checked.
+ * channel costs a fraction of one call per message. The AI's rate limits can still be reached: a
+ * batch that waited too long for a busy AI is dropped, messages older than ten minutes are not
+ * checked any more, and when the AI refuses rux (a bad key) watching pauses for ten minutes.
+ * Staff are never checked.
  */
 class WatchService
 {
@@ -53,7 +52,7 @@ class WatchService
 
     public function __construct(
         private readonly DiscordRest $discord,
-        private readonly RuxGateway $gateway,
+        private readonly RuxAi $ai,
         private readonly RuleService $rules,
         private readonly RuxAccess $access,
     ) {}
@@ -162,20 +161,12 @@ class WatchService
 
             RuxWatchItem::query()->whereIn('id', $batch->modelKeys())->delete();
 
-            $account = RuxConfig::aiAccountId();
-            if ($account === null) {
-                Log::warning('[rux] watch: nobody to bill the checks to yet (set RUX_AI_ACCOUNT_ID, or give rux an order as an admin); pausing for 10 minutes');
-                $this->pause(600);
-
-                return;
-            }
-
             $members = $batch->reject(fn (RuxWatchItem $item): bool => $this->access->isStaff($item->author_id, (array) $item->roles))->values();
             if ($members->isEmpty()) {
                 continue;
             }
 
-            $verdicts = $this->judge($members->all(), $account['account_id'], max(5.0, $until - microtime(true)));
+            $verdicts = $this->judge($members->all(), max(5.0, $until - microtime(true)));
 
             if ($verdicts === null) {
                 continue;
@@ -185,7 +176,7 @@ class WatchService
                 $item = $members[$verdict['n'] - 1] ?? null;
 
                 if ($item instanceof RuxWatchItem) {
-                    $this->act($item, $verdict['rule'], $verdict['why'], $account);
+                    $this->act($item, $verdict['rule'], $verdict['why']);
                 }
             }
         }
@@ -197,7 +188,7 @@ class WatchService
      * @param  list<RuxWatchItem>  $items
      * @return list<array{n: int, rule: string, why: string}>|null
      */
-    private function judge(array $items, int $accountId, float $budget): ?array
+    private function judge(array $items, float $budget): ?array
     {
         $rules = RuxRule::query()->where('active', true)->where('guild_id', RuxConfig::guildId())->get();
         $baseline = (bool) config('plugged-host-rux.watch.guidelines', true);
@@ -236,10 +227,10 @@ class WatchService
 
         while (true) {
             try {
-                $response = $this->gateway->turn($accountId, 'rux:watch', $messages, [], 'none');
+                $response = $this->ai->turn($messages);
 
                 break;
-            } catch (GatewayBusyException $e) {
+            } catch (AiBusyException $e) {
                 if (microtime(true) + $e->retryAfter >= $deadline) {
                     Log::info('[rux] watch: the AI stayed busy, ' . count($items) . ' messages were not checked');
 
@@ -247,15 +238,11 @@ class WatchService
                 }
 
                 sleep(max(1, min($e->retryAfter, 8)));
-            } catch (LimitReachedException $e) {
-                $until = $e->retryAt !== null ? max(60, strtotime($e->retryAt) - time()) : 900;
-                Log::warning('[rux] watch: the neo limits paying for it are used up; paused', ['seconds' => $until]);
-                $this->pause($until);
+            } catch (AiException $e) {
+                // Refused or not configured: waiting a moment will not fix it, so stop asking.
+                Log::warning('[rux] watch: the AI is unavailable; paused for 10 minutes', ['error' => $e->getMessage()]);
+                $this->pause(600);
                 RuxWatchItem::query()->delete();
-
-                return null;
-            } catch (GatewayException $e) {
-                Log::warning('[rux] watch: the AI is unavailable', ['error' => $e->getMessage()]);
 
                 return null;
             }
@@ -282,10 +269,7 @@ class WatchService
         return $verdicts;
     }
 
-    /**
-     * @param  array{account_id: int, discord_id: string}  $account
-     */
-    private function act(RuxWatchItem $item, string $code, string $why, array $account): void
+    private function act(RuxWatchItem $item, string $code, string $why): void
     {
         $cooldown = "plugged-host-rux:rule-cooldown:{$code}:{$item->author_id}";
 
@@ -314,7 +298,7 @@ class WatchService
                 return;
             }
 
-            $this->rules->enforceGuideline(Str::before(self::GUIDELINES[$code], ':'), $hit, $account['account_id'], $account['discord_id']);
+            $this->rules->enforceGuideline(Str::before(self::GUIDELINES[$code], ':'), $hit);
         } catch (DiscordException $e) {
             Log::warning('[rux] watch: action failed', ['rule' => $code, 'member' => $item->author_id, 'error' => $e->getMessage()]);
         }

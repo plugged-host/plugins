@@ -7,9 +7,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use PluggedHost\Rux\Agent\Gateway\GatewayException;
-use PluggedHost\Rux\Agent\Gateway\LimitReachedException;
-use PluggedHost\Rux\Agent\RuxGateway;
+use PluggedHost\Rux\Agent\Ai\AiException;
+use PluggedHost\Rux\Agent\Ai\RuxAi;
 use PluggedHost\Rux\Discord\DiscordException;
 use PluggedHost\Rux\Discord\DiscordRest;
 use PluggedHost\Rux\Moderation\ModerationService;
@@ -26,9 +25,9 @@ use Throwable;
  * Reading every message with the model would use up the AI's capacity within minutes, so this
  * works in two steps. The gateway daemon only compares each member message with the rules'
  * keywords (screen(), no network). A hit goes to a worker (check()), which skips staff, asks the
- * model whether the message really breaks the rule, and only then acts. The model's turn is
- * metered against the admin who made the rule. One rule acts on one member at most once per
- * cooldown, so a burst of messages or a wrong answer cannot pile up warnings.
+ * model whether the message really breaks the rule, and only then acts. One rule acts on one
+ * member at most once per cooldown, so a burst of messages or a wrong answer cannot pile up
+ * warnings.
  */
 class RuleService
 {
@@ -39,7 +38,7 @@ class RuleService
 
     public function __construct(
         private readonly DiscordRest $discord,
-        private readonly RuxGateway $gateway,
+        private readonly RuxAi $ai,
         private readonly ModerationService $moderation,
         private readonly RuxAccess $access,
     ) {}
@@ -177,8 +176,8 @@ class RuleService
         ];
 
         try {
-            $response = $this->gateway->turn($rule->created_by_account_id, 'rux:rule:' . $rule->id, $messages, [], 'none');
-        } catch (LimitReachedException|GatewayException $e) {
+            $response = $this->ai->turn($messages);
+        } catch (AiException $e) {
             Log::warning('[rux] rule check could not ask the model', ['rule' => $rule->id, 'error' => $e->getMessage()]);
 
             return null;
@@ -258,13 +257,13 @@ class RuleService
      *
      * @param  array<string, mixed>  $hit
      */
-    public function enforceGuideline(string $guideline, array $hit, int $accountId, string $actorDiscordId): void
+    public function enforceGuideline(string $guideline, array $hit): void
     {
         $context = new RuxContext(
             guildId: RuxConfig::guildId(),
-            actorDiscordId: $actorDiscordId,
+            actorDiscordId: RuxConfig::applicationId() ?? '0',
             actorName: 'watched channel',
-            actorAccountId: $accountId,
+            actorAccountId: null,
             channelId: $hit['channel_id'],
             direct: false,
             sourceMessageId: $hit['message_id'],

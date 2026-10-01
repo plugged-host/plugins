@@ -6,7 +6,6 @@ use InvalidArgumentException;
 use PluggedHost\Rux\Discord\Resolver;
 use PluggedHost\Rux\Moderation\ModerationService;
 use PluggedHost\Rux\Models\RuxWatch;
-use PluggedHost\Rux\Support\RuxConfig;
 use PluggedHost\Rux\Tools\RuxContext;
 use PluggedHost\Rux\Tools\RuxTool;
 use PluggedHost\Rux\Tools\ToolResult;
@@ -27,7 +26,7 @@ final class WatchChannelTool extends RuxTool
 
     public function description(): string
     {
-        return 'Start or stop checking EVERY member message in a channel with AI (against the standing rules and the always-on guidelines: scams, slurs, harassment, sexual content, spam, advertising). Busy channels use more of the AI limits.';
+        return 'Start or stop checking EVERY member message in a channel with AI (against the standing rules and the always-on guidelines: scams, slurs, harassment, sexual content, spam, advertising). Busy channels mean more AI calls (about one per 20 messages).';
     }
 
     public function parameters(): array
@@ -69,7 +68,6 @@ final class WatchChannelTool extends RuxTool
             'channel' => "<#{$id}>",
             'watched' => $watch,
             'all_watched' => array_map(static fn (string $c): string => "<#{$c}>", $this->watch->watchedChannelIds(fresh: true)),
-            'checks_paid_by_account' => RuxConfig::aiAccountId()['account_id'] ?? $context->actorAccountId,
         ]);
     }
 }

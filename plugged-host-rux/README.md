@@ -26,14 +26,14 @@ moderation permissions.
 - **Moderators**: members of a role an admin made a rux moderator role (`set_moderator_role`).
   They can order moderation only: look up members, warn, timeout, kick, ban, unban, purge,
   lock/slowmode, clear warnings, and list rules and giveaways. They can never act on staff,
-  noprofit.space admins, other moderators or themselves. Their orders are paid from the neo limits
-  of the admin who made the role. Making a role moderators also gives it Discord's Timeout, Kick,
+  noprofit.space admins, other moderators or themselves. Making a role moderators also gives it Discord's Timeout, Kick,
   Ban and Manage Messages permissions, unless the admin says not to. Taking the role back removes
   exactly what rux added.
 - **Everyone else** is ignored. In DMs they are told once an hour that rux only takes orders from
   admins; on the server rux stays silent.
 
-AI turns are metered against the neo limits of the admin who gave the order.
+rux is a moderation and toolbox bot, not a support bot. Its AI use counts directly against the
+providers' API keys, never against anyone's neo limits.
 
 ## What rux can do
 
@@ -83,13 +83,12 @@ do not. The settings page says so.
   model call. They are checked against every standing rule (keywords or not) and against the
   always-on guidelines: scams/phishing, slurs, harassment, sexual content, spam, advertising.
   Breaking a guideline means the message is deleted and its author warned
-  (`RUX_WATCH_GUIDELINES=false` turns the guidelines off). These checks are paid from
-  `RUX_AI_ACCOUNT_ID`, or else by the admin who gave rux its latest order.
-- **Limits.** The AI is shared with neo, and Groq's free tier allows about 8,000 tokens a minute,
-  so limits can be reached. When that happens:
-  - A batch that waits too long for a busy provider is skipped.
+  (`RUX_WATCH_GUIDELINES=false` turns the guidelines off).
+- **Limits.** Groq's free tier allows about 8,000 tokens a minute per model, shared with neo's
+  own use of the same keys, so limits can be reached. When that happens:
+  - A batch that waits too long for a busy AI is skipped.
   - Messages that waited more than 10 minutes are not checked.
-  - When the paying account's neo limits run out, watching pauses until they reset.
+  - When the AI refuses rux outright (a bad key), watching pauses for 10 minutes.
 - Staff are never checked: the owner, anyone with kick/ban/timeout/manage-messages/manage-server
   permissions, and rux moderators. One rule acts on one member at most once every 5 minutes.
 
@@ -119,8 +118,7 @@ do not. The settings page says so.
 - `APP_ENV=production`;
 - rux is switched on;
 - a token and a server id are set;
-- noprofit.space (`NOPROFIT_SYNC_SECRET`) and the neo gateway are configured. The gateway uses
-  `RUX_GATEWAY_SECRET`, or else `NEO_GATEWAY_SECRET`;
+- noprofit.space (`NOPROFIT_SYNC_SECRET`) is configured, and at least one AI provider is;
 - the tables exist. Even with a token in its `.env`,
 the dev panel never connects a second gateway session.
 
@@ -153,6 +151,13 @@ the dev panel never connects a second gateway session.
   are waiting.
 - `rux_messages` is rux's memory: the last 30 minutes of a conversation (one admin in one
   channel or DM) are replayed. Rows are pruned after 30 days.
+- One order at a time per conversation. An order that arrives while the last one is still being
+  carried out is answered "still on your last order" and dropped; people resend orders that seem
+  slow, and running both would do the thing twice.
+- An order whose worker died (a crash, a deploy) gets a new worker from the tick after a minute.
+  It is given up if the same person has sent another order since, or after 10 minutes.
+- If the AI gives out after tools already ran, rux lists what it did instead of saying it
+  could not think.
 
 ```bash
 sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-supervise --status
@@ -172,6 +177,25 @@ rux uses three routes on accounts.noprofit.space, signed with `NOPROFIT_SYNC_SEC
 - `POST /api/v1/internal/rux/giveaways`: pay a draw's winners through `App\Services\Giveaways`,
   idempotent on its `rux:` key.
 
-AI turns go through the neo gateway (`/api/v1/internal/neo/turn`, `service: rux`). This uses
-the same providers and failover chain as neo. rux has its own copy of the gateway client and its
-exceptions (`src/Agent/Gateway`), so it does not depend on the neo plugin being installed.
+## AI
+
+rux uses the same three providers as neo, 1:1. In order, with neo's failover:
+
+1. main: Groq Qwen;
+2. backup: Groq gpt-oss;
+3. extra backup: justwoker Opus.
+
+The failover rules are copied from noprofit.space's `ProviderChain`. A provider that fails
+cools down: 10 minutes for auth errors; its Retry-After (or a minute) for rate limits and
+outages; not at all for "request too large". A cooling-down provider is skipped, and each
+provider's daily token cap holds per day. The drivers are copies of neo's (`src/Agent/Ai`:
+OpenAI chat for Groq, Anthropic Messages for justwoker).
+
+rux calls the providers directly. Nothing goes through noprofit.space or neo, and no neo limits
+apply. Its settings are its own copy of neo's `NEO_P1..3_*` (noprofit.space's `.env`) as
+`RUX_AI_P1..3_*` in the panel's `.env`. After changing neo's providers, copy them again:
+
+```bash
+sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-copy-ai --dry-run
+sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-copy-ai
+```

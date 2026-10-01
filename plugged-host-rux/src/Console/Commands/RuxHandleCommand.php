@@ -11,9 +11,10 @@ use PluggedHost\Rux\Support\RuxConfig;
 use PluggedHost\Rux\Support\RuxSupervisor;
 
 /**
- * The worker for one order, started detached by the gateway daemon. Orders in the same
- * conversation run one after the other, so "make it 1000 instead" waits for the giveaway it
- * changes to exist.
+ * The worker for one order, started detached by the gateway daemon. One order at a time per
+ * conversation: one that comes in while the last is still being carried out is answered "still
+ * on your last order" and dropped, because people resend an order that seems slow, and running
+ * both would do it twice (two giveaways).
  */
 class RuxHandleCommand extends Command
 {
@@ -40,11 +41,12 @@ class RuxHandleCommand extends Command
         $lock = Cache::lock('plugged-host-rux:conversation:' . $order->conversation, 330);
 
         try {
-            $lock->block(300);
+            // A few seconds, for a previous worker that is just finishing.
+            $lock->block(5);
         } catch (LockTimeoutException) {
-            $order->update(['status' => RuxMessage::FAILED, 'meta' => array_merge((array) $order->meta, ['error' => 'conversation_busy'])]);
+            $agent->refuseBusy($order);
 
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
         try {

@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
+use PluggedHost\Rux\Agent\Ai\RuxAi;
 use PluggedHost\Rux\Support\RuxConfig;
 use PluggedHost\Rux\Support\RuxSupervisor;
 
@@ -45,9 +46,6 @@ class PluggedHostRuxPlugin implements HasPluginSettings, Plugin
             'warn_ban_at' => (int) config('plugged-host-rux.warnings.ban_at', 5),
             'warn_ban' => (string) config('plugged-host-rux.warnings.ban', '24h'),
             'watch_guidelines' => (bool) config('plugged-host-rux.watch.guidelines', true),
-            'ai_account_id' => (int) config('plugged-host-rux.ai_account_id', 0) ?: null,
-            // Secret: never shown again. Empty on save means unchanged.
-            'gateway_secret' => '',
         ];
     }
 
@@ -122,27 +120,11 @@ class PluggedHostRuxPlugin implements HasPluginSettings, Plugin
                     TextInput::make('warn_ban')->label('Ban length')->required()->regex('/^(\d+[smhdw])+$/i')->helperText('Like 24h; rux lifts the ban afterwards.'),
                 ]),
             Section::make('AI')
-                ->description('rux uses the same AI as neo (noprofit.space\'s neo gateway and its providers). Orders are paid from the neo limits of the admin who gives them; moderators\' orders from the admin who made their role.')
-                ->columns(2)
+                ->description('The same three providers as neo, 1:1, tried in this order with the same failover: ' . $this->aiChain() . '. rux calls them directly with its own copy of neo\'s settings (RUX_AI_P1..3), so no neo limits apply. After changing neo\'s providers, copy them again: php artisan plugged-host:rux-copy-ai')
                 ->schema([
-                    TextInput::make('ai_account_id')
-                        ->label('Pay automatic checks from noprofit.space account')
-                        ->numeric()
-                        ->integer()
-                        ->minValue(1)
-                        ->nullable()
-                        ->helperText('Account id whose neo limits pay for checking watched channels. Empty: the admin who gave rux its latest order.'),
                     Toggle::make('watch_guidelines')
                         ->label('Watched channels also enforce the basic guidelines')
                         ->helperText('Scams, slurs, harassment, sexual content, spam and advertising: deleted and warned.'),
-                    TextInput::make('gateway_secret')
-                        ->label('Own gateway secret (optional)')
-                        ->password()
-                        ->revealable()
-                        ->autocomplete(false)
-                        ->nullable()
-                        ->columnSpanFull()
-                        ->placeholder(filled(env('RUX_GATEWAY_SECRET')) ? '•••••••• saved, leave empty to keep it' : 'Uses neo\'s (NEO_GATEWAY_SECRET)'),
                 ]),
         ];
     }
@@ -162,13 +144,7 @@ class PluggedHostRuxPlugin implements HasPluginSettings, Plugin
             'RUX_WARN_BAN_AT' => (string) max(0, (int) ($data['warn_ban_at'] ?? 5)),
             'RUX_WARN_BAN' => strtolower(trim((string) ($data['warn_ban'] ?? '24h'))) ?: '24h',
             'RUX_WATCH_GUIDELINES' => !empty($data['watch_guidelines']) ? 'true' : 'false',
-            'RUX_AI_ACCOUNT_ID' => (string) max(0, (int) ($data['ai_account_id'] ?? 0)),
         ];
-
-        $secret = trim((string) ($data['gateway_secret'] ?? ''));
-        if ($secret !== '') {
-            $values['RUX_GATEWAY_SECRET'] = $secret;
-        }
 
         $token = trim((string) ($data['bot_token'] ?? ''));
         if ($token !== '') {
@@ -182,6 +158,15 @@ class PluggedHostRuxPlugin implements HasPluginSettings, Plugin
             ->body('The supervisor applies them within a minute.')
             ->success()
             ->send();
+    }
+
+    private function aiChain(): string
+    {
+        $providers = app(RuxAi::class)->providers();
+
+        return $providers === []
+            ? 'none configured yet'
+            : implode(' → ', array_map(static fn (array $p): string => "{$p['label']} ({$p['model']})", $providers));
     }
 
     private function statusCallout(): Callout

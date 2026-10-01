@@ -2,15 +2,13 @@
 
 namespace PluggedHost\Rux\Agent;
 
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use PluggedHost\Rux\Agent\Gateway\GatewayBusyException;
-use PluggedHost\Rux\Agent\Gateway\GatewayUnavailableException;
-use PluggedHost\Rux\Agent\Gateway\LimitReachedException;
-use PluggedHost\Rux\Agent\Gateway\NotLinkedException;
+use PluggedHost\Rux\Agent\Ai\AiBusyException;
+use PluggedHost\Rux\Agent\Ai\AiUnavailableException;
+use PluggedHost\Rux\Agent\Ai\RuxAi;
 use PluggedHost\Rux\Discord\DiscordException;
 use PluggedHost\Rux\Discord\DiscordRest;
 use PluggedHost\Rux\Models\RuxMessage;
@@ -18,7 +16,6 @@ use PluggedHost\Rux\Noprofit\NoprofitUnavailable;
 use PluggedHost\Rux\Noprofit\RuxNoprofit;
 use PluggedHost\Rux\Support\RuxAccess;
 use PluggedHost\Rux\Support\RuxConfig;
-use PluggedHost\Rux\Support\RuxTime;
 use PluggedHost\Rux\Tools\RuxContext;
 use PluggedHost\Rux\Tools\RuxToolRegistry;
 use PluggedHost\Rux\Tools\ToolResult;
@@ -28,15 +25,15 @@ use Throwable;
  * One order, start to finish, in its own worker process (plugged-host:rux-handle).
  *
  * First noprofit.space says who wrote it. A noprofit.space admin gets every tool; a member of a
- * rux moderator role gets the moderation tools, on the limits of the admin who made the role;
- * anyone else is ignored (and told so once an hour in DMs) before the model is ever called. Then the usual loop: model turn → run its tool calls → feed the results back,
+ * rux moderator role gets the moderation tools; anyone else is ignored (and told so once an hour
+ * in DMs) before the model is ever called. Then the usual loop: model turn → run its tool calls → feed the results back,
  * until it answers in text or runs out of steps. Everything is kept in rux_messages, so the next
  * order in the same conversation remembers this one.
  */
 final class RuxAgent
 {
     public function __construct(
-        private readonly RuxGateway $gateway,
+        private readonly RuxAi $ai,
         private readonly RuxToolRegistry $tools,
         private readonly RuxPrompt $prompt,
         private readonly RuxNoprofit $noprofit,
@@ -47,6 +44,21 @@ final class RuxAgent
     public static function deniedKey(string $discordId): string
     {
         return 'plugged-host-rux:denied:' . RuxAccess::generation() . ":{$discordId}";
+    }
+
+    /**
+     * The last order in this conversation is still being carried out: say so and drop this one.
+     */
+    public function refuseBusy(RuxMessage $order): void
+    {
+        $claimed = RuxMessage::query()->whereKey($order->id)->where('status', RuxMessage::PENDING)->update(['status' => RuxMessage::FAILED]);
+
+        if ($claimed === 0) {
+            return;
+        }
+
+        $this->finish($order->refresh(), RuxMessage::FAILED, ['error' => 'busy']);
+        $this->reply($order, RuxConfig::say('reply.too_fast'));
     }
 
     public function handle(RuxMessage $order): void
@@ -74,7 +86,7 @@ final class RuxAgent
         $name = $actor !== null && $actor['name'] !== '' ? $actor['name'] : (string) ($order->author_name ?? $order->author_id);
 
         if ($level === null) {
-            // Not an admin: a member of a rux moderator role still may, on the granting admin's limits.
+            // Not an admin: a member of a rux moderator role still may give moderation orders.
             try {
                 $roles = $this->access->memberRoles($order->author_id);
                 $moderatorRole = $roles === null ? null : $this->access->moderatorRole($roles);
@@ -84,11 +96,10 @@ final class RuxAgent
 
             if ($moderatorRole !== null) {
                 $level = RuxAccess::MODERATOR;
-                $accountId = $moderatorRole->granted_by_account_id;
             }
         }
 
-        if ($level === null || $accountId === null) {
+        if ($level === null) {
             $this->finish($order, RuxMessage::IGNORED, ['reason' => $actor === null ? 'not_linked' : 'not_admin']);
 
             // The daemon drops this person's next messages without starting a worker.
@@ -120,15 +131,9 @@ final class RuxAgent
         try {
             $answer = $this->run($order, $context);
             $this->finish($order, RuxMessage::DONE);
-        } catch (LimitReachedException $e) {
-            $this->finish($order, RuxMessage::FAILED, ['error' => 'limit_' . $e->window]);
-            $answer = RuxConfig::say('reply.limit', ['time' => $e->retryAt !== null ? RuxTime::human(CarbonImmutable::parse($e->retryAt)) : 'later']);
-        } catch (NotLinkedException) {
-            $this->finish($order, RuxMessage::FAILED, ['error' => 'neo_not_linked']);
-            $answer = RuxConfig::say('reply.not_linked');
-        } catch (GatewayUnavailableException $e) {
-            $this->finish($order, RuxMessage::FAILED, ['error' => 'gateway_' . $e->getMessage()]);
-            $answer = RuxConfig::say('reply.unavailable');
+        } catch (AiUnavailableException $e) {
+            $this->finish($order, RuxMessage::FAILED, ['error' => 'ai_' . mb_substr($e->getMessage(), 0, 120)]);
+            $answer = $this->whatWasDone($order) ?? RuxConfig::say('reply.unavailable');
         } catch (Throwable $e) {
             report($e);
             $this->finish($order, RuxMessage::FAILED, ['error' => class_basename($e)]);
@@ -139,7 +144,7 @@ final class RuxAgent
     }
 
     /**
-     * @throws LimitReachedException|NotLinkedException|GatewayUnavailableException
+     * @throws AiUnavailableException
      */
     private function run(RuxMessage $order, RuxContext $context): string
     {
@@ -168,7 +173,7 @@ final class RuxAgent
                 'meta' => [
                     'provider' => $response['provider']['label'] ?? null,
                     'model' => $response['provider']['model'] ?? null,
-                    'tokens' => (int) ($response['usage']['charged_tokens'] ?? 0),
+                    'tokens' => (int) ($response['usage']['prompt_tokens'] ?? 0) + (int) ($response['usage']['completion_tokens'] ?? 0),
                 ],
             ]);
 
@@ -206,6 +211,36 @@ final class RuxAgent
     }
 
     /**
+     * When the AI gave out after some tools already ran, what they did, so nobody is told
+     * "nothing happened" about a giveaway that was in fact made.
+     */
+    private function whatWasDone(RuxMessage $order): ?string
+    {
+        $tools = RuxMessage::query()->where('turn_id', $order->id)->where('role', RuxMessage::TOOL)->orderBy('id')->get();
+
+        if ($tools->isEmpty()) {
+            return null;
+        }
+
+        $lines = $tools->map(function (RuxMessage $row): string {
+            $result = json_decode((string) $row->content, true);
+            $detail = is_array($result)
+                ? implode(', ', array_filter([
+                    isset($result['id'], $result['prize']) ? "#{$result['id']} {$result['prize']}" : null,
+                    $result['ends_at'] ?? null,
+                    $result['channel'] ?? null,
+                    $result['member'] ?? null,
+                    $result['message'] ?? $result['link'] ?? null,
+                ], static fn ($v): bool => is_string($v) && $v !== ''))
+                : Str::limit((string) $row->content, 150);
+
+            return '- ' . $row->tool_name . ($row->status === RuxMessage::FAILED ? ' (failed)' : '') . ($detail !== '' ? ': ' . $detail : '');
+        });
+
+        return RuxConfig::say('reply.done_without_summary') . "\n" . $lines->implode("\n");
+    }
+
+    /**
      * @param  array<string, mixed>  $arguments
      */
     private function execute(RuxContext $context, string $name, array $arguments): ToolResult
@@ -228,13 +263,13 @@ final class RuxAgent
     }
 
     /**
-     * One model turn, waiting out "busy" (rate limited providers) until $busyUntil.
+     * One model turn, waiting out a busy or rate-limited AI until $busyUntil.
      *
      * @param  list<array<string, mixed>>  $messages
      * @param  list<array<string, mixed>>  $definitions
      * @return array<string, mixed>
      *
-     * @throws LimitReachedException|NotLinkedException|GatewayUnavailableException
+     * @throws AiUnavailableException
      */
     private function callModel(RuxMessage $order, RuxContext $context, array $messages, array $definitions, string $toolChoice, int $busyUntil): array
     {
@@ -242,10 +277,10 @@ final class RuxAgent
             $this->discord->typing($order->channel_id);
 
             try {
-                return $this->gateway->turn($context->actorAccountId, 'rux:' . $order->conversation, $messages, $definitions, $toolChoice);
-            } catch (GatewayBusyException $e) {
+                return $this->ai->turn($messages, $definitions, $toolChoice);
+            } catch (AiBusyException $e) {
                 if (time() + 1 >= $busyUntil) {
-                    throw new GatewayUnavailableException('busy_too_long');
+                    throw new AiUnavailableException('busy_too_long: ' . $e->getMessage());
                 }
 
                 sleep(max(1, min($e->retryAfter, 8, $busyUntil - time())));

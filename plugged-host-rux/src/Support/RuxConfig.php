@@ -3,10 +3,9 @@
 namespace PluggedHost\Rux\Support;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
-use PluggedHost\Rux\Models\RuxMessage;
 use PluggedHost\Core\Services\NoprofitClient;
+use PluggedHost\Rux\Agent\Ai\RuxAi;
 use Throwable;
 
 /**
@@ -99,8 +98,8 @@ final class RuxConfig
             $blockers[] = 'noprofit.space is not configured (NOPROFIT_SYNC_SECRET): rux cannot tell who is an admin.';
         }
 
-        if (!$client->configured((string) config('plugged-host-rux.gateway_secret', ''))) {
-            $blockers[] = 'The neo gateway is not configured (RUX_GATEWAY_SECRET or NEO_GATEWAY_SECRET): rux cannot think.';
+        if (!app(RuxAi::class)->configured()) {
+            $blockers[] = 'The AI is not configured (RUX_AI_ENDPOINT, RUX_AI_API_KEY, RUX_AI_MODEL): rux cannot think.';
         }
 
         if (!self::tablesExist()) {
@@ -127,34 +126,6 @@ final class RuxConfig
         } catch (Throwable) {
             return false;
         }
-    }
-
-    /**
-     * Whose neo limits pay for checks nobody ordered (watched channels): RUX_AI_ACCOUNT_ID, or
-     * else the admin who gave rux its latest order. Null until either exists.
-     *
-     * @return array{account_id: int, discord_id: string}|null
-     */
-    public static function aiAccountId(): ?array
-    {
-        $configured = (int) config('plugged-host-rux.ai_account_id', 0);
-
-        if ($configured > 0) {
-            return ['account_id' => $configured, 'discord_id' => self::applicationId() ?? '0'];
-        }
-
-        return Cache::remember('plugged-host-rux:ai-account', 300, function (): ?array {
-            $order = RuxMessage::query()
-                ->where('role', RuxMessage::USER)
-                ->where('status', RuxMessage::DONE)
-                ->where('meta->level', RuxAccess::ADMIN)
-                ->latest('id')
-                ->first();
-
-            $accountId = (int) ($order?->meta['account_id'] ?? 0);
-
-            return $accountId > 0 ? ['account_id' => $accountId, 'discord_id' => $order->author_id] : null;
-        });
     }
 
     /**

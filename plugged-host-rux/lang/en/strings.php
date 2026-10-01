@@ -90,11 +90,10 @@ return [
     'reply' => [
         'not_admin' => 'I only take orders from noprofit.space admins.',
         'noprofit_down' => 'I cannot reach noprofit.space to check who you are. Try again in a minute.',
-        'limit' => 'Your neo limit is used up until :time.',
         'unavailable' => 'I cannot think right now: the AI is unavailable. Try again in a few minutes.',
-        'not_linked' => 'Your noprofit.space account cannot use neo, so I cannot think for you.',
         'too_fast' => 'Give me a moment, I am still on your last order.',
         'failed' => 'Something went wrong on my side. Nothing more was done.',
+        'done_without_summary' => 'Done, but the AI is too busy right now to sum it up. What I did:',
         'done' => 'Done.',
     ],
 ];

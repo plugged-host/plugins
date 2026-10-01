@@ -5,7 +5,6 @@ namespace PluggedHost\Rux\Tools\Rules;
 use PluggedHost\Rux\Models\RuxRule;
 use PluggedHost\Rux\Rules\RuleService;
 use PluggedHost\Rux\Support\RuxAccess;
-use PluggedHost\Rux\Support\RuxConfig;
 use PluggedHost\Rux\Tools\RuxContext;
 use PluggedHost\Rux\Tools\RuxTool;
 use PluggedHost\Rux\Tools\ToolResult;
@@ -47,8 +46,7 @@ final class ListRulesTool extends RuxTool
                 'timeout' => (int) ($ladder['timeout_at'] ?? 0) > 0 ? "from {$ladder['timeout_at']} warnings: timeout {$ladder['timeout']}" : 'off',
                 'ban' => (int) ($ladder['ban_at'] ?? 0) > 0 ? "from {$ladder['ban_at']} warnings: ban {$ladder['ban']}" : 'off',
             ],
-            'watch_paused' => \Illuminate\Support\Facades\Cache::has('plugged-host-rux:watch-paused') ? 'yes, the AI limits paying for it ran out' : null,
-            'automatic_checks_paid_by_account' => RuxConfig::aiAccountId()['account_id'] ?? 'nobody yet',
+            'watch_paused' => \Illuminate\Support\Facades\Cache::has('plugged-host-rux:watch-paused') ? 'yes, the AI refused rux; it tries again within 10 minutes' : null,
         ]);
     }
 }

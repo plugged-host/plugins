@@ -11,4 +11,7 @@
   - Standing rules ("if anyone asks for new locations, warn them").
   - Watched channels (#chat, #bot-commands) where every message is checked in batches.
   - Warning steps: 3 warnings = 24h timeout, 5 = 24h ban, which rux lifts itself.
+  - AI: neo's three providers 1:1 (Groq Qwen, Groq gpt-oss, justwoker) with neo's failover,
+    called directly with rux's own copy of the settings (`plugged-host:rux-copy-ai`). No neo
+    limits apply.
   - Runs on the production panel only.

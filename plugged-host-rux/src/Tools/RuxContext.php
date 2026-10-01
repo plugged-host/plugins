@@ -7,8 +7,9 @@ use PluggedHost\Rux\Support\RuxAccess;
 
 /**
  * Who ordered what, and where: handed to every tool. The actor is a noprofit.space admin, or a
- * member of a rux moderator role (level "moderator", fewer tools); RuxAgent checks before the
- * model is ever called. actorAccountId is whose neo limits pay for the order.
+ * member of a rux moderator role (level "moderator", fewer tools), or rux itself (a standing
+ * rule or a watched channel); RuxAgent checks before the model is ever called. actorAccountId is
+ * the actor's noprofit.space account when they have one.
  */
 final class RuxContext
 {
@@ -16,7 +17,7 @@ final class RuxContext
         public readonly string $guildId,
         public readonly string $actorDiscordId,
         public readonly string $actorName,
-        public readonly int $actorAccountId,
+        public readonly ?int $actorAccountId,
         public readonly string $channelId,
         public readonly bool $direct,
         public readonly ?string $sourceMessageId,

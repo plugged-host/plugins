@@ -29,6 +29,7 @@ final class RuxToolRegistry
         Moderation\ChannelSettingsTool::class,
         Moderation\ManageRoleTool::class,
         Moderation\SendMessageTool::class,
+        Moderation\SendDmTool::class,
         Moderation\ServerOverviewTool::class,
         Moderation\ClearWarningsTool::class,
         Rules\AddRuleTool::class,
