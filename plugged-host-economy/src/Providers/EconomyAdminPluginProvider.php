@@ -113,6 +113,11 @@ class EconomyAdminPluginProvider extends ServiceProvider
                 })->name('api:client:economy.transactions');
 
                 \Illuminate\Support\Facades\Route::post('/store/purchase', function (\Illuminate\Http\Request $request) {
+                    // Same switch that closes the Resource Store page.
+                    if (!config('plugged-host-economy.credits.enabled', true)) {
+                        return response()->json(['success' => false, 'message' => 'The resource store is closed.'], 422);
+                    }
+
                     $user = $request->user();
                     $resource = (string) $request->input('resource');
                     $amount = max(1, (int) $request->input('amount', 1));
