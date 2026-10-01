@@ -2,6 +2,7 @@
 
 use App\Models\Plugin;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 
 /*
  * The panel skips plugins while running unit tests (PluginService::loadPlugins), so plugin
@@ -13,6 +14,10 @@ use Illuminate\Support\Facades\Artisan;
 if (!function_exists('loadPluginForTest')) {
     function loadPluginForTest(string $id): void
     {
+        // Plugins talk to production services (noprofit.space, Discord, Cloudflare, ...); a
+        // test must fake what it needs and never reach a real host.
+        Http::preventStrayRequests();
+
         /** @var Plugin $plugin */
         $plugin = Plugin::query()->findOrFail($id);
 
