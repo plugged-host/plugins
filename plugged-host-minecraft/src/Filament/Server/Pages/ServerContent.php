@@ -160,6 +160,7 @@ class ServerContent extends MinecraftPage implements HasTable
                     : trans('plugged-host-minecraft::strings.mods.geyser_install'))
                 ->color('gray')
                 ->visible(fn () => $this->geyserStatus !== 'unavailable')
+                ->authorize(fn () => self::canInstallGeyser())
                 ->requiresConfirmation()
                 ->action('installGeyser'),
 
@@ -357,6 +358,19 @@ class ServerContent extends MinecraftPage implements HasTable
             ->send();
     }
 
+    /**
+     * Installing Geyser writes jars and restarts the server, the same as the API route and the
+     * neo tool require.
+     */
+    protected static function canInstallGeyser(): bool
+    {
+        $server = Filament::getTenant();
+
+        return $server instanceof Server
+            && (bool) user()?->can(SubuserPermission::FileCreate, $server)
+            && (bool) user()?->can(SubuserPermission::ControlRestart, $server);
+    }
+
     public function installGeyser(): void
     {
         $server = Filament::getTenant();
@@ -365,6 +379,8 @@ class ServerContent extends MinecraftPage implements HasTable
         if (!$server instanceof Server) {
             return;
         }
+
+        abort_unless(self::canInstallGeyser(), 403);
 
         $result = app(GeyserService::class)->install($server, $user?->id);
 
