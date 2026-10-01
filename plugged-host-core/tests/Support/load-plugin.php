@@ -38,6 +38,10 @@ if (!function_exists('loadPluginForTest')) {
             app()->register($provider);
         }
 
+        // Routes added after boot are missing from the name/action lookups route() uses.
+        app('router')->getRoutes()->refreshNameLookups();
+        app('router')->getRoutes()->refreshActionLookups();
+
         $migrations = plugin_path($id, 'database', 'migrations');
         if (file_exists($migrations)) {
             Artisan::call('migrate', ['--path' => $migrations, '--realpath' => true, '--force' => true]);
