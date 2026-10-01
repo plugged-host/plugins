@@ -33,7 +33,7 @@ return [
 
     // Privacy and safety.
     'redact_secrets' => (bool) env('NEO_REDACT_SECRETS', true),
-    'always_confirm_destructive' => (bool) env('NEO_ALWAYS_CONFIRM_DESTRUCTIVE', false),
+    'always_confirm_destructive' => (bool) env('NEO_ALWAYS_CONFIRM_DESTRUCTIVE', true),
     'retention_days' => (int) env('NEO_RETENTION_DAYS', 30),
 
     'support_url' => (string) env('NEO_SUPPORT_URL', 'https://discord.gg/plugged-host-1502647500295635085'),

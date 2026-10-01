@@ -64,7 +64,7 @@ class PluggedHostNeoPlugin implements HasPluginSettings, Plugin
             'max_steps' => (int) config('plugged-host-neo.max_steps', 10),
             'context_tokens' => (int) config('plugged-host-neo.context_tokens', 16000),
             'redact_secrets' => (bool) config('plugged-host-neo.redact_secrets', true),
-            'always_confirm_destructive' => (bool) config('plugged-host-neo.always_confirm_destructive', false),
+            'always_confirm_destructive' => (bool) config('plugged-host-neo.always_confirm_destructive', true),
             'retention_days' => (int) config('plugged-host-neo.retention_days', 30),
             'support_url' => (string) config('plugged-host-neo.support_url', ''),
         ];
