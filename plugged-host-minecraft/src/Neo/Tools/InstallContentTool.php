@@ -30,7 +30,6 @@ final class InstallContentTool extends MinecraftTool
                 'project' => ['type' => 'string', 'description' => 'Project id from search_content.'],
                 'version' => ['type' => 'string', 'description' => 'Optional version id from content_versions.'],
                 'source' => ['type' => 'string', 'enum' => ContentInstallService::SOURCES, 'description' => 'The source search_content found the project on.'],
-                'name' => ['type' => 'string', 'description' => 'Project name, for the approval card.'],
             ],
             'required' => ['project'],
         ];
@@ -48,7 +47,10 @@ final class InstallContentTool extends MinecraftTool
 
     public function summarize(array $arguments): string
     {
-        return 'Install ' . (string) ($arguments['name'] ?? $arguments['project'] ?? 'content');
+        // Built from what execute() installs, never from a name the model supplies: text the
+        // model read (search results, files, the console) could make the card say anything.
+        return 'Install ' . ($arguments['source'] ?? 'modrinth') . ' project ' . (string) ($arguments['project'] ?? '?')
+            . (filled($arguments['version'] ?? null) ? ' (version ' . $arguments['version'] . ')' : '');
     }
 
     public function execute(ToolContext $context, array $arguments): ToolResult
