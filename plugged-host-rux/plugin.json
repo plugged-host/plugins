@@ -13,7 +13,7 @@
     "panel_version": null,
     "composer_packages": null,
     "meta": {
-        "status": "disabled",
+        "status": "enabled",
         "status_message": null,
         "load_order": 8
     }
