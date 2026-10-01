@@ -110,7 +110,8 @@ final class ContextBuilder
             NeoMessage::TOOL => [
                 'role' => 'tool',
                 'tool_call_id' => (string) $row->tool_call_id,
-                'content' => '<tool_output tool="' . $row->tool_name . '" untrusted="true">' . "\n" . (string) $row->content . "\n</tool_output>",
+                // Tags inside the output are neutralised, so the text cannot close its own fence.
+                'content' => '<tool_output tool="' . $row->tool_name . '" untrusted="true">' . "\n" . (string) preg_replace('#<(/?)tool_output#i', '‹$1tool_output', (string) $row->content) . "\n</tool_output>",
                 'is_error' => in_array($row->status, [NeoMessage::FAILED, NeoMessage::DENIED, NeoMessage::SKIPPED], true),
                 '_size' => strlen((string) $row->content),
             ],
