@@ -16,7 +16,7 @@
     <div class="phset-cmd-text font-mono">{{ $server->startup }}</div>
     <button
         type="button"
-        @click="navigator.clipboard.writeText(`{{ str_replace('`', '\`', $server->startup) }}`); copied = true; setTimeout(() => copied = false, 2000)"
+        @click="navigator.clipboard.writeText({{ \Illuminate\Support\Js::from((string) $server->startup) }}); copied = true; setTimeout(() => copied = false, 2000)"
         class="fi-icon-btn fi-size-sm"
         aria-label="Copy Command"
         x-tooltip="{ content: 'Copy Command', theme: $store.theme }">
