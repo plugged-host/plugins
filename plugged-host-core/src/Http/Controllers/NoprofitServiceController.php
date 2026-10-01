@@ -128,7 +128,8 @@ final class NoprofitServiceController
 
             // noprofit.space just proved this Discord account with OAuth, so it moves here from
             // any other panel account still holding it (discord_id is unique).
-            $holder = DiscordLink::query()->where('discord_id', $link['discord_id'])->where('user_id', '!=', $user->getKey())->first()?->user;
+            $holderLink = DiscordLink::query()->where('discord_id', $link['discord_id'])->where('user_id', '!=', $user->getKey())->first();
+            $holder = $holderLink?->user;
             if ($holder instanceof User) {
                 $discord->unlinkUser($holder);
             }
@@ -145,6 +146,18 @@ final class NoprofitServiceController
                 isset($link['expires_in']) ? (int) $link['expires_in'] : null,
                 ['username' => $link['username'] ?? null, 'discriminator' => '0', 'avatar' => $link['avatar'] ?? null],
             );
+
+            // Boost tiers already paid to this Discord account, and invite debt it owes, follow it:
+            // they were kept per panel account, so moving the link to a fresh account paid the
+            // boost reward again and left the debt behind. Moved before the sync below pays.
+            if ($holderLink instanceof DiscordLink) {
+                $moved = DiscordLink::query()->where('user_id', $user->getKey())->first();
+                $moved?->forceFill([
+                    'boosts_rewarded' => max((int) $moved->boosts_rewarded, (int) $holderLink->boosts_rewarded),
+                    'invite_debt' => (int) $moved->invite_debt + (int) $holderLink->invite_debt,
+                ])->save();
+                $holderLink->forceFill(['boosts_rewarded' => 0, 'invite_debt' => 0])->save();
+            }
 
             // Checked right away, not behind the queue: server membership gives the Discord
             // role here and the Discord tier on noprofit.space, which reads it from the answer.
