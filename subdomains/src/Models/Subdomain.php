@@ -556,6 +556,17 @@ class Subdomain extends Model implements HasLabel
         ]);
     }
 
+    /**
+     * Whether a DNS record comment marks the record as created by this plugin for this
+     * subdomain's server (see the comments set in upsertOnCloudflare()).
+     */
+    protected function isOwnRecordComment(?string $comment): bool
+    {
+        return is_string($comment)
+            && str_starts_with($comment, 'Created by plugged.host Subdomains (')
+            && str_ends_with($comment, "Server #{$this->server_id})");
+    }
+
     protected function deleteOnCloudflare(): void
     {
         $zoneId = $this->domain?->cloudflare_id;
@@ -575,7 +586,10 @@ class Subdomain extends Model implements HasLabel
             }
         }
 
-        // Fail-safe cleanup: query zone for any lingering records matching this exact name
+        // Fail-safe cleanup: query zone for any lingering records matching this exact name.
+        // Only records this plugin created for this server are removed. The name is chosen by
+        // the user and may belong to an operator record or another server's subdomain (a create
+        // that fails because the name is taken lands here too), so never delete by name alone.
         try {
             $fqdn = "{$this->name}.{$this->domain->name}";
             $records = Http::cloudflare()->get("zones/{$zoneId}/dns_records", [
@@ -584,6 +598,10 @@ class Subdomain extends Model implements HasLabel
 
             if (!empty($records['result'])) {
                 foreach ($records['result'] as $record) {
+                    if (in_array($record['id'], $ids, true) || !$this->isOwnRecordComment($record['comment'] ?? null)) {
+                        continue;
+                    }
+
                     Http::cloudflare()->delete("zones/{$zoneId}/dns_records/{$record['id']}");
                 }
             }
