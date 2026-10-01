@@ -172,12 +172,28 @@ class WatchService
                 continue;
             }
 
+            $acted = [];
             foreach ($verdicts as $verdict) {
                 $item = $members[$verdict['n'] - 1] ?? null;
 
-                if ($item instanceof RuxWatchItem) {
-                    $this->act($item, $verdict['rule'], $verdict['why']);
+                // One action per message per batch.
+                if (!$item instanceof RuxWatchItem || isset($acted[$item->id])) {
+                    continue;
                 }
+
+                $acted[$item->id] = true;
+
+                // Other members' messages were in the same prompt and can steer verdicts onto this
+                // one (prompt injection), so act only when the message is flagged on its own too.
+                if ($members->contains(fn (RuxWatchItem $other): bool => $other->author_id !== $item->author_id)) {
+                    $verdict = $this->judge([$item], max(5.0, $until - microtime(true)))[0] ?? null;
+
+                    if ($verdict === null) {
+                        continue;
+                    }
+                }
+
+                $this->act($item, $verdict['rule'], $verdict['why']);
             }
         }
     }
