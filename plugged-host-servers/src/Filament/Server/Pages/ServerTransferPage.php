@@ -240,6 +240,8 @@ class ServerTransferPage extends Page
      */
     public function events(ServerRelocation $relocation): array
     {
+        $this->ownRelocation($relocation);
+
         return $this->service()->timeline($relocation, user()?->timezone);
     }
 
@@ -250,6 +252,8 @@ class ServerTransferPage extends Page
      */
     public function steps(ServerRelocation $relocation): array
     {
+        $this->ownRelocation($relocation);
+
         $steps = [
             'prepare' => TablerIcon::ListCheck,
             'stop' => TablerIcon::PlayerStop,
@@ -293,7 +297,18 @@ class ServerTransferPage extends Page
     /** The headline for a move's state. */
     public function headline(ServerRelocation $relocation): string
     {
+        $this->ownRelocation($relocation);
+
         return trans('plugged-host-servers::strings.transfers.state.' . $relocation->headlineKey());
+    }
+
+    /**
+     * events(), steps() and headline() are public so the view can call them, which also makes
+     * them callable from the browser with any relocation id: only this server's are answered.
+     */
+    private function ownRelocation(ServerRelocation $relocation): void
+    {
+        abort_unless((int) $relocation->server_id === (int) $this->getServer()->getKey(), 404);
     }
 
     public function pickable(array $offer): bool
