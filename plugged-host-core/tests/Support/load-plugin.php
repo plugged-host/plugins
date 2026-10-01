@@ -56,6 +56,12 @@ if (!function_exists('loadPluginForTest')) {
         $migrations = plugin_path($id, 'database', 'migrations');
         if (file_exists($migrations)) {
             Artisan::call('migrate', ['--path' => $migrations, '--realpath' => true, '--force' => true]);
+
+            // DatabaseTruncation remembers the table list from the first test; forget it so the
+            // next test also empties the tables this plugin just created.
+            (function () {
+                static::$allTables = [];
+            })->bindTo(null, \App\Tests\Integration\IntegrationTestCase::class)();
         }
     }
 }
