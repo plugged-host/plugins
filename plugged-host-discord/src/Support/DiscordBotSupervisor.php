@@ -541,7 +541,7 @@ class DiscordBotSupervisor
             'exec %s %s %s >> %s 2>&1',
             escapeshellarg($this->phpBinary()),
             escapeshellarg(base_path('artisan')),
-            escapeshellarg(self::DAEMON_COMMAND),
+            escapeshellarg(static::DAEMON_COMMAND),
             escapeshellarg($this->logPath())
         );
 
@@ -575,7 +575,7 @@ class DiscordBotSupervisor
             return false;
         }
 
-        return str_contains(str_replace("\0", ' ', $cmdline), self::DAEMON_COMMAND);
+        return str_contains(str_replace("\0", ' ', $cmdline), static::DAEMON_COMMAND);
     }
 
     /**
