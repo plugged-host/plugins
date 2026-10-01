@@ -161,6 +161,11 @@ class CoreRuntimeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Mail templates echo values like the server name, which any server owner sets, into
+        // Markdown: without this, "[Verify your account](https://...)" became a real link (or
+        // image) in mail sent by plugged.host. Escapes [ < > in echoed values only.
+        \Illuminate\Mail\Markdown::withSecuredEncoding();
+
         Livewire::component('plugged-host-core.panel-tour', PanelTourOverlay::class);
 
         // --- Welcome tour ---------------------------------------------------------------
