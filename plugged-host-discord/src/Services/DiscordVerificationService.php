@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Closure;
 use Exception;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Discord\Models\DiscordInviteBaseline;
@@ -1084,16 +1085,37 @@ class DiscordVerificationService
                 continue;
             }
 
-            $gross = $records->count() * $creditsPerInvite;
-            $debtApplied = min((int) $link->invite_debt, $gross);
-            $net = $gross - $debtApplied;
+            // Claim the rows before paying them: a parallel check (the profile button, the
+            // gateway, the hourly sync) that read the same matured rows only pays the rows it
+            // claimed itself, so no invite is paid twice. The claim rolls back if paying fails.
+            $paid = DB::transaction(function () use ($link, $user, $records, $creditsPerInvite): ?array {
+                $claimed = $records->filter(fn (DiscordInvitedMember $record): bool => DiscordInvitedMember::query()
+                    ->whereKey($record->getKey())
+                    ->where('is_rewarded', false)
+                    ->update(['is_rewarded' => true, 'rewarded_at' => now(), 'updated_at' => now()]) === 1)->values();
 
-            $this->payMaturedInvites($link, $user, $records, $gross, $debtApplied, $net, $creditsPerInvite);
+                if ($claimed->isEmpty()) {
+                    return null;
+                }
 
-            $summary['awarded_rows'] += $records->count();
-            $summary['gross_credits'] += $gross;
-            $summary['debt_applied'] += $debtApplied;
-            $summary['net_credits'] += $net;
+                $link->refresh();
+                $gross = $claimed->count() * $creditsPerInvite;
+                $debtApplied = min((int) $link->invite_debt, $gross);
+                $net = $gross - $debtApplied;
+
+                $this->payMaturedInvites($link, $user, $claimed, $gross, $debtApplied, $net, $creditsPerInvite);
+
+                return ['rows' => $claimed->count(), 'gross' => $gross, 'debt' => $debtApplied, 'net' => $net];
+            });
+
+            if ($paid === null) {
+                continue;
+            }
+
+            $summary['awarded_rows'] += $paid['rows'];
+            $summary['gross_credits'] += $paid['gross'];
+            $summary['debt_applied'] += $paid['debt'];
+            $summary['net_credits'] += $paid['net'];
             $summary['inviters']++;
         }
 
@@ -1860,20 +1882,33 @@ class DiscordVerificationService
             $creditsToAward += max(0, $this->getCreditsPerBoost2() - $this->getCreditsPerBoost1());
         }
 
-        if ($creditsToAward > 0 && class_exists(UserCredits::class)) {
-            $userCredits = UserCredits::forUser($user);
-            $userCredits?->addCredits(
-                $creditsToAward,
-                'discord_boost',
-                trans('plugged-host-discord::strings.tx_boost_reward', ['count' => $boostCount]),
-                [
-                    'boost_count' => $boostCount,
-                    'boosted_since' => $boostedSince?->toIso8601String(),
-                ]
-            );
-        }
-
         $newRewarded = max($previousRewarded, $boostCount);
+
+        if ($creditsToAward > 0 && class_exists(UserCredits::class)) {
+            // Claim the tier before paying it: $previousRewarded was read before a Discord round
+            // trip, so a parallel sync may have paid it already. Only the request that moves
+            // boosts_rewarded from that value pays; the claim rolls back if paying fails.
+            DB::transaction(function () use ($link, $user, $previousRewarded, $newRewarded, $creditsToAward, $boostCount, $boostedSince): void {
+                $claimed = $link === null || DiscordLink::query()
+                    ->whereKey($link->getKey())
+                    ->where('boosts_rewarded', $previousRewarded)
+                    ->update(['boosts_rewarded' => $newRewarded]) === 1;
+
+                if (!$claimed) {
+                    return;
+                }
+
+                UserCredits::forUser($user)?->addCredits(
+                    $creditsToAward,
+                    'discord_boost',
+                    trans('plugged-host-discord::strings.tx_boost_reward', ['count' => $boostCount]),
+                    [
+                        'boost_count' => $boostCount,
+                        'boosted_since' => $boostedSince?->toIso8601String(),
+                    ]
+                );
+            });
+        }
 
         if ($link) {
             $link->update([
