@@ -3,6 +3,7 @@
 namespace PluggedHost\Rux\Tools\Moderation;
 
 use InvalidArgumentException;
+use PluggedHost\Rux\Models\RuxCase;
 use PluggedHost\Rux\Support\RuxTime;
 use PluggedHost\Rux\Support\RuxAccess;
 use PluggedHost\Rux\Tools\RuxContext;
@@ -49,6 +50,13 @@ final class ChannelSettingsTool extends ModerationTool
 
         if (array_key_exists('locked', $arguments)) {
             $locked = $this->bool($arguments, 'locked');
+
+            // Unlocking clears @everyone's send denies, which would open read-only channels
+            // (#rules, #announcements); moderators may only undo a lock rux put on.
+            if (!$locked && !$context->isAdmin() && !$this->lockedByRux((string) $channel['id'])) {
+                throw new InvalidArgumentException('Moderators can only unlock channels rux locked. Tell them to ask an admin.');
+            }
+
             $this->moderation->lock($context, $channel, $locked, $reason);
             $done['locked'] = $locked;
         }
@@ -64,5 +72,14 @@ final class ChannelSettingsTool extends ModerationTool
         }
 
         return ToolResult::ok(['channel' => '<#' . $channel['id'] . '>'] + $done);
+    }
+
+    private function lockedByRux(string $channelId): bool
+    {
+        return RuxCase::query()
+            ->where('channel_id', $channelId)
+            ->whereIn('action', ['lock', 'unlock'])
+            ->latest('id')
+            ->value('action') === 'lock';
     }
 }
