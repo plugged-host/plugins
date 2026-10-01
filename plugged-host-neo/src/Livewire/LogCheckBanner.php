@@ -41,7 +41,7 @@ class LogCheckBanner extends Component
                 && $server instanceof Server
                 && self::isMinecraft($server)
                 && !$server->isInConflictState()
-                && $user->can(SubuserPermission::WebsocketConnect, $server);
+                && self::canCheck($user, $server);
         } catch (Throwable) {
             return false;
         }
@@ -104,11 +104,21 @@ class LogCheckBanner extends Component
         $user = auth()->user();
         $server = Server::query()->find($this->serverId);
 
-        if (!$user instanceof User || !$server instanceof Server || !self::isMinecraft($server) || !$user->can(SubuserPermission::WebsocketConnect, $server)) {
+        if (!$user instanceof User || !$server instanceof Server || !self::isMinecraft($server) || !self::canCheck($user, $server)) {
             return null;
         }
 
         return $server;
+    }
+
+    /**
+     * The check reads logs/latest.log and publishes it on mclo.gs, so besides the console it
+     * needs permission to read file contents (a file can be renamed to logs/latest.log).
+     */
+    public static function canCheck(User $user, Server $server): bool
+    {
+        return $user->can(SubuserPermission::WebsocketConnect, $server)
+            && $user->can(SubuserPermission::FileReadContent, $server);
     }
 
     /**
