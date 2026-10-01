@@ -39,6 +39,9 @@ class Subdomain extends Model implements HasLabel
 
     protected static ?bool $hasDiscordLinksTable = null;
 
+    /** Whether this delete claimed the token refund (see boot()). */
+    protected bool $refundClaimed = false;
+
     protected static function hasDiscordLinksTable(): bool
     {
         if (self::$hasDiscordLinksTable === null) {
@@ -52,9 +55,21 @@ class Subdomain extends Model implements HasLabel
     {
         parent::boot();
 
+        // Claim the refund in the database before the row goes: parallel deletes of the same
+        // subdomain each fire `deleted`, and each would otherwise refund the deposit again.
+        static::deleting(function (self $model) {
+            $model->refundClaimed = self::query()
+                ->whereKey($model->getKey())
+                ->where('token_cost', '>', 0)
+                ->update(['token_cost' => 0]) === 1;
+        });
+
         static::deleted(function (self $model) {
             $model->deleteOnCloudflare();
-            $model->refundTokens();
+
+            if ($model->refundClaimed) {
+                $model->refundTokens();
+            }
         });
     }
 
