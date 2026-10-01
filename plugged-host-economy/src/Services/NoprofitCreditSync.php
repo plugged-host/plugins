@@ -29,7 +29,8 @@ use Throwable;
  *    noprofit_credit_outbox in the same transaction, then sent as a delta with its own
  *    idempotency key right after the request (or the transaction, in a job or command), not
  *    through the queue, so a long job there can never hold it up. A retry never applies a
- *    change twice, and changes made at once on both sides both survive.
+ *    change twice, and changes made at once on both sides both survive. A change
+ *    noprofit.space refuses is undone here: spent credits come back, bought resources go.
  *  - noprofit.space -> panel: noprofit.space pushes each account's state after every change of
  *    its own, and noprofit:credits-sync pulls whatever changed once a minute in case a push got
  *    lost. Balance and resources are taken on only when the version is newer and the panel has
@@ -42,6 +43,8 @@ use Throwable;
 final class NoprofitCreditSync
 {
     public const TYPE = 'noprofit_sync';
+
+    public const UNDO_TYPE = 'noprofit_undo';
 
     private const CURSOR_KEY = 'plugged-host-economy:noprofit-credits-cursor';
 
@@ -211,11 +214,14 @@ final class NoprofitCreditSync
                     'extra_disk' => $row->extra_disk,
                     'type' => $row->type ?? 'plugged_host',
                     'description' => $row->description ?? 'Changed on plugged.host',
-                    'idempotency_key' => 'plugged-host:' . $row->id,
+                    'idempotency_key' => self::idempotencyKey($row),
                 ], self::secret(), 8);
 
-                if ($response->status() === 404 || $response->status() === 422) {
-                    Log::warning('noprofit.space refused a credit change', ['user_id' => $userId, 'outbox_id' => $row->id, 'status' => $response->status()]);
+                // Refused for good (not linked there, invalid, or the key is taken by another
+                // change): undo it here rather than let the two copies drift apart.
+                if (in_array($response->status(), [404, 409, 422], true)) {
+                    Log::warning('noprofit.space refused a credit change; undoing it on the panel', ['user_id' => $userId, 'outbox_id' => $row->id, 'status' => $response->status()]);
+                    self::undo($user, $row);
                     $row->delete();
 
                     continue;
@@ -237,6 +243,56 @@ final class NoprofitCreditSync
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * The key noprofit.space applies a change once under. Outbox ids alone repeat: the dev
+     * panel used the same ones before 2.1 went live, and noprofit.space took prod's changes
+     * #1-#22 for repeats and dropped them. The panel's URL and the row's creation time make
+     * the key this panel's and this row's alone.
+     */
+    private static function idempotencyKey(NoprofitCreditOutbox $row): string
+    {
+        $panel = substr(hash('sha256', (string) config('app.url')), 0, 12);
+
+        return "plugged-host:{$panel}:{$row->id}:{$row->created_at->getTimestamp()}";
+    }
+
+    /**
+     * Take back a change noprofit.space refused: the credits it spent come back, the credits it
+     * gave and the resources it bought go again.
+     */
+    private static function undo(User $user, NoprofitCreditOutbox $row): void
+    {
+        DB::transaction(function () use ($user, $row): void {
+            $credits = UserCredits::query()->where('user_id', $user->getKey())->lockForUpdate()->first();
+            if ($credits === null) {
+                return;
+            }
+
+            $description = mb_substr('Undone, noprofit.space did not accept it: ' . ($row->description ?? 'a change'), 0, 255);
+            $metadata = ['outbox_id' => $row->id, 'type' => $row->type];
+
+            self::$applying = true;
+
+            try {
+                if ($row->delta < 0) {
+                    $credits->addCredits(-$row->delta, self::UNDO_TYPE, $description, $metadata);
+                } elseif ($row->delta > 0) {
+                    $credits->deductCreditsUpTo($row->delta, self::UNDO_TYPE, $description, $metadata);
+                }
+
+                $credits->forceFill([
+                    'extra_cpu' => max(0, (int) $credits->extra_cpu - (int) $row->extra_cpu),
+                    'extra_memory' => max(0, (int) $credits->extra_memory - (int) $row->extra_memory),
+                    'extra_disk' => max(0, (int) $credits->extra_disk - (int) $row->extra_disk),
+                ])->saveQuietly();
+            } finally {
+                self::$applying = false;
+            }
+        });
+
+        self::forget($user);
     }
 
     /**
