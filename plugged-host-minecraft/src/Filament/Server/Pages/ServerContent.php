@@ -875,6 +875,9 @@ class ServerContent extends MinecraftPage implements HasTable
      */
     protected function queueModpack(Server $server, array $record, array $version): void
     {
+        // Installing a modpack switches the server's software and reinstalls it.
+        abort_unless((bool) user()?->can(SubuserPermission::SettingsReinstall, $server), 403);
+
         // One path for both platforms: the service dispatches the CurseForge job for CurseForge
         // packs (their ids are mod/file numbers, which the Modrinth job cannot read).
         $result = app(ContentSearchService::class)->queueModpack(

@@ -118,7 +118,9 @@ class MinecraftPluginProvider extends ServiceProvider
                         // Queue a modpack install (Modrinth .mrpack or CurseForge .zip). The heavy
                         // work is a job; this returns 202 once it is dispatched.
                         \Illuminate\Support\Facades\Route::post('/content/modpacks', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {
+                            // A modpack switches the server's software and reinstalls it.
                             abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::FileCreate, $server), 403);
+                            abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::SettingsReinstall, $server), 403);
 
                             $result = app(\PluggedHost\Minecraft\Services\ContentSearchService::class)->queueModpack(
                                 $server,
