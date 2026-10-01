@@ -102,8 +102,11 @@ class GameConfigPage extends MinecraftPage
 
     public static function canAccess(): bool
     {
+        // The page shows the config files' contents (secrets like the Velocity forwarding secret
+        // included), so listing files is not enough.
         return parent::canAccess()
-            && (bool) user()?->can(SubuserPermission::FileRead, Filament::getTenant());
+            && (bool) user()?->can(SubuserPermission::FileRead, Filament::getTenant())
+            && (bool) user()?->can(SubuserPermission::FileReadContent, Filament::getTenant());
     }
 
     public static function getNavigationLabel(): string
