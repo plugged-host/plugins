@@ -10,37 +10,9 @@
  * message twice).
  *
  * Who may command rux, who is linked, and paying giveaway winners all belong to noprofit.space
- * (signed with NOPROFIT_SYNC_SECRET). rux's AI is neo's provider chain, 1:1, called directly
- * with rux's own copy of neo's provider settings: nothing goes through neo, no neo limits apply.
+ * (signed with NOPROFIT_SYNC_SECRET). rux's AI is neo's provider chain, 1:1, fetched from
+ * noprofit.space and called directly: the model calls go nowhere near neo, no neo limits apply.
  */
-/*
- * One AI provider slot from its RUX_AI_P{n}_* variables, the same shape as neo's NEO_P{n}_*.
- * JSON settings are base64-encoded, as on noprofit.space.
- */
-$aiSlot = static function (int $slot): array {
-    $prefix = "RUX_AI_P{$slot}_";
-    $json = static function (string $key): array {
-        $decoded = json_decode((string) base64_decode((string) env($key, ''), true), true);
-
-        return is_array($decoded) ? $decoded : [];
-    };
-
-    return [
-        'slot' => $slot,
-        'enabled' => (bool) env($prefix . 'ENABLED', false),
-        'label' => (string) env($prefix . 'LABEL', "Provider {$slot}"),
-        'driver' => (string) env($prefix . 'DRIVER', 'openai'),
-        'endpoint' => (string) env($prefix . 'ENDPOINT', ''),
-        'api_key' => (string) env($prefix . 'API_KEY', ''),
-        'model' => (string) env($prefix . 'MODEL', ''),
-        'max_tokens' => (int) env($prefix . 'MAX_TOKENS', 4096),
-        'timeout' => (int) env($prefix . 'TIMEOUT', 30),
-        'daily_token_cap' => (int) env($prefix . 'DAILY_TOKEN_CAP', 0),
-        'extra_headers' => $json($prefix . 'EXTRA_HEADERS_B64'),
-        'extra_body' => $json($prefix . 'EXTRA_BODY_B64'),
-    ];
-};
-
 return [
     // Master switch. Ships dark.
     'enabled' => (bool) env('RUX_ENABLED', false),
@@ -62,23 +34,13 @@ return [
     // Language of what rux posts on Discord (lang/<locale>/strings.php).
     'locale' => (string) env('RUX_LOCALE', 'en'),
 
-    // The AI: the same three providers as neo, 1:1 (main, backup, extra backup), with the same
-    // failover. A copy of neo's NEO_P{n}_* settings as RUX_AI_P{n}_* (plugged-host:rux-copy-ai
-    // copies them again); rux calls the providers directly, so no neo limits apply.
+    // The AI: neo's providers, 1:1, with neo's failover. rux fetches them from noprofit.space
+    // (signed with neo's gateway secret) and fetches again once a fetch is this old, so a change
+    // in neo's settings reaches rux within that time. rux calls the providers directly, so no
+    // neo limits apply. `php artisan plugged-host:rux-ai` shows what rux has.
     'ai' => [
-        'providers' => [
-            1 => $aiSlot(1),
-            2 => $aiSlot(2),
-            3 => $aiSlot(3),
-        ],
-        'failover' => [
-            'default_cooldown' => 60,
-            'auth_cooldown' => 600,
-            'max_cooldown' => 900,
-            'deadline' => 80,
-        ],
-        // Where plugged-host:rux-copy-ai reads neo's provider settings from.
-        'neo_env_path' => (string) env('RUX_NEO_ENV_PATH', '/var/www/noprofit.space/accounts/.env'),
+        'gateway_secret' => (string) env('NEO_GATEWAY_SECRET', ''),
+        'refresh_seconds' => 60,
     ],
 
     // Sanity limits on what one sentence can give away.

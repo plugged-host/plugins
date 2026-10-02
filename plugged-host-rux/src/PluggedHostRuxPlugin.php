@@ -120,7 +120,7 @@ class PluggedHostRuxPlugin implements HasPluginSettings, Plugin
                     TextInput::make('warn_ban')->label('Ban length')->required()->regex('/^(\d+[smhdw])+$/i')->helperText('Like 24h; rux lifts the ban afterwards.'),
                 ]),
             Section::make('AI')
-                ->description('The same three providers as neo, 1:1, tried in this order with the same failover: ' . $this->aiChain() . '. rux calls them directly with its own copy of neo\'s settings (RUX_AI_P1..3), so no neo limits apply. After changing neo\'s providers, copy them again: php artisan plugged-host:rux-copy-ai')
+                ->description('neo\'s providers, 1:1, tried in this order with neo\'s failover: ' . $this->aiChain() . '. rux fetches them from noprofit.space, so a change in neo\'s settings reaches rux within a minute. It calls them directly, so no neo limits apply.')
                 ->schema([
                     Toggle::make('watch_guidelines')
                         ->label('Watched channels also enforce the basic guidelines')

@@ -99,7 +99,7 @@ final class RuxConfig
         }
 
         if (!app(RuxAi::class)->configured()) {
-            $blockers[] = 'The AI is not configured (RUX_AI_ENDPOINT, RUX_AI_API_KEY, RUX_AI_MODEL): rux cannot think.';
+            $blockers[] = 'rux cannot fetch neo\'s AI providers (NEO_GATEWAY_SECRET): rux cannot think.';
         }
 
         if (!self::tablesExist()) {

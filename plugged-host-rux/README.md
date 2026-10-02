@@ -179,23 +179,24 @@ rux uses three routes on accounts.noprofit.space, signed with `NOPROFIT_SYNC_SEC
 
 ## AI
 
-rux uses the same three providers as neo, 1:1. In order, with neo's failover:
-
-1. main: Groq Qwen;
-2. backup: Groq gpt-oss;
-3. extra backup: justwoker Opus.
+rux uses neo's providers, 1:1, in neo's order and with neo's failover: whatever is set in
+neo's settings (panel → Plugins → neo) is what rux runs. rux fetches the chain from
+noprofit.space (`GET /api/v1/internal/neo/providers`, signed with `NEO_GATEWAY_SECRET`, the
+secret neo's plugin uses) and fetches it again once a fetch is a minute old
+(`ai.refresh_seconds`), so a change in neo's settings reaches rux within a minute. The last
+chain fetched is kept, encrypted with the app key, in
+`storage/app/plugged-host/rux/neo-providers.enc`: while noprofit.space is unreachable rux keeps
+using it.
 
 The failover rules are copied from noprofit.space's `ProviderChain`. A provider that fails
-cools down: 10 minutes for auth errors; its Retry-After (or a minute) for rate limits and
-outages; not at all for "request too large". A cooling-down provider is skipped, and each
-provider's daily token cap holds per day. The drivers are copies of neo's (`src/Agent/Ai`:
-OpenAI chat for Groq, Anthropic Messages for justwoker).
+cools down: 10 minutes for auth errors; its Retry-After (or Gemini's retry delay, or a minute)
+for rate limits and outages; not at all for "request too large". A cooling-down provider is
+skipped, and each provider's daily token cap holds per day. The drivers are copies of neo's
+(`src/Agent/Ai`: OpenAI chat, Anthropic Messages, and Google AI Studio's Gemini API).
 
-rux calls the providers directly. Nothing goes through noprofit.space or neo, and no neo limits
-apply. Its settings are its own copy of neo's `NEO_P1..3_*` (noprofit.space's `.env`) as
-`RUX_AI_P1..3_*` in the panel's `.env`. After changing neo's providers, copy them again:
+rux calls the providers directly. The model calls never go through neo, and no neo limits
+apply. To see what rux has (fetches now):
 
 ```bash
-sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-copy-ai --dry-run
-sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-copy-ai
+sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-ai
 ```

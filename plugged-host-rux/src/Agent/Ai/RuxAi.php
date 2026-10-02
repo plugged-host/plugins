@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * rux's AI: neo's provider chain, 1:1 (main, backup, extra backup: Groq Qwen, Groq gpt-oss,
- * justwoker), called directly with rux's own copy of neo's provider settings (RUX_AI_P{n}_*).
- * Nothing goes through noprofit.space or neo and no neo limits apply.
+ * rux's AI: neo's provider chain, 1:1, fetched from noprofit.space (NeoProviders) so it is
+ * always the chain neo runs, and called directly: the model calls go nowhere near neo, and no
+ * neo limits apply.
  *
  * The failover is noprofit.space's ProviderChain, copied: providers are tried in order; one that
  * fails cools down (auth errors 10 minutes, rate limits and outages for their Retry-After or a
@@ -23,13 +23,21 @@ use Throwable;
 class RuxAi
 {
     /** Headers a slot's extra headers may not override. */
-    private const RESERVED_HEADERS = ['authorization', 'x-api-key', 'content-type', 'content-length', 'host', 'accept'];
+    private const RESERVED_HEADERS = ['authorization', 'x-api-key', 'x-goog-api-key', 'content-type', 'content-length', 'host', 'accept'];
 
-    private const RESERVED_BODY = ['model', 'messages', 'system', 'tools', 'tool_choice', 'stream', 'max_tokens', 'max_completion_tokens', 'n', 'thinking'];
+    private const RESERVED_BODY = [
+        'model', 'messages', 'system', 'tools', 'tool_choice', 'stream', 'max_tokens', 'max_completion_tokens', 'n', 'thinking',
+        'contents', 'systemInstruction', 'system_instruction', 'toolConfig', 'tool_config', 'generationConfig', 'generation_config',
+    ];
+
+    /** How long a Gemini thought signature is kept for the next turn. */
+    private const SIGNATURE_TTL = 172800;
 
     public function __construct(
         private readonly OpenAiTranslator $openAi,
         private readonly AnthropicTranslator $anthropic,
+        private readonly GeminiTranslator $gemini,
+        private readonly NeoProviders $neo,
     ) {}
 
     /**
@@ -38,14 +46,18 @@ class RuxAi
     public function providers(): array
     {
         return array_values(array_filter(
-            (array) config('plugged-host-rux.ai.providers', []),
+            $this->neo->providers(),
             static fn ($p): bool => is_array($p) && ($p['enabled'] ?? false) && ($p['endpoint'] ?? '') !== '' && ($p['api_key'] ?? '') !== '' && ($p['model'] ?? '') !== '',
         ));
     }
 
+    /**
+     * Whether rux can get neo's providers at all. Whether neo has a usable one is only known
+     * per call (AiUnavailableException).
+     */
     public function configured(): bool
     {
-        return $this->providers() !== [];
+        return $this->neo->configured();
     }
 
     /**
@@ -65,8 +77,7 @@ class RuxAi
             throw new AiUnavailableException('not_configured');
         }
 
-        $failover = (array) config('plugged-host-rux.ai.failover', []);
-        $deadline = microtime(true) + (int) ($failover['deadline'] ?? 80);
+        $deadline = microtime(true) + $this->neo->failover()['deadline'];
         $transient = false;
 
         foreach ($providers as $provider) {
@@ -124,16 +135,24 @@ class RuxAi
      */
     private function call(array $provider, array $messages, array $tools, string $toolChoice, int $timeout): array
     {
-        $anthropic = $provider['driver'] === 'anthropic';
+        $driver = (string) $provider['driver'];
         $model = (string) $provider['model'];
         $maxTokens = max(256, (int) $provider['max_tokens']);
+        $extraBody = (array) ($provider['extra_body'] ?? []);
 
         $body = array_merge(
-            array_diff_key((array) ($provider['extra_body'] ?? []), array_flip(self::RESERVED_BODY)),
-            $anthropic
-                ? $this->anthropic->toBody($messages, $tools, $toolChoice, $model, $maxTokens)
-                : $this->openAi->toBody($messages, $tools, $toolChoice, $model, $maxTokens),
+            array_diff_key($extraBody, array_flip(self::RESERVED_BODY)),
+            match ($driver) {
+                'anthropic' => $this->anthropic->toBody($messages, $tools, $toolChoice, $model, $maxTokens),
+                'gemini' => $this->gemini->toBody($messages, $tools, $toolChoice, $model, static fn (string $id): ?string => Cache::get(self::signatureKey($id))),
+                default => $this->openAi->toBody($messages, $tools, $toolChoice, $model, $maxTokens),
+            },
         );
+
+        if ($driver === 'gemini') {
+            // An operator's generationConfig (thinkingConfig…) is kept; only the output cap is ours.
+            $body['generationConfig'] = ['maxOutputTokens' => $maxTokens] + (array) ($extraBody['generationConfig'] ?? $extraBody['generation_config'] ?? []);
+        }
 
         $extraHeaders = array_filter(
             (array) ($provider['extra_headers'] ?? []),
@@ -141,11 +160,13 @@ class RuxAi
             ARRAY_FILTER_USE_BOTH,
         );
 
-        $headers = $anthropic
-            ? ['x-api-key' => $provider['api_key'], 'anthropic-version' => (string) ($provider['extra_headers']['anthropic-version'] ?? '2023-06-01')]
-            : ['Authorization' => 'Bearer ' . $provider['api_key']];
+        $headers = match ($driver) {
+            'anthropic' => ['x-api-key' => $provider['api_key'], 'anthropic-version' => (string) ($provider['extra_headers']['anthropic-version'] ?? '2023-06-01')],
+            'gemini' => ['x-goog-api-key' => $provider['api_key']],
+            default => ['Authorization' => 'Bearer ' . $provider['api_key']],
+        };
 
-        $default = (int) config('plugged-host-rux.ai.failover.default_cooldown', 60);
+        $default = $this->neo->failover()['default_cooldown'];
 
         try {
             $response = Http::withHeaders(array_merge($extraHeaders, $headers))
@@ -164,9 +185,23 @@ class RuxAi
             return ['status' => $response->status(), 'reason' => $this->detail($response), 'cooldown' => $this->cooldownFor($response)];
         }
 
-        $answer = $anthropic ? $this->anthropic->fromResponse($response->body()) : $this->openAi->fromResponse($response->body());
+        $answer = match ($driver) {
+            'anthropic' => $this->anthropic->fromResponse($response->body()),
+            'gemini' => $this->gemini->fromResponse($response->body()),
+            default => $this->openAi->fromResponse($response->body()),
+        };
 
-        return $answer ?? ['status' => $response->status(), 'reason' => 'malformed_response', 'cooldown' => $default];
+        if ($answer === null) {
+            return ['status' => $response->status(), 'reason' => 'malformed_response', 'cooldown' => $default];
+        }
+
+        foreach ($answer['signatures'] ?? [] as $id => $signature) {
+            Cache::put(self::signatureKey((string) $id), $signature, self::SIGNATURE_TTL);
+        }
+
+        unset($answer['signatures']);
+
+        return $answer;
     }
 
     /**
@@ -174,26 +209,42 @@ class RuxAi
      */
     private function cooldownFor(Response $response): int
     {
-        $failover = (array) config('plugged-host-rux.ai.failover', []);
+        $failover = $this->neo->failover();
         $status = $response->status();
         $retryAfter = $response->header('Retry-After');
-        $retryAfter = is_numeric($retryAfter) ? (int) ceil((float) $retryAfter) : null;
+        $retryAfter = is_numeric($retryAfter) ? (int) ceil((float) $retryAfter) : $this->retryDelay($response);
 
         $cooldown = match (true) {
-            in_array($status, [401, 403, 404], true) => (int) ($failover['auth_cooldown'] ?? 600),
+            in_array($status, [401, 403, 404], true) => $failover['auth_cooldown'],
             in_array($status, [400, 413, 422], true) => 0,
-            in_array($status, [408, 409, 425, 429, 498, 529], true), $status >= 500 => $retryAfter ?? (int) ($failover['default_cooldown'] ?? 60),
-            default => (int) ($failover['default_cooldown'] ?? 60),
+            in_array($status, [408, 409, 425, 429, 498, 529], true), $status >= 500 => $retryAfter ?? $failover['default_cooldown'],
+            default => $failover['default_cooldown'],
         };
 
-        return max(0, min($cooldown, (int) ($failover['max_cooldown'] ?? 900)));
+        return max(0, min($cooldown, $failover['max_cooldown']));
+    }
+
+    /**
+     * Gemini says when to retry in the error body: a google.rpc.RetryInfo detail ("37s").
+     */
+    private function retryDelay(Response $response): ?int
+    {
+        foreach ((array) $response->json('error.details', []) as $detail) {
+            if (is_array($detail) && str_ends_with((string) ($detail['@type'] ?? ''), 'google.rpc.RetryInfo')
+                && preg_match('/^(\d+(?:\.\d+)?)s$/', (string) ($detail['retryDelay'] ?? ''), $match) === 1) {
+                return max(1, (int) ceil((float) $match[1]));
+            }
+        }
+
+        return null;
     }
 
     private function detail(Response $response): string
     {
         $said = $response->json('error.message') ?? $response->json('message') ?? $response->json('error');
+        $said = is_string($said) ? (string) preg_replace('/\bAIza[A-Za-z0-9_-]{20,}/', '[redacted]', $said) : null;
 
-        return 'http_' . $response->status() . (is_string($said) && $said !== '' ? ': ' . mb_substr($said, 0, 200) : '');
+        return 'http_' . $response->status() . ($said !== null && $said !== '' ? ': ' . mb_substr($said, 0, 200) : '');
     }
 
     /**
@@ -233,10 +284,19 @@ class RuxAi
      */
     private function requestUrl(array $provider): string
     {
+        if ($provider['driver'] === 'gemini') {
+            return $this->gemini->requestUrl((string) $provider['endpoint'], (string) $provider['model']);
+        }
+
         $suffix = $provider['driver'] === 'anthropic' ? '/messages' : '/chat/completions';
         $url = rtrim((string) $provider['endpoint'], '/');
 
         return str_ends_with($url, $suffix) ? $url : $url . $suffix;
+    }
+
+    private static function signatureKey(string $toolCallId): string
+    {
+        return 'plugged-host-rux:ai:gemini-signature:' . $toolCallId;
     }
 
     /**

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- AI: rux fetches neo's providers from noprofit.space by itself and fetches them again every
+  minute, so it always runs the chain set in neo's settings. The copy (`RUX_AI_P1..3_*`,
+  `plugged-host:rux-copy-ai`) is gone; `plugged-host:rux-ai` shows what rux has. The last chain
+  fetched is kept for when noprofit.space is unreachable.
+- AI: Google AI Studio (Gemini API: Gemini and Gemma models) as a provider format, like neo.
+
 ## 1.0.0
 
 - First version: rux, the plugged.host Discord bot for moderation and credit giveaways. It takes
