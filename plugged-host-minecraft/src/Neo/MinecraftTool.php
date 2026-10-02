@@ -6,12 +6,12 @@ use InvalidArgumentException;
 use PluggedHost\Minecraft\Services\ContentInstallService;
 use PluggedHost\Minecraft\Services\ContentSearchService;
 use PluggedHost\Minecraft\Services\ModDetectionService;
-use PluggedHost\Neo\Tools\BaseServerTool;
-use PluggedHost\Neo\Tools\ToolContext;
+use PluggedHost\Ai\Tools\BaseServerTool;
+use PluggedHost\Ai\Tools\ToolContext;
 use Throwable;
 
 /**
- * Base for the Minecraft tools this plugin contributes to plugged-host-neo (registered from
+ * Base for the Minecraft tools this plugin contributes to plugged-host-ai (registered from
  * MinecraftPluginProvider only when neo is installed). They are offered only on servers whose
  * egg is a Minecraft variant.
  */

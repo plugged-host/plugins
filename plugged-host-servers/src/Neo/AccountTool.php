@@ -5,13 +5,13 @@ namespace PluggedHost\Servers\Neo;
 use App\Facades\Activity;
 use App\Services\Activity\ActivityLogService;
 use InvalidArgumentException;
-use PluggedHost\Neo\Tools\Tool;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolRisk;
+use PluggedHost\Ai\Tools\Tool;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolRisk;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 
 /**
- * Base for the account-level tools this plugin contributes to plugged-host-neo: usable from any
+ * Base for the account-level tools this plugin contributes to plugged-host-ai: usable from any
  * chat, always acting for the chat's user and checked by the services themselves.
  */
 abstract class AccountTool implements Tool

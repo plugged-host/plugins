@@ -8,7 +8,7 @@ use Throwable;
 
 /**
  * Contributes the server-management tools (create, resize, rename, delete, account overview)
- * to plugged-host-neo, and the activity-log sentences for what neo does with them. By
+ * to plugged-host-ai, and the activity-log sentences for what neo does with them. By
  * class-string behind class_exists so either plugin can be uninstalled alone.
  */
 class NeoToolsProvider extends ServiceProvider
@@ -27,7 +27,7 @@ class NeoToolsProvider extends ServiceProvider
             }
         }
 
-        $registry = 'PluggedHost\\Neo\\Tools\\NeoToolRegistry';
+        $registry = 'PluggedHost\\Ai\\Tools\\NeoToolRegistry';
 
         if (!class_exists($registry)) {
             return;

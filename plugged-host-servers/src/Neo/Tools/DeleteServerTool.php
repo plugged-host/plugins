@@ -6,10 +6,10 @@ use App\Facades\Activity;
 use App\Services\Servers\ServerDeletionService;
 use Filament\Facades\Filament;
 use InvalidArgumentException;
-use PluggedHost\Neo\Tools\BaseServerTool;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
-use PluggedHost\Neo\Tools\ToolRisk;
+use PluggedHost\Ai\Tools\BaseServerTool;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolRisk;
 use PluggedHost\Servers\Services\ServerProvisioner;
 use Throwable;
 

@@ -6,9 +6,9 @@ use App\Enums\SubuserPermission;
 use InvalidArgumentException;
 use PluggedHost\Minecraft\Neo\MinecraftTool;
 use PluggedHost\Minecraft\Services\GeyserService;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
-use PluggedHost\Neo\Tools\ToolRisk;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolRisk;
 
 final class InstallGeyserTool extends MinecraftTool
 {

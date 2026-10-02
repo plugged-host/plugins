@@ -32,13 +32,13 @@ class MinecraftPluginProvider extends ServiceProvider
     }
 
     /**
-     * Contribute the Minecraft tools (content, software, modpacks, Geyser) to plugged-host-neo.
+     * Contribute the Minecraft tools (content, software, modpacks, Geyser) to plugged-host-ai.
      * By class-string behind class_exists so either plugin can be uninstalled alone; the tool
      * classes themselves are only loaded when neo asks for them.
      */
     private function registerNeoTools(): void
     {
-        $registry = 'PluggedHost\\Neo\\Tools\\NeoToolRegistry';
+        $registry = 'PluggedHost\\Ai\\Tools\\NeoToolRegistry';
 
         if (!class_exists($registry)) {
             return;

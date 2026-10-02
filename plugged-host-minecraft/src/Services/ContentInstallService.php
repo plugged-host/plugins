@@ -10,7 +10,7 @@ use Throwable;
 /**
  * Installing one plugin or mod from Modrinth, CurseForge or SpigotMC onto a server, without a page.
  *
- * Extracted from the ServerContent page so the page and plugged-host-neo resolve versions and
+ * Extracted from the ServerContent page so the page and plugged-host-ai resolve versions and
  * place files exactly the same way. Callers own permissions, notifications and the activity
  * log; this only picks the build and hands its URL to wings (which downloads in the
  * background, so "ok" means wings accepted the download).

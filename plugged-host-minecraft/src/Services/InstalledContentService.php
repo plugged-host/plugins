@@ -9,7 +9,7 @@ use InvalidArgumentException;
 /**
  * Changing what is installed in plugins/ or mods/: delete, disable/enable and update a jar.
  *
- * Shared by the content page and plugged-host-neo's tools. File names always come from the
+ * Shared by the content page and plugged-host-ai's tools. File names always come from the
  * live folder listing, never from the caller's list, so a name can only ever point at a jar
  * that is really there. Callers own permissions, notifications and the activity log.
  */

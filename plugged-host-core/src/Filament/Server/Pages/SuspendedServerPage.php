@@ -69,7 +69,7 @@ class SuspendedServerPage extends Page
 
     public function supportUrl(): string
     {
-        return (string) config('plugged-host-neo.support_url', 'https://discord.gg/plugged-host-1502647500295635085')
+        return (string) config('plugged-host-ai.support_url', 'https://discord.gg/plugged-host-1502647500295635085')
             ?: 'https://discord.gg/plugged-host-1502647500295635085';
     }
 

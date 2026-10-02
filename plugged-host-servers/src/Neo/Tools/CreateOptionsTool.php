@@ -2,8 +2,8 @@
 
 namespace PluggedHost\Servers\Neo\Tools;
 
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Neo\AccountTool;
 use PluggedHost\Servers\Services\GameCatalog;

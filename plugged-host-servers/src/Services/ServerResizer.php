@@ -13,7 +13,7 @@ use Throwable;
 
 /**
  * Changing a server's CPU / memory / disk within its OWNER's allowance: the rules behind the
- * Resources section of the server settings page, shared with plugged-host-neo.
+ * Resources section of the server settings page, shared with plugged-host-ai.
  *
  * The server's own current size always counts as available to it, so an over-quota owner can
  * keep or shrink a server but not grow it.

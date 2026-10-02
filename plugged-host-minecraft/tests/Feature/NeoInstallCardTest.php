@@ -9,7 +9,7 @@ require_once __DIR__ . '/../../../plugged-host-core/tests/Support/load-plugin.ph
 uses(IntegrationTestCase::class);
 
 beforeEach(function () {
-    loadPluginForTest('plugged-host-neo');
+    loadPluginForTest('plugged-host-ai');
     loadPluginForTest('plugged-host-servers');
     loadPluginForTest('plugged-host-minecraft');
 });

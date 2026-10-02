@@ -18,7 +18,7 @@ use Throwable;
 /**
  * Creating a server for a user: the one place the user-creatable-server rules live.
  *
- * The create page, the client API and plugged-host-neo all go through here, so every surface
+ * The create page, the client API and plugged-host-ai all go through here, so every surface
  * checks the same allowance, location and plan rules and does the same post-create work
  * (onboarding wizard, EULA). Callers turn ProvisioningException::$reason into their own message.
  *

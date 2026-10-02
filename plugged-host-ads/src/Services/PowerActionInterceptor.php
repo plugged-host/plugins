@@ -120,7 +120,7 @@ class PowerActionInterceptor
      *
      * Returns the URL to send the user to when limbo, the start queue or the ad gate now owns
      * the action, and null when the caller may dispatch it itself. Public because it is the
-     * single definition of the chain's order: the Livewire hook above and plugged-host-neo's
+     * single definition of the chain's order: the Livewire hook above and plugged-host-ai's
      * power tool both go through it, so neither can start a server the other would have held.
      *
      * A returned URL is a promise that nothing else may dispatch the action — for the gate

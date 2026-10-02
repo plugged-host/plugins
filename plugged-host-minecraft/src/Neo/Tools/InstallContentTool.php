@@ -6,9 +6,9 @@ use App\Enums\SubuserPermission;
 use InvalidArgumentException;
 use PluggedHost\Minecraft\Neo\MinecraftTool;
 use PluggedHost\Minecraft\Services\ContentInstallService;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
-use PluggedHost\Neo\Tools\ToolRisk;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolRisk;
 
 final class InstallContentTool extends MinecraftTool
 {

@@ -5,8 +5,8 @@ namespace PluggedHost\Minecraft\Neo\Tools;
 use App\Enums\SubuserPermission;
 use PluggedHost\Minecraft\Neo\MinecraftTool;
 use PluggedHost\Minecraft\Services\ModDetectionService;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
 
 final class ListInstalledContentTool extends MinecraftTool
 {
