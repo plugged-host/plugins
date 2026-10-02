@@ -7,8 +7,8 @@ use Illuminate\Support\Str;
 use PluggedHost\Minecraft\Neo\MinecraftTool;
 use PluggedHost\Minecraft\Services\ContentInstallService;
 use PluggedHost\Minecraft\Services\ContentSearchService;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
 
 final class SearchContentTool extends MinecraftTool
 {

@@ -500,6 +500,12 @@ class MinecraftPlayerRoster
      */
     protected function command(string $command): bool
     {
+        // One command per call: player names come from the browser and from files the server
+        // writes, and a line break would send a second, arbitrary console command.
+        if (preg_match('/[\r\n\x00]/', $command) === 1) {
+            return false;
+        }
+
         try {
             $response = $this->server->send($command);
         } catch (Throwable $exception) {

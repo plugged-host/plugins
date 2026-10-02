@@ -11,7 +11,7 @@ use PluggedHost\Servers\Services\ServerProvisioner;
  * POST /api/client/provision/servers (WP7) — create a server through the client API.
  *
  * All rules (allowance, game, location incl. paid-tier unlock, plan resolution, onboarding and
- * EULA) live in ServerProvisioner, shared with the create page and plugged-host-neo; this only
+ * EULA) live in ServerProvisioner, shared with the create page and plugged-host-ai; this only
  * maps the request onto it and its reason codes onto the API's existing error codes.
  */
 class CreateServerController

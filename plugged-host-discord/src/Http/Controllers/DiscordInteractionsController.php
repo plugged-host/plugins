@@ -96,7 +96,10 @@ class DiscordInteractionsController extends Controller
             }
 
             if ($commandName === 'setboost') {
-                if (!DiscordBotService::invokerIsAdministrator($data)) {
+                // Administrator of plugged.host's own server, as the gateway path checks: a
+                // globally registered command can be run from any guild the app is in.
+                $guildId = $verificationService->getGuildId();
+                if ($guildId === '' || (string) ($data['guild_id'] ?? '') !== $guildId || !DiscordBotService::invokerIsAdministrator($data)) {
                     return response()->json(['type' => 4, 'data' => $botService->setBoostDeniedResponse()]);
                 }
 

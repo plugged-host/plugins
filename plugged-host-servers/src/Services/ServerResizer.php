@@ -13,7 +13,7 @@ use Throwable;
 
 /**
  * Changing a server's CPU / memory / disk within its OWNER's allowance: the rules behind the
- * Resources section of the server settings page, shared with plugged-host-neo.
+ * Resources section of the server settings page, shared with plugged-host-ai.
  *
  * The server's own current size always counts as available to it, so an over-quota owner can
  * keep or shrink a server but not grow it.
@@ -86,32 +86,38 @@ class ServerResizer
      */
     public function resize(Server $server, array $resources, array $attributeNames = []): bool
     {
-        $rules = $this->rules($server);
+        // The limits come from what the account has left: resizes (and creates) of one account run
+        // one at a time, or two parallel resizes would both spend the same headroom.
+        return ServerProvisioner::oneAtATime($server->user, function () use ($server, $resources, $attributeNames): bool {
+            AccountAllowance::forgetMemo($server->user);
 
-        if ($rules === []) {
-            throw new ProvisioningException('resize_not_allowed');
-        }
+            $rules = $this->rules($server);
 
-        $validated = Validator::make($resources, $rules, [], $attributeNames)->validate();
+            if ($rules === []) {
+                throw new ProvisioningException('resize_not_allowed');
+            }
 
-        $server->update([
-            'cpu' => (int) $validated['cpu'],
-            'memory' => (int) $validated['memory'],
-            'disk' => (int) $validated['disk'],
-        ]);
+            $validated = Validator::make($resources, $rules, [], $attributeNames)->validate();
 
-        AccountAllowance::forgetMemo($server->user);
+            $server->update([
+                'cpu' => (int) $validated['cpu'],
+                'memory' => (int) $validated['memory'],
+                'disk' => (int) $validated['disk'],
+            ]);
 
-        try {
-            app(DaemonServerRepository::class)->setServer($server)->sync();
+            AccountAllowance::forgetMemo($server->user);
 
-            return true;
-        } catch (ConnectionException) {
-            return false;
-        } catch (Throwable $exception) {
-            report($exception);
+            try {
+                app(DaemonServerRepository::class)->setServer($server)->sync();
 
-            return false;
-        }
+                return true;
+            } catch (ConnectionException) {
+                return false;
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return false;
+            }
+        });
     }
 }

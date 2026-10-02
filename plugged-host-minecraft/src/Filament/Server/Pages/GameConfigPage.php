@@ -102,8 +102,11 @@ class GameConfigPage extends MinecraftPage
 
     public static function canAccess(): bool
     {
+        // The page shows the config files' contents (secrets like the Velocity forwarding secret
+        // included), so listing files is not enough.
         return parent::canAccess()
-            && (bool) user()?->can(SubuserPermission::FileRead, Filament::getTenant());
+            && (bool) user()?->can(SubuserPermission::FileRead, Filament::getTenant())
+            && (bool) user()?->can(SubuserPermission::FileReadContent, Filament::getTenant());
     }
 
     public static function getNavigationLabel(): string
@@ -218,11 +221,19 @@ class GameConfigPage extends MinecraftPage
 
         if ($yaml) {
             foreach ($config->flatten($config->yaml($raw)) as $key => $value) {
+                if (!self::plainKey($key)) {
+                    continue;
+                }
+
                 $fields[$key] = $config->yamlType($value);
                 $values[$key] = $value;
             }
         } else {
             foreach ($config->properties($raw) as $key => $value) {
+                if (!self::plainKey($key)) {
+                    continue;
+                }
+
                 $type = $this->propertyType($config, $key, $value);
 
                 $fields[$key] = $type;
@@ -243,6 +254,17 @@ class GameConfigPage extends MinecraftPage
             ],
             $values,
         ];
+    }
+
+    /**
+     * Whether a key from the file can be a form field. Keys become Filament state paths, which
+     * end up in HTML attributes and Alpine expressions, and the file is written by whoever runs
+     * the server. Real config keys are plain; any other key is left out of the form and stays
+     * in the file untouched (the raw editor still shows it).
+     */
+    protected static function plainKey(string $key): bool
+    {
+        return preg_match('/^[A-Za-z0-9_.:-]+$/', $key) === 1;
     }
 
     /**
@@ -607,6 +629,10 @@ class GameConfigPage extends MinecraftPage
     public function saveRaw(array $file, string $contents): void
     {
         abort_unless($this->canWrite(), 403);
+
+        // Public, so callable from the browser with any array: only the files this page read
+        // (the #[Locked] $configFiles) may be written, as saveFile() does.
+        $file = $this->fileFor((string) ($file['path'] ?? ''));
 
         if (!$this->write($file, $contents)) {
             return;

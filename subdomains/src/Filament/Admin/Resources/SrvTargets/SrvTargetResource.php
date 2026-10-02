@@ -9,6 +9,7 @@ use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SrvTargetResource extends Resource
 {
@@ -40,7 +41,11 @@ class SrvTargetResource extends Resource
                 TextInputColumn::make('srv_target')
                     ->label(trans('subdomains::strings.srv_target'))
                     ->placeholder(fn (Node $node) => "Default: {$node->fqdn}")
+                    // Inline edits skip policies, so check the node permission here.
+                    ->disabled(fn (Node $node) => !user()?->can('update', $node))
                     ->updateStateUsing(function (Node $node, $state) {
+                        abort_unless((bool) user()?->can('update', $node), 403);
+
                         $node->forceFill([
                             'srv_target' => filled($state) ? trim($state) : null,
                         ])->save();
@@ -49,6 +54,14 @@ class SrvTargetResource extends Resource
             ->emptyStateIcon('tabler-world-www')
             ->emptyStateDescription('')
             ->emptyStateHeading(trans('admin/node.no_nodes'));
+    }
+
+    /**
+     * Only the nodes this admin's roles give access to, like the panel's Nodes resource.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->whereIn('id', user()?->accessibleNodes()->pluck('id'));
     }
 
     public static function getPages(): array

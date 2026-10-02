@@ -3,6 +3,7 @@
 namespace PluggedHost\Ads\Services;
 
 use App\Enums\ContainerStatus;
+use App\Enums\SubuserPermission;
 use App\Filament\App\Resources\Servers\Pages\ListServers;
 use App\Filament\Server\Pages\Console;
 use App\Livewire\ServerEntry;
@@ -119,7 +120,7 @@ class PowerActionInterceptor
      *
      * Returns the URL to send the user to when limbo, the start queue or the ad gate now owns
      * the action, and null when the caller may dispatch it itself. Public because it is the
-     * single definition of the chain's order: the Livewire hook above and plugged-host-neo's
+     * single definition of the chain's order: the Livewire hook above and plugged-host-ai's
      * power tool both go through it, so neither can start a server the other would have held.
      *
      * A returned URL is a promise that nothing else may dispatch the action — for the gate
@@ -128,6 +129,13 @@ class PowerActionInterceptor
     public function interceptFor(User $user, Server $server, string $action): ?string
     {
         if (!in_array($action, self::GATED_ACTIONS, true)) {
+            return null;
+        }
+
+        // The server comes from the browser's Livewire payload, and this runs before the
+        // component's own permission check. Someone who may not start this server gets no
+        // chain at all: the component then refuses the action as it would without the plugin.
+        if (!$this->mayRun($user, $server, $action)) {
             return null;
         }
 
@@ -385,6 +393,21 @@ class PowerActionInterceptor
             return null;
         } catch (Throwable) {
             return null;
+        }
+    }
+
+    private function mayRun(User $user, Server $server, string $action): bool
+    {
+        $permission = match ($action) {
+            'start' => SubuserPermission::ControlStart,
+            'restart' => SubuserPermission::ControlRestart,
+            default => null,
+        };
+
+        try {
+            return $permission !== null && (bool) $user->can($permission, $server);
+        } catch (Throwable) {
+            return false;
         }
     }
 }

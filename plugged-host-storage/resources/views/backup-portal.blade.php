@@ -526,7 +526,7 @@
                 <h2 class="card-title">Sign in to download your backups</h2>
                 <p class="card-text">Your servers and their latest off-site copies appear here once you sign in with the account that owns them.</p>
                 <div class="card-actions">
-                    <a href="{{ $panelUrl }}/auth/backups-sso" class="btn btn-primary">Sign in with plugged.host</a>
+                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-primary">Sign in with plugged.host</a>
                     <a href="{{ route('backups.portal.discord') }}" class="btn btn-secondary">Sign in with Discord</a>
                 </div>
             </section>

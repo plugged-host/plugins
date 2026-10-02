@@ -3,9 +3,9 @@
 namespace PluggedHost\Servers\Neo\Tools;
 
 use App\Filament\Server\Pages\Console;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
-use PluggedHost\Neo\Tools\ToolRisk;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolRisk;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Neo\AccountTool;
 use PluggedHost\Servers\Services\ServerProvisioner;

@@ -8,6 +8,9 @@ use App\Models\User;
 use App\Repositories\Daemon\DaemonFileRepository;
 use App\Exceptions\Service\Deployment\NoViableAllocationException;
 use App\Exceptions\Service\Deployment\NoViableNodeException;
+use Closure;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Support\AccountAllowance;
 use Throwable;
@@ -15,7 +18,7 @@ use Throwable;
 /**
  * Creating a server for a user: the one place the user-creatable-server rules live.
  *
- * The create page, the client API and plugged-host-neo all go through here, so every surface
+ * The create page, the client API and plugged-host-ai all go through here, so every surface
  * checks the same allowance, location and plan rules and does the same post-create work
  * (onboarding wizard, EULA). Callers turn ProvisioningException::$reason into their own message.
  *
@@ -56,6 +59,39 @@ class ServerProvisioner
      * @throws ProvisioningException
      */
     public function create(User $user, array $input, array $variables = []): Server
+    {
+        // The allowance is read, checked, then spent by inserting the server: parallel requests
+        // would all pass the same check, so an account provisions one server at a time.
+        return self::oneAtATime($user, fn (): Server => $this->createNow($user, $input, $variables));
+    }
+
+    /**
+     * Run $callback holding the account's provisioning lock (server creates and resizes).
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     *
+     * @throws ProvisioningException
+     */
+    public static function oneAtATime(User $user, Closure $callback): mixed
+    {
+        try {
+            return Cache::lock('plugged-host-servers:provision:' . $user->getKey(), 120)
+                ->block((int) config('plugged-host-servers.provision_lock_wait', 30), $callback);
+        } catch (LockTimeoutException) {
+            throw new ProvisioningException('busy');
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @param  array<string, string|null>  $variables
+     *
+     * @throws ProvisioningException
+     */
+    private function createNow(User $user, array $input, array $variables): Server
     {
         ['limits' => $limits, 'egg' => $egg, 'resources' => $resources, 'location' => $location, 'name' => $name] = $this->prepare($user, $input, true);
 

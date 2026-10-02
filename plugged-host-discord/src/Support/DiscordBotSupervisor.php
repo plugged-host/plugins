@@ -356,13 +356,25 @@ class DiscordBotSupervisor
      */
     protected function cronPhpBinary(): string
     {
-        $configured = trim((string) config('plugged-host-discord.supervisor.php_binary', ''));
+        $configured = static::safePhpBinary((string) config('plugged-host-discord.supervisor.php_binary', ''));
 
-        if ($configured !== '') {
+        if ($configured !== null) {
             return $configured;
         }
 
         return @is_executable('/usr/bin/php') ? '/usr/bin/php' : $this->phpBinary();
+    }
+
+    /**
+     * The configured PHP binary when it is a plain absolute path to an executable, else null.
+     * It goes into a crontab command line as is, and plugin settings are editable by admins
+     * who are not root, so anything with spaces or shell characters is refused.
+     */
+    public static function safePhpBinary(string $path): ?string
+    {
+        $path = trim($path);
+
+        return preg_match('#^/[A-Za-z0-9_./-]+$#', $path) === 1 && @is_executable($path) ? $path : null;
     }
 
     /**
@@ -541,7 +553,7 @@ class DiscordBotSupervisor
             'exec %s %s %s >> %s 2>&1',
             escapeshellarg($this->phpBinary()),
             escapeshellarg(base_path('artisan')),
-            escapeshellarg(self::DAEMON_COMMAND),
+            escapeshellarg(static::DAEMON_COMMAND),
             escapeshellarg($this->logPath())
         );
 
@@ -575,7 +587,7 @@ class DiscordBotSupervisor
             return false;
         }
 
-        return str_contains(str_replace("\0", ' ', $cmdline), self::DAEMON_COMMAND);
+        return str_contains(str_replace("\0", ' ', $cmdline), static::DAEMON_COMMAND);
     }
 
     /**

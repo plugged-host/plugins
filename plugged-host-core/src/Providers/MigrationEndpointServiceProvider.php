@@ -37,6 +37,8 @@ class MigrationEndpointServiceProvider extends ServiceProvider
 
             Route::get('/migrate', [NoprofitSsoController::class, 'showMigrate'])->name('plugged-host.migrate');
             Route::post('/migrate', [NoprofitSsoController::class, 'migrate'])->name('plugged-host.migrate.submit');
+            Route::get('/migrate/challenge', [NoprofitSsoController::class, 'showChallenge'])->name('plugged-host.sso.challenge');
+            Route::post('/migrate/challenge', [NoprofitSsoController::class, 'verifyChallenge'])->name('plugged-host.sso.challenge.verify');
         });
 
         $closed = [NoprofitSsoController::class, 'closed'];

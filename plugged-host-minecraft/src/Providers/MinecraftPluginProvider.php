@@ -32,13 +32,13 @@ class MinecraftPluginProvider extends ServiceProvider
     }
 
     /**
-     * Contribute the Minecraft tools (content, software, modpacks, Geyser) to plugged-host-neo.
+     * Contribute the Minecraft tools (content, software, modpacks, Geyser) to plugged-host-ai.
      * By class-string behind class_exists so either plugin can be uninstalled alone; the tool
      * classes themselves are only loaded when neo asks for them.
      */
     private function registerNeoTools(): void
     {
-        $registry = 'PluggedHost\\Neo\\Tools\\NeoToolRegistry';
+        $registry = 'PluggedHost\\Ai\\Tools\\NeoToolRegistry';
 
         if (!class_exists($registry)) {
             return;
@@ -118,7 +118,9 @@ class MinecraftPluginProvider extends ServiceProvider
                         // Queue a modpack install (Modrinth .mrpack or CurseForge .zip). The heavy
                         // work is a job; this returns 202 once it is dispatched.
                         \Illuminate\Support\Facades\Route::post('/content/modpacks', function (\Illuminate\Http\Request $request, \App\Models\Server $server) {
+                            // A modpack switches the server's software and reinstalls it.
                             abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::FileCreate, $server), 403);
+                            abort_unless((bool) $request->user()?->can(\App\Enums\SubuserPermission::SettingsReinstall, $server), 403);
 
                             $result = app(\PluggedHost\Minecraft\Services\ContentSearchService::class)->queueModpack(
                                 $server,

@@ -4,10 +4,10 @@ namespace PluggedHost\Servers\Neo\Tools;
 
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
-use PluggedHost\Neo\Tools\BaseServerTool;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
-use PluggedHost\Neo\Tools\ToolRisk;
+use PluggedHost\Ai\Tools\BaseServerTool;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolRisk;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Services\PlanCatalog;
 use PluggedHost\Servers\Services\ServerResizer;

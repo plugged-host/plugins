@@ -64,7 +64,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   cat > "$ENV_FILE" <<EOF
 # plugged.host storage agent configuration
 PH_PANEL_URL=${PH_PANEL_URL:-https://panel.example.com}
-PH_AGENT_SECRET=${PH_AGENT_SECRET:-CHANGE_ME}
+PH_AGENT_SECRET=${PH_AGENT_SECRET:-$(openssl rand -hex 32)}
 PH_STORAGE_ROOT=$STORAGE_ROOT
 PH_RELEASE_DIR=$RELEASE_DIR
 PH_LISTEN_PORT=${PH_LISTEN_PORT:-8687}
@@ -75,7 +75,7 @@ PH_UPDATE_INTERVAL_MIN=${PH_UPDATE_INTERVAL_MIN:-15}
 PH_VERSION=$VERSION
 EOF
   chmod 600 "$ENV_FILE"
-  echo "Wrote $ENV_FILE — review PH_PANEL_URL and PH_AGENT_SECRET before starting."
+  echo "Wrote $ENV_FILE — review PH_PANEL_URL, and set the same PH_AGENT_SECRET as STORAGE_AGENT_SECRET on the panel."
 else
   echo "$ENV_FILE already exists; leaving it untouched."
   # keep the recorded version in step with what is installed

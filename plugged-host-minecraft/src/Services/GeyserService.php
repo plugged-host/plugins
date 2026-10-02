@@ -8,6 +8,7 @@ use App\Models\Server;
 use App\Repositories\Daemon\DaemonFileRepository;
 use App\Repositories\Daemon\DaemonServerRepository;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -27,6 +28,9 @@ class GeyserService
     private const GEYSER = 'geyser';
     private const FLOODGATE = 'floodgate';
     private const DEFAULT_BEDROCK_PORT = 19132;
+
+    /** Marks the one allocation a server holds for its Bedrock listener. */
+    private const BEDROCK_NOTE = 'Geyser (Bedrock)';
 
     /** GeyserMC's official build API, the fallback source when Modrinth carries no build. */
     private const GEYSERMC_DOWNLOAD = 'https://download.geysermc.org/v2/projects';
@@ -275,7 +279,8 @@ class GeyserService
      */
     private function writeConfig(DaemonFileRepository $files, string $dir, Server $server, bool $floodgate): void
     {
-        $bedrockPort = $this->bedrockPort($server);
+        $configPath = $dir === 'plugins' ? 'plugins/Geyser-Spigot/config.yml' : 'config/Geyser-Fabric/config.yml';
+        $bedrockPort = $this->bedrockPort($server, $this->configuredBedrockPort($files, $configPath));
         $javaPort = (int) ($server->allocation?->port ?? 25565);
         $authType = $floodgate ? 'floodgate' : 'online';
 
@@ -289,7 +294,6 @@ class GeyserService
           auth-type: {$authType}
         YAML;
 
-        $configPath = $dir === 'plugins' ? 'plugins/Geyser-Spigot/config.yml' : 'config/Geyser-Fabric/config.yml';
         $this->ensureDirectory($files, dirname($configPath));
 
         try {
@@ -300,28 +304,77 @@ class GeyserService
     }
 
     /**
-     * Reserve a free allocation on the server's node for the Bedrock UDP listener, or fall back
-     * to Geyser's default port. Same one-IP preference as the transfer/failover code.
+     * The Bedrock UDP listener's port: the allocation this server already holds for it, else one
+     * free allocation on the server's node, else Geyser's default port.
+     *
+     * A server holds at most one Bedrock allocation (tagged in its notes), so installing or
+     * updating Geyser again reuses it instead of taking another free allocation each time. The
+     * claim runs under a lock on the server row and only takes a row that is still free.
      */
-    private function bedrockPort(Server $server): int
+    private function bedrockPort(Server $server, ?int $configuredPort = null): int
     {
         try {
-            $free = Allocation::query()
-                ->where('node_id', $server->node_id)
-                ->whereNull('server_id')
-                ->orderBy('port')
-                ->first();
+            return DB::transaction(function () use ($server, $configuredPort): int {
+                Server::query()->whereKey($server->getKey())->lockForUpdate()->first();
 
-            if ($free !== null) {
-                $free->update(['server_id' => $server->getKey()]);
+                $own = $this->ownBedrockAllocation($server, $configuredPort);
+                if ($own !== null) {
+                    if ($own->notes !== self::BEDROCK_NOTE) {
+                        $own->update(['notes' => self::BEDROCK_NOTE]);
+                    }
 
-                return (int) $free->port;
-            }
+                    return (int) $own->port;
+                }
+
+                $free = Allocation::query()
+                    ->where('node_id', $server->node_id)
+                    ->whereNull('server_id')
+                    ->orderBy('port')
+                    ->first();
+
+                $claimed = $free !== null && Allocation::query()
+                    ->whereKey($free->getKey())
+                    ->whereNull('server_id')
+                    ->update(['server_id' => $server->getKey(), 'notes' => self::BEDROCK_NOTE]) === 1;
+
+                return $claimed ? (int) $free->port : self::DEFAULT_BEDROCK_PORT;
+            });
         } catch (Throwable) {
-            //
+            return self::DEFAULT_BEDROCK_PORT;
+        }
+    }
+
+    /**
+     * The allocation this server already uses for Bedrock: the tagged one, or (for installs from
+     * before the tag) a non-primary allocation on the port its Geyser config already listens on.
+     */
+    private function ownBedrockAllocation(Server $server, ?int $configuredPort): ?Allocation
+    {
+        $owned = Allocation::query()
+            ->where('server_id', $server->getKey())
+            ->when($server->allocation_id !== null, fn ($query) => $query->whereKeyNot($server->allocation_id));
+
+        return (clone $owned)->where('notes', self::BEDROCK_NOTE)->orderBy('port')->first()
+            ?? ($configuredPort !== null ? (clone $owned)->where('port', $configuredPort)->first() : null);
+    }
+
+    /**
+     * The `bedrock.port` of an existing Geyser config, if there is one.
+     */
+    private function configuredBedrockPort(DaemonFileRepository $files, string $configPath): ?int
+    {
+        try {
+            $yaml = $files->getContent('/' . $configPath);
+        } catch (Throwable) {
+            return null;
         }
 
-        return self::DEFAULT_BEDROCK_PORT;
+        if (preg_match('/^bedrock:[ \t]*\R((?:[ \t]+.*\R?|\R)*)/m', $yaml, $block) !== 1
+            || preg_match('/^[ \t]+port:[ \t]*(\d{1,5})\b/m', $block[1], $port) !== 1) {
+            return null;
+        }
+
+        return (int) $port[1];
     }
 
     private function tell(Server $server, ?int $userId, bool $updating): void

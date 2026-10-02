@@ -19,6 +19,7 @@
 //   PH_MIRROR_INTERVAL_MIN default 30
 //   PH_UPDATE_INTERVAL_MIN default 15
 //   PH_MAX_ARCHIVE_JOBS    default 3     (tar builds at once; more answer 503 + Retry-After)
+//   PH_STREAM_STALL_SEC    default 60    (drop a streaming download that stops reading for this long)
 //   PH_RELEASE_DIR         default /opt/plugged-host-storage   (for self-update symlink swap)
 //   PH_VERSION             current version string (stamped by install.sh into the unit)
 
@@ -45,6 +46,7 @@ const CFG = {
   releaseDir: process.env.PH_RELEASE_DIR || '/opt/plugged-host-storage',
   version: process.env.PH_VERSION || '1.3.0',
   maxArchiveJobs: Math.max(1, parseInt(process.env.PH_MAX_ARCHIVE_JOBS || '3', 10)),
+  streamStallMs: Math.max(10, parseInt(process.env.PH_STREAM_STALL_SEC || '60', 10)) * 1000,
   // How to turn a plan entry (host + path + uuid) into an rsync source. The pull credential
   // lives HERE, on the storage box, never on the panel. Placeholders: %HOST% %PATH% %UUID%.
   // Default is the SSH form; set to an rsync:// module URL if using an rsync daemon instead.
@@ -483,6 +485,7 @@ async function dropCachedArchive(uuid) {
 let archiveJobs = 0;
 const cacheWriters = new Set();   // uuids whose cached archive is being written right now
 const completeBuilds = new Map(); // uuid -> Promise of a complete build (restores share one)
+const streamingNow = new Set();   // uuids with a streaming download (one tar per server at a time)
 
 function tarArgs(srcDir) {
   const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
@@ -548,6 +551,7 @@ function streamArchive(res, uuid, srcDir, headers) {
   let file = null;
 
   archiveJobs++;
+  streamingNow.add(uuid);
   if (writesCache) {
     cacheWriters.add(uuid);
     fsp.rm(cacheMetaPath(uuid), { force: true }).catch(() => {});
@@ -561,8 +565,18 @@ function streamArchive(res, uuid, srcDir, headers) {
   // end: false -- the response is only ended once tar says the archive is whole (below).
   child.stdout.pipe(res, { end: false });
 
+  // tar runs only as fast as the browser reads, so a client that stops reading would hold
+  // this build (and its slot) for as long as it keeps the connection open. Drop it after a
+  // stall; a cache build carries on without it.
+  let lastDrain = Date.now();
+  res.on('drain', () => { lastDrain = Date.now(); });
+  const stallCheck = setInterval(() => {
+    if (res.writableNeedDrain && Date.now() - lastDrain > CFG.streamStallMs) res.destroy();
+  }, 5000);
+
   let responseDone = false;
   res.on('close', () => {
+    clearInterval(stallCheck);
     if (responseDone) return;
     child.stdout.unpipe(res);
     // Nobody left to receive it and no cache to fill: stop the build.
@@ -572,6 +586,8 @@ function streamArchive(res, uuid, srcDir, headers) {
   child.on('error', () => res.destroy());
   child.on('close', async (code) => {
     archiveJobs--;
+    streamingNow.delete(uuid);
+    clearInterval(stallCheck);
     const ok = tarOk(code);
     responseDone = true;
     // A failed build must not look like a finished download: cut the connection so the
@@ -737,6 +753,10 @@ function startServer() {
         }
 
         if (wantsStream(req, q)) {
+          if (streamingNow.has(resolved.uuid)) {
+            res.writeHead(503, { 'Retry-After': '30', 'Content-Type': 'text/plain' });
+            return res.end('this server is already being downloaded, try again in a moment');
+          }
           return streamArchive(res, resolved.uuid, srcDir, headers);
         }
 
@@ -819,6 +839,10 @@ async function updateTick() {
 
 async function main() {
   if (!CFG.secret) { log('error', 'PH_AGENT_SECRET not set; refusing to start'); process.exit(1); }
+  if (CFG.secret === 'CHANGE_ME' || CFG.secret.length < 32) {
+    // Anyone who knows the secret can sign archive downloads of every server: use a long random one.
+    log('error', 'PH_AGENT_SECRET is the installer placeholder or shorter than 32 characters; set a long random secret here and as STORAGE_AGENT_SECRET on the panel');
+  }
   await ensureDirs();
   startServer();
 

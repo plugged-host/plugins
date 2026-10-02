@@ -62,7 +62,10 @@ class ServerWorlds extends MinecraftPage
 
     public static function canAccess(): bool
     {
-        return parent::canAccess() && (bool) user()?->can(SubuserPermission::FileRead, static::minecraftServer());
+        // The page reads server.properties and ships its values to the browser.
+        return parent::canAccess()
+            && (bool) user()?->can(SubuserPermission::FileRead, static::minecraftServer())
+            && (bool) user()?->can(SubuserPermission::FileReadContent, static::minecraftServer());
     }
 
     public static function getNavigationLabel(): string

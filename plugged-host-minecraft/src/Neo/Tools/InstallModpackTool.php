@@ -6,9 +6,9 @@ use App\Enums\SubuserPermission;
 use InvalidArgumentException;
 use PluggedHost\Minecraft\Neo\MinecraftTool;
 use PluggedHost\Minecraft\Services\ContentSearchService;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
-use PluggedHost\Neo\Tools\ToolRisk;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolRisk;
 
 final class InstallModpackTool extends MinecraftTool
 {
@@ -30,7 +30,6 @@ final class InstallModpackTool extends MinecraftTool
                 'project' => ['type' => 'string'],
                 'version' => ['type' => 'string'],
                 'source' => ['type' => 'string', 'enum' => ['modrinth', 'curseforge']],
-                'name' => ['type' => 'string', 'description' => 'Modpack name, for the approval card.'],
             ],
             'required' => ['project', 'version'],
         ];
@@ -53,7 +52,9 @@ final class InstallModpackTool extends MinecraftTool
 
     public function summarize(array $arguments): string
     {
-        return 'Install modpack ' . (string) ($arguments['name'] ?? $arguments['project'] ?? '?') . ' (reinstall)';
+        // Built from what execute() installs, never from a name the model supplies.
+        return 'Install ' . ($arguments['source'] ?? 'modrinth') . ' modpack ' . (string) ($arguments['project'] ?? '?')
+            . ' (version ' . (string) ($arguments['version'] ?? '?') . ', reinstall)';
     }
 
     public function execute(ToolContext $context, array $arguments): ToolResult

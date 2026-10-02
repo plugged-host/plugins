@@ -560,6 +560,8 @@ class ServerSettings extends ServerFormPage
     protected function updateStartupCommand(?string $state, Server $server, Set $set): void
     {
         abort_unless(user()?->can(SubuserPermission::StartupUpdate, $server), 403);
+        // The select only offers the egg's startup commands; the value itself comes from the browser.
+        abort_unless(in_array($state, $server->egg->startup_commands, true), 403);
 
         $original = $server->startup;
         $server->forceFill(['startup' => $state])->saveOrFail();
@@ -585,6 +587,8 @@ class ServerSettings extends ServerFormPage
     protected function updateDockerImage(?string $state, Server $server): void
     {
         abort_unless(user()?->can(SubuserPermission::StartupDockerImage, $server), 403);
+        // The select only offers the egg's images; the value itself comes from the browser.
+        abort_unless(in_array($state, $server->egg->docker_images, true), 403);
 
         $original = $server->image;
         $server->forceFill(['image' => $state])->saveOrFail();
@@ -605,6 +609,9 @@ class ServerSettings extends ServerFormPage
     public function update(null|string|bool $state, ServerVariable $serverVariable): void
     {
         abort_unless(user()?->can(SubuserPermission::StartupUpdate, $this->getRecord()), 403);
+        // The variable id comes from the browser: it must belong to this server and be visible.
+        abort_unless($serverVariable->server_id === $this->getRecord()->id, 403);
+        abort_unless($serverVariable->variable->user_viewable, 403);
 
         if (!$serverVariable->variable->user_editable) {
             return;

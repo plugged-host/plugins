@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $user_id
  * @property int $delta
+ * @property int $extra_cpu
+ * @property int $extra_memory
+ * @property int $extra_disk
  * @property ?string $type
  * @property ?string $description
  * @property int $attempts
@@ -26,6 +29,9 @@ class NoprofitCreditOutbox extends Model
     protected $fillable = [
         'user_id',
         'delta',
+        'extra_cpu',
+        'extra_memory',
+        'extra_disk',
         'type',
         'description',
         'attempts',
@@ -34,6 +40,9 @@ class NoprofitCreditOutbox extends Model
 
     protected $casts = [
         'delta' => 'integer',
+        'extra_cpu' => 'integer',
+        'extra_memory' => 'integer',
+        'extra_disk' => 'integer',
         'attempts' => 'integer',
         'created_at' => 'datetime',
     ];

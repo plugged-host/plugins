@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Queue\Filament\Server\Pages;
 
+use App\Enums\SubuserPermission;
 use App\Filament\Server\Pages\Console;
 use App\Models\Server;
 use App\Models\User;
@@ -241,8 +242,23 @@ class StartQueuePage extends Page
      * goes to whoever is behind them instead of sitting there until the sweep notices
      * the silence.
      */
+    /**
+     * Leaving gives up the server's queued start, so it takes the permission that can queue
+     * one. Every user of the server is sent to this page while a start waits; a subuser
+     * without it only watches.
+     */
+    public function canLeave(): bool
+    {
+        $server = $this->getServer();
+
+        return (bool) user()?->can(SubuserPermission::ControlStart, $server)
+            || (bool) user()?->can(SubuserPermission::ControlRestart, $server);
+    }
+
     public function leave(): void
     {
+        abort_unless($this->canLeave(), 403);
+
         $entry = $this->entry();
 
         if ($entry instanceof StartQueueEntry) {

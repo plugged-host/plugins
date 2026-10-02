@@ -257,6 +257,15 @@ class ModDetectionService
     // --- rows ---------------------------------------------------------------
 
     /**
+     * A link target only when it is a web address. The website comes from the jar's own
+     * metadata, which whoever runs the server writes, and ends up in an href.
+     */
+    private static function webUrl(mixed $url): ?string
+    {
+        return is_string($url) && preg_match('#^https?://#i', $url) === 1 ? $url : null;
+    }
+
+    /**
      * @param  array{name: string, disabled: bool, size: int, modified: string}  $jar
      * @param  array<string, mixed>|null  $identity
      * @param  list<string>  $folders
@@ -283,7 +292,7 @@ class ModDetectionService
             'kind' => $meta['kind'] ?? null,
             'platform' => $identity['platform'] ?? null,
             'project_id' => $identity['project_id'] ?? null,
-            'url' => $identity['url'] ?? ($meta['website'] ?? null),
+            'url' => self::webUrl($identity['url'] ?? ($meta['website'] ?? null)),
             'icon' => $identity['icon'] ?? null,
             'confidence' => $identity['confidence'] ?? 'unknown',
             'sha1' => $identity['sha1'] ?? null,
