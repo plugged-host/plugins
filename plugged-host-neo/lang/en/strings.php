@@ -185,7 +185,7 @@ return [
         'extra_headers' => 'Extra headers (JSON object)',
         'extra_headers_hint' => 'e.g. {"User-Agent": "…"}. Auth headers are set for you.',
         'extra_body' => 'Extra request fields (JSON object)',
-        'extra_body_hint' => 'e.g. {"reasoning_format": "hidden"}, or for Google AI Studio {"generationConfig": {"thinkingConfig": {"thinkingLevel": "low"}}}. Fields are per API format. Core fields (model, messages, tools…) cannot be overridden.',
+        'extra_body_hint' => 'e.g. {"reasoning_format": "hidden"}. Google AI Studio only takes generationConfig (e.g. {"generationConfig": {"temperature": 0.7}}), safetySettings and cachedContent; other fields are left out there. Core fields (model, messages, tools…) cannot be overridden.',
         'test' => 'Test provider :slot',
         'test_ok' => 'Provider :slot answered in :ms ms (:model). Tool calling: :tools.',
         'test_failed' => 'Provider :slot failed: :error',

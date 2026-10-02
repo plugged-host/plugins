@@ -185,7 +185,7 @@ return [
         'extra_headers' => 'Zusätzliche Header (JSON-Objekt)',
         'extra_headers_hint' => 'z. B. {"User-Agent": "…"}. Auth-Header werden automatisch gesetzt.',
         'extra_body' => 'Zusätzliche Anfragefelder (JSON-Objekt)',
-        'extra_body_hint' => 'z. B. {"reasoning_format": "hidden"}, oder für Google AI Studio {"generationConfig": {"thinkingConfig": {"thinkingLevel": "low"}}}. Die Felder hängen vom API-Format ab. Kernfelder (model, messages, tools…) können nicht überschrieben werden.',
+        'extra_body_hint' => 'z. B. {"reasoning_format": "hidden"}. Google AI Studio nimmt nur generationConfig (z. B. {"generationConfig": {"temperature": 0.7}}), safetySettings und cachedContent; andere Felder werden dort weggelassen. Kernfelder (model, messages, tools…) können nicht überschrieben werden.',
         'test' => 'Anbieter :slot testen',
         'test_ok' => 'Anbieter :slot hat in :ms ms geantwortet (:model). Tool-Aufrufe: :tools.',
         'test_failed' => 'Anbieter :slot fehlgeschlagen: :error',

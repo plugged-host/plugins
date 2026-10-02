@@ -7,6 +7,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Sleep;
 use Throwable;
 
 /**
@@ -29,6 +30,19 @@ class RuxAi
         'model', 'messages', 'system', 'tools', 'tool_choice', 'stream', 'max_tokens', 'max_completion_tokens', 'n', 'thinking',
         'contents', 'systemInstruction', 'system_instruction', 'toolConfig', 'tool_config', 'generationConfig', 'generation_config',
     ];
+
+    /**
+     * The extra fields a Gemini request takes besides generationConfig; anything else (a field of
+     * the format a slot was switched from, like reasoning_effort) is left out, as on noprofit.space.
+     */
+    private const GEMINI_EXTRA_FIELDS = ['safetySettings', 'safety_settings', 'cachedContent', 'cached_content'];
+
+    /**
+     * Google answers many requests (free-tier Gemma especially) with a passing 500 or 503; a
+     * Gemini request is tried this many times in all while 10 seconds of its timeout are left,
+     * as on noprofit.space (GeminiDriver).
+     */
+    private const GEMINI_ATTEMPTS = 3;
 
     /** How long a Gemini thought signature is kept for the next turn. */
     private const SIGNATURE_TTL = 172800;
@@ -141,7 +155,9 @@ class RuxAi
         $extraBody = (array) ($provider['extra_body'] ?? []);
 
         $body = array_merge(
-            array_diff_key($extraBody, array_flip(self::RESERVED_BODY)),
+            $driver === 'gemini'
+                ? array_intersect_key($extraBody, array_flip(self::GEMINI_EXTRA_FIELDS))
+                : array_diff_key($extraBody, array_flip(self::RESERVED_BODY)),
             match ($driver) {
                 'anthropic' => $this->anthropic->toBody($messages, $tools, $toolChoice, $model, $maxTokens),
                 'gemini' => $this->gemini->toBody($messages, $tools, $toolChoice, $model, static fn (string $id): ?string => Cache::get(self::signatureKey($id))),
@@ -168,17 +184,30 @@ class RuxAi
 
         $default = $this->neo->failover()['default_cooldown'];
 
-        try {
-            $response = Http::withHeaders(array_merge($extraHeaders, $headers))
-                ->acceptJson()
-                ->connectTimeout(min(5, $timeout))
-                ->timeout($timeout)
-                ->withOptions(['allow_redirects' => false])
-                ->post($this->requestUrl($provider), $body);
-        } catch (ConnectionException $e) {
-            return ['status' => null, 'reason' => 'connection: ' . $e->getMessage(), 'cooldown' => $default];
-        } catch (Throwable $e) {
-            return ['status' => null, 'reason' => 'transport: ' . class_basename($e), 'cooldown' => $default];
+        $deadline = microtime(true) + $timeout;
+
+        for ($attempt = 1; ; $attempt++) {
+            $left = max(1, (int) floor($deadline - microtime(true)));
+
+            try {
+                $response = Http::withHeaders(array_merge($extraHeaders, $headers))
+                    ->acceptJson()
+                    ->connectTimeout(min(5, $left))
+                    ->timeout($left)
+                    ->withOptions(['allow_redirects' => false])
+                    ->post($this->requestUrl($provider), $body);
+            } catch (ConnectionException $e) {
+                return ['status' => null, 'reason' => 'connection: ' . $e->getMessage(), 'cooldown' => $default];
+            } catch (Throwable $e) {
+                return ['status' => null, 'reason' => 'transport: ' . class_basename($e), 'cooldown' => $default];
+            }
+
+            if ($driver !== 'gemini' || !in_array($response->status(), [500, 503], true)
+                || $attempt >= self::GEMINI_ATTEMPTS || $deadline - microtime(true) < 11) {
+                break;
+            }
+
+            Sleep::for(1)->second();
         }
 
         if (!$response->successful()) {
