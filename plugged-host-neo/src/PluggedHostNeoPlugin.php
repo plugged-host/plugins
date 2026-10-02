@@ -236,6 +236,7 @@ class PluggedHostNeoPlugin implements HasPluginSettings, Plugin
                     Select::make($prefix . 'driver')->label($t('driver'))->options([
                         'openai' => $t('driver_openai'),
                         'anthropic' => $t('driver_anthropic'),
+                        'gemini' => $t('driver_gemini'),
                     ])->required()->native(false),
                     TextInput::make($prefix . 'model')->label($t('model'))->maxLength(128)->required(),
                     TextInput::make($prefix . 'endpoint')->label($t('endpoint'))->helperText($t('endpoint_hint'))->url()->maxLength(512)->required()->columnSpanFull(),

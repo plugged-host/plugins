@@ -2,6 +2,7 @@
 
 ## Unreleased (2.1)
 
+- Settings: Google AI Studio (Gemini API) as a provider API format, for Gemini and Gemma models.
 - Knowledge: servers can be moved to another location from the Transfer page (plugged-host-servers).
 
 ## 1.2.1
