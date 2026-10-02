@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Server;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Storage\Services\StorageService;
 
 class BackupPortalController extends Controller
 {
+    private const SSO_STATE = 'plugged-host-storage.backups-sso.state';
+
     public function __construct(
         protected StorageService $storageService
     ) {}
@@ -33,6 +37,27 @@ class BackupPortalController extends Controller
     }
 
     /**
+     * The panel's SSO handshake URL, with a fresh state kept in this browser's session. The
+     * panel signs the state into the link it sends back, and the callback only accepts a link
+     * carrying this browser's state, so a link made in someone else's browser cannot sign
+     * this one in (login CSRF).
+     *
+     * @param  array<string, string>  $query
+     */
+    protected function ssoStartUrl(Request $request, array $query = []): string
+    {
+        $state = Str::random(40);
+        $request->session()->put(self::SSO_STATE, $state);
+
+        return $this->panelBaseUrl() . '/auth/backups-sso?' . http_build_query(['state' => $state] + array_filter($query, fn ($v) => $v !== null && $v !== ''));
+    }
+
+    protected static function ssoSignature(int $uid, int $ts, string $state): string
+    {
+        return hash_hmac('sha256', "sso:{$uid}:{$ts}:{$state}", (string) config('app.key'));
+    }
+
+    /**
      * Show the backups retrieval homepage.
      */
     public function index(Request $request): View|RedirectResponse
@@ -47,9 +72,8 @@ class BackupPortalController extends Controller
         // do a fast silent handshake with the panel to auto-get panel session.
         if (!$user && !$request->has('guest') && !$request->session()->has('sso_checked')) {
             $request->session()->put('sso_checked', true);
-            $queryParam = $initialServerId !== '' ? ('?server=' . urlencode($initialServerId)) : '';
 
-            return redirect("{$panelUrl}/auth/backups-sso{$queryParam}");
+            return redirect($this->ssoStartUrl($request, ['server' => $initialServerId]));
         }
 
         $discordLink = null;
@@ -125,17 +149,23 @@ class BackupPortalController extends Controller
         $returnServer = $request->query('server') ?? $request->query('s');
         $queryServerParam = $returnServer ? ('&server=' . urlencode((string) $returnServer)) : '';
 
+        // The portal's state for this browser; without one there is no handshake to answer.
+        $state = (string) $request->query('state', '');
+        if (preg_match('/^[A-Za-z0-9]{32,64}$/', $state) !== 1) {
+            return redirect("{$portalUrl}/?guest=1" . $queryServerParam);
+        }
+
         // If user is already logged into the panel
         if ($user) {
             $ts = time();
-            $sig = hash_hmac('sha256', "sso:{$user->id}:{$ts}", config('app.key'));
+            $sig = self::ssoSignature((int) $user->id, $ts, $state);
 
-            return redirect("{$portalUrl}/auth/sso?uid={$user->id}&ts={$ts}&sig={$sig}{$queryServerParam}");
+            return redirect("{$portalUrl}/auth/sso?uid={$user->id}&ts={$ts}&state={$state}&sig={$sig}{$queryServerParam}");
         }
 
         // If prompt requested (user explicitly clicked "Login with Panel Account")
         if ($prompt) {
-            $returnTo = "{$panelUrl}/auth/backups-sso" . ($returnServer ? ('?server=' . urlencode((string) $returnServer)) : '');
+            $returnTo = "{$panelUrl}/auth/backups-sso?" . http_build_query(array_filter(['state' => $state, 'server' => $returnServer ? (string) $returnServer : null]));
             $request->session()->put('url.intended', $returnTo);
 
             return redirect('/login');
@@ -166,10 +196,22 @@ class BackupPortalController extends Controller
             return redirect("{$portalUrl}/?error=" . urlencode('Login token expired. Please try again.'));
         }
 
+        // The link must answer the handshake this browser started (see ssoStartUrl()).
+        $state = (string) $request->input('state', '');
+        $expectedState = $request->session()->pull(self::SSO_STATE);
+        if (!is_string($expectedState) || $state === '' || !hash_equals($expectedState, $state)) {
+            return redirect("{$portalUrl}/?error=" . urlencode('This sign-in link was not started in this browser. Please try again.'));
+        }
+
         // Verify cryptographic signature using panel app key
-        $expectedSig = hash_hmac('sha256', "sso:{$uid}:{$ts}", config('app.key'));
+        $expectedSig = self::ssoSignature($uid, $ts, $state);
         if (!hash_equals($expectedSig, $sig)) {
             return redirect("{$portalUrl}/?error=" . urlencode('Invalid login signature.'));
+        }
+
+        // Each link signs in once.
+        if (!Cache::add('plugged-host-storage:backups-sso:' . $sig, true, 300)) {
+            return redirect("{$portalUrl}/?error=" . urlencode('Login token already used. Please try again.'));
         }
 
         $user = \App\Models\User::find($uid);
@@ -189,11 +231,9 @@ class BackupPortalController extends Controller
      */
     public function authRedirect(Request $request): RedirectResponse
     {
-        $panelUrl = $this->panelBaseUrl();
         $server = $request->query('server');
-        $query = '?prompt=1' . ($server ? ('&server=' . urlencode((string) $server)) : '');
 
-        return redirect("{$panelUrl}/auth/backups-sso{$query}");
+        return redirect($this->ssoStartUrl($request, ['prompt' => '1', 'server' => $server ? (string) $server : null]));
     }
 
     /**
@@ -201,9 +241,7 @@ class BackupPortalController extends Controller
      */
     public function authCallback(Request $request): RedirectResponse
     {
-        $panelUrl = $this->panelBaseUrl();
-
-        return redirect("{$panelUrl}/auth/backups-sso?prompt=1");
+        return redirect($this->ssoStartUrl($request, ['prompt' => '1']));
     }
 
     /**
