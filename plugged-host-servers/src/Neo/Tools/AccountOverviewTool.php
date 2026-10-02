@@ -3,8 +3,8 @@
 namespace PluggedHost\Servers\Neo\Tools;
 
 use PluggedHost\Core\Services\AccountSummary;
-use PluggedHost\Neo\Tools\ToolContext;
-use PluggedHost\Neo\Tools\ToolResult;
+use PluggedHost\Ai\Tools\ToolContext;
+use PluggedHost\Ai\Tools\ToolResult;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Neo\AccountTool;
 use PluggedHost\Servers\Services\ServerProvisioner;
@@ -47,9 +47,10 @@ final class AccountOverviewTool extends AccountTool
         $limits = AccountAllowance::forUser($user);
         $overage = $limits?->getOverage($user) ?? [];
 
+        // Not "tokens:": SecretRedactor masks any "token…: value" line, balance included.
         $lines = [
-            'tokens: ' . (int) ($summary['tokens'] ?? 0),
-            'credits: ' . (int) ($summary['credits'] ?? 0),
+            'token balance: ' . (int) ($summary['tokens'] ?? 0),
+            'credit balance: ' . (int) ($summary['credits'] ?? 0),
             'servers: ' . ($summary['servers_used'] ?? 0),
             'cpu: ' . $fmt($summary['cpu_used'] ?? 0, $summary['cpu_limit'] ?? 0, '%'),
             'memory: ' . $fmt($summary['memory_used'] ?? 0, $summary['memory_limit'] ?? 0, ' MB'),
