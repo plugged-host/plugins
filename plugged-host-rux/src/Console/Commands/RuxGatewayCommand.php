@@ -307,7 +307,9 @@ class RuxGatewayCommand extends Command
                         $this->line('[' . now()->toDateTimeString() . "] order #{$orderId} from " . ($data['author']['id'] ?? '?'));
                         $supervisor->spawnCommand('plugged-host:rux-handle', [(string) $orderId]);
 
-                        break;
+                        // No break: an order is still a member message. Addressing rux used to
+                        // skip the checks below; staff are exempted further down (the watch
+                        // drain and the rule check both skip them), so admins' orders are not.
                     }
 
                     // Every member message in a watched channel is checked; elsewhere only the

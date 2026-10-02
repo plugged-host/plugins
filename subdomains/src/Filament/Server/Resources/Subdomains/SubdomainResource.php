@@ -2,6 +2,7 @@
 
 namespace Boy132\Subdomains\Filament\Server\Resources\Subdomains;
 
+use App\Enums\SubuserPermission;
 use App\Models\Server;
 use App\Traits\Filament\BlockAccessInConflict;
 use App\Traits\Filament\HasLimitBadge;
@@ -29,6 +30,7 @@ use Filament\Support\Enums\IconSize;
 use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 
 class SubdomainResource extends Resource
@@ -52,6 +54,38 @@ class SubdomainResource extends Resource
         }
 
         return parent::canAccess() && Subdomain::publicIpFor($server) !== null && CloudflareDomain::count() > 0;
+    }
+
+    /**
+     * Subdomains point at the server's address and are paid from the owner's tokens, so
+     * subusers need the matching network (allocation) permission, like the panel's Network
+     * page. There is no Subdomain policy, and without one Filament allows everything.
+     */
+    public static function canViewAny(): bool
+    {
+        return self::tenantAllows(SubuserPermission::AllocationRead);
+    }
+
+    public static function canCreate(): bool
+    {
+        return self::tenantAllows(SubuserPermission::AllocationCreate);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return self::tenantAllows(SubuserPermission::AllocationUpdate);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return self::tenantAllows(SubuserPermission::AllocationDelete);
+    }
+
+    protected static function tenantAllows(SubuserPermission $permission): bool
+    {
+        $server = Filament::getTenant();
+
+        return $server instanceof Server && (bool) user()?->can($permission, $server);
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -142,6 +176,7 @@ class SubdomainResource extends Resource
             ])
             ->recordActions([
                 EditAction::make()
+                    ->authorize(fn (Subdomain $record) => static::canEdit($record))
                     ->action(function (array $data, Subdomain $subdomain, SubdomainService $service) {
                         try {
                             return $service->handle($data, $subdomain);
@@ -157,6 +192,7 @@ class SubdomainResource extends Resource
                         }
                     }),
                 DeleteAction::make()
+                    ->authorize(fn (Subdomain $record) => static::canDelete($record))
                     ->successNotification(function (Subdomain $record) {
                         $msg = $record->token_cost > 0 
                             ? "Subdomain deleted. {$record->token_cost} tokens refunded to your balance." 
@@ -168,6 +204,7 @@ class SubdomainResource extends Resource
             ])
             ->toolbarActions([
                 CreateAction::make()
+                    ->authorize(fn () => static::canCreate())
                     ->modalHeading(trans('subdomains::strings.create_subdomain'))
                     ->icon('tabler-world-plus')
                     ->tooltip(function () {

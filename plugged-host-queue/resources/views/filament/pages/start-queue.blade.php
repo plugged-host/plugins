@@ -398,12 +398,14 @@
              behind them instead of sitting in the line until the sweep notices the
              silence. --}}
         <div class="flex flex-col items-center gap-1 pb-2 text-center">
-            <x-filament::link tag="button"
-                              color="gray"
-                              wire:click="leave"
-                              wire:loading.attr="disabled">
-                {{ trans('plugged-host-queue::strings.leave_cta') }}
-            </x-filament::link>
+            @if ($this->canLeave())
+                <x-filament::link tag="button"
+                                  color="gray"
+                                  wire:click="leave"
+                                  wire:loading.attr="disabled">
+                    {{ trans('plugged-host-queue::strings.leave_cta') }}
+                </x-filament::link>
+            @endif
             @if ($passMinutes > 0)
                 <span class="ph-queue-faint">
                     {{ trans('plugged-host-queue::strings.pass_note', ['minutes' => $passMinutes]) }}

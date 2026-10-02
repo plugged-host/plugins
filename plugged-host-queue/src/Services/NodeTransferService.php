@@ -207,11 +207,35 @@ class NodeTransferService
 
         return $nodes
             ->reject(fn (Node $node) => (int) $node->getKey() === (int) $server->node_id)
+            ->filter(fn (Node $node) => $this->sameOffer($server, $node))
             ->reject(fn (Node $node) => $node->isUnderMaintenance())
             ->reject(fn (Node $node) => $this->pressure->storagePressured($node))
             ->reject(fn (Node $node) => $this->pressure->isUnderPressure($node))
             ->sortBy(fn (Node $node) => $this->pressure->worstPercent($node))
             ->values();
+    }
+
+    /**
+     * Only a node of the same location and tier (a free server must not land on a Plus or
+     * Premium node) that new servers may be deployed to. Tags alone are not enough:
+     * FindViableNodesService keeps any node sharing one of them, and paid nodes carry the
+     * country tag too. With plugged-host-servers missing there is no tier to keep.
+     */
+    protected function sameOffer(Server $server, Node $node): bool
+    {
+        $planner = 'PluggedHost\\Servers\\Services\\Transfers\\TransferPlanner';
+
+        if (!class_exists($planner)) {
+            return true;
+        }
+
+        $planner = app($planner);
+        $here = $planner->locationOf($server->node);
+        $deployable = $planner->deploymentTags();
+
+        return $here !== null
+            && $planner->locationOf($node) === $here
+            && ($deployable === [] || array_intersect($deployable, (array) ($node->tags ?? [])) !== []);
     }
 
     /**

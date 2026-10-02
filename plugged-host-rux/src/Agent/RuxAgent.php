@@ -353,17 +353,31 @@ final class RuxAgent
 
         foreach ((array) ($meta['mentions'] ?? []) as $mention) {
             if (is_array($mention) && isset($mention['id'])) {
-                $lines[] = "(<@{$mention['id']}> is " . ($mention['name'] ?? 'unknown') . ($mention['bot'] ?? false ? ', a bot' : '') . ')';
+                $lines[] = "(<@{$mention['id']}> is " . self::untrusted(str_replace("\n", ' ', (string) ($mention['name'] ?? 'unknown'))) . ($mention['bot'] ?? false ? ', a bot' : '') . ')';
             }
         }
 
+        // The replied-to message and its author's name are written by someone else, so they go
+        // in a fence as data: inline, they could pass for the admin's own order.
         if (is_array($meta['reply_to'] ?? null)) {
             $reply = $meta['reply_to'];
-            $lines[] = '(They are replying to a message by ' . ($reply['author_name'] ?? 'someone') . ' <@' . ($reply['author_id'] ?? '?') . '>, message id ' . ($reply['id'] ?? '?')
-                . (filled($reply['content'] ?? null) ? ', which says: "' . Str::limit((string) $reply['content'], 500) . '"' : '') . ')';
+            $lines[] = '(They are replying to message id ' . ($reply['id'] ?? '?') . ' by <@' . ($reply['author_id'] ?? '?') . '>, shown below.)';
+            $lines[] = '<replied_message untrusted="true">' . "\n"
+                . 'Author name: ' . self::untrusted(str_replace("\n", ' ', (string) ($reply['author_name'] ?? 'someone'))) . "\n"
+                . self::untrusted(Str::limit((string) ($reply['content'] ?? ''), 500)) . "\n"
+                . '</replied_message>';
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Someone else's text inside the admin's turn: angle brackets are swapped for look-alikes so
+     * it cannot close the fence it sits in or open a fake one.
+     */
+    private static function untrusted(string $text): string
+    {
+        return str_replace(['<', '>'], ['‹', '›'], $text);
     }
 
     private static function fence(string $tool, string $content): string

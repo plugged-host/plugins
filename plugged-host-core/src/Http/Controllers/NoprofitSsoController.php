@@ -14,6 +14,7 @@ use PluggedHost\Core\Services\NoprofitAccountSync;
 use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Core\Support\NoprofitMigrationToken;
 use PluggedHost\Core\Support\NoprofitToken;
+use PluggedHost\Core\Support\PanelMfa;
 use PluggedHost\Economy\Services\NoprofitCreditSync;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -28,7 +29,8 @@ use Throwable;
  *   - A brand-new panel user is only created when no panel account uses that email; otherwise
  *     the person is asked to connect the existing account with its plugged.host password.
  *   - Second factors (passkeys, authenticator codes) are checked by noprofit.space before it
- *     issues an SSO token; the panel keeps no 2FA of its own.
+ *     issues an SSO token. /migrate proves an account by its plugged.host password instead, so
+ *     an account that turned on panel 2FA must also pass that second factor (PanelMfa).
  *   - Both hand-offs carry a random state that was stored in the session of the browser that
  *     started them, so a token captured from someone else's flow cannot be replayed into a
  *     victim's browser (login CSRF / account linking CSRF).
@@ -43,6 +45,13 @@ final class NoprofitSsoController
     private const SSO_STATE = 'plugged-host.sso.state';
 
     private const STATE_PATTERN = '/^[A-Za-z0-9]{32,128}$/';
+
+    /**
+     * Session key holding a password-proven /migrate that still needs the account's panel 2FA code.
+     */
+    private const PENDING = 'plugged-host.migrate.pending';
+
+    private const PENDING_SECONDS = 600;
 
     public function login(): RedirectResponse
     {
@@ -164,7 +173,78 @@ final class NoprofitSsoController
 
         RateLimiter::clear($perAccount);
 
+        // An account that turned on panel 2FA must pass it here: the password alone would
+        // otherwise convert it into the noprofit.space account that started this hand-off.
+        if (PanelMfa::method($user) !== null) {
+            $request->session()->put(self::PENDING, [
+                'user_id' => $user->getKey(),
+                'state' => $state,
+                'expires_at' => time() + self::PENDING_SECONDS,
+            ]);
+
+            PanelMfa::begin($user);
+
+            return redirect()->route('plugged-host.sso.challenge');
+        }
+
         return redirect()->away(NoprofitMigrationToken::callbackUrl(NoprofitMigrationToken::issue($user, $state)));
+    }
+
+    public function showChallenge(Request $request): Response
+    {
+        $user = $this->pendingUser($request);
+        if ($user === null) {
+            return redirect()->away($this->accountsUrl() . '/auth/plugged-host');
+        }
+
+        return response()->view('plugged-host-core::mfa-challenge', [
+            'method' => PanelMfa::method($user),
+        ]);
+    }
+
+    public function verifyChallenge(Request $request): Response
+    {
+        $user = $this->pendingUser($request);
+        if ($user === null) {
+            return redirect()->away($this->accountsUrl() . '/auth/plugged-host');
+        }
+
+        $key = 'plugged-host:migrate-mfa:' . $user->getKey();
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            $request->session()->forget(self::PENDING);
+
+            return redirect()->away($this->accountsUrl() . '/auth/plugged-host');
+        }
+
+        if (!PanelMfa::verify($user, (string) $request->input('code', ''))) {
+            RateLimiter::hit($key, self::PENDING_SECONDS);
+
+            return back()->withErrors(['code' => 'That code is not valid.']);
+        }
+
+        RateLimiter::clear($key);
+        $state = $request->session()->pull(self::PENDING . '.state');
+        $request->session()->forget(self::PENDING);
+
+        // Re-checked: the code can come in after a conversion finished elsewhere.
+        if (!is_string($state) || NoprofitLink::isConverted($user)) {
+            return redirect()->away($this->accountsUrl() . '/login');
+        }
+
+        return redirect()->away(NoprofitMigrationToken::callbackUrl(NoprofitMigrationToken::issue($user, $state)));
+    }
+
+    private function pendingUser(Request $request): ?User
+    {
+        $pending = $request->session()->get(self::PENDING);
+
+        if (!is_array($pending) || (int) ($pending['expires_at'] ?? 0) < time()) {
+            $request->session()->forget(self::PENDING);
+
+            return null;
+        }
+
+        return User::query()->find((int) ($pending['user_id'] ?? 0));
     }
 
     /**

@@ -106,8 +106,10 @@ class ServerPlayersPage extends MinecraftPage implements HasTable
 
     public static function canAccess(): bool
     {
+        // The page shows the contents of whitelist.json, ops.json and the ban lists.
         return parent::canAccess()
-            && (bool) user()?->can(SubuserPermission::FileRead, Filament::getTenant());
+            && (bool) user()?->can(SubuserPermission::FileRead, Filament::getTenant())
+            && (bool) user()?->can(SubuserPermission::FileReadContent, Filament::getTenant());
     }
 
     public static function getNavigationLabel(): string

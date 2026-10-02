@@ -5,6 +5,7 @@ namespace PluggedHost\Economy\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use PluggedHost\Servers\Support\AccountAllowance;
+use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
 
 /**

@@ -56,11 +56,21 @@ final class PurgeMessagesTool extends ModerationTool
             }
         }
 
-        if ($from !== null && isset($from['member'])) {
+        $this->guardChannel($context, $channel);
+
+        if ($from !== null) {
             $this->guard($context, $from);
         }
 
-        $result = $this->moderation->purge($context, $channel, max(1, (int) $this->required($arguments, 'count')), $from, $this->string($arguments, 'reason'));
+        // A moderator's channel-wide cleanup keeps staff and admin messages (guard() for each author).
+        $protected = [];
+        $skipAuthor = $from === null && !$context->isAdmin()
+            ? function (string $authorId) use ($context, &$protected): bool {
+                return $protected[$authorId] ??= $this->isProtected($context, $authorId);
+            }
+            : null;
+
+        $result = $this->moderation->purge($context, $channel, max(1, (int) $this->required($arguments, 'count')), $from, $this->string($arguments, 'reason'), $skipAuthor);
 
         return ToolResult::ok($this->caseResult($result['case'], ['deleted' => $result['deleted'], 'channel' => '<#' . $channel['id'] . '>']));
     }

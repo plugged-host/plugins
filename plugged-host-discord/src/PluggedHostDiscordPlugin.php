@@ -459,7 +459,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
             'DISCORD_BOT_HEARTBEAT_TIMEOUT' => (string) max(30, min(3600, (int) ($data['supervisor_heartbeat_timeout'] ?? 120))),
             'DISCORD_BOT_RESTART_MAX_BACKOFF' => (string) max(10, min(86400, (int) ($data['supervisor_max_backoff'] ?? 900))),
             'DISCORD_BOT_LOG_MAX_BYTES' => (string) max(65536, min(1073741824, (int) ($data['supervisor_log_max_bytes'] ?? 8388608))),
-            'DISCORD_BOT_PHP_BINARY' => trim((string) ($data['supervisor_php_binary'] ?? '')),
+            'DISCORD_BOT_PHP_BINARY' => \PluggedHost\Discord\Support\DiscordBotSupervisor::safePhpBinary((string) ($data['supervisor_php_binary'] ?? '')) ?? '',
             'DISCORD_BOT_RUN_AS' => trim((string) ($data['supervisor_run_as'] ?? '')) ?: 'www-data',
         ];
 

@@ -172,7 +172,7 @@ class ModerationService
      * @param  array{id: string, name: string}|null  $from
      * @return array{deleted: int, case: RuxCase}
      */
-    public function purge(RuxContext $context, array $channel, int $count, ?array $from, ?string $reason): array
+    public function purge(RuxContext $context, array $channel, int $count, ?array $from, ?string $reason, ?\Closure $skipAuthor = null): array
     {
         $count = max(1, min(200, $count));
         $oldest = CarbonImmutable::now()->subDays(14)->addMinutes(5);
@@ -200,6 +200,10 @@ class ModerationService
                 }
 
                 if ($from !== null && (string) ($message['author']['id'] ?? '') !== $from['id']) {
+                    continue;
+                }
+
+                if ($skipAuthor !== null && $skipAuthor((string) ($message['author']['id'] ?? ''))) {
                     continue;
                 }
 

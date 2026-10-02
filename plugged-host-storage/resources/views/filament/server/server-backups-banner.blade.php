@@ -40,7 +40,9 @@
 
     $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $server->name);
     $archiveFilename = "backup-{$cleanName}-{$server->uuid_short}.tar.gz";
-    $directDownloadUrl = $hasBackup ? $storageService->archiveUrlForIdentifier($server->uuid, $archiveFilename) : null;
+    // The off-site copy holds every server file, so it needs the same permission as downloading a backup.
+    $canDownload = (bool) user()?->can(\App\Enums\SubuserPermission::BackupDownload, $server);
+    $directDownloadUrl = $hasBackup && $canDownload ? $storageService->archiveUrlForIdentifier($server->uuid, $archiveFilename) : null;
 @endphp
 
 {{--

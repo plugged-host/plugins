@@ -448,7 +448,7 @@ final class NeoAgent
             return false;
         }
 
-        return !($risk === ToolRisk::Destructive && config('plugged-host-neo.always_confirm_destructive', false));
+        return !($risk === ToolRisk::Destructive && config('plugged-host-neo.always_confirm_destructive', true));
     }
 
     /**

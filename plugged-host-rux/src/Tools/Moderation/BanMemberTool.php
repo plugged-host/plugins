@@ -51,9 +51,9 @@ final class BanMemberTool extends ModerationTool
             $inServer = false;
         }
 
-        if ($inServer) {
-            $this->guard($context, $target);
-        }
+        // Also for people who are not in the server: a noprofit.space admin or staff member who
+        // left must not be bannable by id.
+        $this->guard($context, $target);
 
         $duration = $this->string($arguments, 'duration');
         $seconds = $duration !== null && !in_array(strtolower($duration), ['permanent', 'forever', '0'], true) ? RuxTime::duration($duration) : null;

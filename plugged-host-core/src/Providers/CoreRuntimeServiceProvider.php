@@ -7,6 +7,7 @@ use App\Filament\Server\Pages\Console;
 use App\Services\Servers\BuildModificationService;
 use App\Services\Servers\ServerDeletionService;
 use App\Services\Servers\TransferServerService;
+use App\Services\Subusers\SubuserCreationService;
 use Closure;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
@@ -23,6 +24,7 @@ use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Core\Services\AllocationInvariant;
 use PluggedHost\Core\Services\GuardedBuildModificationService;
 use PluggedHost\Core\Services\GuardedServerDeletionService;
+use PluggedHost\Core\Services\GuardedSubuserCreationService;
 use PluggedHost\Core\Services\GuardedTransferServerService;
 use PluggedHost\Core\Livewire\PanelTourOverlay;
 use PluggedHost\Core\Support\PanelTour;
@@ -37,6 +39,7 @@ class CoreRuntimeServiceProvider extends ServiceProvider
         $this->app->bind(ServerDeletionService::class, GuardedServerDeletionService::class);
         $this->app->bind(TransferServerService::class, GuardedTransferServerService::class);
         $this->app->bind(BuildModificationService::class, GuardedBuildModificationService::class);
+        $this->app->bind(SubuserCreationService::class, GuardedSubuserCreationService::class);
 
         // scoped(), not singleton(): the memo inside is per-request by design, and a singleton
         // would hand a queue worker one user's balances for the life of the process.
@@ -158,6 +161,11 @@ class CoreRuntimeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Mail templates echo values like the server name, which any server owner sets, into
+        // Markdown: without this, "[Verify your account](https://...)" became a real link (or
+        // image) in mail sent by plugged.host. Escapes [ < > in echoed values only.
+        \Illuminate\Mail\Markdown::withSecuredEncoding();
+
         Livewire::component('plugged-host-core.panel-tour', PanelTourOverlay::class);
 
         // --- Welcome tour ---------------------------------------------------------------

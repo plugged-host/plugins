@@ -319,7 +319,7 @@
                             <div class="neo-msg-user" wire:key="neo-{{ $message->id }}">{{ $message->content }}</div>
                         @elseif($message->role === 'assistant')
                             @if(filled($message->content))
-                                <div class="neo-msg-ai" wire:key="neo-{{ $message->id }}">{!! \Illuminate\Support\Str::markdown($message->content, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}</div>
+                                <div class="neo-msg-ai" wire:key="neo-{{ $message->id }}">{!! \Illuminate\Support\Str::markdown($message->content, ['html_input' => 'escape', 'allow_unsafe_links' => false], [new \PluggedHost\Neo\Support\Markdown\ImagesAsTextExtension()]) !!}</div>
                             @endif
                         @elseif($message->role === 'tool')
                             @php

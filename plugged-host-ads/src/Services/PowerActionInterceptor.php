@@ -3,6 +3,7 @@
 namespace PluggedHost\Ads\Services;
 
 use App\Enums\ContainerStatus;
+use App\Enums\SubuserPermission;
 use App\Filament\App\Resources\Servers\Pages\ListServers;
 use App\Filament\Server\Pages\Console;
 use App\Livewire\ServerEntry;
@@ -128,6 +129,13 @@ class PowerActionInterceptor
     public function interceptFor(User $user, Server $server, string $action): ?string
     {
         if (!in_array($action, self::GATED_ACTIONS, true)) {
+            return null;
+        }
+
+        // The server comes from the browser's Livewire payload, and this runs before the
+        // component's own permission check. Someone who may not start this server gets no
+        // chain at all: the component then refuses the action as it would without the plugin.
+        if (!$this->mayRun($user, $server, $action)) {
             return null;
         }
 
@@ -385,6 +393,21 @@ class PowerActionInterceptor
             return null;
         } catch (Throwable) {
             return null;
+        }
+    }
+
+    private function mayRun(User $user, Server $server, string $action): bool
+    {
+        $permission = match ($action) {
+            'start' => SubuserPermission::ControlStart,
+            'restart' => SubuserPermission::ControlRestart,
+            default => null,
+        };
+
+        try {
+            return $permission !== null && (bool) $user->can($permission, $server);
+        } catch (Throwable) {
+            return false;
         }
     }
 }
