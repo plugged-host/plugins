@@ -39,7 +39,8 @@ class ServersApiProvider extends ServiceProvider
                     })->name('api:client:servers.provision.plans');
 
                     Route::get('/locations', function (Request $request) {
-                        // Includes flag presence, latency, and tier/unlocked/cost per WP3/WP13.
+                        // Flag presence, latency, tier, whether this account may use it and what
+                        // it requires (Plus locations: plugged.host Plus; Premium: PlusPlus).
                         // `premium` is kept for older clients: true only for the premium tier.
                         return response()->json(['data' => app(LocationCatalog::class)
                             ->available(user: $request->user())
@@ -52,16 +53,9 @@ class ServersApiProvider extends ServiceProvider
                                 'tier' => $l['tier'],
                                 'premium' => $l['tier'] === LocationCatalog::PREMIUM,
                                 'unlocked' => $l['unlocked'],
-                                'cost' => $l['cost'],
+                                'requires' => $l['requires'] ?? null,
                             ])]);
                     })->name('api:client:servers.provision.locations');
-
-                    // The one paid unlock: opens every Plus and Premium location.
-                    Route::post('/premium/unlock', function (Request $request) {
-                        $result = app(\PluggedHost\Servers\Services\PremiumLocationService::class)->unlock($request->user());
-
-                        return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
-                    })->name('api:client:servers.premium.unlock');
 
                     // POST /provision/servers — create via API. A dedicated FormRequest +
                     // controller rather than a closure, because it must reproduce

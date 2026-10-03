@@ -277,23 +277,17 @@ class EarnTokensPage extends Page
     }
 
     /**
-     * Where a settled return trip ends: the Token Store.
+     * Where a settled return trip ends: this page, freshly loaded, with the new balance and the
+     * new row in the history.
      *
-     * That is where the user started, and where the balance they have just changed is on
-     * display next to everything it buys. Before earning moved onto that page this
-     * redirected here, which was right when this was a destination in its own right.
-     *
-     * `navigate: false` is load-bearing either way. The token is single-use and already
-     * spent, and leaving it in the address bar means a refresh reports a replay at the
-     * user as though they had done something wrong — so the address bar has to actually
-     * change, which a Livewire redirect within the same page would not guarantee.
-     *
-     * Falls back to this page when economy is uninstalled, so this can never redirect to
-     * a route that does not exist.
+     * `navigate: false` is load-bearing. The token is single-use and already spent, and leaving
+     * it in the address bar means a refresh reports a replay at the user as though they had
+     * done something wrong — so the address bar has to actually change, which a Livewire
+     * redirect within the same page would not guarantee.
      */
     protected function redirectClean(): void
     {
-        $this->redirect($this->economyUrl() ?? static::getUrl(panel: 'app'), navigate: false);
+        $this->redirect(static::getUrl(panel: 'app'), navigate: false);
     }
 
     /**
@@ -305,18 +299,6 @@ class EarnTokensPage extends Page
     protected function redirectFresh(): void
     {
         $this->redirect(static::getUrl(panel: 'app'), navigate: false);
-    }
-
-    /**
-     * The Token Store's URL (where tokens are spent), or null when it cannot be opened.
-     */
-    protected function economyUrl(): ?string
-    {
-        try {
-            return TokenStorePage::canAccess() ? TokenStorePage::getUrl(panel: 'app') : null;
-        } catch (Throwable) {
-            return null;
-        }
     }
 
     /**
@@ -543,12 +525,6 @@ class EarnTokensPage extends Page
 
         return [
             'balance' => $service->balance($user),
-            // What the tokens are *for*, read from the plugin that sells it. Its config
-            // is readable whether or not the queue is installed — PluginService loads
-            // every plugin directory's config file — and these defaults match the ones
-            // in it, so the sentence still reads correctly if the queue is uninstalled.
-            'priorityCost' => max(1, (int) config('plugged-host-queue.priority.token_cost', 15)),
-            'priorityDays' => max(1, (int) config('plugged-host-queue.priority.days', 3)),
             'providers' => $providers,
             'transactions' => $service->recentTransactions($user, 10),
         ];

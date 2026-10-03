@@ -63,7 +63,9 @@ class StartQueueEntry extends Model
     ];
 
     protected $casts = [
-        'priority' => 'boolean',
+        // 0 none, 1 plugged.host Plus, 2 PlusPlus (PriorityPassService::level). The column is
+        // the tinyint(1) a boolean became, which holds 2 just as well.
+        'priority' => 'integer',
         'queued_at' => 'datetime',
         'last_seen_at' => 'datetime',
         'released_at' => 'datetime',
@@ -102,11 +104,11 @@ class StartQueueEntry extends Model
     /**
      * The line, in the order it is served.
      *
-     * Priority first, then strictly the order people arrived, with the id as the
-     * tie-break for two entries stamped inside the same second. So a pass bought
-     * while already waiting moves you ahead of everyone without one and behind every
-     * pass holder who was already there — never ahead of somebody who also paid and
-     * got here first.
+     * Highest priority first (PlusPlus, then Plus, then everyone else), then strictly
+     * the order people arrived, with the id as the tie-break for two entries stamped
+     * inside the same second. So Plus bought while already waiting moves you ahead of
+     * everyone without it and behind every Plus holder who was already there — never
+     * ahead of somebody at the same level who got here first.
      *
      * Matches `start_queue_entries_line_order` column for column; change one and
      * change the other.
@@ -136,12 +138,10 @@ class StartQueueEntry extends Model
             ->where('node_id', $this->node_id)
             ->whereKeyNot($this->getKey())
             ->where(function (Builder $query): void {
-                if (!$this->priority) {
-                    $query->where('priority', true);
-                }
+                $query->where('priority', '>', (int) $this->priority);
 
                 $query->orWhere(function (Builder $inner): void {
-                    $inner->where('priority', $this->priority)
+                    $inner->where('priority', (int) $this->priority)
                         ->where(function (Builder $earlier): void {
                             $earlier->where('queued_at', '<', $this->queued_at)
                                 ->orWhere(function (Builder $sameSecond): void {

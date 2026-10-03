@@ -238,7 +238,7 @@ class StartQueueService
             'node_id' => $node->getKey(),
             'action' => $action,
             'status' => StartQueueEntry::STATUS_WAITING,
-            'priority' => $this->passes->isActive($user),
+            'priority' => $this->passes->level($user),
             'queued_at' => now(),
             'last_seen_at' => now(),
             'released_at' => null,
@@ -288,9 +288,8 @@ class StartQueueService
             $entry->node_id = (int) $server->node_id;
             $entry->last_seen_at = now();
 
-            if (!$entry->priority && $this->passes->isActive($user)) {
-                $entry->priority = true;
-            }
+            // Plus or PlusPlus bought while waiting moves the place up, never down.
+            $entry->priority = max((int) $entry->priority, $this->passes->level($user));
 
             $entry->save();
         } catch (Throwable $e) {
@@ -821,8 +820,10 @@ class StartQueueService
             return false;
         }
 
+        // Exempt roles only: PlusPlus is exempt from ads too, but it buys the front of the
+        // line, not a way around it.
         try {
-            return (bool) $display->isExemptUser($user);
+            return (bool) $display->isExemptByRole($user);
         } catch (Throwable) {
             return false;
         }

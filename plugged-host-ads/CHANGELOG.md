@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- **In-game ads**: `plugged-host:ads-in-game` (every minute) sends `say <message>` to running
+  Minecraft servers (not proxies) whose owner has neither plugged.host Plus nor an exemption,
+  each once per interval at its own minute. Settings section "In-game Ads" (`ADS_IN_GAME_*`).
+- `AdDisplayService::isExemptByRole()`; the PlusPlus exemption is registered by economy (the
+  queue's ad-free pass is gone).
+
 ## 1.2.1
 
 - `PowerActionInterceptor::interceptFor(User, Server, action)` extracted as the single public definition of the start chain (limbo → start queue → ad gate); the Livewire hook and plugged-host-neo both use it.

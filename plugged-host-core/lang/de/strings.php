@@ -447,7 +447,8 @@ return [
                 'bullets' => [
                     'Startseite — deine Server. Hier bist du gerade.',
                     'Ressourcen-Shop — mehr CPU, Arbeitsspeicher und Speicherplatz für dein Guthaben.',
-                    'Token-Shop — mit Tokens die Startwarteschlange überspringen oder kostenpflichtige Standorte freischalten.',
+                    'plugged.host Plus — bessere Standorte, Vorrang in der Startwarteschlange und keine Werbung im Spiel.',
+                    'Tokens — Tokens verdienen und sehen, wohin sie gingen.',
                     'Backups — ein Backup jedes deiner Server herunterladen.',
                     'Profileinstellungen — Sprache, Zeitzone und dein Konto.',
                 ],
@@ -457,8 +458,8 @@ return [
                 'body' => 'Die Balken zeigen, wie viel deines Tarifs deine Server zusammen belegen. Darunter stehen deine Tokens und dein Guthaben.',
                 'bullets' => [
                     'Guthaben kauft mehr Ressourcen im Ressourcen-Shop.',
-                    'Mit Tokens überspringt ein Server die Startwarteschlange; ausgeben kannst du sie im Token-Shop.',
-                    'Ein Klick auf die Balken oder einen Kontostand öffnet den passenden Shop.',
+                    'Tokens bezahlen plugged.host Plus; verdienen kannst du sie auf der Seite „Tokens“.',
+                    'Ein Klick auf die Balken oder das Guthaben öffnet den Ressourcen-Shop, ein Klick auf die Tokens die Seite „Tokens“.',
                 ],
             ],
             'account' => [

@@ -54,10 +54,11 @@ handled as a placement rule instead: core keeps new servers off a node over
 
 ## The line order
 
-`priority` descending, then `queued_at`, then `id`. So with two pass holders and two
-without, arriving in that order, the line is `p1, p2, nop1, nop2`. Buying a pass moves
-you ahead of everyone without one and behind every pass holder who was already waiting —
-never in front of somebody who also paid and got there first.
+`priority` descending (2 PlusPlus, 1 Plus, 0 everyone else), then `queued_at`, then `id`.
+So with two Plus holders and two without, arriving in that order, the line is
+`p1, p2, nop1, nop2`, and a PlusPlus holder goes ahead of both. Buying Plus while waiting
+moves you ahead of everyone without it and behind every Plus holder who was already
+waiting — never in front of somebody at the same level who got there first.
 
 `StartQueueEntry::precedingCount()` is the exact negation of that ordering, and
 `releaseReason()` requires it to be zero. One place defines the order; the other two read
@@ -65,10 +66,13 @@ it.
 
 ## The two ways out, and what they cost
 
-**Priority** — 15 tokens, 3 days, account-wide. Not "skip this queue" but "stop
-queueing": every start of every server the user owns sorts ahead of everyone without a
-pass for the window. Buying again while a window is open extends it. Tokens are charged
-before the window is written and refunded immediately if writing it fails.
+**Priority** — comes with plugged.host Plus (permanent) and PlusPlus (the front of the
+line), sold on the plugged.host Plus page by plugged-host-economy (`MembershipService`);
+`PriorityPassService::level()` reads it. Account-wide: every start of every server the
+user owns sorts ahead of lower levels. The queue no longer sells priority itself; the
+token passes it used to sell (`start_queue_priorities`) were closed and refunded by
+`plugged-host:queue-refund-priority-passes` when Plus replaced them (2026-10-03).
+An ad exemption (PlusPlus) never skips the queue; only exempt roles and root admins do.
 
 **Moving to a quieter node** — offered on the waiting page, taken by the user, never
 automatic. A transfer changes the server's IP and port and takes it offline while the
@@ -79,8 +83,7 @@ unlimited disk. The queue entry is **cancelled** rather than released, because a
 that is copying between nodes cannot start; the user presses Start themselves when it
 lands.
 
-Both are gated on the same pass by default (`require_priority`), which is what makes 15
-tokens buy two things rather than one.
+The move is gated on Plus by default (`require_priority`).
 
 ## One hook
 
@@ -146,16 +149,10 @@ Admin Area → Plugins → **plugged.host Queue**. Settings are written to `peli
 | `START_QUEUE_RELEASE_INTERVAL` | `20` | Seconds between releases on one node |
 | `START_QUEUE_STALE_AFTER` | `180` | Drop entries that went silent *and* never became releasable |
 | `START_QUEUE_PASS_MINUTES` | `10` | Skip both waits after a release |
-| `START_QUEUE_PRIORITY_COST` | `15` | Tokens |
-| `START_QUEUE_PRIORITY_DAYS` | `3` | |
 | `START_QUEUE_TRANSFER_ENABLED` | `true` | |
-| `START_QUEUE_TRANSFER_REQUIRE_PRIORITY` | `true` | |
+| `START_QUEUE_TRANSFER_REQUIRE_PRIORITY` | `true` | The move needs plugged.host Plus |
 | `START_QUEUE_TRANSFER_MAX_DISK` | `3072` | MiB. Hide the offer at or above |
 | `START_QUEUE_TRANSFER_SAME_LOCATION` | `true` | |
-
-`priority.token_cost` and `priority.days` are read **by name** by ads' earn page, which
-explains the price to the user. They are the one part of this config another plugin
-depends on.
 
 The pressure thresholds are not here. They are `nodes.hot_percent` and
 `nodes.storage_percent` in `plugged-host-core`.
@@ -199,10 +196,10 @@ src/Providers/QueuePluginProvider.php             sweep schedule + interstitial 
 src/Console/Commands/QueueSweepCommand.php        the part that runs unwatched
 src/Filament/Server/Pages/StartQueuePage.php      the waiting page
 src/Models/StartQueueEntry.php                    line order lives here
-src/Models/StartQueuePriority.php                 one window per user
+src/Models/StartQueuePriority.php                 the old passes (closed and refunded)
 src/Services/StartQueueService.php                enqueue, release, sweep, dispatch
 src/Services/NodePressure.php                     adapter over core's NodeCapacity
-src/Services/PriorityPassService.php              tokens in, window out
+src/Services/PriorityPassService.php              priority level from Plus/PlusPlus
 src/Services/NodeTransferService.php              find a quieter node, move the server
 ```
 
@@ -210,8 +207,8 @@ src/Services/NodeTransferService.php              find a quieter node, move the 
 
 - **`plugged-host-core`** — `NodeCapacity` and the thresholds. Soft; the queue fails open
   (nothing is ever under pressure) without it, which means it does nothing.
-- **`plugged-host-economy`** — `TokenService`. Soft; without it priority is unavailable
-  and the offer is not rendered.
+- **`plugged-host-economy`** — `MembershipService` (Plus/PlusPlus). Soft; without it
+  nobody has priority and the Plus offer is not rendered.
 - **`plugged-host-ads`** — owns the Livewire hook, so in practice this is the one hard
   dependency: without ads installed nothing calls `interceptStart()` and no start is ever
   queued. Everything else ads provides (units, direct link, exempt roles, the skip pass)

@@ -2,6 +2,13 @@
 
 ## Unreleased (2.1)
 
+- **Plus locations need plugged.host Plus, Premium locations PlusPlus** (`PremiumAccess`, tier
+  aware). The one-time unlock (`PremiumLocationService`, `POST /provision/premium/unlock`,
+  neo's `unlock_paid_locations`, `UCS_PREMIUM_COST`) is gone; locked cards link to `/plus`.
+- **PlusPlus adds its CPU bonus to the allowance**, and `plugged-host:plusplus-expire`
+  (`PlusPlusExpiry`, every 5 min) carries out a lapse: servers leave Premium locations (admin
+  move, same country, Plus before free) and CPU over the allowance comes off evenly (min 25%).
+
 - **Self-service transfers.** New server page *Transfer*: pick a location (never a node), see the
   data size, backups and an offline-time estimate, press Move. A progress card shows the route,
   a live bar with bytes / speed / ETA read from the source node's websocket, a stepper

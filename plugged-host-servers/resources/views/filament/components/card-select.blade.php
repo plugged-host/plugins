@@ -211,8 +211,9 @@
                         @if ($hasTierPill)
                             {{-- WP13 tier pill. Stays on unlocked Plus/Premium cards too, so the
                                  tier remains visible. The (i) shows the tier's uptime on hover or
-                                 focus; clicking it does not select the card. Every paid card's
-                                 unlock button is the same one purchase covering both tiers. --}}
+                                 focus; clicking it does not select the card. A locked card's
+                                 button opens the Token Store: Plus for Plus locations, PlusPlus for
+                                 Premium ones. --}}
                             <span class="phcs-tier">
                                 <span class="phcs-badge">
                                     {{ trans("plugged-host-servers::strings.tiers.{$tier}") }}
@@ -239,11 +240,7 @@
                                         @click.stop
                                         class="phcs-unlock"
                                     >
-                                        <span>{{ trans('plugged-host-servers::strings.unlock') }}</span>
-                                        <span class="phcs-unlock-cost">
-                                            <x-filament::icon icon="tabler-coins" />
-                                            <span>{{ $option['cost'] }}</span>
-                                        </span>
+                                        <span>{{ trans($option['requires'] === 'plusplus' ? 'plugged-host-servers::strings.requires_plusplus' : 'plugged-host-servers::strings.requires_plus') }}</span>
                                     </button>
                                 @elseif ($tier === 'free')
                                     <span class="phcs-note">

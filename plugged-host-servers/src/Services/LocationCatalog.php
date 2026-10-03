@@ -43,12 +43,6 @@ class LocationCatalog
         return strtolower(trim((string) config("plugged-host-servers.user-creatable-servers.{$tier}.tag", $tier)));
     }
 
-    /** Tokens for the one unlock that opens every paid tier. */
-    public function premiumCost(): int
-    {
-        return (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 25);
-    }
-
     /**
      * The tier a node's hardware belongs to, from its tags. The highest paid tier tagged wins.
      *
@@ -71,10 +65,11 @@ class LocationCatalog
 
     /**
      * Every location, every tier: free first, then Plus, then Premium. Each entry carries its
-     * tier, unlocked (one value for all paid locations) and cost. When the premium_unlocked_at
-     * column is absent (migration unrun) paid locations are omitted entirely.
+     * tier, whether this user may use it (Plus locations need plugged.host Plus, Premium ones
+     * PlusPlus, PremiumAccess) and what it requires. Without plugged-host-economy's memberships
+     * paid locations are omitted entirely.
      *
-     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, tier: string, unlocked: bool, cost: int}>
+     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, tier: string, unlocked: bool, requires: ?string}>
      */
     public function available(int $cpu = 0, int $memory = 0, int $disk = 0, ?User $user = null): Collection
     {
@@ -95,16 +90,16 @@ class LocationCatalog
             return $locations;
         }
 
-        $unlocked = PremiumAccess::isUnlocked($user);
-        $cost = $this->premiumCost();
-
         foreach (self::PAID_TIERS as $tier) {
+            $unlocked = PremiumAccess::isUnlocked($user, $tier);
+            $requires = PremiumAccess::requires($tier);
+
             $locations = $locations->concat(
                 $this->tier($allNodes, $viableNodes, $latencyByNode, $tier)
-                    ->map(function (array $loc) use ($tier, $unlocked, $cost) {
+                    ->map(function (array $loc) use ($tier, $unlocked, $requires) {
                         $loc['code'] = $tier . ':' . $loc['code'];
                         $loc['unlocked'] = $unlocked;
-                        $loc['cost'] = $cost;
+                        $loc['requires'] = $requires;
 
                         return $loc;
                     }),
@@ -165,7 +160,7 @@ class LocationCatalog
 
         $code = strtolower($code);
 
-        if ($this->resolve($code)[1] !== self::FREE && !PremiumAccess::isUnlocked($user)) {
+        if (!PremiumAccess::isUnlocked($user, $this->resolve($code)[1])) {
             return false;
         }
 

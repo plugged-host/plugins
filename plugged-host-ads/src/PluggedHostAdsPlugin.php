@@ -83,6 +83,9 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'slot_server_tools' => (bool) config('plugged-host-ads.placements.server-tools.enabled', false),
 
             'z_index' => (int) config('plugged-host-ads.z_index', 0),
+            'in_game_enabled' => (bool) config('plugged-host-ads.in_game.enabled', true),
+            'in_game_message' => (string) config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host'),
+            'in_game_interval' => (int) config('plugged-host-ads.in_game.interval_minutes', 60),
             'exempt_roles' => $exemptRoles,
             'antiblock_enabled' => (bool) config('plugged-host-ads.antiblock.enabled', false),
             'antiblock_mode' => app(AdDisplayService::class)->antiBlockMode(),
@@ -320,6 +323,30 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-ads::strings.z_index_helper'))
                         ->numeric()
                         ->default(fn () => config('plugged-host-ads.z_index', 0)),
+                ]),
+
+            Section::make(trans('plugged-host-ads::strings.section_in_game'))
+                ->description(trans('plugged-host-ads::strings.section_in_game_desc'))
+                ->columns(2)
+                ->schema([
+                    Toggle::make('in_game_enabled')
+                        ->label(trans('plugged-host-ads::strings.in_game_enabled'))
+                        ->inline(false)
+                        ->columnSpanFull()
+                        ->default(fn () => config('plugged-host-ads.in_game.enabled', true)),
+                    TextInput::make('in_game_message')
+                        ->label(trans('plugged-host-ads::strings.in_game_message'))
+                        ->helperText(trans('plugged-host-ads::strings.in_game_message_helper'))
+                        ->maxLength(200)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host')),
+                    TextInput::make('in_game_interval')
+                        ->label(trans('plugged-host-ads::strings.in_game_interval'))
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(1440)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.in_game.interval_minutes', 60)),
                 ]),
 
             Section::make(trans('plugged-host-ads::strings.section_exemptions'))
@@ -654,6 +681,9 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_SLOT_SERVER_TOOLS' => !empty($data['slot_server_tools']) ? 'true' : 'false',
 
             'ADS_Z_INDEX' => (string) ($data['z_index'] ?? 0),
+            'ADS_IN_GAME_ENABLED' => !empty($data['in_game_enabled']) ? 'true' : 'false',
+            'ADS_IN_GAME_MESSAGE' => $this->envText($data['in_game_message'] ?? '') ?: 'This server is powered by plugged.host',
+            'ADS_IN_GAME_INTERVAL' => (string) $this->clamp($data['in_game_interval'] ?? 60, 5, 1440),
             'ADS_EXEMPT_ROLES' => (string) $exemptRoles,
 
             'ADS_ADSTERRA_BANNER_KEY' => $this->envText($data['adsterra_banner_key'] ?? ''),

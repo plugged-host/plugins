@@ -6,7 +6,7 @@ use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
-use PluggedHost\Economy\Filament\App\Pages\TokenStorePage;
+use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\TokenService;
 use PluggedHost\ThemeV2\Support\ThemeV2Access;
@@ -27,7 +27,7 @@ use Throwable;
  * dark, and Theme v2's sidebar is dark regardless.
  *
  * Three things, each linking to where it is topped up: the usage card (what the account's
- * servers use of its plan) to the Resource Store, the token balance to the Token Store and the
+ * servers use of its plan) to the Resource Store, the token balance to the Tokens page and the
  * credit balance to the Resource Store.
  *
  * A Livewire component rather than a static fragment, for one reason: `wire:navigate` swaps
@@ -73,7 +73,8 @@ class ThemeV2Balance extends Component
             'credits' => static::credits(),
             'usage' => static::usage(static::resources()),
             'resourceStoreUrl' => static::pageUrl(ResourceStorePage::class),
-            'tokenStoreUrl' => static::pageUrl(TokenStorePage::class),
+            // The token balance opens the Tokens page (earning and history).
+            'tokenStoreUrl' => static::pageUrl(EarnTokensPage::class),
         ]);
     }
 

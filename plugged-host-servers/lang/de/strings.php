@@ -42,20 +42,18 @@ return [
         'premium' => '99,99 % Verfügbarkeit',
     ],
 
-    // The one paid unlock, covering both Plus and Premium.
-    'premium' => [
-        'unlocked' => 'Plus- und Premium-Standorte freigeschaltet.',
-        'insufficient' => 'Du benötigst :cost Tokens, um Plus- und Premium-Standorte freizuschalten.',
-        'failed' => 'Plus- und Premium-Standorte konnten nicht freigeschaltet werden. Es wurden keine Tokens abgebucht.',
+
+    'plusplus_expired' => [
+        'title' => 'plugged.host PlusPlus ist abgelaufen',
+        'moved' => 'Server auf Premium-Standorten ziehen an einen anderen Standort um: :servers. Den Fortschritt siehst du im Tab „Umzüge“ des jeweiligen Servers.',
+        'trimmed' => 'Die zusätzliche CPU von PlusPlus wurde gleichmäßig von deinen Servern abgezogen: :servers.',
     ],
 
     'settings' => [
         'section_premium' => 'Plus- & Premium-Standorte',
-        'section_premium_hint' => 'Nodes mit dem Plus- oder Premium-Tag bilden die kostenpflichtigen Stufen. Plus und Premium sind zwei Bezeichnungen für eine Freischaltung: Ein einmaliger Token-Kauf schaltet für einen Benutzer dauerhaft alle kostenpflichtigen Standorte frei.',
+        'section_premium_hint' => 'Nodes mit dem Plus- oder Premium-Tag bilden die kostenpflichtigen Stufen. Plus-Standorte gibt es mit plugged.host Plus, Premium-Standorte mit PlusPlus (Preise: Einstellungen von plugged.host Economy).',
         'premium_tag' => 'Premium-Node-Tag',
         'premium_tag_hint' => 'Eine Node mit diesem Tag (zusätzlich zu ihrem Ländercode und einem Deployment-Tag) wird als Premium-Node behandelt.',
-        'premium_cost' => 'Freischaltkosten',
-        'premium_cost_hint' => 'Tokens, die ein Benutzer einmalig ausgibt, um alle Plus- und Premium-Standorte freizuschalten.',
         'plus_tag' => 'Plus-Node-Tag',
         'plus_tag_hint' => 'Eine Node mit diesem Tag (zusätzlich zu ihrem Ländercode und einem Deployment-Tag) wird als Plus-Node behandelt. Eine Node, die auch den Premium-Tag trägt, gilt als Premium.',
     ],
@@ -93,7 +91,8 @@ return [
     'eula_description' => 'Mit dem Erstellen dieses Servers stimmst du der Minecraft-EULA zu (https://aka.ms/MinecraftEULA). Die EULA wird automatisch auf dem Server akzeptiert, damit er direkt startet.',
     'left' => 'übrig',
     'location_unavailable' => 'Keine Kapazität für die gewählten Ressourcen',
-    'unlock' => 'Freischalten',
+    'requires_plus' => 'Plus holen',
+    'requires_plusplus' => 'PlusPlus holen',
     'free_tier_desc' => 'In jedem Paket enthalten',
     'memory' => 'RAM',
     'minecraft_version' => 'Minecraft Version',
@@ -279,7 +278,7 @@ return [
             'backup_running' => 'Ein Backup läuft. Versuche es erneut, sobald es fertig ist.',
             'cooldown' => 'Dieser Server wurde kürzlich umgezogen. In :time geht es wieder.',
             'invalid_location' => 'Bitte wähle einen Standort.',
-            'location_locked' => 'Plus- und Premium-Standorte müssen zuerst freigeschaltet werden.',
+            'location_locked' => 'Plus-Standorte brauchen plugged.host Plus, Premium-Standorte PlusPlus.',
             'no_node' => 'An diesem Standort ist gerade kein Platz.',
         ],
         'reasons' => [

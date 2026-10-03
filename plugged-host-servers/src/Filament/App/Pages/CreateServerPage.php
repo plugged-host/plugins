@@ -29,7 +29,6 @@ use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\ServerProvisioner;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
-use PluggedHost\Servers\Services\PremiumLocationService;
 
 /**
  * Unified single scrollable page for server creation.
@@ -280,12 +279,12 @@ class CreateServerPage extends Page
                                     'label' => $location['name'],
                                     'svg' => $location['svg'],
                                     'signal' => $this->latencySignal($location['latency']),
-                                    // WP13 tiers: a locked Plus/Premium card is not selectable
-                                    // but carries its own unlock affordance; an unlocked one is a
+                                    // A locked Plus/Premium card is not selectable but links to
+                                    // the Token Store (Plus or PlusPlus); an unlocked one is a
                                     // normal selectable card that keeps its tier pill.
                                     'tier' => $location['tier'],
                                     'locked' => !$location['unlocked'],
-                                    'cost' => $location['cost'],
+                                    'requires' => $location['requires'] ?? null,
                                     'description' => $location['available']
                                         ? null
                                         : trans('plugged-host-servers::strings.location_unavailable'),
@@ -411,32 +410,16 @@ class CreateServerPage extends Page
         return ['ms' => $ms, 'bars' => $bars, 'level' => $level];
     }
 
+    /**
+     * A locked Plus/Premium card's button: Plus and PlusPlus are sold on the plugged.host Plus page.
+     */
     public function unlockPremium(): void
     {
-        $user = auth()->user();
+        $store = 'PluggedHost\\Economy\\Filament\\App\\Pages\\PlusPage';
 
-        if ($user === null) {
-            return;
+        if (class_exists($store)) {
+            $this->redirect($store::getUrl(panel: 'app'));
         }
-
-        $result = app(PremiumLocationService::class)->unlock($user);
-
-        if ($result['ok'] ?? false) {
-            Notification::make()
-                ->title(trans('plugged-host-servers::strings.premium.unlocked'))
-                ->success()
-                ->send();
-
-            return;
-        }
-
-        $reason = $result['reason'] ?? 'error';
-        Notification::make()
-            ->title($reason === 'insufficient_tokens'
-                ? trans('plugged-host-servers::strings.premium.insufficient', ['cost' => $result['cost'] ?? 0])
-                : trans('plugged-host-servers::strings.premium.failed'))
-            ->danger()
-            ->send();
     }
 
     public function canDeploy(): bool

@@ -120,8 +120,8 @@ class AdDisplayService
      *
      * Extracted so the start gate can ask the same question the slot does. One answer
      * has to mean one thing: a donator who was promised no ads has not been promised
-     * "no banners, but still a waiting room". The registered checks (today: the queue's
-     * paid ad-free window) inherit that promise for the same reason.
+     * "no banners, but still a waiting room". The registered checks (today: plugged.host
+     * PlusPlus, plugged-host-economy) inherit that promise for the same reason.
      *
      * Note the order. Roles are free to evaluate and hold for whole populations, so they
      * are asked first and a match short-circuits before anything reaches a database.
@@ -137,22 +137,32 @@ class AdDisplayService
             return static::$exemptUserMemo[$userId];
         }
 
-        $exemptRoles = $this->getExemptRoles();
-
-        if (!empty($exemptRoles)) {
-            try {
-                if ($user->roles()->whereIn('name', $exemptRoles)->exists()) {
-                    return static::$exemptUserMemo[$userId] = true;
-                }
-            } catch (\Throwable) {
-                // Fallback to in-memory collection check if relations not loaded
-                if ($user->roles && $user->roles->pluck('name')->intersect($exemptRoles)->isNotEmpty()) {
-                    return static::$exemptUserMemo[$userId] = true;
-                }
-            }
+        if ($this->isExemptByRole($user)) {
+            return static::$exemptUserMemo[$userId] = true;
         }
 
         return static::$exemptUserMemo[$userId] = $this->hasRegisteredExemption($user);
+    }
+
+    /**
+     * The exempt-role half of isExemptUser(), without what other plugins registered (today
+     * PlusPlus). The start queue lets exempt roles skip the line; a paid ad exemption only buys
+     * priority in it.
+     */
+    public function isExemptByRole(?User $user): bool
+    {
+        $exemptRoles = $this->getExemptRoles();
+
+        if ($user === null || empty($exemptRoles)) {
+            return false;
+        }
+
+        try {
+            return $user->roles()->whereIn('name', $exemptRoles)->exists();
+        } catch (\Throwable) {
+            // Fallback to in-memory collection check if relations not loaded
+            return $user->roles && $user->roles->pluck('name')->intersect($exemptRoles)->isNotEmpty();
+        }
     }
 
     /**

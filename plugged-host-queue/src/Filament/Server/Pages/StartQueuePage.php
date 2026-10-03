@@ -193,7 +193,7 @@ class StartQueuePage extends Page
      * Called from getViewData(), which runs on *every* render — dehydration happens after
      * render, so whatever this writes reaches the browser in the same response. Doing it
      * there rather than only in tick() means every other Livewire round trip this page has
-     * (buyPriority(), reportBlocked(), a re-render Filament decides to do) also carries a
+     * (takeTransfer(), reportBlocked(), a re-render Filament decides to do) also carries a
      * current clock, so the client's x-effect can never be re-seeded with a stale number.
      *
      * `elapsedSeconds` is deliberately *not* capped at `maxSeconds`. The bar and the cap
@@ -282,57 +282,6 @@ class StartQueuePage extends Page
         $queue->release($entry, $reason);
 
         $this->finish();
-    }
-
-    /**
-     * Buy a priority window with tokens.
-     *
-     * Account-wide and for days, so this is not "skip this queue" — it is "stop
-     * queueing", which is why the buttons say what they cost and how long they last. The
-     * release attempt afterwards is not a courtesy: a pass bought at the front of a
-     * line whose node has already cooled makes this entry releasable on the spot, and
-     * making the user wait for the next poll to notice would be theatre.
-     *
-     * The tier comes from the browser and is not validated here — `purchase()` puts
-     * anything it does not sell back to the cheap tier at the cheap price.
-     */
-    public function buyPriority(?string $tier = null): void
-    {
-        $user = $this->getUser();
-
-        if (!$user instanceof User) {
-            $this->finish();
-
-            return;
-        }
-
-        $passes = $this->passes();
-        $offer = $passes->describe($tier);
-        $result = $passes->purchase($user, $tier);
-
-        match ($result) {
-            PriorityPassService::RESULT_OK => $this->notify(
-                $offer['ad_free'] ? 'priority_bought_ad_free' : 'priority_bought',
-                'success',
-                ['days' => $offer['days']],
-            ),
-            PriorityPassService::RESULT_SHORT => $this->notify('priority_short', 'warning', ['cost' => $offer['cost']]),
-            PriorityPassService::RESULT_UNAVAILABLE => $this->notify('priority_unavailable', 'warning'),
-            default => $this->notify('priority_failed', 'danger'),
-        };
-
-        if ($result !== PriorityPassService::RESULT_OK) {
-            return;
-        }
-
-        // The pass may have just unlocked the transfer offer as well.
-        $this->refreshTransferOffer();
-
-        $entry = $this->entry();
-
-        if ($entry instanceof StartQueueEntry) {
-            $this->attemptRelease($entry);
-        }
     }
 
     /**
@@ -516,18 +465,12 @@ class StartQueuePage extends Page
             'usage' => $pressure->usage($server->node),
             'limit' => $pressure->limit(),
             'dimensions' => $pressure->dimensions(),
+            // Priority comes with plugged.host Plus (1) and PlusPlus (2), sold in the Token Store.
+            'priorityLevel' => $passes->level($user),
             'priorityActive' => $passes->isActive($user),
-            'prioritySeconds' => $passes->remainingSeconds($user),
             'priorityAvailable' => $passes->available(),
-            'priorityCost' => $passes->cost(),
-            'priorityDays' => $passes->days(),
-            'priorityHuman' => $this->humanDuration($passes->remainingSeconds($user)),
-            // Both tiers, cheapest first, with affordability folded in so the view does
-            // not have to compare a balance against a price itself.
-            'priorityTiers' => $this->priorityTiers($passes, $passes->balance($user)),
-            'priorityAdFree' => $passes->isAdFree($user),
-            'priorityAdFreeHuman' => $this->humanDuration($passes->adFreeRemainingSeconds($user)),
-            'balance' => $passes->balance($user),
+            'plusCost' => $this->plusCost(),
+            'storeUrl' => $this->storeUrl(),
             'transferNode' => $this->transferNodeName,
             'transferRequiresPriority' => $transfers->requiresPriority(),
             'transferEnabled' => $transfers->isEnabled(),
@@ -537,23 +480,27 @@ class StartQueuePage extends Page
     }
 
     /**
-     * The offer, as the view needs it.
-     *
-     * Straight from `PriorityPassService::tiers()` so the price on the button is the
-     * price that will be charged, plus the one thing the service cannot know: whether
-     * this particular user can afford it.
-     *
-     * @return list<array<string, mixed>>
+     * The plugged.host Plus page, where Plus (and PlusPlus) are sold, or null without economy.
      */
-    protected function priorityTiers(PriorityPassService $passes, int $balance): array
+    protected function storeUrl(): ?string
     {
-        $tiers = [];
+        $class = 'PluggedHost\\Economy\\Filament\\App\\Pages\\PlusPage';
 
-        foreach ($passes->tiers() as $tier) {
-            $tiers[] = $tier + ['unaffordable' => $balance < (int) $tier['cost']];
+        if (!class_exists($class)) {
+            return null;
         }
 
-        return $tiers;
+        return $this->safely(fn () => $class::getUrl(panel: 'app'), null);
+    }
+
+    /**
+     * What Plus costs, or 0 without economy.
+     */
+    protected function plusCost(): int
+    {
+        $class = 'PluggedHost\\Economy\\Services\\MembershipService';
+
+        return class_exists($class) ? (int) $this->safely(fn () => app($class)->plusCost(), 0) : 0;
     }
 
     /**

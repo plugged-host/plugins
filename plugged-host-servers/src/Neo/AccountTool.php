@@ -60,7 +60,7 @@ abstract class AccountTool implements Tool
             'unknown_plan' => 'Unknown plan id; use list_create_options.',
             'unknown_game' => 'Unknown or unavailable game; use list_create_options for game ids.',
             'invalid_location' => 'Unknown location code; use list_create_options.',
-            'location_locked' => 'That is a Plus/Premium location and the account has not unlocked paid locations (unlock_paid_locations).',
+            'location_locked' => 'That location is locked: Plus locations need plugged.host Plus, Premium locations PlusPlus, both bought by the user on the plugged.host Plus page (/plus).',
             'location_unavailable' => 'No node in that location has room for that size right now; try another location or a smaller size.',
             'name_required' => 'Give the server a name.',
             'name_too_long' => 'The name is too long (max 191 characters).',

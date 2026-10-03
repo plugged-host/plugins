@@ -1,7 +1,6 @@
 {{--
-    Where tokens are earned. The balance is printed here as context, not as a feature
-    of this page — plugged-host-economy owns the ledger and the queue page shows the
-    same number next to the thing tokens actually buy.
+    Tokens: the balance, the ways to earn more, and the history. Nothing is sold here;
+    tokens are spent on the plugged.host Plus page and on servers.
 
     See PluggedHost\Economy\Filament\App\Pages\EarnTokensPage for why a return trip is
     verified inline rather than queued, and why the client is trusted with nothing
@@ -41,12 +40,7 @@
                 <span class="ph-earn-value">
                     {{ trans('plugged-host-economy::strings.tokens_balance', ['count' => $balance]) }}
                 </span>
-                <p class="ph-earn-muted">
-                    {{ trans('plugged-host-economy::strings.tokens_explainer', [
-                        'cost' => $priorityCost,
-                        'days' => $priorityDays,
-                    ]) }}
-                </p>
+                <p class="ph-earn-muted">{{ trans('plugged-host-economy::strings.tokens_explainer') }}</p>
             </div>
         </x-filament::section>
 

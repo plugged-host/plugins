@@ -11,7 +11,7 @@ place that defines them. Earning stays where it was; the money lives here.
 |  | Credits | Tokens |
 |---|---|---|
 | Earned by | Discord invites and boosts (`plugged-host-discord`) | Linkvertise trips (`plugged-host-ads`) |
-| Spent on | resources: CPU, memory, disk | priority in the start queue (`plugged-host-queue`) |
+| Spent on | resources: CPU, memory, disk; PlusPlus | plugged.host Plus and PlusPlus (`MembershipService`) |
 | Ledger | `user_credits` + `credit_transactions` | `user_tokens` + `token_transactions` |
 | Model | `UserCredits`, `CreditTransaction` | `UserTokens`, `TokenTransaction` |
 | Service | `ResourceStoreService`, `CreditRecoveryService` | `TokenService` |
@@ -39,6 +39,19 @@ this plugin would sort *before* that create on a fresh database and rename nothi
 | `ads_start_credits.credits` | `user_tokens.tokens` |
 | `ads_start_credit_transactions` | `token_transactions` |
 | `ads_start_credit_claims` | `token_claims` (stays in `plugged-host-ads` — it is an earn-pipeline artefact) |
+
+## plugged.host Plus and PlusPlus
+
+`MembershipService` + `user_memberships` (migration 015, which made every holder of the old
+one-time location unlock Plus). Sold on the plugged.host Plus page (`PlusPage`, `/plus`; the old
+`/token-store` redirects there). Plus: tokens, once — Plus locations, queue priority, no in-game
+ads, more neo usage. PlusPlus: needs Plus, tokens or credits for N days, extended from its end —
+Premium locations, no ads anywhere (an ads exemption registered by
+`MembershipServiceProvider`), the front of the queue, `plusplus_cpu_bonus` CPU, and more neo
+usage again (`aiUsagePercent()`, sent to noprofit.space as `usage_percent`). Prices and
+percentages are in the plugin settings (`membership_*`). What happens when PlusPlus ends is
+plugged-host-servers' `PlusPlusExpiry`. The Tokens page (`EarnTokensPage`, `/tokens`) is
+earning and history only.
 
 ## Resource prices
 
@@ -69,8 +82,8 @@ off the top of the curve.
 - **The resource limits themselves.** They are the account's plan on noprofit.space,
   enforced by `AccountAllowance` in `plugged-host-servers`; the store buys extras that
   noprofit.space adds to the plan. The limits (`max_*`) only set where prices climb.
-- **The start queue and its priority pass.** `plugged-host-queue` owns those and
-  spends tokens through `TokenService`.
+- **The start queue.** `plugged-host-queue` owns it and reads the priority level from
+  `MembershipService` (Plus 1, PlusPlus 2).
 
 ## Settings
 

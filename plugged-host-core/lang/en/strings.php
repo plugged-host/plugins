@@ -448,7 +448,8 @@ return [
                 'bullets' => [
                     'Home — your servers. You are on it now.',
                     'Resource Store — more CPU, memory and disk for your credits.',
-                    'Token Store — skip the start queue or unlock paid locations with tokens.',
+                    'plugged.host Plus — better locations, priority in the start queue and no in-game ads.',
+                    'Tokens — earn tokens and see where they went.',
                     'Backups — download a backup of any of your servers.',
                     'Profile Settings — your language, time zone and account.',
                 ],
@@ -458,8 +459,8 @@ return [
                 'body' => 'The bars show how much of your plan your servers use together. Underneath are your tokens and credits.',
                 'bullets' => [
                     'Credits buy more resources in the Resource Store.',
-                    'Tokens let a server skip the start queue; spend them in the Token Store.',
-                    'Click the bars or a balance to open its store.',
+                    'Tokens pay for plugged.host Plus; earn them on the Tokens page.',
+                    'Click the bars or the credits to open the Resource Store, the tokens to open the Tokens page.',
                 ],
             ],
             'account' => [

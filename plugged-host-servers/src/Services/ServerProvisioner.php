@@ -233,7 +233,7 @@ class ServerProvisioner
             throw new ProvisioningException('invalid_location');
         }
 
-        if ($this->locations->resolve($location)[1] !== LocationCatalog::FREE && !\PluggedHost\Servers\Support\PremiumAccess::isUnlocked($user)) {
+        if (!\PluggedHost\Servers\Support\PremiumAccess::isUnlocked($user, $this->locations->resolve($location)[1])) {
             throw new ProvisioningException('location_locked');
         }
 

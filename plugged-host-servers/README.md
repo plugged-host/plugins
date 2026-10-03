@@ -18,8 +18,12 @@ allocation-safe network-ports action, and paid (Plus/Premium) locations. Extract
 - **Latency**: a "panel → node" badge per location, median of the daemon-probe times the status
   plugin records — read via `PluggedHost\Status\Services\NodeLatency` by class-string.
 - **Location tiers (WP13)**: nodes tagged `plus` or `premium` form paid tiers (`plus:<cc>` /
-  `premium:<cc>` codes; a node tagged both is premium). Plus and Premium are two labels over one
-  unlock: a single token purchase opens every paid location permanently. Tiers never share
+  `premium:<cc>` codes; a node tagged both is premium). Plus locations need plugged.host Plus,
+  Premium locations need PlusPlus (plugged-host-economy `MembershipService`, read by
+  `Support/PremiumAccess`). When PlusPlus runs out, `plugged-host:plusplus-expire`
+  (`Services/PlusPlusExpiry`, every 5 min) moves servers off Premium locations (same country,
+  Plus before free) and takes CPU over the allowance off the servers evenly (never below 25%).
+  PlusPlus also adds its CPU bonus in `AccountAllowance::forUser`. Tiers never share
   hardware. Each card's tier pill has an (i) tooltip with the tier's uptime: free "No uptime
   guarantee", Plus "Best Performance", Premium "99.99% uptime" (`strings.uptime.*`).
 - **Node capacity / account allowance**: `NodeCapacity`, `AvailableResources`, the resource/console
@@ -69,7 +73,6 @@ Owns the **UCS_\*** and **NODES_\*** settings (its own `HasPluginSettings` tab),
 | `user-creatable-servers.plans` / `catalog` | — | Resource presets + per-egg software variants |
 | `user-creatable-servers.plus.tag` | `UCS_PLUS_TAG` (`plus`) | Plus node tag |
 | `user-creatable-servers.premium.tag` | `UCS_PREMIUM_TAG` (`premium`) | Premium node tag |
-| `user-creatable-servers.premium.cost` | `UCS_PREMIUM_COST` (`25`) | Token cost of the one unlock (Plus + Premium) |
 | `nodes.hot_percent` / `storage_percent` | `NODES_*` | Node-pressure thresholds |
 | `transfers.enabled` | `TRANSFERS_ENABLED` (`true`) | Transfer page for owners / permitted subusers |
 | `transfers.cooldown_hours` | `TRANSFERS_COOLDOWN_HOURS` (`6`) | Minimum time between two finished moves of a server |
@@ -83,8 +86,8 @@ Env variable spellings are unchanged from when these lived in core, so `.env` ne
 ## Migrations
 
 - `001_create_user_resource_limits_table.php`, `002_move_user_resource_limits_to_roles.php`
-- `010_add_premium_unlocked_at_to_users.php` — nullable per-user premium-tier flag (WP13). **Must
-  be run by the operator**; paid (Plus and Premium) locations are omitted until it exists.
+- `010_add_premium_unlocked_at_to_users.php` — the old one-time Plus/Premium unlock (WP13). No
+  longer read: its holders became plugged.host Plus (economy migration 015); kept as the record.
 - `011_create_server_relocations_table.php` — one row per server move. **Operator-run**; the
   Transfer page and the watcher stay hidden/inert until it exists (`ServerRelocation::ready()`).
 - `012_drop_role_resource_limits_table.php` — drops the old role limits table (role limits are
@@ -93,9 +96,9 @@ Env variable spellings are unchanged from when these lived in core, so `.env` ne
 ## Extension points it offers / consumes
 
 - Offers: `AccountAllowance::createServer()`, `LocationCatalog`, `PlanCatalog`, `GameCatalog`,
-  `CardSelect`, `PremiumLocationService`, and API routes under `/api/client/provision/*`.
+  `CardSelect`, `PremiumAccess`, `PlusPlusExpiry`, and API routes under `/api/client/provision/*`.
 - Consumes (all by class-string behind `class_exists()`): status `NodeLatency` (latency badge),
-  economy `TokenService` (paid unlock), minecraft `ServerOnboarding::markRequired` (post-create),
+  economy `MembershipService` (Plus/PlusPlus), minecraft `ServerOnboarding::markRequired` (post-create),
   subdomains `Subdomain::upsertOnCloudflare()` (after a transfer).
 - Offers `TransferService::start()` to other plugins: the start queue's "move to a quieter node"
   hands its candidate nodes to it (`origin = queue`, starts the server on arrival).

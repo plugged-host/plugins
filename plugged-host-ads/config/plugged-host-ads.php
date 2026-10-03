@@ -149,6 +149,17 @@ return [
     'z_index' => env('ADS_Z_INDEX', 0),
 
     /*
+    | In-game ads: a console `say` on running Minecraft servers (not proxies), each once per
+    | interval at its own minute so the panel never sends them all at once. Owners with
+    | plugged.host Plus (or PlusPlus, or an exempt role) do not get it. Needs ADS_ENABLED.
+    */
+    'in_game' => [
+        'enabled' => (bool) env('ADS_IN_GAME_ENABLED', true),
+        'message' => (string) env('ADS_IN_GAME_MESSAGE', 'This server is powered by plugged.host'),
+        'interval_minutes' => (int) env('ADS_IN_GAME_INTERVAL', 60),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Role Exemptions
     |--------------------------------------------------------------------------

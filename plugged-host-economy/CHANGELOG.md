@@ -2,6 +2,16 @@
 
 ## Unreleased (2.1)
 
+- **plugged.host Plus and PlusPlus** replace the queue's priority passes and the one-time
+  Plus/Premium location unlock. `MembershipService` + `user_memberships` (migration 015, run
+  2026-10-03: all 54 unlock holders became Plus). Plus: 25 tokens once — Plus locations, queue
+  priority, no in-game ads, +25% neo usage. PlusPlus: needs Plus, 10 tokens / 7 days or 150
+  credits / 14 days (settings `membership_*`) — Premium locations, no ads anywhere (ads
+  exemption), front of the queue, +50% CPU, another +25% neo usage.
+- **The Token Store became the plugged.host Plus page** (`PlusPage`, `/plus`, Plus only;
+  `/token-store` redirects). The Tokens page (`/tokens`) is in the sidebar again and is earning
+  and history only; the store's earn block (`store-earn` view, `STORE_HOOK`) is gone.
+
 - **No resource cap; prices climb instead.** CPU, memory and disk are priced on noprofit.space's
   curve (`Support\ComputePricing`, a copy of noprofit.space's): cheaper on the way to the limit
   (half price at half of it, full price at it), climbing to 4× at the soft limit (125% of the

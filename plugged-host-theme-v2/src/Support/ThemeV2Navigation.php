@@ -7,13 +7,14 @@ use Filament\Navigation\NavigationItem;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Route;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
-use PluggedHost\Economy\Filament\App\Pages\TokenStorePage;
+use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
+use PluggedHost\Economy\Filament\App\Pages\PlusPage;
 
 /**
  * The app panel's sidebar. This started out shaped 1:1 after UIExample's
  * `views/components/top.ejs` — an ungrouped "Home" row followed by collapsible,
  * icon-bearing groups whose items carried no icon of their own — and is now **flat by
- * request**: Home, Resource Store, Token Store, Backups, Profile Settings, and Admin Panel
+ * request**: Home, Resource Store, plugged.host Plus, Tokens, Backups, Profile Settings, and Admin Panel
  * for admins. Every
  * destination is one top-level row carrying its own icon, with no group headers and nothing
  * indented underneath.
@@ -40,9 +41,8 @@ use PluggedHost\Economy\Filament\App\Pages\TokenStorePage;
  *   - UIExample's Compute group (New Server + SFTP Credentials here). It became a sidebar
  *     "New Server" button, which was removed by request too: creating a server starts from
  *     the Create server button on the servers list;
- *   - the Economy group's "Earn Tokens" row was dropped. `/tokens` itself is still a live
- *     page, linked from the start gate and the Token Store — Theme v2 only stopped putting
- *     it in the sidebar;
+ *   - the Economy group's "Earn Tokens" row became the "Tokens" row (`/tokens`, earning and
+ *     history) when the Token Store was replaced by the plugged.host Plus page;
  *   - Customization, whose destination is a tab on the profile page and so is still one
  *     click in from the Profile Settings row. That tab holds the Theme v2 opt-in toggle,
  *     which is why it had a row of its own and a cog in the old search row; neither is
@@ -79,12 +79,13 @@ class ThemeV2Navigation
                 ->isActiveWhen(fn () => request()->is('/')),
         ];
 
-        // The two stores, one per currency: credits buy resources, tokens buy priority and the
-        // paid locations. Each is labelled by its own page, so the sidebar cannot call it
-        // something the page does not, and is left out while its currency is switched off.
+        // The Resource Store (credits buy resources), plugged.host Plus (bought with tokens) and
+        // Tokens (earning them, and their history). Each is labelled by its own page, so the
+        // sidebar cannot call it something the page does not, and is left out while it is off.
         foreach ([
             [ResourceStorePage::class, Heroicon::OutlinedShoppingBag, 'store'],
-            [TokenStorePage::class, Heroicon::OutlinedCircleStack, 'token-store'],
+            [PlusPage::class, Heroicon::OutlinedSparkles, 'plus'],
+            [EarnTokensPage::class, Heroicon::OutlinedCircleStack, 'tokens'],
         ] as [$page, $icon, $slug]) {
             if (!class_exists($page) || !Route::has("filament.app.pages.{$slug}") || !$page::canAccess()) {
                 continue;

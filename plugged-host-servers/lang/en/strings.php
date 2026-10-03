@@ -42,20 +42,18 @@ return [
         'premium' => '99.99% uptime',
     ],
 
-    // The one paid unlock, covering both Plus and Premium.
-    'premium' => [
-        'unlocked' => 'Plus and Premium locations unlocked.',
-        'insufficient' => 'You need :cost tokens to unlock Plus and Premium locations.',
-        'failed' => 'Could not unlock Plus and Premium locations. No tokens were spent.',
+
+    'plusplus_expired' => [
+        'title' => 'plugged.host PlusPlus has ended',
+        'moved' => 'Servers on Premium locations are moving to another location: :servers. Follow it in each server\'s Transfers tab.',
+        'trimmed' => 'The extra CPU PlusPlus gave has come off your servers evenly: :servers.',
     ],
 
     'settings' => [
         'section_premium' => 'Plus & Premium locations',
-        'section_premium_hint' => 'Nodes tagged with the plus or premium tag form the paid tiers. Plus and Premium are two labels over one unlock: a single token purchase opens every paid location for a user, permanently.',
+        'section_premium_hint' => 'Nodes tagged with the plus or premium tag form the paid tiers. Plus locations come with plugged.host Plus, Premium locations with PlusPlus (prices: plugged.host Economy settings).',
         'premium_tag' => 'Premium node tag',
         'premium_tag_hint' => 'A node carrying this tag (alongside its country code and a deployment tag) is treated as a premium node.',
-        'premium_cost' => 'Unlock cost',
-        'premium_cost_hint' => 'Tokens a user spends once to unlock every Plus and Premium location.',
         'plus_tag' => 'Plus node tag',
         'plus_tag_hint' => 'A node carrying this tag (alongside its country code and a deployment tag) is treated as a Plus node. A node also tagged premium counts as premium.',
     ],
@@ -93,7 +91,8 @@ return [
     'eula_description' => 'By creating this server, you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA). The EULA will be automatically accepted on your server so it starts immediately without pausing.',
     'left' => 'left',
     'location_unavailable' => 'No capacity for the selected resources',
-    'unlock' => 'Unlock',
+    'requires_plus' => 'Get Plus',
+    'requires_plusplus' => 'Get PlusPlus',
     'free_tier_desc' => 'Included with all plans',
     'memory' => 'Memory',
     'minecraft_version' => 'Minecraft version',
@@ -279,7 +278,7 @@ return [
             'backup_running' => 'A backup is running. Try again once it is done.',
             'cooldown' => 'This server was moved recently. You can move it again in :time.',
             'invalid_location' => 'Please pick a location.',
-            'location_locked' => 'Plus and Premium locations have to be unlocked first.',
+            'location_locked' => 'Plus locations need plugged.host Plus, Premium locations PlusPlus.',
             'no_node' => 'There is no room in that location right now.',
         ],
         'reasons' => [
