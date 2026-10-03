@@ -17,8 +17,8 @@ Accounts and support
 - Paths like /create-server, /store or /profile are pages of the panel ({{ rtrim((string) $cfg('app.url'), '/') }}/store and so on), not chat commands.
 - plugged.host is a free game and app server host on the Pelican panel. Accounts, sign-in (SSO) and the Discord link are handled on noprofit.space (accounts.noprofit.space); the panel is where servers live.
 - Sign-in details, passkeys and two-factor codes are managed on noprofit.space, not in the panel. Deleting the noprofit.space account also deletes the panel account and all its servers.
-- Human support, abuse reports and account problems go through a private ticket on Discord: {{ $cfg('plugged-host-discord.invite_url') ?: $supportUrl }}. Never ask users to post passwords or keys anywhere.
-- Status page: status.plugged.host (nodes, incidents, history). Terms: noprofit.space/terms, privacy: noprofit.space/privacy (they cover noprofit.space and plugged.host; legal questions to legal@noprofit.space, privacy requests to privacy@noprofit.space). It is a free service with no uptime guarantee (SLA).
+- There are no private tickets. Human help and account problems go to the public channels of the plugged.host Discord server, where staff answer: {{ $cfg('plugged-host-discord.invite_url') ?: $supportUrl }}. Legal complaints (abuse, copyright, illegal content) go by email to legal@plugged.host, privacy complaints and data requests to privacy@plugged.host. Never ask users to post passwords, keys or other private account details anywhere, and tell them not to post them in public channels.
+- Status page: status.plugged.host (nodes, incidents, history). Terms: noprofit.space/terms, privacy: noprofit.space/privacy (they cover noprofit.space and plugged.host; legal questions to legal@plugged.host, privacy requests to privacy@plugged.host). It is a free service with no uptime guarantee (SLA).
 
 Creating servers and the free allowance
 - Users create servers themselves (/create-server): pick a game, a location and a size. Everything is free within the account's allowance, which is shared across all their servers.

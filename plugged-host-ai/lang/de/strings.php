@@ -319,9 +319,9 @@ return [
     // neo auf Discord: die festen Texte, die es postet (seine Antworten schreibt das Modell, in
     // der Sprache der Fragenden), und sein Einstellungs-Tab.
     'neo_bot' => [
-        'unavailable' => 'Ich kann gerade nicht antworten, sorry. Versuch es in ein paar Minuten noch mal oder öffne ein Ticket, wenn es dringend ist.',
+        'unavailable' => 'Ich kann gerade nicht antworten, sorry. Versuch es in ein paar Minuten noch mal oder frag das Team hier, wenn es dringend ist.',
         'failed' => 'Bei mir ist etwas schiefgelaufen. Versuch es gleich noch einmal.',
-        'empty' => 'Darauf habe ich leider keine Antwort. Über ein Ticket erreichst du einen Menschen.',
+        'empty' => 'Darauf habe ich leider keine Antwort. Frag im Server, dann hilft dir ein Mensch.',
         'limited' => 'Du hast dein neo-Limit vorerst aufgebraucht. Es wird :time zurückgesetzt.',
         'limited_unlinked' => 'Du hast neos Limit für nicht verknüpfte Discord-Konten aufgebraucht. Es wird :time zurückgesetzt. Verknüpfe dein Discord mit einem noprofit.space-Konto für die vollen Limits: :link',
         'settings' => [
