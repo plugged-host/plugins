@@ -5,7 +5,9 @@ namespace PluggedHost\Servers\Providers;
 use App\Enums\HeaderActionPosition;
 use App\Enums\TablerIcon;
 use App\Enums\TabPosition;
+use App\Filament\Admin\Resources\Nodes\Pages\EditNode;
 use App\Filament\Admin\Resources\Servers\Pages\EditServer;
+use App\Models\Node;
 use App\Models\Server;
 use App\Models\Subuser;
 use Filament\Actions\Action;
@@ -24,7 +26,9 @@ use Livewire\Livewire;
 use PluggedHost\Servers\Console\Commands\TransferWatchCommand;
 use PluggedHost\Servers\Filament\Server\Pages\ServerTransferPage;
 use PluggedHost\Servers\Filament\Components\Actions\AdminTransferAction;
+use PluggedHost\Servers\Filament\Components\Actions\LightenLoadAction;
 use PluggedHost\Servers\Livewire\AdminTransfers;
+use PluggedHost\Servers\Livewire\NodeTransfers;
 use PluggedHost\Servers\Livewire\TransferStrip;
 use PluggedHost\Servers\Models\ServerRelocation;
 use PluggedHost\Servers\Services\Transfers\TransferService;
@@ -33,7 +37,8 @@ use Throwable;
 
 /**
  * Wiring for transfers: the subuser permission, the watcher's schedule, the admin server
- * page's Transfer action and Transfers tab (replacing upstream's button), and a progress strip
+ * page's Transfer action and Transfers tab (replacing upstream's button), the admin node
+ * page's "Lighten the load" action and Transfers tab, and a progress strip
  * on every server page while a move runs (the console cannot show one — upstream refuses its
  * websocket to non-admins during a transfer).
  */
@@ -61,6 +66,24 @@ class TransfersProvider extends ServiceProvider
                 ->schema([
                     LivewireComponent::make(AdminTransfers::class, fn (Server $record): array => ['serverId' => (int) $record->getKey()])
                         ->key('ph-admin-transfers')
+                        ->columnSpanFull(),
+                ]),
+        );
+
+        // Admin node page: "Lighten the load" moves a batch of its servers to another node, and
+        // a Transfers tab follows the batch (and any other move off or onto the node).
+        EditNode::registerCustomHeaderActions(HeaderActionPosition::Before, LightenLoadAction::make());
+
+        EditNode::registerCustomTabs(
+            TabPosition::After,
+            Tab::make('ph_transfers')
+                ->id('ph-transfers')
+                ->label(fn () => trans('plugged-host-servers::strings.transfers.admin.tab'))
+                ->icon(TablerIcon::TruckDelivery)
+                ->visible(fn (): bool => ServerRelocation::ready())
+                ->schema([
+                    LivewireComponent::make(NodeTransfers::class, fn (Node $record): array => ['nodeId' => (int) $record->getKey()])
+                        ->key('ph-node-transfers')
                         ->columnSpanFull(),
                 ]),
         );
@@ -95,6 +118,7 @@ class TransfersProvider extends ServiceProvider
     {
         Livewire::component('plugged-host-servers.transfer-strip', TransferStrip::class);
         Livewire::component('plugged-host-servers.admin-transfers', AdminTransfers::class);
+        Livewire::component('plugged-host-servers.node-transfers', NodeTransfers::class);
 
         FilamentView::registerRenderHook(
             PanelsRenderHook::PAGE_START,

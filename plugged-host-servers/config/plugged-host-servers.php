@@ -196,6 +196,8 @@ return [
     | stall_minutes — no bytes moving for this long while copying = stalled.
     | finalize_minutes — after the last byte, how long the new node may take
     |     to confirm (it may still be pulling the container image).
+    | batch_parallel — "Lighten the load" (admin node page): how many of a
+    |     batch's moves run at once per source node; the rest wait their turn.
     |
     */
     'transfers' => [
@@ -205,6 +207,7 @@ return [
         'stop_timeout' => (int) env('TRANSFERS_STOP_TIMEOUT', 90),
         'stall_minutes' => (int) env('TRANSFERS_STALL_MINUTES', 10),
         'finalize_minutes' => (int) env('TRANSFERS_FINALIZE_MINUTES', 20),
+        'batch_parallel' => (int) env('TRANSFERS_BATCH_PARALLEL', 2),
     ],
 ];
 

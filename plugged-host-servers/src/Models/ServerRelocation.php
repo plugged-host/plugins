@@ -217,6 +217,15 @@ class ServerRelocation extends Model
             ->first();
     }
 
+    /**
+     * A queued move ("Lighten the load") that has not had its turn yet: nothing is reserved
+     * or stopped for it until TransferService::takeTurn() lets it go.
+     */
+    public function isWaiting(): bool
+    {
+        return $this->state === self::PREPARING && (bool) $this->info('queued');
+    }
+
     public function isCancellable(): bool
     {
         return in_array($this->state, [self::PREPARING, self::STOPPING, self::RETRYING], true)
@@ -227,6 +236,7 @@ class ServerRelocation extends Model
     public function headlineKey(): string
     {
         return match (true) {
+            $this->isWaiting() => 'queued',
             $this->phase === self::PHASE_CANCELLING => $this->info('abort_reason') === 'user' ? 'cancelling' : 'checking',
             $this->state === self::COPYING && $this->phase === self::PHASE_BACKUPS => 'copying_backups',
             $this->state === self::COPYING && $this->phase === self::PHASE_HANDOFF => 'finalizing',
@@ -316,7 +326,7 @@ class ServerRelocation extends Model
     public function percent(): int
     {
         return match ($this->state) {
-            self::PREPARING, self::RETRYING => 2,
+            self::PREPARING, self::RETRYING => $this->isWaiting() ? 0 : 2,
             self::STOPPING => 4,
             self::COPYING => (int) floor(6 + 84 * ($this->copyFraction() ?? 0.0)),
             self::FINALIZING => 92,
