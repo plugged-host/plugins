@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
+use stdClass;
 use Throwable;
 
 /**
@@ -54,11 +55,15 @@ class RuxAi
     /** How long a Gemini thought signature is kept for the next turn. */
     private const SIGNATURE_TTL = 172800;
 
+    /** How long rux trusts what it found out about a provider passing tools on (passesTools). */
+    private const TOOLS_PROBE_TTL = 21600;
+
     public function __construct(
         private readonly OpenAiTranslator $openAi,
         private readonly AnthropicTranslator $anthropic,
         private readonly GeminiTranslator $gemini,
         private readonly NeoProviders $neo,
+        private readonly PromptedTools $prompted,
     ) {}
 
     /**
@@ -121,16 +126,27 @@ class RuxAi
             }
 
             $started = microtime(true);
-            $outcome = $this->call($provider, $messages, $tools, $toolChoice, min(max(5, (int) $provider['timeout']), $remaining));
+            $prompted = $tools !== [] && !$this->passesTools($provider, $remaining);
+
+            if ($prompted && ($remaining = (int) floor($deadline - microtime(true))) < 5) {
+                $transient = true;
+
+                break;
+            }
+
+            $outcome = $prompted
+                ? $this->call($provider, $this->prompted->messages($messages, $tools, $toolChoice, $this->gatewayTools($provider)), [], $toolChoice, min(max(5, (int) $provider['timeout']), $remaining))
+                : $this->call($provider, $messages, $tools, $toolChoice, min(max(5, (int) $provider['timeout']), $remaining));
 
             if (isset($outcome['message'])) {
-                $tokens = (int) ($outcome['usage']['prompt_tokens'] ?? 0) + (int) ($outcome['usage']['completion_tokens'] ?? 0);
-                $key = $this->key($provider, 'tokens:' . gmdate('Y-m-d'));
-                Cache::add($key, 0, 172800);
-                Cache::increment($key, max(0, $tokens));
+                $this->countTokens($provider, $outcome);
+
+                if ($prompted) {
+                    $outcome = $this->prompted->answer($outcome, $tools, $toolChoice);
+                }
 
                 return $outcome + [
-                    'provider' => ['slot' => $provider['slot'], 'label' => $provider['label'], 'model' => $provider['model']],
+                    'provider' => ['slot' => $provider['slot'], 'label' => $provider['label'], 'model' => $provider['model'], 'prompted_tools' => $prompted],
                     'duration_ms' => (int) round((microtime(true) - $started) * 1000),
                 ];
             }
@@ -248,6 +264,86 @@ class RuxAi
         unset($answer['signatures']);
 
         return $answer;
+    }
+
+    /**
+     * Whether a provider hands the request's own tools to the model. Some gateways drop them and
+     * put in their own (justwoker since 2026-10-03, which even runs them itself); for those rux
+     * describes its tools in the prompt instead (PromptedTools), and names the gateway's tools so
+     * the model leaves them alone. Found out with a tiny call, then kept for 6 hours.
+     *
+     * @param  array<string, mixed>  $provider
+     */
+    private function passesTools(array $provider, int $remaining): bool
+    {
+        $key = $this->key($provider, 'passes-tools');
+        $known = Cache::get($key);
+
+        if (is_bool($known)) {
+            return $known;
+        }
+
+        $probe = [
+            'type' => 'function',
+            'function' => [
+                'name' => 'rux_probe',
+                'description' => 'Confirms that tools work. Call it when asked to.',
+                'parameters' => ['type' => 'object', 'properties' => new stdClass, 'required' => []],
+            ],
+        ];
+
+        $outcome = $this->call($provider, [
+            ['role' => 'system', 'content' => 'You are a test. Answer by calling the rux_probe tool, nothing else. If you have no tool called rux_probe, call no tool and reply with only the exact names of the tools you do have, comma separated.'],
+            ['role' => 'user', 'content' => 'Call rux_probe now.'],
+        ], [$probe], 'auto', max(5, min(30, (int) $provider['timeout'], $remaining - 5)));
+
+        if (!isset($outcome['message'])) {
+            // Cannot tell: send the tools as usual, and the real call reports the failure.
+            return true;
+        }
+
+        $this->countTokens($provider, $outcome);
+
+        $passes = collect((array) ($outcome['message']['tool_calls'] ?? []))->contains(static fn ($call): bool => ($call['function']['name'] ?? null) === 'rux_probe');
+        Cache::put($key, $passes, self::TOOLS_PROBE_TTL);
+
+        if (!$passes) {
+            $named = preg_split('/[,\n]+/', (string) ($outcome['message']['content'] ?? '')) ?: [];
+            $gatewayTools = array_values(array_unique(array_filter(
+                array_map(static fn (string $name): string => trim($name, " \t.`*-"), $named),
+                static fn (string $name): bool => $name !== 'rux_probe' && preg_match('/^[A-Za-z][A-Za-z0-9_.:-]{1,63}$/', $name) === 1 && !ctype_digit($name),
+            )));
+            Cache::put($this->key($provider, 'gateway-tools'), array_slice($gatewayTools, 0, 20), self::TOOLS_PROBE_TTL);
+
+            Log::info('[rux] AI provider drops the tools of a request: rux describes them in the prompt', ['slot' => $provider['slot'], 'label' => $provider['label'], 'its_own_tools' => $gatewayTools]);
+        }
+
+        return $passes;
+    }
+
+    /**
+     * The tools a gateway puts in instead of rux's, as its model named them in the probe.
+     *
+     * @param  array<string, mixed>  $provider
+     * @return list<string>
+     */
+    private function gatewayTools(array $provider): array
+    {
+        return array_values(array_filter((array) Cache::get($this->key($provider, 'gateway-tools'), []), 'is_string'));
+    }
+
+    /**
+     * Add a call's tokens to the provider's count for today (its daily_token_cap).
+     *
+     * @param  array<string, mixed>  $provider
+     * @param  array<string, mixed>  $outcome
+     */
+    private function countTokens(array $provider, array $outcome): void
+    {
+        $tokens = (int) ($outcome['usage']['prompt_tokens'] ?? 0) + (int) ($outcome['usage']['completion_tokens'] ?? 0);
+        $key = $this->key($provider, 'tokens:' . gmdate('Y-m-d'));
+        Cache::add($key, 0, 172800);
+        Cache::increment($key, max(0, $tokens));
     }
 
     /**

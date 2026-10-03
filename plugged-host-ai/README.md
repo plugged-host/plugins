@@ -328,6 +328,13 @@ for rate limits and outages; not at all for "request too large". A cooling-down 
 skipped, and each provider's daily token cap holds per day. The drivers are copies of neo's
 (`src/Agent/Ai`: OpenAI chat, Anthropic Messages, and Google AI Studio's Gemini API).
 
+Some gateways drop the tools of a request and put in their own (justwoker since 2026-10-03,
+which even runs them on its side). Before giving a provider tools, rux asks it once with a tiny
+call whether a tool of rux's gets through, and keeps the answer for 6 hours. For a provider that
+drops them, rux describes its tools in the system prompt (`PromptedTools`, names prefixed
+`rux_`), names the gateway's own tools as off limits, and reads the model's
+`<rux_tool_calls>` block back into ordinary tool calls.
+
 rux calls the providers directly. The model calls never go through neo, and no neo limits
 apply. To see what rux has (fetches now):
 
