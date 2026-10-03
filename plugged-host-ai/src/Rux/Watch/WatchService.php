@@ -298,6 +298,7 @@ class WatchService
             'channel_id' => $item->channel_id,
             'author_id' => $item->author_id,
             'author_name' => (string) ($item->author_name ?? $item->author_id),
+            'content' => $item->content,
         ];
 
         Log::info('[rux] watch: acting', ['rule' => $code, 'member' => $item->author_id, 'message' => $item->message_id, 'why' => $why]);

@@ -11,6 +11,7 @@ use PluggedHost\Ai\Discord\DiscordException;
 use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxCase;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
+use PluggedHost\Ai\Rux\Support\RuxText;
 use PluggedHost\Ai\Rux\Support\RuxTime;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 
@@ -247,6 +248,78 @@ class ModerationService
     }
 
     /**
+     * Delete chosen messages of one channel, whatever their age (Discord bulk deletes only the
+     * last 14 days; older ones go one by one), and keep one case per author with what they said.
+     * A message that is gone by now is skipped.
+     *
+     * @param  array<string, mixed>  $channel
+     * @param  list<array<string, mixed>>  $messages  Discord message objects
+     * @return array{deleted: int, cases: list<RuxCase>}
+     */
+    public function deleteMessages(RuxContext $context, array $channel, array $messages, ?string $reason): array
+    {
+        $channelId = (string) $channel['id'];
+        $recent = CarbonImmutable::now()->subDays(14)->addMinutes(5);
+        $audit = $context->auditReason($reason);
+        $bulk = [];
+        $deleted = [];
+
+        foreach ($messages as $message) {
+            if (CarbonImmutable::parse((string) $message['timestamp'])->greaterThan($recent)) {
+                $bulk[] = $message;
+
+                continue;
+            }
+
+            try {
+                $this->discord->deleteMessages($channelId, [(string) $message['id']], $audit);
+                $deleted[] = $message;
+            } catch (DiscordException $e) {
+                if (!$e->isNotFound()) {
+                    throw $e;
+                }
+            }
+        }
+
+        foreach (array_chunk($bulk, 100) as $chunk) {
+            $this->discord->deleteMessages($channelId, array_map(static fn (array $m): string => (string) $m['id'], $chunk), $audit);
+            array_push($deleted, ...$chunk);
+        }
+
+        $cases = collect($deleted)
+            ->groupBy(static fn (array $m): string => (string) ($m['author']['id'] ?? '0'))
+            ->map(function ($group, $authorId) use ($context, $reason, $channelId): RuxCase {
+                $first = $group->first();
+                $name = (string) ($first['member']['nick'] ?? $first['author']['global_name'] ?? $first['author']['username'] ?? $authorId);
+
+                return $this->record($context, 'delete', ['id' => (string) $authorId, 'name' => $name], $reason, meta: [
+                    'deleted' => $group->count(),
+                    'messages' => $group->map(static fn (array $m): string => (string) $m['id'])->values()->all(),
+                    'said' => mb_substr($group->map(static fn (array $m): string => RuxText::messageText($m))->filter()->implode(' | '), 0, 300),
+                ], channelId: $channelId);
+            })
+            ->values()
+            ->all();
+
+        return ['deleted' => count($deleted), 'cases' => $cases];
+    }
+
+    /**
+     * Change a member's server nickname, or remove it ($nick null).
+     *
+     * @param  array{id: string, name: string, member?: array<string, mixed>}  $target
+     */
+    public function nickname(RuxContext $context, array $target, ?string $nick, ?string $reason): RuxCase
+    {
+        $this->discord->modifyMember($context->guildId, $target['id'], ['nick' => $nick], $context->auditReason($reason));
+
+        return $this->record($context, 'nickname', $target, $reason, meta: [
+            'from' => $target['member']['nick'] ?? null,
+            'to' => $nick,
+        ]);
+    }
+
+    /**
      * @param  array<string, mixed>  $channel
      */
     public function slowmode(RuxContext $context, array $channel, int $seconds, ?string $reason): RuxCase
@@ -384,6 +457,12 @@ class ModerationService
      */
     private function record(RuxContext $context, string $action, ?array $target, ?string $reason, ?int $seconds = null, array $meta = [], ?string $channelId = null, bool $automatic = false, ?int $ruleId = null, ?CarbonImmutable $expiresAt = null): RuxCase
     {
+        // What rux caught when it acted by itself (a rule, a watched channel).
+        if ($context->evidence !== null && trim($context->evidence) !== '') {
+            $meta += ['said' => mb_substr(trim($context->evidence), 0, 300), 'message' => $context->sourceMessageId];
+            $channelId ??= $context->channelId;
+        }
+
         $case = RuxCase::query()->create([
             'guild_id' => $context->guildId,
             'action' => $action,
@@ -437,6 +516,8 @@ class ModerationService
             isset($case->meta['deleted']) ? $case->meta['deleted'] . ' deleted' : null,
             isset($case->meta['role_name']) ? (string) $case->meta['role_name'] : null,
             isset($case->meta['cleared']) ? $case->meta['cleared'] . ' cleared, ' . $case->meta['left'] . ' left' : null,
+            $case->action === 'nickname' ? ($case->meta['from'] ?? 'no nickname') . ' → ' . ($case->meta['to'] ?? 'no nickname') : null,
+            isset($case->meta['changed']) ? 'changed: ' . implode(', ', (array) $case->meta['changed']) : null,
             $case->action === 'warn' && $case->target_id !== null ? RuxConfig::say('log.warnings', ['count' => $this->warningCount($case->target_id)]) : null,
         ]);
         if ($details !== []) {
@@ -445,6 +526,10 @@ class ModerationService
 
         if ($case->reason !== null) {
             $fields[] = ['name' => RuxConfig::say('log.reason'), 'value' => mb_substr($case->reason, 0, 1024), 'inline' => false];
+        }
+
+        if (isset($case->meta['said']) && $case->meta['said'] !== '') {
+            $fields[] = ['name' => RuxConfig::say('log.said'), 'value' => mb_substr((string) $case->meta['said'], 0, 1024), 'inline' => false];
         }
 
         try {

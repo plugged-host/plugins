@@ -110,7 +110,9 @@ final class RuxTime
 
     public static function humanDuration(int $seconds): string
     {
-        return CarbonImmutable::now()->addSeconds($seconds)->diffForHumans(CarbonImmutable::now(), ['syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE, 'parts' => 2]);
+        $now = CarbonImmutable::now();
+
+        return $now->addSeconds($seconds)->diffForHumans($now, ['syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE, 'parts' => 2]);
     }
 
     public static function discord(\DateTimeInterface $time, string $style = 'f'): string

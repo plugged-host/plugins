@@ -77,6 +77,57 @@ abstract class ModerationTool extends RuxTool
     }
 
     /**
+     * Moderators only read or delete in channels they can open on Discord themselves: rux sees
+     * every channel, staff-only ones included.
+     *
+     * @param  array<string, mixed>  $channel
+     */
+    protected function guardVisible(RuxContext $context, array $channel): void
+    {
+        if (!$context->isAdmin() && !$this->access->canView($context->actorDiscordId, $channel)) {
+            throw new InvalidArgumentException("This moderator cannot see <#{$channel['id']}> on Discord, so rux does not read or delete there for them.");
+        }
+    }
+
+    /**
+     * A channel that holds messages (text, announcement, voice and stage chats, threads), or the
+     * one the order came from when none is named.
+     *
+     * @return array<string, mixed>
+     */
+    protected function messageChannel(RuxContext $context, ?string $input): array
+    {
+        if ($input === null && $context->direct) {
+            throw new InvalidArgumentException('This order came by DM, so say which channel.');
+        }
+
+        $input ??= $context->channelId;
+
+        try {
+            return $this->resolver->channel($context->guildId, $input, [0, 2, 5, 13]);
+        } catch (InvalidArgumentException $e) {
+            // Threads are not in the server's channel list.
+            return preg_match('/^(?:<#)?(\d{17,20})>?$/', trim($input), $m) === 1
+                ? $this->resolver->messageChannel($context->guildId, $m[1])
+                : throw $e;
+        }
+    }
+
+    /**
+     * A member, or for someone who left (or was banned) the Discord user behind a mention or id.
+     *
+     * @return array{id: string, name: string, member?: array<string, mixed>}
+     */
+    protected function memberOrUser(RuxContext $context, string $input): array
+    {
+        try {
+            return $this->resolver->member($context->guildId, $input);
+        } catch (InvalidArgumentException $e) {
+            return preg_match('/^<@!?\d{17,20}>$|^\d{17,20}$/', trim($input)) === 1 ? $this->resolver->user($input) : throw $e;
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function memberProperty(string $description = 'The member: <@mention>, user id, or their name.'): array

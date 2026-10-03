@@ -83,7 +83,7 @@ final class LookupMemberTool extends ModerationTool
             'warnings' => $this->moderation->warningCount($target['id']),
             'rux_moderator' => $this->access->moderatorRole(array_values(array_map('strval', (array) ($member['roles'] ?? [])))) !== null ?: null,
             'giveaway_wins' => RuxGiveawayEntry::query()->where('discord_id', $target['id'])->whereNotNull('won_at')->count(),
-            'cases' => $cases->map(fn (RuxCase $c): string => "#{$c->id} {$c->action}" . ($c->automatic ? ' (automatic)' : '') . ($c->revoked_at ? ' (cleared)' : '') . ' ' . RuxTime::human($c->created_at) . ($c->reason ? ": {$c->reason}" : ''))->all(),
+            'cases' => $cases->map(fn (RuxCase $c): string => $c->line())->all(),
         ], static fn ($value): bool => $value !== null));
     }
 }

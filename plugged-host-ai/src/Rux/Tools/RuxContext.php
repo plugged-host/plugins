@@ -9,7 +9,8 @@ use PluggedHost\Ai\Rux\Support\RuxAccess;
  * Who ordered what, and where: handed to every tool. The actor is a noprofit.space admin, or a
  * member of a rux moderator role (level "moderator", fewer tools), or rux itself (a standing
  * rule or a watched channel); RuxAgent checks before the model is ever called. actorAccountId is
- * the actor's noprofit.space account when they have one.
+ * the actor's noprofit.space account when they have one. When rux acts by itself, evidence is
+ * the message that was caught (kept with the case, so "why was he warned" has an answer).
  */
 final class RuxContext
 {
@@ -23,6 +24,7 @@ final class RuxContext
         public readonly ?string $sourceMessageId,
         public readonly ?RuxMessage $order = null,
         public readonly string $level = RuxAccess::ADMIN,
+        public readonly ?string $evidence = null,
     ) {}
 
     public function isAdmin(): bool

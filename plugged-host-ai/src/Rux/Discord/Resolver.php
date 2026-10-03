@@ -3,6 +3,7 @@
 namespace PluggedHost\Ai\Rux\Discord;
 
 use InvalidArgumentException;
+use PluggedHost\Ai\Discord\DiscordException;
 
 /**
  * Turns what an admin wrote ("<@123>", "123", "@ann", "Ann", "#giveaways", "🎉│giveaways",
@@ -105,6 +106,68 @@ final class Resolver
             0 => throw new InvalidArgumentException("There is no text channel \"{$input}\" in the server. Use server_overview to see the channels."),
             default => throw new InvalidArgumentException("Several channels match \"{$input}\": " . implode(', ', array_map(static fn (array $c): string => '<#' . $c['id'] . '>', array_slice($matches, 0, 8))) . '. Ask which one is meant.'),
         };
+    }
+
+    /**
+     * The channel a message lives in, threads included (the server's channel list leaves
+     * threads out, so a thread is fetched and must belong to this server).
+     *
+     * @return array<string, mixed>
+     */
+    public function messageChannel(string $guildId, string $channelId): array
+    {
+        foreach ($this->discord->channels($guildId) as $channel) {
+            if ((string) $channel['id'] === $channelId) {
+                return $channel;
+            }
+        }
+
+        try {
+            $channel = $this->discord->channel($channelId);
+        } catch (DiscordException) {
+            $channel = [];
+        }
+
+        if ((string) ($channel['guild_id'] ?? '') !== $guildId) {
+            throw new InvalidArgumentException("<#{$channelId}> is not a channel of this server.");
+        }
+
+        return $channel;
+    }
+
+    /**
+     * A message, from its link (https://discord.com/channels/<server>/<channel>/<message>) or
+     * its id in $channelInput (a channel as channel() takes it).
+     *
+     * @return array{channel: array<string, mixed>, message: array<string, mixed>}
+     */
+    public function message(string $guildId, string $input, string $channelInput): array
+    {
+        $value = trim($input);
+
+        if (preg_match('~^<?https?://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/channels/(\d{17,20}|@me)/(\d{17,20})/(\d{17,20})>?$~', $value, $m) === 1) {
+            if ($m[1] !== $guildId) {
+                throw new InvalidArgumentException('That message link is not from this server.');
+            }
+
+            $channel = $this->messageChannel($guildId, $m[2]);
+            $messageId = $m[3];
+        } elseif (preg_match('/^\d{17,20}$/', $value) === 1) {
+            if (trim($channelInput) === '') {
+                throw new InvalidArgumentException('A message id alone does not say which channel it is in: give the message link, or the channel too.');
+            }
+
+            $id = $this->snowflake($channelInput, '#');
+            $channel = $id !== null ? $this->messageChannel($guildId, $id) : $this->channel($guildId, $channelInput, null);
+            $messageId = $value;
+        } else {
+            throw new InvalidArgumentException("\"{$input}\" is not a message link or id. Use read_messages to find the message.");
+        }
+
+        $message = $this->discord->message((string) $channel['id'], $messageId)
+            ?? throw new InvalidArgumentException("There is no message {$messageId} in <#{$channel['id']}> (deleted already, or another channel).");
+
+        return ['channel' => $channel, 'message' => $message];
     }
 
     /**
