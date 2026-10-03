@@ -50,6 +50,14 @@ final class NoprofitCreditSync
 
     private const PRICING_KEY = 'plugged-host-economy:noprofit-pricing';
 
+    private const PRICING_AT_KEY = 'plugged-host-economy:noprofit-pricing-at';
+
+    /**
+     * Prices older than this (seconds) are not sold at: noprofit.space has been out of reach for
+     * that long, and its prices may have changed. The minutely pull keeps them younger.
+     */
+    public const PRICING_MAX_AGE = 900;
+
     private const TIERS_KEY = 'plugged-host-economy:noprofit-tiers';
 
     private const TERMS_FETCH_KEY = 'plugged-host-economy:noprofit-terms-fetch';
@@ -428,14 +436,23 @@ final class NoprofitCreditSync
     }
 
     /**
-     * Store prices set on noprofit.space ({cpu,memory,storage}_unit / _price_credits), or null
-     * while none are known: then the store does not sell CPU, memory or disk.
+     * Store prices and the price curve set on noprofit.space ({cpu,memory,storage}_unit /
+     * _price_credits and the curve_* keys, see ComputePricing), or null while none are known or
+     * the last ones are older than PRICING_MAX_AGE: then the store does not sell CPU, memory or
+     * disk.
+     *
+     * Prices older than $maxAge seconds are asked for again first: the store asks for a minute
+     * at most, a purchase for half that, so it always sells at noprofit.space's current prices.
      *
      * @return array<string, int>|null
      */
-    public static function pricing(): ?array
+    public static function pricing(int $maxAge = self::PRICING_MAX_AGE): ?array
     {
-        return self::terms(self::PRICING_KEY);
+        $age = static fn (): int => time() - (int) Cache::get(self::PRICING_AT_KEY, 0);
+
+        $pricing = $age() > $maxAge ? self::terms(self::PRICING_KEY, refresh: true) : self::terms(self::PRICING_KEY);
+
+        return $pricing !== null && $age() <= self::PRICING_MAX_AGE ? $pricing : null;
     }
 
     /**
@@ -450,16 +467,17 @@ final class NoprofitCreditSync
     }
 
     /**
-     * What noprofit.space last sent. After a cache flush (optimize:clear) it is asked for right
-     * away, at most every half minute, rather than waiting for the next sync to bring it.
+     * What noprofit.space last sent. After a cache flush (optimize:clear), or when $refresh asks
+     * for newer prices, it is asked for right away, at most every 10 seconds, rather than waiting
+     * for the next sync to bring it.
      *
      * @return array<string, mixed>|null
      */
-    private static function terms(string $key): ?array
+    private static function terms(string $key, bool $refresh = false): ?array
     {
         $value = Cache::get($key);
 
-        if ((!is_array($value) || $value === []) && self::enabled() && Cache::add(self::TERMS_FETCH_KEY, 1, 30)) {
+        if (($refresh || !is_array($value) || $value === []) && self::enabled() && Cache::add(self::TERMS_FETCH_KEY, 1, 10)) {
             try {
                 $response = self::client()->send('POST', '/api/v1/internal/credits/balances', ['account_ids' => []], self::secret(), 5);
 
@@ -479,6 +497,7 @@ final class NoprofitCreditSync
     {
         if (is_array($pricing) && $pricing !== []) {
             Cache::forever(self::PRICING_KEY, array_map('intval', $pricing));
+            Cache::forever(self::PRICING_AT_KEY, time());
         }
 
         if (!is_array($tiers)) {

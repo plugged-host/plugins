@@ -21,8 +21,9 @@ use PluggedHost\Servers\Support\AccountAllowance;
  * perk card and the sidebar keep working.
  *
  * Each resource is one row with one meter for three numbers: what the account's servers use,
- * its limit (the plan on noprofit.space, bought resources included), and the most it can buy
- * up to. That replaces the "used / limit" stat tiles that sat above the old store.
+ * its limit (the plan on noprofit.space, bought resources included), and the soft limit, where
+ * prices get steep. Nothing caps an account: every step is priced on noprofit.space's curve
+ * (ComputePricing), cheap at first and dearer the more the account has.
  */
 class ResourceStorePage extends Page
 {
@@ -33,6 +34,11 @@ class ResourceStorePage extends Page
     protected static ?int $navigationSort = 15;
 
     protected string $view = 'plugged-host-economy::filament.pages.resource-store';
+
+    /**
+     * The offers per resource, in steps (the same as noprofit.space's store).
+     */
+    public const OFFER_STEPS = [1, 2, 4];
 
     public function getTitle(): string
     {
@@ -115,70 +121,72 @@ class ResourceStorePage extends Page
         /** @var ResourceStoreService $store */
         $store = app(ResourceStoreService::class);
 
-        // No plan yet (noprofit.space has not synced this account): nothing to show or sell.
-        $summary = $user instanceof User && AccountAllowance::forUser($user) !== null
-            ? $store->getUserResourceSummary($user)
-            : null;
         $userCredits = $user instanceof User ? UserCredits::forUser($user) : null;
 
         return [
             'credits' => (int) ($userCredits?->credits ?? 0),
             // "Earn credits on Discord": the Discord rewards tab on the profile page.
             'rewardsUrl' => class_exists(DiscordRewards::class) ? DiscordRewards::url() : null,
-            'resources' => $summary !== null && $user instanceof User ? $this->resources($user, $summary, $store) : [],
+            // No plan yet (noprofit.space has not synced this account): nothing to show or sell.
+            'resources' => $user instanceof User && AccountAllowance::forUser($user) !== null
+                ? $this->resources($user, (int) ($userCredits?->credits ?? 0), $store)
+                : [],
             'transactions' => $userCredits ? $userCredits->transactions()->take(10)->get() : collect(),
         ];
     }
 
     /**
      * One row per resource: the meter's three numbers, how they read, and what can be bought.
+     * Prices are asked for again from noprofit.space when the ones here are a minute old.
      *
-     * @param  array<string, mixed>  $summary
      * @return list<array<string, mixed>>
      */
-    protected function resources(User $user, array $summary, ResourceStoreService $store): array
+    protected function resources(User $user, int $credits, ResourceStoreService $store): array
     {
+        $allowance = AccountAllowance::forUser($user);
         $usage = AccountAllowance::getUsage($user);
-        $credits = (int) ($summary['user_credits'] ?? 0);
+        $pricing = $store->pricing(60);
+        $sells = $pricing !== null && $store->sellsComputeTo($user);
         $percent = fn (int $n): string => $n . '%';
         $size = fn (int $mb): string => $this->size($mb);
-
-        $offer = function (string $label, int $amount, string $method, int $price, bool $available) use ($credits): array {
-            return [
-                'label' => $label,
-                'amount' => $amount,
-                'method' => $method,
-                'price' => $price,
-                'disabled' => !$available || $credits < $price,
-            ];
-        };
 
         $rows = [];
 
         foreach ([
-            'cpu' => [trans('plugged-host-core::strings.cpu'), $percent, 'buyCpu', fn (int $n) => $store->getPriceForCpu($n)],
-            'memory' => [trans('plugged-host-core::strings.memory'), $size, 'buyMemory', fn (int $n) => $store->getPriceForMemory($n)],
-            'disk' => [trans('plugged-host-core::strings.disk'), $size, 'buyDisk', fn (int $n) => $store->getPriceForDisk($n)],
-        ] as $key => [$label, $format, $method, $price]) {
-            $limit = (int) ($summary[$key] ?? 0);
-            $cap = max($limit, (int) ($summary["max_{$key}"] ?? 0));
+            'cpu' => [trans('plugged-host-core::strings.cpu'), $percent, 'buyCpu'],
+            'memory' => [trans('plugged-host-core::strings.memory'), $size, 'buyMemory'],
+            'disk' => [trans('plugged-host-core::strings.disk'), $size, 'buyDisk'],
+        ] as $key => [$label, $format, $method]) {
+            $limit = (int) ($allowance?->{$key} ?? 0);
             $used = (int) ($usage[$key] ?? 0);
-            $step = $store->step($key);
-            $canBuy = (bool) ($summary["can_buy_{$key}"] ?? false);
+            $current = $store->current($user, $key);
+            $priceLimit = $store->limit($user, $key);
+            $soft = $pricing?->softLimit($priceLimit) ?? 0;
+            $step = $sells ? $pricing->step($key) : 0;
 
             $rows[] = [
                 'key' => $key,
                 'label' => $label,
-                'meter' => $this->meter($used, $limit, $cap),
+                'meter' => $this->meter($used, $limit, $soft),
                 'used' => $format($used),
                 'limit' => $format($limit),
-                'cap' => $format($cap),
                 'over' => $used > $limit ? $format($used - $limit) : null,
-                'at_cap' => $limit > 0 && $limit >= $cap,
-                'offers' => $step > 0 ? [
-                    $offer('+' . $format($step), $step, $method, $price($step), $canBuy),
-                    $offer('+' . $format($step * 2), $step * 2, $method, $price($step * 2), $canBuy),
-                ] : [],
+                'price_note' => $soft <= 0 ? null : match (true) {
+                    $current >= $soft => trans('plugged-host-economy::strings.resource_store.price_steep', ['soft' => $format($soft)]),
+                    $current >= $priceLimit => trans('plugged-host-economy::strings.resource_store.price_climbing', ['limit' => $format($priceLimit), 'soft' => $format($soft)]),
+                    default => trans('plugged-host-economy::strings.resource_store.price_rising', ['limit' => $format($priceLimit)]),
+                },
+                'offers' => $step <= 0 ? [] : array_map(function (int $steps) use ($pricing, $key, $step, $current, $priceLimit, $method, $format, $credits): array {
+                    $price = $pricing->cost($key, $current, $steps * $step, $priceLimit);
+
+                    return [
+                        'label' => '+' . $format($steps * $step),
+                        'amount' => $steps * $step,
+                        'method' => $method,
+                        'price' => $price,
+                        'disabled' => $credits < $price,
+                    ];
+                }, self::OFFER_STEPS),
             ];
         }
 
@@ -186,14 +194,15 @@ class ResourceStorePage extends Page
     }
 
     /**
-     * Widths, in % of the track, of the used part and of the limit behind it. The track is the
-     * cap (the most that can be bought); a limit of 0 on the panel means unlimited.
+     * Widths, in % of the track, of the used part and of the limit behind it. The track runs to
+     * the soft limit, where prices get steep (further when the account is past it); a limit of 0
+     * on the panel means unlimited.
      *
      * @return array{used: float, limit: float, over: bool}
      */
-    protected function meter(int $used, int $limit, int $cap): array
+    protected function meter(int $used, int $limit, int $soft): array
     {
-        $track = max($cap, $limit, $used, 1);
+        $track = max($soft, $limit, $used, 1);
 
         return [
             'used' => round(min($used, $track) / $track * 100, 1),

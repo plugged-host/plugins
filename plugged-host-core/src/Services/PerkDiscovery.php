@@ -176,7 +176,7 @@ class PerkDiscovery
     }
 
     /**
-     * Priced in the same units the store sells in, so the card doubles as the price list.
+     * Priced in the same units the store sells in, at this account's next step.
      * Skipped for users with no limit profile at all — they have nothing to upgrade.
      */
     private function storePerk(User $user): ?array
@@ -189,7 +189,8 @@ class PerkDiscovery
             return null;
         }
 
-        $price = class_exists(ResourceStoreService::class) ? app(ResourceStoreService::class)->getPriceForMemory(1024) : 0;
+        // This account's next gigabyte: prices climb with what the account already has.
+        $price = class_exists(ResourceStoreService::class) ? app(ResourceStoreService::class)->price($user, 'memory', 1024) : 0;
 
         if ($price <= 0) {
             return null;

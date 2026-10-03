@@ -40,13 +40,35 @@ this plugin would sort *before* that create on a fresh database and rename nothi
 | `ads_start_credit_transactions` | `token_transactions` |
 | `ads_start_credit_claims` | `token_claims` (stays in `plugged-host-ads` — it is an earn-pipeline artefact) |
 
+## Resource prices
+
+There is no ceiling on CPU, memory or disk; the price is the brake. noprofit.space owns the
+numbers (Admin › Settings: step size and step price per resource, plus the curve) and sends them
+with every sync; `NoprofitCreditSync::pricing()` keeps them, asks for them again when the store
+renders (older than a minute) and before each purchase (older than 30 s), and stops selling when
+the last ones are over 15 minutes old. `Support\ComputePricing` is a copy of noprofit.space's
+`App\Services\ComputePricing`; change the two together.
+
+The curve, against the plan's limit (`max_*`):
+
+- up to the limit a step costs its share of the way there (half price at half the limit, never
+  under `curve_floor_percent`), the full step price at the limit;
+- from the limit to the soft limit (`soft_limit_percent`, 125%) it climbs to
+  `soft_limit_multiplier` (4×);
+- past the soft limit it doubles every `doubling_percent` (5%) of the limit.
+
+Prices are the area under the curve, so four steps at once cost what four single steps do.
+noprofit.space re-prices every `resource_purchase` it receives and refuses an underpaid one with
+409, which the panel undoes. `CreditRecoveryService` values reclaimed resources the same way,
+off the top of the curve.
+
 ## What is not here
 
 - **Earning.** `DiscordVerificationService` awards credits; `TokenEarnService` awards
   tokens. Both call into this plugin's models and neither is owned by it.
 - **The resource limits themselves.** They are the account's plan on noprofit.space,
   enforced by `AccountAllowance` in `plugged-host-servers`; the store buys extras that
-  noprofit.space adds to the plan.
+  noprofit.space adds to the plan. The limits (`max_*`) only set where prices climb.
 - **The start queue and its priority pass.** `plugged-host-queue` owns those and
   spends tokens through `TokenService`.
 

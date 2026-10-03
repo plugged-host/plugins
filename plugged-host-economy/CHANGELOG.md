@@ -2,6 +2,20 @@
 
 ## Unreleased (2.1)
 
+- **No resource cap; prices climb instead.** CPU, memory and disk are priced on noprofit.space's
+  curve (`Support\ComputePricing`, a copy of noprofit.space's): cheaper on the way to the limit
+  (half price at half of it, full price at it), climbing to 4× at the soft limit (125% of the
+  limit), doubling every 5% of the limit past it. The store offers 1, 2 and 4 steps, priced as
+  the area under the curve; the meter runs to the soft limit. `getPriceForCpu/Memory/Disk()`
+  became `price($user, $resource, $amount)` (and `value()` for taking resources back);
+  `getUserResourceSummary()` and the `max_*_reached` strings are gone.
+- **Prices always come from noprofit.space.** Asked for again when the store renders (older than a
+  minute) and before a purchase (older than 30 s); nothing is sold on prices over 15 minutes
+  old. noprofit.space pushes new prices the moment an admin saves them (the sync endpoint now
+  accepts an empty `items`), and refuses a purchase that paid less than its price (409, undone
+  here).
+- Credit clawbacks value reclaimed resources at the top of the curve.
+
 - **Server slots are no longer sold.** Accounts have no server count any more (only their plan's
   CPU, memory and disk), so the store's slot row, `CREDITS_PRICE_SERVER_SLOT`, slot reclaiming
   and `user_credits.extra_server_limit` are gone. Migration

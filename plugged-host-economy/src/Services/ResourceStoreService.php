@@ -5,33 +5,40 @@ namespace PluggedHost\Economy\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use PluggedHost\Economy\Models\UserCredits;
-use PluggedHost\Servers\Support\AccountAllowance;
+use PluggedHost\Economy\Support\ComputePricing;
 
+/**
+ * The Resource Store's rules. CPU, memory and disk belong to the account's plan on
+ * noprofit.space: the limits come with the plan and the prices with the sync
+ * (NoprofitCreditSync). Without both the store does not sell them, rather than guess at numbers
+ * noprofit.space may have changed.
+ *
+ * Nothing caps an account. Every step is priced on noprofit.space's curve (ComputePricing):
+ * cheap on the way to the limit, climbing past it, steep past the soft limit.
+ */
 class ResourceStoreService
 {
+    public const RESOURCES = ['cpu', 'memory', 'disk'];
+
     /**
-     * CPU, memory and disk belong to the account's plan on noprofit.space: the caps come with
-     * the plan and the prices with the sync (NoprofitCreditSync). Without both, the store does
-     * not sell them, rather than guess at numbers noprofit.space may have changed.
+     * The most bought at once, in steps (the same as noprofit.space's store).
      */
+    public const MAX_STEPS = 50;
+
+    /**
+     * How old (seconds) the prices may be when a purchase is priced: they are asked for again
+     * from noprofit.space first.
+     */
+    public const PURCHASE_PRICING_MAX_AGE = 30;
+
     public function sellsComputeTo(User $user): bool
     {
-        return NoprofitCreditSync::plan($user) !== null && NoprofitCreditSync::pricing() !== null;
+        return NoprofitCreditSync::plan($user) !== null && $this->pricing() !== null;
     }
 
-    public function getMaxCpu(User $user): int
+    public function pricing(int $maxAge = NoprofitCreditSync::PRICING_MAX_AGE): ?ComputePricing
     {
-        return (int) (NoprofitCreditSync::plan($user)['max_cpu'] ?? 0);
-    }
-
-    public function getMaxMemory(User $user): int
-    {
-        return (int) (NoprofitCreditSync::plan($user)['max_memory'] ?? 0);
-    }
-
-    public function getMaxDisk(User $user): int
-    {
-        return (int) (NoprofitCreditSync::plan($user)['max_disk'] ?? 0);
+        return ComputePricing::current($maxAge);
     }
 
     /**
@@ -40,87 +47,70 @@ class ResourceStoreService
      */
     public function step(string $resource): int
     {
-        $key = match ($resource) {
-            'cpu' => 'cpu_unit_percent',
-            'memory' => 'memory_unit_mb',
-            'disk' => 'storage_unit_mb',
-            default => null,
-        };
-
-        return $key === null ? 0 : max(0, (int) (NoprofitCreditSync::pricing()[$key] ?? 0));
-    }
-
-    public function getPriceForCpu(int $amountPercent): int
-    {
-        return $this->price('cpu_unit_percent', 'cpu_price_credits', $amountPercent);
-    }
-
-    public function getPriceForMemory(int $amountMb): int
-    {
-        return $this->price('memory_unit_mb', 'memory_price_credits', $amountMb);
-    }
-
-    public function getPriceForDisk(int $amountMb): int
-    {
-        return $this->price('storage_unit_mb', 'storage_price_credits', $amountMb);
+        return $this->pricing()?->step($resource) ?? 0;
     }
 
     /**
-     * The noprofit.space price of $amount (a unit is the step bought at once), or 0 while no
-     * prices are known -- callers check sellsComputeTo() before charging anything.
+     * Where a step of $resource reaches its full price for this account (the plan's max_*).
      */
-    private function price(string $unitKey, string $priceKey, int $amount): int
+    public function limit(User $user, string $resource): int
     {
-        $pricing = NoprofitCreditSync::pricing();
-        $unit = (int) ($pricing[$unitKey] ?? 0);
+        return max(0, (int) (NoprofitCreditSync::plan($user)["max_{$resource}"] ?? 0));
+    }
 
-        if ($unit <= 0 || !isset($pricing[$priceKey])) {
+    public function softLimit(User $user, string $resource): int
+    {
+        return $this->pricing()?->softLimit($this->limit($user, $resource)) ?? 0;
+    }
+
+    /**
+     * What the account has of $resource for pricing: the plan's base plus the resources bought
+     * here, including ones noprofit.space has not confirmed yet.
+     */
+    public function current(User $user, string $resource, ?UserCredits $credits = null): int
+    {
+        $plan = NoprofitCreditSync::plan($user);
+
+        if ($plan === null) {
             return 0;
         }
 
-        return (int) ceil(($amount / $unit) * (int) $pricing[$priceKey]);
+        if (!isset($plan["base_{$resource}"])) {
+            return (int) ($plan[$resource] ?? 0);
+        }
+
+        $credits ??= UserCredits::forUser($user);
+
+        return (int) $plan["base_{$resource}"] + (int) ($credits?->{"extra_{$resource}"} ?? 0);
     }
 
     /**
-     * @return array{
-     *     cpu: int,
-     *     memory: int,
-     *     disk: int,
-     *     max_cpu: int,
-     *     max_memory: int,
-     *     max_disk: int,
-     *     can_buy_cpu: bool,
-     *     can_buy_memory: bool,
-     *     can_buy_disk: bool,
-     *     user_credits: int
-     * }
+     * Credits for $amount more of $resource for this account right now, or 0 while nothing is
+     * for sale.
      */
-    public function getUserResourceSummary(User $user): array
+    public function price(User $user, string $resource, int $amount): int
     {
-        $limits = AccountAllowance::forUser($user);
-        $userCredits = UserCredits::forUser($user);
+        if (NoprofitCreditSync::plan($user) === null) {
+            return 0;
+        }
 
-        $maxCpu = $this->getMaxCpu($user);
-        $maxMemory = $this->getMaxMemory($user);
-        $maxDisk = $this->getMaxDisk($user);
+        return $this->pricing()?->cost($resource, $this->current($user, $resource), $amount, $this->limit($user, $resource)) ?? 0;
+    }
 
-        $cpu = $limits ? $limits->cpu : 0;
-        $memory = $limits ? $limits->memory : 0;
-        $disk = $limits ? $limits->disk : 0;
-        $sells = $this->sellsComputeTo($user);
+    /**
+     * What taking $amount of $resource back off the top of this account is worth: the price the
+     * same amount would cost to buy back.
+     */
+    public function value(User $user, string $resource, int $amount, ?UserCredits $credits = null): int
+    {
+        if (NoprofitCreditSync::plan($user) === null) {
+            return 0;
+        }
 
-        return [
-            'cpu' => $cpu,
-            'memory' => $memory,
-            'disk' => $disk,
-            'max_cpu' => $maxCpu,
-            'max_memory' => $maxMemory,
-            'max_disk' => $maxDisk,
-            'can_buy_cpu' => $sells && $cpu > 0 && $cpu < $maxCpu,
-            'can_buy_memory' => $sells && $memory > 0 && $memory < $maxMemory,
-            'can_buy_disk' => $sells && $disk > 0 && $disk < $maxDisk,
-            'user_credits' => $userCredits ? $userCredits->credits : 0,
-        ];
+        $current = $this->current($user, $resource, $credits);
+        $amount = min($amount, $current);
+
+        return $this->pricing()?->cost($resource, $current - $amount, $amount, $this->limit($user, $resource)) ?? 0;
     }
 
     /**
@@ -128,47 +118,7 @@ class ResourceStoreService
      */
     public function purchaseCpu(User $user, int $amountPercent): array
     {
-        if ($amountPercent <= 0) {
-            return ['success' => false, 'message' => 'Invalid CPU amount.'];
-        }
-
-        if (!$this->sellsComputeTo($user)) {
-            return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.store_unavailable')];
-        }
-
-        $cost = $this->getPriceForCpu($amountPercent);
-        $maxCpu = $this->getMaxCpu($user);
-        $userCredits = UserCredits::forUser($user);
-
-        if (!$userCredits || !$userCredits->canAfford($cost)) {
-            return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.insufficient_credits')];
-        }
-
-        $limits = AccountAllowance::forUser($user);
-        if ($limits && $limits->cpu > 0 && ($limits->cpu + $amountPercent > $maxCpu)) {
-            $allowed = max(0, $maxCpu - $limits->cpu);
-            if ($allowed <= 0) {
-                return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.max_cpu_reached')];
-            }
-            $amountPercent = $allowed;
-            $cost = $this->getPriceForCpu($amountPercent);
-        }
-
-        return DB::transaction(function () use ($userCredits, $cost, $amountPercent) {
-            $userCredits->deductCredits(
-                $cost,
-                'resource_purchase',
-                trans('plugged-host-economy::strings.credits.tx_cpu_purchase', ['amount' => $amountPercent]),
-                ['resource' => 'cpu', 'amount' => $amountPercent, 'cost' => $cost]
-            );
-
-            $userCredits->addExtraResources(cpu: $amountPercent);
-
-            return [
-                'success' => true,
-                'message' => trans('plugged-host-economy::strings.credits.cpu_purchased', ['amount' => $amountPercent, 'cost' => $cost]),
-            ];
-        });
+        return $this->purchase($user, 'cpu', $amountPercent);
     }
 
     /**
@@ -176,49 +126,7 @@ class ResourceStoreService
      */
     public function purchaseMemory(User $user, int $amountMb): array
     {
-        if ($amountMb <= 0) {
-            return ['success' => false, 'message' => 'Invalid memory amount.'];
-        }
-
-        if (!$this->sellsComputeTo($user)) {
-            return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.store_unavailable')];
-        }
-
-        $cost = $this->getPriceForMemory($amountMb);
-        $maxMemory = $this->getMaxMemory($user);
-        $userCredits = UserCredits::forUser($user);
-
-        if (!$userCredits || !$userCredits->canAfford($cost)) {
-            return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.insufficient_credits')];
-        }
-
-        $limits = AccountAllowance::forUser($user);
-        if ($limits && $limits->memory > 0 && ($limits->memory + $amountMb > $maxMemory)) {
-            $allowed = max(0, $maxMemory - $limits->memory);
-            if ($allowed <= 0) {
-                return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.max_memory_reached')];
-            }
-            $amountMb = $allowed;
-            $cost = $this->getPriceForMemory($amountMb);
-        }
-
-        $suffix = config('panel.use_binary_prefix') ? 'MiB' : 'MB';
-
-        return DB::transaction(function () use ($userCredits, $cost, $amountMb, $suffix) {
-            $userCredits->deductCredits(
-                $cost,
-                'resource_purchase',
-                trans('plugged-host-economy::strings.credits.tx_memory_purchase', ['amount' => $amountMb, 'unit' => $suffix]),
-                ['resource' => 'memory', 'amount' => $amountMb, 'cost' => $cost]
-            );
-
-            $userCredits->addExtraResources(memory: $amountMb);
-
-            return [
-                'success' => true,
-                'message' => trans('plugged-host-economy::strings.credits.memory_purchased', ['amount' => $amountMb, 'unit' => $suffix, 'cost' => $cost]),
-            ];
-        });
+        return $this->purchase($user, 'memory', $amountMb);
     }
 
     /**
@@ -226,48 +134,83 @@ class ResourceStoreService
      */
     public function purchaseDisk(User $user, int $amountMb): array
     {
-        if ($amountMb <= 0) {
-            return ['success' => false, 'message' => 'Invalid disk space amount.'];
+        return $this->purchase($user, 'disk', $amountMb);
+    }
+
+    /**
+     * Buy $amount of $resource at noprofit.space's current price. The credits row is locked
+     * for the whole price-and-spend, so two purchases at once are priced one after the other.
+     * noprofit.space checks the price again when the change reaches it and refuses an
+     * underpaid one, which is then undone here (NoprofitCreditSync::push).
+     *
+     * @return array{success: bool, message: string}
+     */
+    public function purchase(User $user, string $resource, int $amount): array
+    {
+        if (!in_array($resource, self::RESOURCES, true)) {
+            return ['success' => false, 'message' => 'Unknown resource.'];
         }
 
-        if (!$this->sellsComputeTo($user)) {
+        // Prices younger than half a minute: asked for again from noprofit.space first.
+        $pricing = $this->pricing(self::PURCHASE_PRICING_MAX_AGE);
+        $step = $pricing?->step($resource) ?? 0;
+
+        if ($pricing === null || $step <= 0 || NoprofitCreditSync::plan($user) === null) {
             return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.store_unavailable')];
         }
 
-        $cost = $this->getPriceForDisk($amountMb);
-        $maxDisk = $this->getMaxDisk($user);
-        $userCredits = UserCredits::forUser($user);
-
-        if (!$userCredits || !$userCredits->canAfford($cost)) {
-            return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.insufficient_credits')];
+        if ($amount <= 0 || $amount > self::MAX_STEPS * $step) {
+            return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.invalid_amount')];
         }
 
-        $limits = AccountAllowance::forUser($user);
-        if ($limits && $limits->disk > 0 && ($limits->disk + $amountMb > $maxDisk)) {
-            $allowed = max(0, $maxDisk - $limits->disk);
-            if ($allowed <= 0) {
-                return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.max_disk_reached')];
+        $result = DB::transaction(function () use ($user, $resource, $amount, $pricing): array {
+            $credits = UserCredits::query()->where('user_id', $user->getKey())->lockForUpdate()->first();
+
+            if ($credits === null) {
+                return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.insufficient_credits')];
             }
-            $amountMb = $allowed;
-            $cost = $this->getPriceForDisk($amountMb);
-        }
 
-        $suffix = config('panel.use_binary_prefix') ? 'MiB' : 'MB';
+            $cost = $pricing->cost($resource, $this->current($user, $resource, $credits), $amount, $this->limit($user, $resource));
 
-        return DB::transaction(function () use ($userCredits, $cost, $amountMb, $suffix) {
-            $userCredits->deductCredits(
-                $cost,
-                'resource_purchase',
-                trans('plugged-host-economy::strings.credits.tx_disk_purchase', ['amount' => $amountMb, 'unit' => $suffix]),
-                ['resource' => 'disk', 'amount' => $amountMb, 'cost' => $cost]
-            );
+            if ($cost >= ComputePricing::UNAFFORDABLE || !$credits->canAfford($cost)) {
+                return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.insufficient_credits')];
+            }
 
-            $userCredits->addExtraResources(disk: $amountMb);
+            [$label, $unit] = $this->describe($resource, $amount);
+
+            if ($cost > 0) {
+                $credits->deductCredits(
+                    $cost,
+                    'resource_purchase',
+                    trans("plugged-host-economy::strings.credits.tx_{$resource}_purchase", ['amount' => $label, 'unit' => $unit]),
+                    ['resource' => $resource, 'amount' => $amount, 'cost' => $cost]
+                );
+            }
+
+            $credits->addExtraResources(...[$resource => $amount]);
 
             return [
                 'success' => true,
-                'message' => trans('plugged-host-economy::strings.credits.disk_purchased', ['amount' => $amountMb, 'unit' => $suffix, 'cost' => $cost]),
+                'message' => trans("plugged-host-economy::strings.credits.{$resource}_purchased", ['amount' => $label, 'unit' => $unit, 'cost' => number_format($cost)]),
             ];
         });
+
+        UserCredits::forgetMemo($user);
+
+        return $result;
+    }
+
+    /**
+     * The amount as the purchase messages show it, and its unit.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function describe(string $resource, int $amount): array
+    {
+        if ($resource === 'cpu') {
+            return [(string) $amount, '%'];
+        }
+
+        return [(string) $amount, config('panel.use_binary_prefix') ? 'MiB' : 'MB'];
     }
 }

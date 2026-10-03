@@ -3,7 +3,8 @@
     can be bought, then the history.
 
     The meter is one bar for three numbers (store-styles): solid is what the servers use,
-    tinted is the rest of the limit, the empty track runs up to the most that can be bought.
+    tinted is the rest of the limit, the empty track runs to the soft limit, where prices get
+    steep.
 
     No filled button on this page: every purchase is a gray (secondary) button with its price.
 --}}
@@ -65,15 +66,13 @@
                                 <p class="ph-eco-small">
                                     @if ($resource['over'] !== null)
                                         <span class="ph-eco-danger">{{ trans('plugged-host-economy::strings.resource_store.over', ['amount' => $resource['over']]) }}</span>
-                                    @elseif ($resource['at_cap'])
-                                        {{ trans('plugged-host-economy::strings.resource_store.at_cap') }}
                                     @else
-                                        {{ trans('plugged-host-economy::strings.resource_store.up_to', ['cap' => $resource['cap']]) }}
+                                        {{ $resource['price_note'] }}
                                     @endif
                                 </p>
                             </div>
 
-                            @if (filled($resource['offers']) && !$resource['at_cap'])
+                            @if (filled($resource['offers']))
                                 <div class="ph-eco-row-action">
                                     @foreach ($resource['offers'] as $offer)
                                         <x-filament::button
