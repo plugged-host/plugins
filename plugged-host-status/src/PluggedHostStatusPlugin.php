@@ -59,7 +59,7 @@ class PluggedHostStatusPlugin implements HasPluginSettings, Plugin
             'site_health_host' => (string) config('plugged-host-status.site_health_host', ''),
             'panel_health_url' => (string) config('plugged-host-status.panel_health_url', ''),
             'history_days' => (int) config('plugged-host-status.history_days', 90),
-            'resource_threshold_percent' => (float) config('plugged-host-status.resource_threshold_percent', 90),
+            'resource_threshold_percent' => (float) config('plugged-host-status.resource_threshold_percent', 95),
         ];
     }
 
@@ -128,7 +128,7 @@ class PluggedHostStatusPlugin implements HasPluginSettings, Plugin
             'STATUS_SITE_HEALTH_HOST' => (string) ($data['site_health_host'] ?? ''),
             'STATUS_PANEL_HEALTH_URL' => (string) ($data['panel_health_url'] ?? ''),
             'STATUS_HISTORY_DAYS' => (string) max(1, min(3650, (int) ($data['history_days'] ?? 90))),
-            'STATUS_RESOURCE_THRESHOLD_PERCENT' => (string) max(0, min(100, (float) ($data['resource_threshold_percent'] ?? 90))),
+            'STATUS_RESOURCE_THRESHOLD_PERCENT' => (string) max(0, min(100, (float) ($data['resource_threshold_percent'] ?? 95))),
         ]);
     }
 }
