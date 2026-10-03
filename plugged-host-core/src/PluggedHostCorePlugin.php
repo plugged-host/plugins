@@ -13,6 +13,7 @@ use PluggedHost\Core\Http\Middleware\RequireNoprofitLink;
 use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
 use PluggedHost\Core\Services\Abuse\AbuseEnforcer;
+use PluggedHost\Core\Services\Abuse\AbusePurge;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\CreateAction;
@@ -188,6 +189,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             'abuse_alert_webhook' => '',
             'abuse_cpu_percent' => (int) config('plugged-host-core.abuse.cpu_percent', 90),
             'abuse_cpu_minutes' => (int) config('plugged-host-core.abuse.cpu_minutes', 20),
+            'abuse_delete_after_hours' => AbusePurge::hours(),
         ];
 
         // One Select per panel, because a navigation key is a class name and a class only
@@ -264,6 +266,15 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
                         ->maxValue(1440)
                         ->required()
                         ->default(fn () => (int) config('plugged-host-core.abuse.cpu_minutes', 20)),
+                    TextInput::make('abuse_delete_after_hours')
+                        ->label('Delete abuse-suspended servers after')
+                        ->helperText('Only servers the abuse checks suspended, and not if an admin unsuspended one or dismissed a finding on it. 0 never deletes.')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(8760)
+                        ->suffix('hours')
+                        ->required()
+                        ->default(fn () => AbusePurge::hours()),
                 ]),
             Section::make('Sidebar visibility')
                 ->description('Hide navigation entries you do not want users to see. The pages stay reachable by URL — this only removes them from the sidebar.')
@@ -396,6 +407,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             'ABUSE_MODE' => in_array($data['abuse_mode'] ?? null, AbuseEnforcer::MODES, true) ? $data['abuse_mode'] : AbuseEnforcer::mode(),
             'ABUSE_CPU_PERCENT' => (string) max(50, min(100, (int) ($data['abuse_cpu_percent'] ?? 90))),
             'ABUSE_CPU_MINUTES' => (string) max(5, min(1440, (int) ($data['abuse_cpu_minutes'] ?? 20))),
+            'ABUSE_DELETE_AFTER_HOURS' => (string) max(0, min(8760, (int) ($data['abuse_delete_after_hours'] ?? 24))),
         ];
 
         $webhook = trim((string) ($data['abuse_alert_webhook'] ?? ''));

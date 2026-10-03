@@ -550,6 +550,7 @@ return [
         'by_abuse_scan' => 'Suspended :time by our automated abuse scan.',
         'by_admin' => 'Suspended :time by an administrator.',
         'by_system' => 'Suspended :time.',
+        'deletes_at' => 'It will be deleted :time, with its files, unless the suspension is lifted before then.',
         'note_label' => 'Reason',
         'findings_label' => 'What the scan found',
         'more' => 'and :count more',

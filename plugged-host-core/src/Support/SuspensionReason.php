@@ -115,6 +115,23 @@ final class SuspensionReason
         ];
     }
 
+    /** Whether $server was unsuspended after $since (an admin lifting an abuse suspension, say). */
+    public static function unsuspendedSince(Server $server, CarbonImmutable $since): bool
+    {
+        try {
+            return DB::table('activity_logs')
+                ->join('activity_log_subjects', 'activity_logs.id', '=', 'activity_log_subjects.activity_log_id')
+                ->where('activity_log_subjects.subject_type', $server->getMorphClass())
+                ->where('activity_log_subjects.subject_id', $server->getKey())
+                ->where('activity_logs.event', 'server:suspension.unsuspend')
+                ->where('activity_logs.timestamp', '>', $since)
+                ->exists();
+        } catch (Throwable) {
+            // Unknown counts as yes: the one caller decides whether to delete a server.
+            return true;
+        }
+    }
+
     private static function isSuspendedValue(mixed $status): bool
     {
         $value = $status instanceof ServerState ? $status->value : $status;

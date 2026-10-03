@@ -77,6 +77,8 @@ class ScanAbuseCommand extends Command
         foreach ($servers as $server) {
             $bar->advance();
 
+            $wasSuspended = $server->isSuspended();
+
             try {
                 $scan = $scanner->scan($server, $enforce, record: !$dryRun);
             } catch (Throwable $e) {
@@ -104,10 +106,12 @@ class ScanAbuseCommand extends Command
                     $scan['findings'],
                 )),
                 'action' => match (true) {
+                    $wasSuspended => 'already suspended',
                     $result === null => array_filter($scan['findings'], fn (Finding $f) => $f->isCritical()) !== [] ? 'would suspend' : 'review',
                     $result['suspended'] => 'suspended',
                     $result['error'] !== null => 'failed: ' . mb_strimwidth($result['error'], 0, 40, '…'),
-                    default => $server->isSuspended() ? 'already suspended' : 'recorded',
+                    $server->refresh()->isSuspended() => 'suspended by the agent',
+                    default => 'recorded',
                 },
             ];
         }

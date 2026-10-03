@@ -7,6 +7,7 @@ use App\Models\Server;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
+use PluggedHost\Core\Services\Abuse\AbusePurge;
 use PluggedHost\Core\Support\SuspensionReason;
 use Throwable;
 
@@ -65,6 +66,14 @@ class SuspendedServerPage extends Page
         $server = Filament::getTenant();
 
         return $server instanceof Server ? SuspensionReason::latest($server) : null;
+    }
+
+    /** When AbusePurge deletes this server, or null when it will not. */
+    public function deletesAt(): ?\Carbon\CarbonImmutable
+    {
+        $server = Filament::getTenant();
+
+        return $server instanceof Server ? AbusePurge::deletesAt($server) : null;
     }
 
     public function supportUrl(): string

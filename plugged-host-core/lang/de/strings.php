@@ -550,6 +550,7 @@ return [
         'by_abuse_scan' => ':time von unserem automatischen Missbrauchs-Scan gesperrt.',
         'by_admin' => ':time von einem Administrator gesperrt.',
         'by_system' => ':time gesperrt.',
+        'deletes_at' => 'Er wird :time samt seinen Dateien gelöscht, sofern die Sperre bis dahin nicht aufgehoben wird.',
         'note_label' => 'Grund',
         'findings_label' => 'Was der Scan gefunden hat',
         'more' => 'und :count weitere',

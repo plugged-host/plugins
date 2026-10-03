@@ -92,11 +92,16 @@ return [
      *
      * cpu_percent / cpu_minutes: the CPU watch. A server at cpu_percent of its CPU limit for
      * cpu_minutes gets a review finding and the full check.
+     *
+     * delete_after_hours: a server the abuse checks suspended is deleted this long after the
+     * suspension, unless it was unsuspended, parked by limbo or a finding on it was dismissed
+     * (Services\Abuse\AbusePurge). 0 never deletes.
      */
     'abuse' => [
         'mode' => (string) env('ABUSE_MODE', 'report'),
         'alert_webhook' => (string) env('ABUSE_ALERT_WEBHOOK', ''),
         'cpu_percent' => (int) env('ABUSE_CPU_PERCENT', 90),
         'cpu_minutes' => (int) env('ABUSE_CPU_MINUTES', 20),
+        'delete_after_hours' => (int) env('ABUSE_DELETE_AFTER_HOURS', 24),
     ],
 ];

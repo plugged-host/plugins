@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use PluggedHost\Core\Console\Commands\AbusePurgeCommand;
 use PluggedHost\Core\Console\Commands\AbuseWatchCommand;
 use PluggedHost\Core\Console\Commands\ScanAbuseCommand;
 use PluggedHost\Core\Filament\Components\Actions\SuspendServerAction;
@@ -27,6 +28,7 @@ use Throwable;
  *     read at once and the full check after ABUSE_CPU_MINUTES.
  *   - the node agent (agent/abuse-agent.py), every minute: the processes and connections htop
  *     would show, posted to /plugged-host/abuse/agent/report.
+ * plugged-host:abuse-purge, hourly, deletes what they suspended after ABUSE_DELETE_AFTER_HOURS.
  *
  * Both halves were in-place edits to app/ until 2026-09-05 -- a new
  * ScanAbuseCommand and SuspendServerAction, a schedule line in app/Console/Kernel.php,
@@ -51,6 +53,11 @@ class AbuseControlPluginProvider extends ServiceProvider
             $schedule->command(AbuseWatchCommand::class)
                 ->everyMinute()
                 ->withoutOverlapping(10)
+                ->runInBackground();
+
+            $schedule->command(AbusePurgeCommand::class)
+                ->hourly()
+                ->withoutOverlapping(60)
                 ->runInBackground();
         });
     }

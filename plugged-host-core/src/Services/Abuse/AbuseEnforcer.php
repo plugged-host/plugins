@@ -106,23 +106,8 @@ final class AbuseEnforcer
 
         $mode = self::mode();
 
-        if ($server !== null && $actionable !== [] && $enforce && $mode === 'suspend' && !$server->isSuspended()) {
-            try {
-                SuspensionReason::with(
-                    ['source' => SuspensionReason::SOURCE_ABUSE_SCAN, 'reasons' => array_map(fn (AbuseFinding $row) => $row->summary, $actionable)],
-                    fn () => $this->suspensions->handle($server, SuspendAction::Suspend),
-                );
-
-                foreach ($actionable as $row) {
-                    $row->forceFill(['status' => AbuseFinding::ACTIONED, 'action' => 'suspended', 'actioned_at' => now()])->save();
-                }
-
-                $result['suspended'] = true;
-            } catch (Throwable $e) {
-                // A server mid-transfer cannot be suspended; the finding stays open and the next
-                // check tries again.
-                $result['error'] = $e->getMessage();
-            }
+        if ($server !== null && $actionable !== [] && $enforce && $mode === 'suspend') {
+            $this->suspend($server, $actionable, $result);
         }
 
         $freshCritical = array_values(array_filter($fresh, fn (AbuseFinding $row) => $row->severity === Finding::CRITICAL));
@@ -136,6 +121,57 @@ final class AbuseEnforcer
         }
 
         return $result;
+    }
+
+    /**
+     * Suspend for the critical findings. The node agent and the scheduled scan can catch the same
+     * server within seconds of each other, each holding a copy that still says "running", so the
+     * suspension happens under a per-server lock against a fresh status. A server that is already
+     * suspended only gets its findings marked as handled.
+     *
+     * @param  array<int, AbuseFinding>  $actionable
+     * @param  array{recorded: int, suspended: bool, critical: array<int, string>, error: string|null}  $result
+     */
+    private function suspend(Server $server, array $actionable, array &$result): void
+    {
+        $lock = Cache::lock("ph-abuse:suspend:{$server->id}", 60);
+
+        if (!$lock->block(15)) {
+            $result['error'] = 'another check is suspending this server';
+
+            return;
+        }
+
+        try {
+            $server->refresh();
+
+            if ($server->isSuspended()) {
+                foreach ($actionable as $row) {
+                    if ($row->status === AbuseFinding::OPEN) {
+                        $row->forceFill(['status' => AbuseFinding::ACTIONED, 'action' => 'already suspended', 'actioned_at' => now()])->save();
+                    }
+                }
+
+                return;
+            }
+
+            SuspensionReason::with(
+                ['source' => SuspensionReason::SOURCE_ABUSE_SCAN, 'reasons' => array_map(fn (AbuseFinding $row) => $row->summary, $actionable)],
+                fn () => $this->suspensions->handle($server, SuspendAction::Suspend),
+            );
+
+            foreach ($actionable as $row) {
+                $row->forceFill(['status' => AbuseFinding::ACTIONED, 'action' => 'suspended', 'actioned_at' => now()])->save();
+            }
+
+            $result['suspended'] = true;
+        } catch (Throwable $e) {
+            // A server mid-transfer cannot be suspended; the finding stays open and the next
+            // check tries again.
+            $result['error'] = $e->getMessage();
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
