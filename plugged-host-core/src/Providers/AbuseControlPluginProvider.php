@@ -5,15 +5,28 @@ namespace PluggedHost\Core\Providers;
 use App\Filament\Admin\Resources\Servers\Pages\ListServers;
 use Filament\Actions\EditAction;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use PluggedHost\Core\Console\Commands\AbuseWatchCommand;
 use PluggedHost\Core\Console\Commands\ScanAbuseCommand;
 use PluggedHost\Core\Filament\Components\Actions\SuspendServerAction;
+use PluggedHost\Core\Services\Abuse\AgentGateway;
 use Throwable;
 
 /**
- * Abuse control: the daily filesystem scan, and the suspend toggle on the admin
- * server list.
+ * Abuse control: the scheduled checks, the node agent's endpoints, and the suspend toggle on the
+ * admin server list.
+ *
+ * Three layers, each catching what the one before cannot:
+ *   - plugged-host:scan-abuse --suspend, every 3 hours: every server's whole file tree, likely
+ *     file contents, startup values and console (Services\Abuse\AbuseScanner).
+ *   - plugged-host:abuse-watch, every minute: servers pinned at their CPU limit get their console
+ *     read at once and the full check after ABUSE_CPU_MINUTES.
+ *   - the node agent (agent/abuse-agent.py), every minute: the processes and connections htop
+ *     would show, posted to /plugged-host/abuse/agent/report.
  *
  * Both halves were in-place edits to app/ until 2026-09-05 -- a new
  * ScanAbuseCommand and SuspendServerAction, a schedule line in app/Console/Kernel.php,
@@ -31,8 +44,14 @@ class AbuseControlPluginProvider extends ServiceProvider
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             $schedule->command(ScanAbuseCommand::class, ['--suspend'])
-                ->daily()
-                ->withoutOverlapping();
+                ->everyThreeHours()
+                ->withoutOverlapping(120)
+                ->runInBackground();
+
+            $schedule->command(AbuseWatchCommand::class)
+                ->everyMinute()
+                ->withoutOverlapping(10)
+                ->runInBackground();
         });
     }
 
@@ -80,6 +99,62 @@ class AbuseControlPluginProvider extends ServiceProvider
 
         Livewire::listen('mount', $attach);
         Livewire::listen('hydrate', $attach);
+
+        $this->registerAgentRoutes();
+    }
+
+    /**
+     * The node agent's endpoints. The report is signed with the node's Wings token
+     * (AgentGateway); the agent and its installer are public files with no secret in them.
+     */
+    private function registerAgentRoutes(): void
+    {
+        Route::prefix('/plugged-host/abuse/agent')
+            ->withoutMiddleware([
+                \App\Http\Middleware\PreventRequestForgery::class,
+                \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+            ])
+            ->group(function (): void {
+                Route::post('/report', function (Request $request) {
+                    $gateway = app(AgentGateway::class);
+                    $node = $gateway->authenticate($request);
+
+                    if ($node === null) {
+                        return response()->json(['error' => 'bad signature'], 403);
+                    }
+
+                    // One report per node per 20 seconds is plenty for a once-a-minute agent.
+                    if (!Cache::add("ph-abuse:agent-rate:{$node->id}", 1, 20)) {
+                        return response()->json(['error' => 'too many reports'], 429);
+                    }
+
+                    $report = $gateway->decode($request);
+
+                    if ($report === null) {
+                        return response()->json(['error' => 'unreadable report'], 400);
+                    }
+
+                    $summary = $gateway->ingest($node, $report, (string) $request->ip());
+
+                    return response()->json(['ok' => true, 'latest' => AgentGateway::latestVersion()] + $summary);
+                })->name('plugged-host.abuse.agent.report');
+
+                Route::get('/install.sh', function () {
+                    $script = (string) @file_get_contents(plugin_path('plugged-host-core', 'agent/install.sh'));
+
+                    return response(str_replace('__PANEL_URL__', rtrim((string) config('app.url'), '/'), $script), 200, [
+                        'Content-Type' => 'text/x-shellscript; charset=utf-8',
+                        'Cache-Control' => 'no-store',
+                    ]);
+                })->name('plugged-host.abuse.agent.installer');
+
+                Route::get('/abuse-agent.py', function () {
+                    return response((string) @file_get_contents(AgentGateway::agentPath()), 200, [
+                        'Content-Type' => 'text/x-python; charset=utf-8',
+                        'Cache-Control' => 'no-store',
+                    ]);
+                })->name('plugged-host.abuse.agent.script');
+            });
     }
 
     /**
