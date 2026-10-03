@@ -44,6 +44,13 @@ class RuxAi
      */
     private const GEMINI_ATTEMPTS = 3;
 
+    /**
+     * Some gateways turn a share of calls away with a bare 403 before their API sees them
+     * (justwoker: about one in four); such a call is sent this many times in all, as on
+     * noprofit.space (SendsProviderRequests).
+     */
+    private const BLANK_REJECTION_ATTEMPTS = 3;
+
     /** How long a Gemini thought signature is kept for the next turn. */
     private const SIGNATURE_TTL = 172800;
 
@@ -202,6 +209,16 @@ class RuxAi
                 return ['status' => null, 'reason' => 'transport: ' . class_basename($e), 'cooldown' => $default];
             }
 
+            if ($this->isBlankRejection($response)) {
+                if ($attempt >= self::BLANK_REJECTION_ATTEMPTS || $deadline - microtime(true) < 2) {
+                    break;
+                }
+
+                Sleep::for(250)->milliseconds();
+
+                continue;
+            }
+
             if ($driver !== 'gemini' || !in_array($response->status(), [500, 503], true)
                 || $attempt >= self::GEMINI_ATTEMPTS || $deadline - microtime(true) < 11) {
                 break;
@@ -244,6 +261,7 @@ class RuxAi
         $retryAfter = is_numeric($retryAfter) ? (int) ceil((float) $retryAfter) : $this->retryDelay($response);
 
         $cooldown = match (true) {
+            $this->isBlankRejection($response) => $failover['default_cooldown'],
             in_array($status, [401, 403, 404], true) => $failover['auth_cooldown'],
             in_array($status, [400, 413, 422], true) => 0,
             in_array($status, [408, 409, 425, 429, 498, 529], true), $status >= 500 => $retryAfter ?? $failover['default_cooldown'],
@@ -251,6 +269,15 @@ class RuxAi
         };
 
         return max(0, min($cooldown, $failover['max_cooldown']));
+    }
+
+    /**
+     * A 403 without a body comes from a proxy in front of the provider's API, not from the API
+     * judging the key, so it does not earn the auth cooldown.
+     */
+    private function isBlankRejection(Response $response): bool
+    {
+        return $response->status() === 403 && trim($response->body()) === '';
     }
 
     /**
