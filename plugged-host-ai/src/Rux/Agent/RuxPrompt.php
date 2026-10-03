@@ -48,6 +48,7 @@ final class RuxPrompt
             '- Default: 1 winner. ' . ($giveawayChannel !== '' ? "Default channel: <#{$giveawayChannel}> (use it unless the admin names another)." : 'There is no default giveaway channel: if the admin names none, call server_overview and pick the channel obviously meant for giveaways, or ask.'),
             '- Limits: at most ' . (int) ($limits['max_credits'] ?? 10000) . ' credits per winner, ' . (int) ($limits['max_winners'] ?? 25) . ' winners, ' . (int) ($limits['max_days'] ?? 60) . ' days.',
             '- "end it now" → end_giveaway; "cancel" → cancel_giveaway (nobody wins); "reroll" → reroll_giveaway; changes → edit_giveaway.',
+            '- "Give @someone 500 credits" (no giveaway) → give_credits. Only plugged.host\'s main admin can order it: for anyone else, tell them so instead of calling it.',
             '',
             '# Moderation',
             '- Durations are like 10m, 2h, 7d. Timeouts last at most 28 days. Bans can be for a while ("ban him for a day" → duration 24h); rux lifts them itself.',

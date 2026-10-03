@@ -292,6 +292,7 @@ return [
             'details' => 'Details',
             'clear_warnings' => 'Warnings cleared',
             'nickname' => 'Nickname changed',
+            'credits' => 'Credits given',
             'said' => 'Message',
             'by_rux' => 'rux, automatically',
             'by_rule' => 'rux, rule #:rule',

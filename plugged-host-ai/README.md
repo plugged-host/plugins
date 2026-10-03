@@ -149,7 +149,13 @@ moderation permissions.
 ### Who rux listens to
 
 - **Admins**: Discord accounts linked to a **noprofit.space admin** account (`users.is_admin`).
-  They can order everything. noprofit.space is asked on every order, before the model is called.
+  They can order everything except giving credits. noprofit.space is asked on every order, before the model is called.
+- **The main admin** (`RUX_CREDIT_GRANTERS`, Discord ids; Admin → Plugins → plugged.host AI → rux)
+  can also have rux give someone credits (`give_credits`, at most `RUX_CREDIT_MAX`, 10,000 by
+  default, at once). The tool checks the order's author itself, so other admins, moderators,
+  standing rules and text rux reads cannot make it pay. noprofit.space books the credits as an
+  admin adjustment on the account the person linked Discord to (`POST /api/v1/internal/rux/credits`,
+  idempotent per grant) and the credit sync brings the balance to plugged.host.
 - **Moderators**: members of a role an admin made a rux moderator role (`set_moderator_role`).
   They can order moderation only: look up members, warn, timeout, kick, ban, unban, change
   nicknames, read, delete and purge messages, lock/slowmode, clear warnings, and see the rules,
@@ -174,6 +180,7 @@ providers' API keys, never against anyone's neo limits.
 | `cancel_giveaway`: nobody wins | `read_messages`: the latest in a channel (or one person's), or one message by link |
 | `reroll_giveaway`: extra winners, paid too | `delete_messages`: particular messages by link or id, any age |
 | `list_giveaways` | `edit_message`: fix rux's own posts, pin/unpin any message (admins) |
+| `give_credits`: credits for one person (main admin only) | |
 | | `channel_settings`: lock/unlock for @everyone, slowmode |
 | | `set_nickname`, `clear_warnings`, `list_cases` (the case log, filterable), `list_bans` |
 | | `manage_role`, `role_info` (a role's permissions), `send_message`, `server_overview` |

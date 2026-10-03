@@ -292,6 +292,7 @@ return [
             'details' => 'Details',
             'clear_warnings' => 'Verwarnungen gelöscht',
             'nickname' => 'Spitzname geändert',
+            'credits' => 'Credits vergeben',
             'said' => 'Nachricht',
             'by_rux' => 'rux, automatisch',
             'by_rule' => 'rux, Regel #:rule',

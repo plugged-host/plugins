@@ -305,6 +305,17 @@ class ModerationService
     }
 
     /**
+     * Credits given to someone's noprofit.space account on the main admin's order, for the case
+     * log and the mod log (noprofit.space keeps the ledger row).
+     *
+     * @param  array{id: string, name: string}  $target
+     */
+    public function credits(RuxContext $context, array $target, int $amount, ?string $reason, int $accountId): RuxCase
+    {
+        return $this->record($context, 'credits', $target, $reason, meta: ['credits' => $amount, 'account_id' => $accountId]);
+    }
+
+    /**
      * Change a member's server nickname, or remove it ($nick null).
      *
      * @param  array{id: string, name: string, member?: array<string, mixed>}  $target
@@ -518,6 +529,7 @@ class ModerationService
             isset($case->meta['cleared']) ? $case->meta['cleared'] . ' cleared, ' . $case->meta['left'] . ' left' : null,
             $case->action === 'nickname' ? ($case->meta['from'] ?? 'no nickname') . ' → ' . ($case->meta['to'] ?? 'no nickname') : null,
             isset($case->meta['changed']) ? 'changed: ' . implode(', ', (array) $case->meta['changed']) : null,
+            isset($case->meta['credits']) ? '+' . number_format((int) $case->meta['credits']) . ' credits' : null,
             $case->action === 'warn' && $case->target_id !== null ? RuxConfig::say('log.warnings', ['count' => $this->warningCount($case->target_id)]) : null,
         ]);
         if ($details !== []) {

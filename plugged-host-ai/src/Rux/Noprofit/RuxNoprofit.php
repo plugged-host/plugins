@@ -3,6 +3,7 @@
 namespace PluggedHost\Ai\Rux\Noprofit;
 
 use Illuminate\Http\Client\Response;
+use InvalidArgumentException;
 use PluggedHost\Core\Services\NoprofitClient;
 use Throwable;
 
@@ -117,6 +118,42 @@ class RuxNoprofit
             'giveaway_id' => (int) $response->json('giveaway_id', 0),
             'created' => (bool) $response->json('created', false),
             'recipients' => $recipients,
+        ];
+    }
+
+    /**
+     * Give credits to the account a Discord user linked, as $grantedBy (a noprofit.space admin
+     * account). Idempotent on $key: calling again with it gives nothing twice.
+     *
+     * @return array{account_id: int, name: string, amount: int, balance_after: int, created: bool}
+     *
+     * @throws InvalidArgumentException when they have not linked Discord, or $grantedBy is no admin
+     * @throws NoprofitUnavailable
+     */
+    public function grantCredits(string $key, string $discordId, int $amount, ?string $reason, int $grantedBy): array
+    {
+        try {
+            $response = $this->send('/credits', [
+                'key' => $key,
+                'discord_id' => $discordId,
+                'amount' => $amount,
+                'reason' => $reason,
+                'granted_by' => $grantedBy,
+            ], 15);
+        } catch (NoprofitUnavailable $e) {
+            throw match (true) {
+                str_contains($e->getMessage(), '(not_linked)') => new InvalidArgumentException("<@{$discordId}> has not linked Discord to a noprofit.space account, so there is no account to give credits to. They can link it at accounts.noprofit.space."),
+                str_contains($e->getMessage(), '(not_admin)') => new InvalidArgumentException('noprofit.space says the one giving credits is not an admin there.'),
+                default => $e,
+            };
+        }
+
+        return [
+            'account_id' => (int) $response->json('account_id', 0),
+            'name' => (string) $response->json('name', ''),
+            'amount' => (int) $response->json('amount', 0),
+            'balance_after' => (int) $response->json('balance_after', 0),
+            'created' => (bool) $response->json('created', false),
         ];
     }
 

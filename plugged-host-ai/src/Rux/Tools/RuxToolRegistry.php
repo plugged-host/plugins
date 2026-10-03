@@ -19,6 +19,7 @@ final class RuxToolRegistry
         Giveaways\EndGiveawayTool::class,
         Giveaways\CancelGiveawayTool::class,
         Giveaways\RerollGiveawayTool::class,
+        Credits\GiveCreditsTool::class,
         Moderation\LookupMemberTool::class,
         Moderation\WarnMemberTool::class,
         Moderation\TimeoutMemberTool::class,
