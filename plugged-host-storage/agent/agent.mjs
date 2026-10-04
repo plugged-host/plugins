@@ -21,7 +21,7 @@
 //   PH_MAX_ARCHIVE_JOBS    default 3     (tar builds at once; more answer 503 + Retry-After)
 //   PH_STREAM_STALL_SEC    default 60    (drop a streaming download that stops reading for this long)
 //   PH_RELEASE_DIR         default /opt/plugged-host-storage   (for self-update symlink swap)
-//   PH_VERSION             current version string (stamped by install.sh into the unit)
+//   PH_VERSION             fallback version string, used only when not run from releases/<version>/
 
 import http from 'node:http';
 import https from 'node:https';
@@ -30,8 +30,21 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
+
+// The version this process runs is the release folder it was started from, which the updater
+// names after the manifest version it unpacked. PH_VERSION in the env file is not rewritten by a
+// self-update, so trusting it alone made the agent re-install the same release and exit on
+// every start, forever.
+function runningVersion() {
+  try {
+    const dir = path.dirname(fs.realpathSync(fileURLToPath(import.meta.url)));
+    if (path.basename(path.dirname(dir)) === 'releases') return path.basename(dir);
+  } catch { /* fall back */ }
+  return process.env.PH_VERSION || '1.3.2';
+}
 
 const CFG = {
   panelUrl: (process.env.PH_PANEL_URL || '').replace(/\/+$/, ''),
@@ -44,7 +57,7 @@ const CFG = {
   mirrorIntervalMin: parseInt(process.env.PH_MIRROR_INTERVAL_MIN || '30', 10),
   updateIntervalMin: parseInt(process.env.PH_UPDATE_INTERVAL_MIN || '15', 10),
   releaseDir: process.env.PH_RELEASE_DIR || '/opt/plugged-host-storage',
-  version: process.env.PH_VERSION || '1.3.0',
+  version: runningVersion(),
   maxArchiveJobs: Math.max(1, parseInt(process.env.PH_MAX_ARCHIVE_JOBS || '3', 10)),
   streamStallMs: Math.max(10, parseInt(process.env.PH_STREAM_STALL_SEC || '60', 10)) * 1000,
   // How to turn a plan entry (host + path + uuid) into an rsync source. The pull credential
@@ -341,9 +354,15 @@ async function mirrorServer(entry) {
   const latest = existing[existing.length - 1];
   if (latest) linkDestArgs.push('--link-dest', path.join(snapBase, latest));
 
-  const sshArgs = CFG.rsyncSshKey
-    ? ['-e', `ssh -i ${CFG.rsyncSshKey} -o StrictHostKeyChecking=accept-new -o BatchMode=yes`]
-    : [];
+  // ConnectTimeout also bounds the banner exchange: a node that accepts TCP but never answers
+  // (hung sshd) otherwise holds the one-at-a-time replication loop forever. ServerAlive drops a
+  // session whose node stops answering mid-transfer. Per-node ports live in ~/.ssh/config.
+  const sshArgs = ['-e', [
+    'ssh',
+    ...(CFG.rsyncSshKey ? [`-i ${CFG.rsyncSshKey}`] : []),
+    '-o StrictHostKeyChecking=accept-new -o BatchMode=yes',
+    '-o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4',
+  ].join(' ')];
 
   const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
 
@@ -361,7 +380,7 @@ async function mirrorServer(entry) {
   } catch (e) {
     await report(entry, { state: 'error', last_error: String(e.message).slice(0, 500) });
     log('error', 'rsync failed', { uuid, err: e.message });
-    return;
+    return NODE_DOWN.test(String(e.message)) ? 'node-down' : 'failed';
   }
 
   // Snapshot the freshly-synced mirror by hardlinking it.
@@ -409,17 +428,46 @@ function staggerOffsetMinutes(uuid) {
   return h % Math.max(1, CFG.mirrorIntervalMin);
 }
 
+// ssh failures that are about the node, not the server: every other server on that node fails
+// the same way, so the node is skipped for a while instead of costing a timeout per server.
+const NODE_DOWN = /connect to host |banner exchange|Could not resolve hostname|No route to host|Permission denied \(publickey|Host key verification failed/;
+const NODE_BACKOFF_MS = 5 * 60 * 1000;
+
+// A server is due once an interval has passed since its last attempt, most overdue first.
+// (Matching one exact minute bucket per server skipped every bucket behind a pass that ran long,
+// so a few first copies or one hung node starved everyone else.) The first time a server is
+// seen, its uuid offset spreads it over the interval so a restart does not pull every volume.
+const lastAttemptAt = new Map(); // uuid -> ms
+const nodeDownUntil = new Map(); // host -> ms
+
 let mirroring = false;
 async function replicationTick() {
   if (mirroring) return;
   mirroring = true;
   try {
     const plan = await panelRequest('GET', '/plugged-host/storage/agent/plan');
-    const servers = Array.isArray(plan.servers) ? plan.servers : [];
-    const minute = new Date().getMinutes() % Math.max(1, CFG.mirrorIntervalMin);
-    for (const entry of servers) {
-      if (staggerOffsetMinutes(String(entry.uuid || '')) !== minute) continue;
-      await mirrorServer(entry).catch((e) => log('error', 'mirrorServer threw', { err: e.message }));
+    const servers = (Array.isArray(plan.servers) ? plan.servers : []).filter((e) => e && e.uuid);
+    const intervalMs = Math.max(1, CFG.mirrorIntervalMin) * 60 * 1000;
+    const now = Date.now();
+
+    const inPlan = new Set(servers.map((e) => String(e.uuid)));
+    for (const uuid of lastAttemptAt.keys()) if (!inPlan.has(uuid)) lastAttemptAt.delete(uuid);
+    for (const uuid of inPlan) {
+      if (!lastAttemptAt.has(uuid)) lastAttemptAt.set(uuid, now - intervalMs + staggerOffsetMinutes(uuid) * 60 * 1000);
+    }
+
+    const due = servers
+      .filter((e) => now - lastAttemptAt.get(String(e.uuid)) >= intervalMs)
+      .sort((a, b) => lastAttemptAt.get(String(a.uuid)) - lastAttemptAt.get(String(b.uuid)));
+
+    for (const entry of due) {
+      if ((nodeDownUntil.get(entry.host) || 0) > Date.now()) continue;
+      lastAttemptAt.set(String(entry.uuid), Date.now());
+      const result = await mirrorServer(entry).catch((e) => log('error', 'mirrorServer threw', { err: e.message }));
+      if (result === 'node-down') {
+        nodeDownUntil.set(entry.host, Date.now() + NODE_BACKOFF_MS);
+        log('error', 'node unreachable, skipping its servers for a while', { host: entry.host });
+      }
     }
   } catch (e) {
     log('error', 'replication tick failed', { err: e.message });
@@ -809,7 +857,9 @@ async function updateTick() {
     const manifest = JSON.parse(buffer.toString());
     if (!manifest.version || manifest.version === CFG.version) return;
 
-    const { buffer: bundle } = await fetchSigned('/plugged-host/storage/agent/bundle.tar.gz');
+    // Versioned URL: the panel sits behind Cloudflare, which caches .tar.gz paths, so a plain
+    // URL can serve the previous release's bundle and fail the digest check.
+    const { buffer: bundle } = await fetchSigned(`/plugged-host/storage/agent/bundle.tar.gz?v=${encodeURIComponent(manifest.version)}`);
     const digest = crypto.createHash('sha256').update(bundle).digest('hex');
     if (!safeEqual(digest, manifest.sha256 || '')) {
       log('error', 'bundle digest mismatch, refusing update', { want: manifest.sha256, got: digest }); return;

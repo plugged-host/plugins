@@ -569,6 +569,9 @@
                                                 <span class="sep" aria-hidden="true">&middot;</span>
                                                 <span>{{ \Carbon\Carbon::parse($srv['mtime'])->diffForHumans() }}</span>
                                             @endif
+                                        @elseif ($srv['unreachable'])
+                                            <span class="dot" aria-hidden="true"></span>
+                                            <span>Backup storage is unreachable right now, try again in a few minutes</span>
                                         @else
                                             <span class="dot" aria-hidden="true"></span>
                                             <span>Waiting for the first copy from the node</span>

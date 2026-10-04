@@ -110,6 +110,8 @@ class BackupPortalController extends Controller
                     'memory' => $server->memory,
                     'disk' => $server->disk,
                     'has_backup' => $hasBackup,
+                    // The storage agent did not answer: say so instead of "waiting for the first copy".
+                    'unreachable' => $info === null,
                     'bytes' => $info['bytes'] ?? null,
                     // Set when the archive is already built: the download then starts at full
                     // speed with a known size; otherwise it streams while it is being packed.
