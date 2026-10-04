@@ -10,7 +10,7 @@
 #
 set -euo pipefail
 
-VERSION="1.3.3"
+VERSION="1.3.4"
 RELEASE_DIR="${PH_RELEASE_DIR:-/opt/plugged-host-storage}"
 STORAGE_ROOT="${PH_STORAGE_ROOT:-/mnt/storage}"
 ENV_FILE="/etc/plugged-host-storage.env"

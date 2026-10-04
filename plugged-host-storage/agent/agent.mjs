@@ -43,7 +43,7 @@ function runningVersion() {
     const dir = path.dirname(fs.realpathSync(fileURLToPath(import.meta.url)));
     if (path.basename(path.dirname(dir)) === 'releases') return path.basename(dir);
   } catch { /* fall back */ }
-  return process.env.PH_VERSION || '1.3.3';
+  return process.env.PH_VERSION || '1.3.4';
 }
 
 const CFG = {
@@ -772,7 +772,9 @@ function startServer() {
           uuid: resolved.uuid,
           source: resolved.source,
           bytes,
-          mtime: st ? st.mtime.toISOString() : null,
+          // When the copy was taken. A snapshot folder keeps the volume's own mtime (rsync -a and
+          // cp -al copy it), but is never changed after the pass created it, so its ctime is.
+          mtime: st ? (srcDir !== resolved.dir ? st.ctime : st.mtime).toISOString() : null,
           // A ready archive downloads at once, with a known size.
           archive_bytes: cached ? cached.size : null,
         }));
