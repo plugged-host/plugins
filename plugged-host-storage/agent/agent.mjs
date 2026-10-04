@@ -43,7 +43,7 @@ function runningVersion() {
     const dir = path.dirname(fs.realpathSync(fileURLToPath(import.meta.url)));
     if (path.basename(path.dirname(dir)) === 'releases') return path.basename(dir);
   } catch { /* fall back */ }
-  return process.env.PH_VERSION || '1.3.2';
+  return process.env.PH_VERSION || '1.3.3';
 }
 
 const CFG = {
@@ -268,6 +268,27 @@ const COMPRESSOR = findOnPath('pigz') ? 'pigz -1' : 'gzip -1';
 
 // ---- Server Directory Resolution --------------------------------------------
 
+// The newest non-empty snapshot of a server's mirror, or null. A snapshot is only taken once a
+// pass has completed, so a mirror without one is a first copy still running (or one that died
+// half-way): it must not be offered as a backup or restored from.
+async function latestSnapshotDir(uuid) {
+  const snapBase = path.join(DIRS.snapshots, uuid);
+  const snaps = (await fsp.readdir(snapBase).catch(() => [])).sort();
+  for (let i = snaps.length - 1; i >= 0; i--) {
+    const dir = path.join(snapBase, snaps[i]);
+    const files = await fsp.readdir(dir).catch(() => []);
+    if (files.length > 0) return dir;
+  }
+  return null;
+}
+
+// A candidate directory is usable when it has files and, for a mirror, a completed pass.
+async function usableServerDir(base, dir, uuid) {
+  const files = await fsp.readdir(dir).catch(() => []);
+  if (files.length === 0) return false;
+  return base !== DIRS.mirror || (await latestSnapshotDir(uuid)) !== null;
+}
+
 // Resolve a UUID or short server ID (e.g. a1b2c3d4) to an existing non-empty directory.
 // Checks DIRS.mirror (current servers), then download (legacy backups), then CFG.archiveSource.
 async function resolveServerDir(id) {
@@ -288,11 +309,8 @@ async function resolveServerDir(id) {
       const exactPath = path.join(base, safeId);
       if (fs.existsSync(exactPath)) {
         const st = await fsp.stat(exactPath);
-        if (st.isDirectory()) {
-          const files = await fsp.readdir(exactPath).catch(() => []);
-          if (files.length > 0) {
-            return { dir: exactPath, uuid: safeId, source: path.basename(base) };
-          }
+        if (st.isDirectory() && await usableServerDir(base, exactPath, safeId)) {
+          return { dir: exactPath, uuid: safeId, source: path.basename(base) };
         }
       }
 
@@ -301,8 +319,7 @@ async function resolveServerDir(id) {
       for (const entry of entries) {
         if (entry.isDirectory() && entry.name.toLowerCase().startsWith(safeId)) {
           const dirPath = path.join(base, entry.name);
-          const files = await fsp.readdir(dirPath).catch(() => []);
-          if (files.length > 0) {
+          if (await usableServerDir(base, dirPath, entry.name)) {
             return { dir: dirPath, uuid: entry.name, source: path.basename(base) };
           }
         }
@@ -485,13 +502,7 @@ async function replicationTick() {
 // size and resumable ranges.
 async function archiveSource(resolved) {
   if (resolved.source === path.basename(DIRS.mirror)) {
-    const snapBase = path.join(DIRS.snapshots, resolved.uuid);
-    const snaps = (await fsp.readdir(snapBase).catch(() => [])).sort();
-    for (let i = snaps.length - 1; i >= 0; i--) {
-      const dir = path.join(snapBase, snaps[i]);
-      const files = await fsp.readdir(dir).catch(() => []);
-      if (files.length > 0) return dir;
-    }
+    return (await latestSnapshotDir(resolved.uuid)) || resolved.dir;
   }
   return resolved.dir;
 }
