@@ -2,6 +2,10 @@
 
 ## Unreleased (2.1)
 
+- **Ad refresh**: sandboxed units reload after `ADS_REFRESH_SECONDS` (5) in view, or
+  `ADS_REFRESH_PLUS_SECONDS` (10) for plugged.host Plus; only while half the unit is on screen in a
+  visible tab. `AdDisplayService::refreshSeconds()`, `scripts/refresh.blade.php` at `SCRIPTS_AFTER`,
+  settings section "Ad Refresh".
 - **In-game ads**: `plugged-host:ads-in-game` (every minute) sends `say <message>` to running
   Minecraft servers (not proxies) whose owner has neither plugged.host Plus nor an exemption,
   each once per interval at its own minute. Settings section "In-game Ads" (`ADS_IN_GAME_*`).

@@ -82,6 +82,10 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'slot_onboarding' => (bool) config('plugged-host-ads.placements.onboarding-install.enabled', true),
             'slot_server_tools' => (bool) config('plugged-host-ads.placements.server-tools.enabled', false),
 
+            'refresh_enabled' => (bool) config('plugged-host-ads.refresh.enabled', true),
+            'refresh_seconds' => (int) config('plugged-host-ads.refresh.seconds', 5),
+            'refresh_plus_seconds' => (int) config('plugged-host-ads.refresh.plus_seconds', 10),
+
             'z_index' => (int) config('plugged-host-ads.z_index', 0),
             'in_game_enabled' => (bool) config('plugged-host-ads.in_game.enabled', true),
             'in_game_message' => (string) config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host'),
@@ -312,6 +316,32 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->onIcon(TablerIcon::Check)
                         ->offIcon(TablerIcon::X)
                         ->default(fn () => config('plugged-host-ads.placements.server-tools.enabled', false)),
+                ]),
+
+            Section::make(trans('plugged-host-ads::strings.section_refresh'))
+                ->description(trans('plugged-host-ads::strings.section_refresh_desc'))
+                ->columns(2)
+                ->schema([
+                    Toggle::make('refresh_enabled')
+                        ->label(trans('plugged-host-ads::strings.refresh_enabled'))
+                        ->inline(false)
+                        ->columnSpanFull()
+                        ->default(fn () => config('plugged-host-ads.refresh.enabled', true)),
+                    TextInput::make('refresh_seconds')
+                        ->label(trans('plugged-host-ads::strings.refresh_seconds'))
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(3600)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.refresh.seconds', 5)),
+                    TextInput::make('refresh_plus_seconds')
+                        ->label(trans('plugged-host-ads::strings.refresh_plus_seconds'))
+                        ->helperText(trans('plugged-host-ads::strings.refresh_plus_seconds_helper'))
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(3600)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.refresh.plus_seconds', 10)),
                 ]),
 
             Section::make(trans('plugged-host-ads::strings.section_styling'))
@@ -666,6 +696,10 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
         $minDwell = $this->clamp($data['start_min_dwell'] ?? 15, 0, 120);
         $maxDwell = max($minDwell, $this->clamp($data['start_max_dwell'] ?? 30, 1, 300));
 
+        // Plus is never refreshed faster than everyone else (AdDisplayService::refreshSeconds()).
+        $refreshSeconds = $this->clamp($data['refresh_seconds'] ?? 5, 5, 3600);
+        $refreshPlusSeconds = max($refreshSeconds, $this->clamp($data['refresh_plus_seconds'] ?? 10, 5, 3600));
+
         $values = [
             'ADS_ENABLED' => !empty($data['enabled']) ? 'true' : 'false',
             'ADS_SHOW_APP_PANEL' => !empty($data['show_app_panel']) ? 'true' : 'false',
@@ -679,6 +713,10 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_SLOT_SERVER_LIST' => !empty($data['slot_server_list']) ? 'true' : 'false',
             'ADS_SLOT_ONBOARDING' => !empty($data['slot_onboarding']) ? 'true' : 'false',
             'ADS_SLOT_SERVER_TOOLS' => !empty($data['slot_server_tools']) ? 'true' : 'false',
+
+            'ADS_REFRESH_ENABLED' => !empty($data['refresh_enabled']) ? 'true' : 'false',
+            'ADS_REFRESH_SECONDS' => (string) $refreshSeconds,
+            'ADS_REFRESH_PLUS_SECONDS' => (string) $refreshPlusSeconds,
 
             'ADS_Z_INDEX' => (string) ($data['z_index'] ?? 0),
             'ADS_IN_GAME_ENABLED' => !empty($data['in_game_enabled']) ? 'true' : 'false',

@@ -149,6 +149,25 @@ return [
     'z_index' => env('ADS_Z_INDEX', 0),
 
     /*
+    |--------------------------------------------------------------------------
+    | Refresh
+    |--------------------------------------------------------------------------
+    |
+    | Every sandboxed banner/native frame on a page (in-content slot, named slots, the
+    | waiting rooms) reloads after it has been on screen for this many seconds. Only time
+    | in view counts: at least half the frame visible, in a visible tab, so a unit below
+    | the fold or in a background tab is never reloaded. plus_seconds is the interval for
+    | plugged.host Plus owners (PlusPlus sees no ads at all), never faster than seconds.
+    | Page-level formats (Social Bar, Popunder) and non-isolated units are not refreshed.
+    |
+    */
+    'refresh' => [
+        'enabled' => (bool) env('ADS_REFRESH_ENABLED', true),
+        'seconds' => (int) env('ADS_REFRESH_SECONDS', 5),
+        'plus_seconds' => (int) env('ADS_REFRESH_PLUS_SECONDS', 10),
+    ],
+
+    /*
     | In-game ads: a console `say` on running Minecraft servers (not proxies), each once per
     | interval at its own minute so the panel never sends them all at once. Owners with
     | plugged.host Plus (or PlusPlus, or an exempt role) do not get it. Needs ADS_ENABLED.

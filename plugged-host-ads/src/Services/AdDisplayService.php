@@ -8,6 +8,9 @@ class AdDisplayService
 {
     public const ANTIBLOCK_MODES = ['notice', 'modal', 'block'];
 
+    /** plugged-host-economy's Plus/PlusPlus service, asked by class name (optional dependency). */
+    private const MEMBERSHIP = 'PluggedHost\\Economy\\Services\\MembershipService';
+
     /**
      * Other plugins' pages that are themselves an ad interstitial.
      *
@@ -295,6 +298,29 @@ class AdDisplayService
         $placements = (array) config('plugged-host-ads.placements', []);
 
         return is_array($placements[$name] ?? null) ? $placements[$name] : null;
+    }
+
+    /**
+     * Seconds in view before a sandboxed unit reloads for this user, or 0 for no refresh.
+     * Plus owners get the slower plus_seconds; PlusPlus never gets here (exempt from ads).
+     */
+    public function refreshSeconds(?User $user): int
+    {
+        if (!(bool) config('plugged-host-ads.refresh.enabled', true)) {
+            return 0;
+        }
+
+        $seconds = max(5, (int) config('plugged-host-ads.refresh.seconds', 5));
+
+        try {
+            if ($user !== null && class_exists(self::MEMBERSHIP) && app(self::MEMBERSHIP)->hasPlus($user)) {
+                return max($seconds, (int) config('plugged-host-ads.refresh.plus_seconds', 10));
+            }
+        } catch (\Throwable) {
+            // No membership answer: the everyone interval.
+        }
+
+        return $seconds;
     }
 
     public function antiBlockEnabled(): bool

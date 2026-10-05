@@ -123,6 +123,19 @@ whatever the customer does next — a file, a console command, a sidebar link. O
 a click on a page that has just said out loud that the ads are what pay for the server. That asymmetry
 is the whole reason the two defaults differ.
 
+## Ad refresh
+
+On by default (`ADS_REFRESH_ENABLED`). Every sandboxed banner and native frame on a page (the
+in-content slot, the named slots, the start gate and the start queue's waiting room) reloads once it
+has been **in view** for `ADS_REFRESH_SECONDS` (default 5), or `ADS_REFRESH_PLUS_SECONDS` (default 10)
+for plugged.host Plus owners. PlusPlus sees no ads, so nothing to refresh. Settings: *Ad Refresh*.
+
+Only time in view counts: at least half the frame on screen, in a visible tab. A unit below the fold
+or in a background tab is never reloaded, so every refresh is an impression someone could see. The
+Plus interval is stored as at least the regular one. Social Bar, Popunder and non-isolated units are
+not refreshed (they live in the top document, where a reload would mean re-running third-party code
+against the panel).
+
 ## Ad-block response
 
 Off by default (`ADS_ANTIBLOCK_ENABLED=false`). When on, it only runs where an ad was actually asked

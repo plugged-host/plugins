@@ -41,6 +41,42 @@ class AdsPluginServiceProvider extends ServiceProvider
         $this->registerPageLevelUnits();
         $this->registerNamedSlotHooks();
         $this->registerAdBlockResponse();
+        $this->registerRefresh();
+    }
+
+    /**
+     * Reloads the sandboxed units after they have been in view for the user's interval
+     * (AdDisplayService::refreshSeconds). Once per page load; the script follows wire:navigate
+     * on its own, so units rendered after a navigation are picked up too.
+     */
+    protected function registerRefresh(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_AFTER,
+            function (): ?Htmlable {
+                try {
+                    $ads = app(AdDisplayService::class);
+
+                    [$user, $panelId, $isAuthPage] = $this->context();
+
+                    if (!$ads->shouldDisplay($user, $panelId, $isAuthPage)) {
+                        return null;
+                    }
+
+                    $seconds = $ads->refreshSeconds($user);
+
+                    if ($seconds <= 0) {
+                        return null;
+                    }
+
+                    return new HtmlString(view('plugged-host-ads::filament.scripts.refresh', [
+                        'seconds' => $seconds,
+                    ])->render());
+                } catch (Throwable) {
+                    return null;
+                }
+            },
+        );
     }
 
     /**
