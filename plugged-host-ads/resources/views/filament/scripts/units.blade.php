@@ -4,7 +4,14 @@
 
      Picking: a unit over several sizes (AdsterraService::pick()) arrives as one inert
      <template> per size, widest first; the widest that fits the unit's width is inserted,
-     or none. Nothing hidden is ever loaded. A slot left with nothing to show is hidden.
+     or none. Nothing hidden is ever loaded.
+
+     No fill: Adsterra sends nothing to some visitors (VPNs among them), which used to leave a
+     blank frame. A frame whose document has finished loading and still holds nothing with a
+     size after NO_FILL_AFTER is folded to zero height, and a slot, waiting-room cell or stack
+     left with no unit showing is hidden. A late fill unfolds it again. Only on a unit's first
+     load: a refreshed unit that comes back empty keeps its space, so nothing jumps under the
+     reader, and is refreshed again.
 
      Refresh (AdDisplayService::refreshSeconds(), Plus gets the slower interval, 0 is off):
      only time in view counts. A unit reloads once it has been at least half on screen, in a
@@ -47,11 +54,104 @@
                 group.appendChild(fit.content.cloneNode(true));
             }
         });
+    };
 
-        // A slot whose units all came out too wide gives its space back.
-        document.querySelectorAll('[data-ph-slot]:not([hidden])').forEach((slot) => {
-            if (!slot.querySelector('[data-ph-unit], [data-ph-notice], [data-ph-pick]:not([data-ph-picked])')) {
-                slot.hidden = true;
+    const NO_FILL_AFTER = 5000;
+    const NOT_CONTENT = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'BASE', 'NOSCRIPT', 'TEMPLATE']);
+
+    // Frame → when its document was first seen loaded and empty.
+    const emptySince = new WeakMap();
+    const ownStyle = new WeakMap();
+
+    // The srcdoc document once it has loaded, or null: a lazy frame that has not been asked for
+    // yet still holds its initial about:blank. Same-origin (allow-same-origin), so readable.
+    const frameDocument = (frame) => {
+        try {
+            const doc = frame.contentDocument;
+
+            return doc && doc.URL === 'about:srcdoc' && doc.readyState === 'complete' ? doc : null;
+        } catch (error) {
+            return null;
+        }
+    };
+
+    // The banner writes an iframe of its size, the native unit fills its container: either way
+    // something with a size. A unit Adsterra declined holds only our scripts and an empty div.
+    const hasAd = (doc) => Array.from(doc.body ? doc.body.querySelectorAll('*') : []).some((el) => {
+        if (NOT_CONTENT.has(el.tagName)) {
+            return false;
+        }
+
+        const box = el.getBoundingClientRect();
+
+        return box.width >= 10 && box.height >= 10;
+    });
+
+    // Folded rather than display: none, so its document keeps a layout and a late fill shows.
+    const fold = (frame) => {
+        ownStyle.set(frame, frame.style.cssText);
+        frame.dataset.phEmpty = '1';
+        frame.style.height = '0px';
+        frame.style.margin = '0';
+        frame.style.visibility = 'hidden';
+    };
+
+    const unfold = (frame) => {
+        frame.style.cssText = ownStyle.get(frame) ?? frame.style.cssText;
+        delete frame.dataset.phEmpty;
+    };
+
+    const checkFill = () => {
+        document.querySelectorAll('iframe[data-ph-unit][srcdoc]:not([data-ph-filled])').forEach((frame) => {
+            const doc = frameDocument(frame);
+
+            if (!doc) {
+                return;
+            }
+
+            if (hasAd(doc)) {
+                frame.dataset.phFilled = '1';
+
+                if (frame.dataset.phEmpty) {
+                    unfold(frame);
+                }
+
+                return;
+            }
+
+            if (frame.dataset.phEmpty || frame.dataset.phRefreshed) {
+                return;
+            }
+
+            if (!emptySince.has(frame)) {
+                emptySince.set(frame, Date.now());
+            } else if (Date.now() - emptySince.get(frame) >= NO_FILL_AFTER) {
+                fold(frame);
+            }
+        });
+    };
+
+    // A box with no unit left showing gives its space back: the slot, a waiting-room cell, and
+    // the waiting room's stack with its "Sponsored" caption. A unit still to be picked or still
+    // loading counts as showing.
+    const SHOWING = '[data-ph-unit]:not([data-ph-empty]), [data-ph-notice], [data-ph-pick]:not([data-ph-picked])';
+
+    // Taken out of the flow and folded, not display: none: inside a display: none box a frame has
+    // no layout, and a late fill could never be measured.
+    const FOLDED_BOX = ';position:absolute;height:0;min-height:0;margin:0;padding:0;overflow:hidden;visibility:hidden;pointer-events:none';
+    const boxStyle = new WeakMap();
+
+    const tidy = () => {
+        document.querySelectorAll('[data-ph-slot], .ph-gate-unit, .ph-gate-stack').forEach((box) => {
+            const showing = box.querySelector(SHOWING) !== null;
+
+            if (!showing && !box.dataset.phFolded) {
+                boxStyle.set(box, box.style.cssText);
+                box.dataset.phFolded = '1';
+                box.style.cssText += FOLDED_BOX;
+            } else if (showing && box.dataset.phFolded) {
+                box.style.cssText = boxStyle.get(box) ?? '';
+                delete box.dataset.phFolded;
             }
         });
     };
@@ -87,6 +187,9 @@
     const reload = (frame) => {
         const fresh = frame.cloneNode(false);
 
+        delete fresh.dataset.phFilled;
+        fresh.dataset.phRefreshed = '1';
+
         forget(frame);
         frame.replaceWith(fresh);
 
@@ -97,6 +200,8 @@
 
     const tick = () => {
         pick();
+        checkFill();
+        tidy();
 
         if (SECONDS <= 0) {
             return;
@@ -119,7 +224,9 @@
                 return;
             }
 
-            if (!visible || !inView.has(frame)) {
+            // A first load is left to the fill check until it shows an ad: refreshing it sooner
+            // would replace a unit Adsterra declined before it could be folded away.
+            if (!visible || !inView.has(frame) || (!frame.dataset.phFilled && !frame.dataset.phRefreshed)) {
                 return;
             }
 
@@ -133,8 +240,13 @@
         });
     };
 
-    pick();
-    document.addEventListener('livewire:navigated', pick);
+    const settle = () => {
+        pick();
+        tidy();
+    };
+
+    settle();
+    document.addEventListener('livewire:navigated', settle);
     window.setInterval(tick, TICK);
 @endverbatim
 })();

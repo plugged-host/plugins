@@ -2,6 +2,10 @@
 
 ## Unreleased (2.1)
 
+- **Unfilled units fold away**: a sandboxed unit whose document has loaded but holds no ad after
+  5 s (Adsterra declines VPN traffic) is folded, and a slot, waiting-room cell or stack left empty
+  gives its space back; a late fill unfolds it. Refresh waits for a first fill; the ad-block
+  detector ignores folded units.
 - **Banner pool**: `ADS_ADSTERRA_BANNERS` (`key:WIDTHxHEIGHT:host`, host per zone; settings field
   "Banner Zones" also takes pasted Adsterra snippets) plus the main banner. Zones are handed out
   once per page. Foot of every page: leaderboard `728x90|468x60|320x50`, the widest that fits

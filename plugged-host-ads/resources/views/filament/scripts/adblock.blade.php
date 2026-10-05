@@ -199,8 +199,10 @@
         }
     };
 
+    // A unit the unit script folded because Adsterra sent nothing (a VPN, say) is not evidence
+    // of a blocker, so it is left out rather than counted as collapsed.
     const slotsCollapsed = () => {
-        const units = Array.from(document.querySelectorAll('[data-ph-unit]'));
+        const units = Array.from(document.querySelectorAll('[data-ph-unit]:not([data-ph-empty])'));
 
         if (!units.length) {
             return false;

@@ -144,6 +144,16 @@ of cropped, and nothing is hidden with CSS: a hidden iframe still loads, and an 
 is what a network audits for. The named-slot wrapper is `wire:ignore`, so a Livewire morph cannot put
 the templates back over the inserted frame.
 
+### Units Adsterra does not fill
+
+Adsterra sends nothing to some visitors (VPN traffic among them). The unit script looks inside each
+sandboxed frame (same-origin, so readable): once its document has loaded and still holds nothing with a
+size for 5 s, the frame is folded to zero height, and a slot, waiting-room cell or the whole waiting-room
+stack with no unit left showing is taken out of the flow. A late fill unfolds it. Only a unit's first
+load is folded: a refreshed unit that comes back empty keeps its space and is refreshed again, and a
+first load starts its refresh clock only once it has filled. The ad-block detector ignores folded units,
+so a declined unit is never evidence of a blocker.
+
 ## Ad refresh
 
 On by default (`ADS_REFRESH_ENABLED`). Every sandboxed banner and native frame on a page (the
