@@ -20,6 +20,10 @@
     $enabled ??= true;
     $history ??= null;
 @endphp
+{{-- No x-cloak on the root or the panel, only on the launcher: Livewire's morph puts x-cloak back
+     on every update until Alpine takes it off again a moment later, and an ancestor of the message
+     list that is hidden for that moment costs the list its scroll position (neo jumped to the top
+     of the chat). The panel is hidden until Alpine starts by display: none, which x-show owns. --}}
 <div class="neo-root"
      x-data="{
         open: false,
@@ -27,6 +31,7 @@
         pendingLog: null,
         flash: null,
         attention: null,
+        pinned: true,
         init() {
             try { this.open = localStorage.getItem('plugged-host-neo.open') === '1'; } catch (e) {}
             try { this.applySize(JSON.parse(localStorage.getItem('plugged-host-neo.size') || 'null')); } catch (e) {}
@@ -118,6 +123,22 @@
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 160) + 'px';
         },
+        {{-- Keeps the chat on its newest message while it is read from the bottom; scrolled up, it
+             stays put. Whether to follow is decided when the rows change, before the browser's own
+             scroll events for that change, and the scroll waits for the next frame's settled layout. --}}
+        follow(el) {
+            this.pinned = true;
+            let queued = false;
+            const stick = () => {
+                if (!this.pinned || queued) { return; }
+                queued = true;
+                requestAnimationFrame(() => { queued = false; el.scrollTop = el.scrollHeight; });
+            };
+            el.addEventListener('scroll', () => { this.pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 48; }, { passive: true });
+            {{-- style too: the typing dots coming up (x-show) change no rows. --}}
+            new MutationObserver(stick).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+            stick();
+        },
         {{-- Enter sends on a keyboard; on touch screens it is a new line and the button sends. --}}
         enter(e) {
             if (e.shiftKey || window.matchMedia('(pointer: coarse)').matches) { return; }
@@ -127,6 +148,7 @@
         async run(first, flashErrors = false) {
             if (this.working) { return; }
             this.working = true;
+            this.pinned = true;
             this.flash = null;
             let r = null;
             try {
@@ -152,9 +174,8 @@
             }
         },
      }"
-     x-on:plugged-host-ai-ask.window="ask($event.detail)"
-     x-cloak>
-    <div class="neo-panel" x-ref="panel" x-show="open"
+     x-on:plugged-host-ai-ask.window="ask($event.detail)">
+    <div class="neo-panel" x-ref="panel" x-show="open" style="display: none"
          x-transition:enter="neo-t" x-transition:enter-start="neo-t-from" x-transition:enter-end="neo-t-to"
          x-transition:leave="neo-t" x-transition:leave-start="neo-t-to" x-transition:leave-end="neo-t-from">
         <div class="neo-grip" x-on:pointerdown.prevent="startResize($event)" x-on:dblclick="resetSize()" title="{{ $s('chat.resize') }}"></div>
@@ -297,7 +318,7 @@
                     <button type="button" class="neo-btn neo-btn-primary" x-on:click="acknowledge()">{{ $s('consent.accept') }}</button>
                 </div>
             @else
-                <div class="neo-body" x-init="new MutationObserver(() => { $el.scrollTop = $el.scrollHeight; }).observe($el, { childList: true, subtree: true }); $el.scrollTop = $el.scrollHeight;">
+                <div class="neo-body" x-init="follow($el)">
                     @if($messages->isEmpty())
                         <div class="neo-empty">
                             <div>
@@ -315,66 +336,71 @@
                     @endif
 
                     @foreach($messages as $message)
-                        @if($message->role === 'user')
-                            <div class="neo-msg-user" wire:key="neo-{{ $message->id }}">{{ $message->content }}</div>
-                        @elseif($message->role === 'assistant')
-                            @if(filled($message->content))
-                                <div class="neo-msg-ai" wire:key="neo-{{ $message->id }}">{!! \Illuminate\Support\Str::markdown($message->content, ['html_input' => 'escape', 'allow_unsafe_links' => false], [new \PluggedHost\Ai\Support\Markdown\ImagesAsTextExtension()]) !!}</div>
-                            @endif
-                        @elseif($message->role === 'tool')
-                            @php
-                                $status = (string) $message->status;
-                                $label = $message->meta['summary'] ?? $message->tool_name;
-                                $auto = ($message->meta['approval'] ?? null) === 'auto';
-                            @endphp
-                            @if($status === 'pending_approval')
-                                <div class="neo-card" wire:key="neo-{{ $message->id }}">
-                                    <div class="neo-tile" title="{{ $s('chat.status.pending_approval') }}">
-                                        {!! $icon('tabler-hand-stop', 'neo-i-sm neo-warn') !!}
+                        {{-- One keyed box per row (display: contents, so the rows stay the list's flex items). Keys
+                             on the rows themselves sat inside each @if's morph markers, which pair up by position:
+                             once the 60-row window slid, every update rebuilt all of them. --}}
+                        <div class="neo-item" wire:key="neo-{{ $message->id }}">
+                            @if($message->role === 'user')
+                                <div class="neo-msg-user">{{ $message->content }}</div>
+                            @elseif($message->role === 'assistant')
+                                @if(filled($message->content))
+                                    <div class="neo-msg-ai">{!! \Illuminate\Support\Str::markdown($message->content, ['html_input' => 'escape', 'allow_unsafe_links' => false], [new \PluggedHost\Ai\Support\Markdown\ImagesAsTextExtension()]) !!}</div>
+                                @endif
+                            @elseif($message->role === 'tool')
+                                @php
+                                    $status = (string) $message->status;
+                                    $label = $message->meta['summary'] ?? $message->tool_name;
+                                    $auto = ($message->meta['approval'] ?? null) === 'auto';
+                                @endphp
+                                @if($status === 'pending_approval')
+                                    <div class="neo-card">
+                                        <div class="neo-tile" title="{{ $s('chat.status.pending_approval') }}">
+                                            {!! $icon('tabler-hand-stop', 'neo-i-sm neo-warn') !!}
+                                            <span class="neo-tile-label">{{ $label }}</span>
+                                        </div>
+                                        @if(filled($message->meta['preview'] ?? null))
+                                            <details class="neo-preview">
+                                                <summary>{{ $s('chat.show_change') }}</summary>
+                                                <pre>{{ $message->meta['preview'] }}</pre>
+                                            </details>
+                                        @endif
+                                        <div class="neo-row">
+                                            <button type="button" class="neo-btn neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.approve({{ $message->id }}))">{{ $s('chat.approve') }}</button>
+                                            <button type="button" class="neo-btn neo-btn-ghost neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.deny({{ $message->id }}))">{{ $s('chat.deny') }}</button>
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="neo-tile" title="{{ $s('chat.status.' . $status) }}{{ $auto ? ' · ' . $s('chat.auto') : '' }}">
+                                        {!! $stateIcon($status) !!}
                                         <span class="neo-tile-label">{{ $label }}</span>
+                                        @if($auto)
+                                            {!! $icon('tabler-bolt', 'neo-i-sm neo-dim') !!}
+                                        @endif
                                     </div>
-                                    @if(filled($message->meta['preview'] ?? null))
-                                        <details class="neo-preview">
-                                            <summary>{{ $s('chat.show_change') }}</summary>
-                                            <pre>{{ $message->meta['preview'] }}</pre>
-                                        </details>
-                                    @endif
-                                    <div class="neo-row">
-                                        <button type="button" class="neo-btn neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.approve({{ $message->id }}))">{{ $s('chat.approve') }}</button>
-                                        <button type="button" class="neo-btn neo-btn-ghost neo-grow" x-bind:disabled="working" x-on:click="run(() => $wire.deny({{ $message->id }}))">{{ $s('chat.deny') }}</button>
-                                    </div>
-                                </div>
+                                @endif
                             @else
-                                <div class="neo-tile" wire:key="neo-{{ $message->id }}" title="{{ $s('chat.status.' . $status) }}{{ $auto ? ' · ' . $s('chat.auto') : '' }}">
-                                    {!! $stateIcon($status) !!}
-                                    <span class="neo-tile-label">{{ $label }}</span>
-                                    @if($auto)
-                                        {!! $icon('tabler-bolt', 'neo-i-sm neo-dim') !!}
-                                    @endif
+                                @php
+                                    $kind = $message->meta['kind'] ?? null;
+                                    $noticeIcon = match ($kind) {
+                                        'limited' => 'tabler-hourglass-high',
+                                        'unlinked' => 'tabler-link',
+                                        'error' => 'tabler-alert-triangle',
+                                        default => 'tabler-info-circle',
+                                    };
+                                @endphp
+                                <div class="neo-notice">
+                                    {!! $icon($noticeIcon, 'neo-i-sm') !!}
+                                    <div class="neo-notice-body">
+                                        <span>{{ $message->content }}</span>
+                                        @if($kind === 'unlinked')
+                                            <a class="neo-btn" href="{{ route('plugged-host.sso.link') }}">{{ $s('chat.activate') }}</a>
+                                        @elseif(in_array($kind, ['error', 'limited'], true) && $loop->last)
+                                            <button type="button" class="neo-btn" x-on:click="run(() => $wire.retry())">{{ $s('chat.retry') }}</button>
+                                        @endif
+                                    </div>
                                 </div>
                             @endif
-                        @else
-                            @php
-                                $kind = $message->meta['kind'] ?? null;
-                                $noticeIcon = match ($kind) {
-                                    'limited' => 'tabler-hourglass-high',
-                                    'unlinked' => 'tabler-link',
-                                    'error' => 'tabler-alert-triangle',
-                                    default => 'tabler-info-circle',
-                                };
-                            @endphp
-                            <div class="neo-notice" wire:key="neo-{{ $message->id }}">
-                                {!! $icon($noticeIcon, 'neo-i-sm') !!}
-                                <div class="neo-notice-body">
-                                    <span>{{ $message->content }}</span>
-                                    @if($kind === 'unlinked')
-                                        <a class="neo-btn" href="{{ route('plugged-host.sso.link') }}">{{ $s('chat.activate') }}</a>
-                                    @elseif(in_array($kind, ['error', 'limited'], true) && $loop->last)
-                                        <button type="button" class="neo-btn" x-on:click="run(() => $wire.retry())">{{ $s('chat.retry') }}</button>
-                                    @endif
-                                </div>
-                            </div>
-                        @endif
+                        </div>
                     @endforeach
 
                     @if($pending > 1)
@@ -418,7 +444,7 @@
     </div>
 
     <button type="button" class="neo-launcher {{ $enabled ? '' : 'neo-launcher-off' }}" x-on:click="toggle()" x-show="!open"
-            title="{{ $enabled ? $s('chat.open') : $s('chat.off_title') }}" aria-label="{{ $enabled ? $s('chat.open') : $s('chat.off_title') }}">
+            title="{{ $enabled ? $s('chat.open') : $s('chat.off_title') }}" aria-label="{{ $enabled ? $s('chat.open') : $s('chat.off_title') }}" x-cloak>
         <span x-show="!working">{!! $icon('tabler-sparkles') !!}</span>
         <span x-show="working" x-cloak>{!! $icon('tabler-loader-2', 'neo-i neo-spin') !!}</span>
         @if($enabled)

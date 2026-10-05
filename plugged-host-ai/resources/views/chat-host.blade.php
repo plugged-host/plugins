@@ -57,6 +57,7 @@
     .neo-iconbtn:disabled { opacity: .35; pointer-events: none; }
 
     .neo-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 1rem; display: flex; flex-direction: column; gap: .5rem; }
+    .neo-item { display: contents; }
     .neo-empty { margin: auto 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1rem; padding: 1rem .25rem; color: var(--neo-muted); font-size: .8125rem; }
     .neo-greet { font-weight: 600; font-size: 1rem; color: var(--neo-text); margin-bottom: .25rem; }
     .neo-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
