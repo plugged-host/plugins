@@ -41,15 +41,16 @@ class AdsPluginServiceProvider extends ServiceProvider
         $this->registerPageLevelUnits();
         $this->registerNamedSlotHooks();
         $this->registerAdBlockResponse();
-        $this->registerRefresh();
+        $this->registerUnitScript();
     }
 
     /**
-     * Reloads the sandboxed units after they have been in view for the user's interval
-     * (AdDisplayService::refreshSeconds). Once per page load; the script follows wire:navigate
-     * on its own, so units rendered after a navigation are picked up too.
+     * The ad unit script: inserts the size that fits for multi-size units, and reloads the
+     * sandboxed units after they have been in view for the user's interval
+     * (AdDisplayService::refreshSeconds, 0 = no refresh). Once per page load; the script
+     * follows wire:navigate on its own, so units rendered after a navigation are picked up too.
      */
-    protected function registerRefresh(): void
+    protected function registerUnitScript(): void
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::SCRIPTS_AFTER,
@@ -63,14 +64,8 @@ class AdsPluginServiceProvider extends ServiceProvider
                         return null;
                     }
 
-                    $seconds = $ads->refreshSeconds($user);
-
-                    if ($seconds <= 0) {
-                        return null;
-                    }
-
-                    return new HtmlString(view('plugged-host-ads::filament.scripts.refresh', [
-                        'seconds' => $seconds,
+                    return new HtmlString(view('plugged-host-ads::filament.scripts.units', [
+                        'seconds' => $ads->refreshSeconds($user),
                     ])->render());
                 } catch (Throwable) {
                     return null;
@@ -114,7 +109,41 @@ class AdsPluginServiceProvider extends ServiceProvider
                 return $this->renderNamedSlot('server-list-footer');
             },
         );
+
+        // `server-tools`: a strip under the page header on server-panel pages. Decided by the
+        // page class (the hook's scopes) rather than the route, because this hook also renders
+        // on Livewire update requests, where the route is livewire.update and a route check
+        // would let the strip into the console and the waiting rooms on their next poll.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::PAGE_HEADER_WIDGETS_AFTER,
+            function (array $scopes = []): ?Htmlable {
+                try {
+                    if (Filament::getCurrentPanel()?->getId() !== 'server'
+                        || array_intersect($scopes, self::NOT_SERVER_TOOLS) !== []) {
+                        return null;
+                    }
+                } catch (Throwable) {
+                    return null;
+                }
+
+                return $this->renderNamedSlot('server-tools');
+            },
+        );
     }
+
+    /**
+     * Server-panel pages that are not tools: the console (the one page someone is mid-task
+     * on), and the pages that are a wait or a dead end with their own ad handling.
+     */
+    private const NOT_SERVER_TOOLS = [
+        'App\\Filament\\Server\\Pages\\Console',
+        StartGatePage::class,
+        'PluggedHost\\Queue\\Filament\\Server\\Pages\\StartQueuePage',
+        'PluggedHost\\Limbo\\Filament\\Server\\Pages\\RestoreFromLimboPage',
+        'PluggedHost\\Core\\Filament\\Server\\Pages\\SuspendedServerPage',
+        'PluggedHost\\Minecraft\\Filament\\Server\\Pages\\ServerInstallingPage',
+        'PluggedHost\\Minecraft\\Filament\\Server\\Pages\\ServerOnboardingPage',
+    ];
 
     /**
      * Render one named slot as the same anonymous component a view would, or null on any failure —

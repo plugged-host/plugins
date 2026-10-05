@@ -56,6 +56,14 @@ return [
         'banner_key' => env('ADS_ADSTERRA_BANNER_KEY', ''),
         'banner_host' => env('ADS_ADSTERRA_BANNER_HOST', 'www.highperformanceformat.com'),
         'banner_size' => env('ADS_ADSTERRA_BANNER_SIZE', '728x90'),
+
+        /*
+        | More banner zones, as `key:WIDTHxHEIGHT:host` entries, comma separated
+        | (host optional, defaults to banner_host). Together with the main banner they
+        | are one pool: each placement asks it for sizes (see `placements`), and a zone
+        | is served at most once per page. The waiting rooms take what is left.
+        */
+        'banners' => env('ADS_ADSTERRA_BANNERS', ''),
         'native_script' => env('ADS_ADSTERRA_NATIVE_SCRIPT', ''),
         'native_container' => env('ADS_ADSTERRA_NATIVE_CONTAINER', ''),
         'native_height' => env('ADS_ADSTERRA_NATIVE_HEIGHT', 320),
@@ -120,19 +128,23 @@ return [
     | serves the same zone twice. A new placement is a line here plus one
     | <x-plugged-host-ads::slot name="..." /> tag — no new provider code.
     |
-    | Each slot: enabled, zone (Adsterra zone / logical key), format, max_height (reserved space
-    | so nothing shifts on load). Ranked by revenue per unit of annoyance; conservative defaults.
+    | Each slot: enabled, zone (logical key), units (specs for AdsterraService::unitsFor():
+    | `native`, a banner size, or sizes joined by `|` for "the widest that fits"), max_height
+    | (reserved space so nothing shifts on load). The in-content slot at the foot of every
+    | page is AdsterraService::IN_CONTENT (leaderboard + native); the named slots use other
+    | sizes so no zone is on a page twice. server-tools is a strip under the page header on
+    | server-panel pages, console excepted.
     |
     */
     'max_units_per_page' => (int) env('ADS_MAX_UNITS_PER_PAGE', 2),
 
     'placements' => [
-        'sidebar-footer'   => ['enabled' => env('ADS_SLOT_SIDEBAR_FOOTER', true),  'zone' => 'sidebar-native',  'format' => 'native',  'max_height' => 300],
-        'create-under-plan'=> ['enabled' => env('ADS_SLOT_CREATE', true),           'zone' => 'create-native',   'format' => 'native',  'max_height' => 320],
-        'store-under-tx'   => ['enabled' => env('ADS_SLOT_STORE', true),            'zone' => 'store-leader',    'format' => 'banner',  'max_height' => 90],
-        'server-list-footer'=> ['enabled' => env('ADS_SLOT_SERVER_LIST', true),     'zone' => 'list-native',     'format' => 'native',  'max_height' => 320],
-        'onboarding-install'=> ['enabled' => env('ADS_SLOT_ONBOARDING', true),      'zone' => 'onboarding-native','format' => 'native', 'max_height' => 320],
-        'server-tools'     => ['enabled' => env('ADS_SLOT_SERVER_TOOLS', false),    'zone' => 'in-content',      'format' => 'native',  'max_height' => 320],
+        'sidebar-footer'    => ['enabled' => env('ADS_SLOT_SIDEBAR_FOOTER', true),  'zone' => 'sidebar-native',    'units' => ['native'],  'max_height' => 300],
+        'create-under-plan' => ['enabled' => env('ADS_SLOT_CREATE', true),          'zone' => 'create-rect',       'units' => ['300x250'], 'max_height' => 250],
+        'store-under-tx'    => ['enabled' => env('ADS_SLOT_STORE', true),           'zone' => 'store-rect',        'units' => ['300x250'], 'max_height' => 250],
+        'server-list-footer'=> ['enabled' => env('ADS_SLOT_SERVER_LIST', true),     'zone' => 'list-rect',         'units' => ['300x250'], 'max_height' => 250],
+        'onboarding-install'=> ['enabled' => env('ADS_SLOT_ONBOARDING', true),      'zone' => 'onboarding-rect',   'units' => ['300x250'], 'max_height' => 250],
+        'server-tools'      => ['enabled' => env('ADS_SLOT_SERVER_TOOLS', false),   'zone' => 'server-tools-strip','units' => ['468x60|320x50'], 'max_height' => 0],
     ],
 
     /*
@@ -302,8 +314,8 @@ return [
         | Waiting-room ad surfaces, one switch each.
         |
         | This is the surface the mechanic actually earns on, so it carries more
-        | formats than the rest of the panel: the display banner, any number of
-        | extra banner zones, the native unit, the Social Bar and Popunder, the
+        | formats than the rest of the panel: the leaderboard, the rest of the banner
+        | pool, the native unit, the Social Bar and Popunder, the
         | room's own script zone (adsterra.gate_script) and an Adsterra Direct Link
         | rendered as a button.
         |
@@ -313,9 +325,8 @@ return [
         | having two switches rather than one. Neither does anything without a zone
         | pasted into adsterra.<format>_script.
         |
-        | banners takes `key:size` pairs — "abc123:300x250,def456:160x600" — using
-        | sizes from AdsterraService::BANNER_SIZES and the same banner_host as the
-        | main unit. Malformed entries are dropped rather than guessed at.
+        | After the leaderboard (`banner`) the room takes every zone of the banner pool
+        | (adsterra.banners) the page has not used, up to AdsterraService::MAX_GATE_BANNERS.
         |
         | direct_link is off by default and stays a link the user chooses to click.
         | A panel that navigates people to an advertiser on its own is adware, and
@@ -323,7 +334,6 @@ return [
         */
         'gate_ads' => [
             'banner' => env('ADS_START_GATE_BANNER', true),
-            'banners' => env('ADS_START_GATE_BANNERS', ''),
             'native' => env('ADS_START_GATE_NATIVE', true),
             'social_bar' => env('ADS_START_GATE_SOCIAL_BAR', true),
             'popunder' => env('ADS_START_GATE_POPUNDER', true),

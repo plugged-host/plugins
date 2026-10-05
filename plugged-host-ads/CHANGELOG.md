@@ -2,6 +2,14 @@
 
 ## Unreleased (2.1)
 
+- **Banner pool**: `ADS_ADSTERRA_BANNERS` (`key:WIDTHxHEIGHT:host`, host per zone; settings field
+  "Banner Zones" also takes pasted Adsterra snippets) plus the main banner. Zones are handed out
+  once per page. Foot of every page: leaderboard `728x90|468x60|320x50`, the widest that fits
+  (phones no longer get a cropped 728x90) + native; named slots: `300x250` (they used to repeat the
+  foot's banner and native); `server-tools` is now placed: a `468x60|320x50` strip under the page
+  header on server pages, not the console or waiting pages. The waiting rooms take the rest of the
+  pool. Replaces the gate-only `ADS_START_GATE_BANNERS`. `scripts/refresh.blade.php` is now
+  `scripts/units.blade.php` (size picking + refresh).
 - **Ad refresh**: sandboxed units reload after `ADS_REFRESH_SECONDS` (5) in view, or
   `ADS_REFRESH_PLUS_SECONDS` (10) for plugged.host Plus; only while half the unit is on screen in a
   visible tab. `AdDisplayService::refreshSeconds()`, `scripts/refresh.blade.php` at `SCRIPTS_AFTER`,

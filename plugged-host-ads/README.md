@@ -70,6 +70,7 @@ entirely — a half-filled format renders nothing rather than something broken.
 | Banner Key | `'key' : '…'` in the Banner snippet's `atOptions` (32 hex characters) |
 | Banner Size | Must match the size you chose in Adsterra, or the unit never fills |
 | Banner Host | The **hostname only** from the Banner snippet's `invoke.js` URL (`www.highperformanceformat.com`, or whatever yours says — Adsterra rotates these per unit). Paste the whole URL if it is easier; it is reduced to the host on save. |
+| Banner Zones | More banner zones: paste the Banner snippets as Adsterra gives them, or `key:WIDTHxHEIGHT:host` one per line. Stored as `ADS_ADSTERRA_BANNERS` (see *Banner pool*) |
 | Native Banner Script URL | The `src` of the Native Banner `<script>` (`//pl…/…/invoke.js`) |
 | Native Banner Container ID | The `id` of the empty `<div>` in the Native Banner snippet |
 | Social Bar / Popunder Script URL | The `src` of that snippet's `<script>` |
@@ -122,6 +123,26 @@ A popunder opens a tab on the *next click*, wherever its script loaded. Panel-wi
 whatever the customer does next — a file, a console command, a sidebar link. On the starting page it is
 a click on a page that has just said out loud that the ads are what pay for the server. That asymmetry
 is the whole reason the two defaults differ.
+
+## Banner pool
+
+The main banner (`ADS_ADSTERRA_BANNER_KEY`/`_SIZE`/`_HOST`) and every zone in `ADS_ADSTERRA_BANNERS`
+(`key:WIDTHxHEIGHT:host`, comma separated, host optional) form one pool. Each placement asks the pool
+for sizes, and a zone is handed out at most once per page (`AdsterraService::take*()`, request-scoped),
+so two placements never serve the same zone in one document.
+
+| Placement | Units |
+|---|---|
+| Foot of every page (`CONTENT_END`) | Leaderboard (`728x90`, `468x60` or `320x50`, whichever fits) + native |
+| Named slots: create, store, server list, onboarding | `300x250` |
+| `server-tools`: under the page header on server pages, not the console or waiting pages | `468x60`, or `320x50` on phones |
+| Waiting rooms (start gate, start queue) | Leaderboard, then every pool zone the page has not used (up to six), then native |
+
+A unit over several sizes renders one inert `<template>` per size, widest first, and the unit script
+inserts the widest that fits its container, or none. A banner wider than the screen is left out instead
+of cropped, and nothing is hidden with CSS: a hidden iframe still loads, and an impression nobody can see
+is what a network audits for. The named-slot wrapper is `wire:ignore`, so a Livewire morph cannot put
+the templates back over the inserted frame.
 
 ## Ad refresh
 
@@ -296,8 +317,7 @@ the rest of the panel — and each one is still its own switch, under **Start Ga
 
 | Switch | Default | What it adds to the page |
 |---|---|---|
-| `ADS_START_GATE_BANNER` | `true` | The main display Banner |
-| `ADS_START_GATE_BANNERS` | `""` | Extra Banner zones for this page only, as `key:size` pairs — `abc123:300x250,def456:160x600`. Up to six; malformed entries are dropped, never guessed at |
+| `ADS_START_GATE_BANNER` | `true` | The leaderboard (`728x90`/`468x60`/`320x50`, whichever fits). After it come the pool zones the page has not used, up to six (see *Banner pool*) |
 | `ADS_START_GATE_NATIVE` | `true` | The Native Banner |
 | `ADS_START_GATE_SOCIAL_BAR` | `true` | The Social Bar zone, if one is configured — whether or not it is switched on panel-wide |
 | `ADS_START_GATE_POPUNDER` | `true` | The Popunder zone. With `ADS_ADSTERRA_POPUNDER_PANEL_WIDE` off this is the only page it runs on, and a page the user is already waiting on is the least intrusive place for it |
@@ -306,7 +326,7 @@ the rest of the panel — and each one is still its own switch, under **Start Ga
 
 **Layout.** The first two units sit directly under the status card, above everything else — this page is
 not a progress bar with ads attached, it is the moment the server is paid for — and the rest go into a
-second block below it, so a long list of extra banner zones is not all crammed above the fold. Both
+second block below it, so the skyscrapers and the rest of the pool are not all crammed above the fold. Both
 blocks are a two-column grid from `lg` up, which on a desktop panel puts two units in one screen instead
 of one unit and a scroll, and each unit keeps its reserved `min-height` so the page does not jump as they
 fill. The sidebar, its toggles and the breadcrumbs are hidden for the duration, which both widens the
@@ -455,8 +475,7 @@ keys into `pelican/.env`.
 | `ADS_START_LINKVERTISE_REWARD` | `1` | Tokens per verified completion |
 | `ADS_START_LINKVERTISE_DAILY_CAP` | `5` | Verified completions per user per day. `0` means no cap, which is not recommended |
 | `ADS_START_GATE_ON_NAVIGATION` | `false` | Also gate opening any page of a stopped, oversized server, not just the Start click |
-| `ADS_START_GATE_BANNER` | `true` | Display Banner on the waiting page |
-| `ADS_START_GATE_BANNERS` | `""` | Extra Banner zones for the waiting page, as `key:size` pairs, up to six |
+| `ADS_START_GATE_BANNER` | `true` | Leaderboard on the waiting page |
 | `ADS_START_GATE_NATIVE` | `true` | Native Banner on the waiting page |
 | `ADS_START_GATE_SOCIAL_BAR` | `true` | Load the Social Bar zone there, panel-wide or not |
 | `ADS_START_GATE_POPUNDER` | `true` | Load the Popunder zone there, panel-wide or not |
@@ -471,10 +490,11 @@ Dotenv refuses to parse, which would take the whole panel down on the next reque
 
 | Render hook | Content |
 |---|---|
-| `CONTENT_END`, `SIMPLE_LAYOUT_END` | The ad slot: notice anchor, Adsterra banner and native frames |
+| `CONTENT_END`, `SIMPLE_LAYOUT_END` | The ad slot: notice anchor, leaderboard and native frames |
+| `PAGE_HEADER_WIDGETS_AFTER` | The `server-tools` strip on server pages (by page class: not the console or waiting pages) |
 | `BODY_END` | Adsterra Social Bar and Popunder scripts; the waiting room's own zone; `linkvertise.js` on the earn page only |
 | `STYLES_AFTER` | Ad-block notice/overlay CSS (unconditional while the feature is on) |
-| `SCRIPTS_AFTER` | Ad-block detector, gated per page |
+| `SCRIPTS_AFTER` | Ad-block detector, gated per page; the unit script (size picking + refresh) wherever ads show |
 
 Every hook body is wrapped in `try/catch (Throwable) { return null; }`. An ad plugin must never be able
 to take a page down.
