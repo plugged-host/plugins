@@ -8,6 +8,7 @@ use App\Models\Allocation;
 use App\Models\Node;
 use App\Models\Server;
 use App\Models\ServerTransfer;
+use App\Models\User;
 use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Servers\TransferServerService;
 use Carbon\CarbonInterface;
@@ -16,6 +17,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use PluggedHost\Core\Power\StartGate;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Limbo\Filament\Server\Pages\RestoreFromLimboPage;
 use PluggedHost\Limbo\Models\ServerLimboState;
@@ -37,7 +39,7 @@ use Throwable;
  * outcome: nothing is suspended, unsuspended or marked restored on the strength of a transfer
  * merely having been asked for.
  */
-class LimboService
+class LimboService implements StartGate
 {
     /** Rows reconcile() looks at. */
     private const UNSETTLED = ['hibernating', 'limbo', 'restoring'];
@@ -119,10 +121,10 @@ class LimboService
     }
 
     /**
-     * The PowerActionInterceptor seam (ads → limbo, first in the chain). Returns the restore
-     * page URL when the server is parked in limbo, else null (start proceeds).
+     * Gate 10 in core's StartChain, first in the chain. Returns the restore page URL when the
+     * server is parked in limbo, else null (start proceeds).
      */
-    public function interceptStart(mixed $user, Server $server, string $action): ?string
+    public function interceptStart(User $user, Server $server, string $action): ?string
     {
         if (!$this->tableReady()) {
             return null;

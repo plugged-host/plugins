@@ -17,7 +17,7 @@ use Throwable;
  * window, any tablet -- every label wraps onto three lines and the address is cut off. This is
  * the same component (registered under upstream's `server-entry` name in
  * PluggedHostThemeV2ServiceProvider, so the list, the lazy loading, the power actions and
- * plugged-host-ads' PowerActionInterceptor are all unchanged) with its own view, laid out by a
+ * core's StartChain are all unchanged) with its own view, laid out by a
  * container query on the card itself: one line per resource when the card is narrow, three
  * compact columns with the address underneath when it is medium, four columns when it is wide.
  * The list's grid (theme.css) fits as many cards per row as the window has room for.

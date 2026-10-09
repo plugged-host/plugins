@@ -298,7 +298,7 @@ return [
         | Where the gate bites.
         |
         | The gate fires on the Start click itself: both of the panel's start
-        | surfaces are Livewire calls, so PowerActionInterceptor can refuse one
+        | surfaces are Livewire calls, so core's StartChain can refuse one
         | before wings is ever told (see that class for why this was thought
         | impossible at first).
         |

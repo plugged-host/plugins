@@ -19,9 +19,9 @@ use Throwable;
  *
  * **Off by default since wave 3.** This shipped as the gate's only trigger on a
  * premise that turned out to be false — that the console's Start button never
- * reaches PHP. It does (see PowerActionInterceptor), so gating navigation was both
+ * reaches PHP. It does (see core's StartChain), so gating navigation was both
  * unnecessary and wrong in practice: it charged an ad view for opening the file
- * manager of a server that happened to be stopped. `PowerActionInterceptor` gates
+ * manager of a server that happened to be stopped. core's `StartChain` gates
  * the click itself, and this stays behind `start_credits.gate_on_navigation` for the
  * one thing it still covers that the interceptor cannot — a container started from
  * outside the panel (client API, a schedule) where the panel only ever sees the

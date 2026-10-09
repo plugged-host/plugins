@@ -24,7 +24,7 @@ use Throwable;
  * running server's file manager. It is not true: upstream's console Start button
  * is a modal-less Filament action, so the click is a Livewire call to
  * `mountAction('start')` and the websocket event is dispatched *by* PHP at the end
- * of it. `PowerActionInterceptor` sits in front of that call, and the navigation
+ * of it. core's `StartChain` sits in front of that call, and the navigation
  * gate is now off by default (`start_credits.gate_on_navigation`).
  *
  * Every check has to fail open. `Server::retrieveStatus()` reaches out to wings
@@ -107,7 +107,7 @@ class StartGateService
      * meant a customer whose server was already down could not reach their own
      * files, backups or settings without sitting through an ad first — the gate
      * fired on "clicked the server", not on "asked for the expensive thing".
-     * `PowerActionInterceptor` now covers the Start click directly, which is both
+     * core's `StartChain` now covers the Start click directly, which is both
      * narrower and harder to get around. Left as a switch because the wide net is
      * still the only thing that catches a start issued outside the panel.
      */

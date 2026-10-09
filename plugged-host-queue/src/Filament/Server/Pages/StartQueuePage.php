@@ -23,7 +23,7 @@ use Throwable;
  * The waiting page for a start that is being held back.
  *
  * Reached by pressing Start or Restart on a server whose node is over the pressure
- * line: plugged-host-ads' `PowerActionInterceptor` cancels the Livewire call and sends
+ * line: core's `StartChain` cancels the Livewire call and sends
  * the user here instead, so — unlike the ad gate, which starts the container on the
  * click and collects an impression while it boots — nothing has been sent to wings yet
  * and the container is still down. That difference is the whole shape of this page.

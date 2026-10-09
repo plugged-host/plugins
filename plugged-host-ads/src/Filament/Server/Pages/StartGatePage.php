@@ -20,7 +20,7 @@ use Throwable;
  * The waiting room a user sits in before reaching an oversized server.
  *
  * Reached by pressing Start or Restart, not by opening a server:
- * `PowerActionInterceptor` cancels the Livewire call that would have reached wings —
+ * core's `StartChain` cancels the Livewire call that would have reached wings —
  * and then sends that power signal itself, before raising this page. So the container
  * is already coming up behind the room, and the room is the ad time the start is paid
  * with rather than a queue the start sits in. The user pays with attention while their

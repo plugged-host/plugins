@@ -10,6 +10,7 @@ use App\Repositories\Daemon\DaemonServerRepository;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Power\StartGate;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Queue\Filament\Server\Pages\StartQueuePage;
 use PluggedHost\Queue\Models\StartQueueEntry;
@@ -18,11 +19,11 @@ use Throwable;
 /**
  * The line itself: who joins it, who leaves it, and when.
  *
- * The enforceable moment is the Start click, and plugged-host-ads already owns the
- * one Livewire `before('call')` hook that can cancel it — Livewire runs every such
+ * The enforceable moment is the Start click, and core's StartChain owns the one
+ * Livewire `before('call')` hook that can cancel it — Livewire runs every such
  * listener regardless of who returns early, so two interceptors would both act on the
- * same cancelled start. Ads therefore asks us first, by string class name, and
- * `interceptStart()` is that whole contract: a URL means "this start is ours now and
+ * same cancelled start. We are a StartGate in that chain (after limbo, before the ad
+ * gate), and `interceptStart()` is that whole contract: a URL means "this start is ours now and
  * we will dispatch it when the node has room", null means "not our business, carry
  * on". Everything below is either producing that answer or honouring it.
  *
@@ -40,7 +41,7 @@ use Throwable;
  * turns a monitoring outage into a fleet-wide lockout is worse than the pressure it
  * was protecting against.
  */
-class StartQueueService
+class StartQueueService implements StartGate
 {
     /** Released because the node came back under the line and it was this entry's turn. */
     public const REASON_CAPACITY = 'capacity';

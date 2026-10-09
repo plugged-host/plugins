@@ -3,14 +3,13 @@
 namespace PluggedHost\Ads\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use PluggedHost\Ads\Services\PowerActionInterceptor;
+use PluggedHost\Ads\Services\AdStartGate;
 use PluggedHost\Ads\Services\StartGateService;
-use Throwable;
-
-use function Livewire\before;
+use PluggedHost\Core\Power\StartChain;
 
 /**
- * Wiring for the start gate — the Livewire power-action interception behind the ads.
+ * Wiring for the start gate: the ad-funded waiting room, gate 30 in core's StartChain (which
+ * owns the Livewire power-action hook since 2.2).
  *
  * Picked up automatically: PluginService registers every class in src/Providers/,
  * so there is no list anywhere that has to learn about this file. It was called
@@ -34,22 +33,11 @@ class StartGatePluginProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(StartGateService::class);
-        $this->app->singleton(PowerActionInterceptor::class);
+        $this->app->singleton(AdStartGate::class);
     }
 
     public function boot(): void
     {
-        try {
-            // `before` and not `Livewire::listen`: listeners added with listen()
-            // land behind Livewire's own component-hook listener, and the hook that
-            // handles `__dispatch` calls the listener method itself — by the time a
-            // late listener ran, ListServers would already have told wings to start
-            // the container. See PowerActionInterceptor's docblock.
-            before('call', function ($component, $method, $params, $context, $returnEarly) {
-                app(PowerActionInterceptor::class)->handle($component, $method, $params, $returnEarly);
-            });
-        } catch (Throwable) {
-            // No interception rather than a panel that will not boot.
-        }
+        app(StartChain::class)->register('plugged-host-ads', 30, AdStartGate::class);
     }
 }

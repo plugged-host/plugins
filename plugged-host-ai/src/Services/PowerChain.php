@@ -7,27 +7,24 @@ use App\Models\Server;
 use App\Models\User;
 use App\Repositories\Daemon\DaemonServerRepository;
 use PluggedHost\Ai\Tools\ToolResult;
-use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Core\Power\StartChain;
 use Throwable;
 
 /**
  * Power actions requested by neo, sent through the same start chain as the Start button.
  *
- * start/restart go to plugged-host-ads' PowerActionInterceptor::interceptFor() first, which
- * asks limbo, the start queue and the ad gate in that order. A URL back means one of them now
- * owns the action (restored, queued, or already sent behind the waiting room), so neo must
- * not send it again and takes the user to that page instead. Without the ads plugin there is
- * no chain, exactly as on the Console page.
+ * start/restart go to core's StartChain::interceptFor() first, which asks the enabled gates
+ * (limbo, the start queue, the ad gate) in order. A URL back means one of them now owns the
+ * action (restored, queued, or already sent behind the waiting room), so neo must not send it
+ * again and takes the user to that page instead.
  */
 final class PowerChain
 {
-    private const INTERCEPTOR = 'PluggedHost\\Ads\\Services\\PowerActionInterceptor';
-
     public function dispatch(User $user, Server $server, string $action): ToolResult
     {
-        if (in_array($action, ['start', 'restart'], true) && Plugins::available(self::INTERCEPTOR)) {
+        if (in_array($action, StartChain::GATED_ACTIONS, true)) {
             try {
-                $url = app(self::INTERCEPTOR)->interceptFor($user, $server, $action);
+                $url = app(StartChain::class)->interceptFor($user, $server, $action);
             } catch (Throwable $e) {
                 // Fail open, like the Livewire hook: a chain that cannot answer must not lose the start.
                 report($e);

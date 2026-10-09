@@ -4,23 +4,24 @@ namespace PluggedHost\Queue\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Power\StartChain;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Queue\Console\Commands\QueueSweepCommand;
 use PluggedHost\Queue\Filament\Server\Pages\StartQueuePage;
 use PluggedHost\Queue\Services\PriorityPassService;
+use PluggedHost\Queue\Services\StartQueueService;
 use Throwable;
 
 /**
- * The queue's only service provider: the sweep schedule, and two lines of
- * cooperation with plugged-host-ads.
+ * The queue's only service provider: the sweep schedule, our place in core's start chain,
+ * and two lines of cooperation with plugged-host-ads.
  *
  * What is *not* here is the reason this plugin is small. The interception itself — the
- * Livewire hook that turns a Start click into a place in the line — lives in ads'
- * `PowerActionInterceptor`, because Livewire's `EventBus::trigger()` runs every
- * `before('call')` listener whatever the first one returns, so two plugins hooking the
- * same call would each cancel it and only one of the two answers would survive. Ads got
- * there first, so ads owns the hook and asks this plugin by class name before it does
- * anything of its own.
+ * Livewire hook that turns a Start click into a place in the line — is core's StartChain,
+ * because Livewire's `EventBus::trigger()` runs every `before('call')` listener whatever
+ * the first one returns, so two plugins hooking the same call would each cancel it and
+ * only one of the two answers would survive. One hook in core; this plugin is asked as
+ * gate 20, after limbo and before the ad gate.
  */
 class QueuePluginProvider extends ServiceProvider
 {
@@ -49,6 +50,8 @@ class QueuePluginProvider extends ServiceProvider
 
     public function boot(): void
     {
+        app(StartChain::class)->register('plugged-host-queue', 20, StartQueueService::class);
+
         $this->registerAsInterstitial();
         $this->injectActivityDescriptions();
         $this->registerClientApi();
