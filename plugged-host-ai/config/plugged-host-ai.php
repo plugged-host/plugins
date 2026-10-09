@@ -114,43 +114,26 @@ return [
                 ];
             };
 
+            // No provider is set up out of the box: fill the slots in the AI plugin's settings
+            // (any OpenAI-compatible, Anthropic or Gemini endpoint and its key). Slot 1 is tried
+            // first, the others on failover.
+            $blank = fn (string $driver): array => [
+                'enabled' => false,
+                'label' => '',
+                'driver' => $driver,
+                'endpoint' => '',
+                'model' => '',
+                'max_tokens' => 4096,
+                'timeout' => 30,
+                'daily_token_cap' => 0,
+                'extra_headers' => [],
+                'extra_body' => [],
+            ];
+
             return [
-                1 => $slot(1, [
-                    'enabled' => true,
-                    'label' => 'Groq Qwen',
-                    'driver' => 'openai',
-                    'endpoint' => 'https://api.groq.com/openai/v1/chat/completions',
-                    'model' => 'qwen/qwen3.8-27b',
-                    'max_tokens' => 4096,
-                    'timeout' => 20,
-                    'daily_token_cap' => 0,
-                    'extra_headers' => [],
-                    'extra_body' => ['reasoning_format' => 'hidden'],
-                ]),
-                2 => $slot(2, [
-                    'enabled' => true,
-                    'label' => 'Groq gpt-oss',
-                    'driver' => 'openai',
-                    'endpoint' => 'https://api.groq.com/openai/v1/chat/completions',
-                    'model' => 'openai/gpt-oss-120b',
-                    'max_tokens' => 4096,
-                    'timeout' => 20,
-                    'daily_token_cap' => 0,
-                    'extra_headers' => [],
-                    'extra_body' => ['reasoning_effort' => 'medium'],
-                ]),
-                3 => $slot(3, [
-                    'enabled' => true,
-                    'label' => 'justwoker Opus',
-                    'driver' => 'anthropic',
-                    'endpoint' => 'https://api.justwoker.icu/v1/messages',
-                    'model' => 'claude-opus-4-8',
-                    'max_tokens' => 4096,
-                    'timeout' => 50,
-                    'daily_token_cap' => 3000000,
-                    'extra_headers' => [],
-                    'extra_body' => [],
-                ]),
+                1 => $slot(1, $blank('openai')),
+                2 => $slot(2, $blank('openai')),
+                3 => $slot(3, $blank('anthropic')),
             ];
         })(),
     ],

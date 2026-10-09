@@ -63,7 +63,7 @@ by copying lines. They go in the panel's `.env` (the form writes them; every one
 
 | Panel `.env` | Default | |
 |---|---|---|
-| `NEO_P{1,2,3}_ENABLED`, `_LABEL`, `_DRIVER` (`openai`, `anthropic`, `gemini`), `_ENDPOINT`, `_API_KEY`, `_MODEL`, `_MAX_TOKENS`, `_TIMEOUT`, `_DAILY_TOKEN_CAP` | Groq Qwen, Groq gpt-oss, justwoker Opus, no keys | provider slots, tried in order |
+| `NEO_P{1,2,3}_ENABLED`, `_LABEL`, `_DRIVER` (`openai`, `anthropic`, `gemini`), `_ENDPOINT`, `_API_KEY`, `_MODEL`, `_MAX_TOKENS`, `_TIMEOUT`, `_DAILY_TOKEN_CAP` | none (all three off) | provider slots, tried in order: set at least slot 1 |
 | `NEO_P{n}_EXTRA_HEADERS_B64`, `NEO_P{n}_EXTRA_BODY_B64` | `{}` / the slot's | base64-encoded JSON objects |
 | `NEO_SHORT_WINDOW_HOURS`, `NEO_SHORT_TOKENS` | 5, 3000000 | the short window |
 | `NEO_LONG_WINDOW_DAYS`, `NEO_LONG_TOKENS` | 7, 15000000 | the long window |
