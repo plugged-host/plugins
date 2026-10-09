@@ -192,6 +192,8 @@ return [
         'timeout' => 'Zeitlimit (Sekunden)',
         'daily_token_cap' => 'Tägliches Token-Limit',
         'daily_token_cap_hint' => '0 = kein Limit. Danach wird dieser Anbieter bis morgen (UTC) übersprungen.',
+        'vision' => 'Sieht Bilder',
+        'vision_hint' => 'Screenshots gehen zuerst an Slots, die Bilder sehen; die anderen bekommen stattdessen einen Hinweis. Gemini- und Claude-Modelle können das, die meisten Groq-Modelle nicht.',
         'extra_headers' => 'Zusätzliche Header (JSON-Objekt)',
         'extra_headers_hint' => 'z. B. {"User-Agent": "…"}. Auth-Header werden automatisch gesetzt.',
         'extra_body' => 'Zusätzliche Anfragefelder (JSON-Objekt)',

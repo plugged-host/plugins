@@ -192,6 +192,8 @@ return [
         'timeout' => 'Timeout (seconds)',
         'daily_token_cap' => 'Daily token cap',
         'daily_token_cap_hint' => '0 = no cap. Once reached, this provider is skipped until tomorrow (UTC).',
+        'vision' => 'Sees images',
+        'vision_hint' => 'Screenshots go to the slots that see images first; the others get a note in their place. Gemini and Claude models can, most Groq models cannot.',
         'extra_headers' => 'Extra headers (JSON object)',
         'extra_headers_hint' => 'e.g. {"User-Agent": "…"}. Auth headers are set for you.',
         'extra_body' => 'Extra request fields (JSON object)',
