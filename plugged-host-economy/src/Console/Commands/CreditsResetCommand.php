@@ -6,9 +6,9 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\AccountLimits;
 
 /**
  * Reset the credit economy without confiscating anything already spent.
@@ -270,13 +270,13 @@ class CreditsResetCommand extends Command
 
         User::query()->has('servers')->chunkById(100, function ($users) use (&$rows) {
             foreach ($users as $user) {
-                $limits = AccountAllowance::forUser($user);
+                $limits = AccountLimits::forUser($user);
 
-                if (!$limits) {
+                if ($limits === null) {
                     continue;
                 }
 
-                $overage = $limits->getOverage($user);
+                $overage = AccountLimits::overage($user, $limits);
 
                 if (array_sum($overage) <= 0) {
                     continue;

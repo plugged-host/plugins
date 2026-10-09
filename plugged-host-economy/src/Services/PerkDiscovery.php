@@ -9,8 +9,8 @@ use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\AccountLimits;
 use PluggedHost\Economy\Services\ResourceStoreService;
-use PluggedHost\Servers\Support\AccountAllowance;
 
 /**
  * The perks a user has not claimed yet, as a list any view can render.
@@ -193,7 +193,7 @@ class PerkDiscovery
             return null;
         }
 
-        if (AccountAllowance::forUser($user) === null) {
+        if (AccountLimits::forUser($user) === null) {
             return null;
         }
 

@@ -4,9 +4,9 @@ namespace PluggedHost\Economy\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\AccountLimits;
 
 /**
  * Reclaims credits that were awarded and should not have been kept — currently
@@ -205,7 +205,7 @@ class CreditRecoveryService
     public function resourceHeadroom(User $user, ?UserCredits $userCredits = null): array
     {
         $userCredits ??= UserCredits::forUser($user);
-        $limits = AccountAllowance::forUser($user);
+        $limits = AccountLimits::forUser($user);
 
         if (!$userCredits) {
             return ['cpu' => 0, 'memory' => 0, 'disk' => 0];
@@ -216,9 +216,9 @@ class CreditRecoveryService
         $usedDisk = (int) $user->servers()->sum('disk');
 
         return [
-            'cpu' => $this->headroomFor($limits?->cpu, $usedCpu, (int) $userCredits->extra_cpu),
-            'memory' => $this->headroomFor($limits?->memory, $usedMemory, (int) $userCredits->extra_memory),
-            'disk' => $this->headroomFor($limits?->disk, $usedDisk, (int) $userCredits->extra_disk),
+            'cpu' => $this->headroomFor($limits['cpu'] ?? null, $usedCpu, (int) $userCredits->extra_cpu),
+            'memory' => $this->headroomFor($limits['memory'] ?? null, $usedMemory, (int) $userCredits->extra_memory),
+            'disk' => $this->headroomFor($limits['disk'] ?? null, $usedDisk, (int) $userCredits->extra_disk),
         ];
     }
 

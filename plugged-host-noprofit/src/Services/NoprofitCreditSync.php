@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Economy\Events\AccountLimitsChanged;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\AccountSummary;
 use PluggedHost\Noprofit\Models\NoprofitCreditOutbox;
 use PluggedHost\Noprofit\Services\NoprofitClient;
 use PluggedHost\Noprofit\Support\NoprofitLink;
-use PluggedHost\Servers\Support\AccountAllowance;
 use RuntimeException;
 use Throwable;
 
@@ -619,9 +619,7 @@ final class NoprofitCreditSync
             app(AccountSummary::class)->forget($user);
         }
 
-        if (Plugins::available(AccountAllowance::class)) {
-            AccountAllowance::forgetMemo($user);
-        }
+        AccountLimitsChanged::dispatch($user);
     }
 
     private static function client(): NoprofitClient

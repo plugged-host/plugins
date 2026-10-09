@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Economy\Events\AccountLimitsChanged;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Models\UserMembership;
 use Throwable;
@@ -337,10 +338,7 @@ class MembershipService
 
     protected function forgetAllowance(User $user): void
     {
-        $allowance = 'PluggedHost\\Servers\\Support\\AccountAllowance';
-        if (Plugins::available($allowance)) {
-            $allowance::forgetMemo($user);
-        }
+        AccountLimitsChanged::dispatch($user);
 
         $summary = 'PluggedHost\\Economy\\Services\\AccountSummary';
         if (Plugins::available($summary)) {

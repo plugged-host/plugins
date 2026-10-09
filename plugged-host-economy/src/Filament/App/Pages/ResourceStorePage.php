@@ -10,8 +10,8 @@ use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Livewire\DiscordRewards;
 use PluggedHost\Economy\Filament\App\Widgets\PerkDiscoveryWidget;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\AccountLimits;
 use PluggedHost\Economy\Services\ResourceStoreService;
-use PluggedHost\Servers\Support\AccountAllowance;
 
 /**
  * The Resource Store: the credit balance and the resources credits buy -- CPU, memory and
@@ -129,7 +129,7 @@ class ResourceStorePage extends Page
             // "Earn credits on Discord": the Discord rewards tab on the profile page.
             'rewardsUrl' => Plugins::available(DiscordRewards::class) ? DiscordRewards::url() : null,
             // No plan yet (noprofit.space has not synced this account): nothing to show or sell.
-            'resources' => $user instanceof User && AccountAllowance::forUser($user) !== null
+            'resources' => $user instanceof User && AccountLimits::forUser($user) !== null
                 ? $this->resources($user, (int) ($userCredits?->credits ?? 0), $store)
                 : [],
             'transactions' => $userCredits ? $userCredits->transactions()->take(10)->get() : collect(),
@@ -144,8 +144,8 @@ class ResourceStorePage extends Page
      */
     protected function resources(User $user, int $credits, ResourceStoreService $store): array
     {
-        $allowance = AccountAllowance::forUser($user);
-        $usage = AccountAllowance::getUsage($user);
+        $allowance = AccountLimits::forUser($user);
+        $usage = AccountLimits::usage($user);
         $pricing = $store->pricing(60);
         $sells = $pricing !== null && $store->sellsComputeTo($user);
         $percent = fn (int $n): string => $n . '%';
@@ -158,7 +158,7 @@ class ResourceStorePage extends Page
             'memory' => [trans('plugged-host-core::strings.memory'), $size, 'buyMemory'],
             'disk' => [trans('plugged-host-core::strings.disk'), $size, 'buyDisk'],
         ] as $key => [$label, $format, $method]) {
-            $limit = (int) ($allowance?->{$key} ?? 0);
+            $limit = (int) ($allowance[$key] ?? 0);
             $used = (int) ($usage[$key] ?? 0);
             $current = $store->current($user, $key);
             $priceLimit = $store->limit($user, $key);

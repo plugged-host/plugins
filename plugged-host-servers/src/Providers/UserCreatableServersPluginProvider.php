@@ -6,18 +6,20 @@ use App\Filament\App\Resources\Servers\Pages\ListServers;
 use App\Filament\Server\Resources\Allocations\AllocationResource;
 use App\Models\Allocation;
 use App\Models\Server;
-use PluggedHost\Servers\Filament\Components\Actions\CreateServerAction;
-use PluggedHost\Servers\Filament\Components\Actions\CreateNetworkPortsAction;
-use PluggedHost\Core\Services\AllocationInvariant;
+use App\Services\Deployment\AllocationSelectionService;
 use Filament\Actions\DissociateAction;
 use Filament\Actions\DissociateBulkAction;
 use Filament\Facades\Filament;
-use App\Services\Deployment\AllocationSelectionService;
-use PluggedHost\Servers\Services\BalancedAllocationSelectionService;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Services\AllocationInvariant;
+use PluggedHost\Economy\Events\AccountLimitsChanged;
+use PluggedHost\Servers\Filament\Components\Actions\CreateNetworkPortsAction;
+use PluggedHost\Servers\Filament\Components\Actions\CreateServerAction;
+use PluggedHost\Servers\Services\BalancedAllocationSelectionService;
+use PluggedHost\Servers\Support\AccountAllowance;
 
 class UserCreatableServersPluginProvider extends ServiceProvider
 {
@@ -135,6 +137,9 @@ class UserCreatableServersPluginProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Economy says an account's limits changed: forget the allowance remembered for it.
+        Event::listen(AccountLimitsChanged::class, fn (AccountLimitsChanged $event) => AccountAllowance::forgetMemo($event->user));
+
         Event::listen(\App\Events\Server\Installed::class, function (\App\Events\Server\Installed $event): void {
             $server = $event->server;
             if (!$server || !$server->egg) {
