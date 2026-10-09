@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
 - **New plugin**: noprofit.space is optional now. Sign-in, the account link, account sync,
   `/migrate`, the identity lock, the SFTP check and the `/api/noprofit/*` endpoints moved here

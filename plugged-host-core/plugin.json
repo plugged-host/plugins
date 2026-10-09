@@ -2,7 +2,7 @@
     "id": "plugged-host-core",
     "name": "plugged.host Core",
     "author": "plugged.host",
-    "version": "1.3.0",
+    "version": "2.2.0",
     "description": "The platform the other plugged.host plugins build on: suspension and account deletion, panel hardening and error pages, node telemetry, the welcome tour and sidebar, and the shared hooks (start chain, account portal, plugin dependencies, plugged-host:doctor).",
     "category": "plugin",
     "url": null,

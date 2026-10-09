@@ -86,6 +86,21 @@ final class Plugins
     }
 
     /**
+     * Whether $id is a plugged.host plugin: its plugin.json declares a "plugged_host" block. Those
+     * share the release version (Support\Release); upstream plugins keep their own.
+     */
+    public static function firstParty(string $id): bool
+    {
+        try {
+            $path = plugin_path($id, 'plugin.json');
+
+            return is_file($path) && array_key_exists('plugged_host', (array) json_decode((string) file_get_contents($path), true));
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * The plugins $id requires that are not enabled.
      *
      * @return list<string>

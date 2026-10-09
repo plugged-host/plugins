@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
 - **Split out of plugged-host-core.** Same tables, routes (`/plugged-host/abuse/agent/*`),
   `ABUSE_*` settings and node agent, so installed agents keep reporting; the classes moved from

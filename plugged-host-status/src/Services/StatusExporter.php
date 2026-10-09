@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use PluggedHost\Core\Support\Release;
 use PluggedHost\Status\Models\StatusComponentOverride;
 use PluggedHost\Status\Models\StatusDailyUptime;
 use PluggedHost\Status\Models\StatusIncident;
@@ -172,6 +173,8 @@ class StatusExporter
         return [
             'schema_version' => 1,
             'generated_at' => now()->toIso8601String(),
+            // The release the panel runs (v2.2.0.9b53c14), for the sites' footers.
+            'release' => Release::full(),
             'overall' => [
                 'status' => $overallStatus,
                 'label' => $this->label($overallStatus),

@@ -1,7 +1,13 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
+- **One version for plugged.host**: `v<major major>.<major>.<patch>.<commit>` (e.g. v2.2.0.9b53c14),
+  from the plugins repo's `VERSION` file plus the checkout's commit (`Support\Release`). Shown at
+  the foot of every panel page, on error pages, the backups portal, `plugged-host:doctor`, in the
+  status export (`release`, for the sites' footers) and to neo. Every plugged.host plugin reports
+  that same version, commit included (plugin.json holds `2.2.0`; the commit is added when the
+  plugin list is read). `PLUGGED_HOST_RELEASE` overrides it for a deploy without `.git`.
 - The console's onboarding callout moved to minecraft and the server settings page styles to
   servers; core's runtime provider no longer names either plugin's pages.
 - `AccountSummary` and `PerkDiscovery` moved to plugged-host-economy: core no longer reaches

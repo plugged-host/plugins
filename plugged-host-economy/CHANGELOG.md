@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
 - The topbar's `AccountSummary` and the "get more resources" perks (`PerkDiscovery`, its widget
   and view) moved here from core; `AccountLimits` is the one definition of what an account may

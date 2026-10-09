@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
 - **Works without noprofit.space**: `DiscordAccounts` (who a Discord user is) and
   `DiscordCreditPayouts` (giveaway and admin credit payouts). Standalone the panel answers from

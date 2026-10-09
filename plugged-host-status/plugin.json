@@ -2,7 +2,7 @@
     "id": "plugged-host-status",
     "name": "plugged.host Status",
     "author": "plugged.host",
-    "version": "1.2.1",
+    "version": "2.2.0",
     "description": "Incidents, maintenance and the public status export (JSON/RSS, plus the node list) the status page Worker reads; node figures come from core's node telemetry.",
     "category": "plugin",
     "url": null,

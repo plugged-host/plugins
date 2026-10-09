@@ -2,7 +2,7 @@
     "id": "plugged-host-abuse",
     "name": "plugged.host Abuse Protection",
     "author": "plugged.host",
-    "version": "1.3.0",
+    "version": "2.2.0",
     "description": "Abuse protection: a 3-hourly scan of every server's files, startup and console, a per-minute CPU watch, a node agent that reports what runs on each node, and a purge of the servers they suspended.",
     "category": "plugin",
     "url": null,

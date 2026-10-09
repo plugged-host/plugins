@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
 - servers no longer knows plugged-host-minecraft: the settings page's "Server software" section
   goes through a `SoftwareSwitcher` contract a game plugin binds, a new server announces

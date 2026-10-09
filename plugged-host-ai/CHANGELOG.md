@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
 - **rux works without noprofit.space**: who an order comes from, giveaway payouts and
   give_credits go through plugged-host-discord's `DiscordAccounts` / `DiscordCreditPayouts`

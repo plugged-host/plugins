@@ -601,6 +601,7 @@
     <footer class="footer">
         <div class="container">
             &copy; {{ date('Y') }} plugged.host &middot; <a href="{{ $panelUrl }}" target="_blank">Panel</a> &middot; <a href="https://status.plugged.host" target="_blank">Status</a> &middot; <a href="https://discord.gg/plugged-host-1502647500295635085" target="_blank">Discord support</a>
+            &middot; {{ \PluggedHost\Core\Support\Release::full() }}
         </div>
     </footer>
 

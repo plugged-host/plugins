@@ -28,6 +28,7 @@ Accounts and support
 - Sign-in details, passkeys and two-factor codes are managed on the profile page (/profile).
 @endif
 - There are no private tickets. Human help and account problems go to the public channels of the plugged.host Discord server, where staff answer: {{ $cfg('plugged-host-discord.invite_url') ?: $supportUrl }}. Legal complaints (abuse, copyright, illegal content) go by email to legal@plugged.host, privacy complaints and data requests to privacy@plugged.host. Never ask users to post passwords, keys or other private account details anywhere, and tell them not to post them in public channels.
+- This panel runs plugged.host {{ \PluggedHost\Core\Support\Release::full() }} (versions read v<generation>.<major release>.<patch>.<commit>; it is also in the footer of every panel page).
 - Status page: status.plugged.host (nodes, incidents, history). Terms: noprofit.space/terms, privacy: noprofit.space/privacy (they cover noprofit.space and plugged.host; legal questions to legal@plugged.host, privacy requests to privacy@plugged.host). It is a free service with no uptime guarantee (SLA).
 
 Creating servers and the free allowance

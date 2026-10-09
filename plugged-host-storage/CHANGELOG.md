@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.0 (unreleased)
 
 - **One command sets a storage box up**: the storage settings (or
   `php artisan plugged-host:storage-setup`) show `curl … /plugged-host/storage/agent/install.sh?code=…

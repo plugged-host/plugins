@@ -2,7 +2,7 @@
     "id": "plugged-host-economy",
     "name": "plugged.host Economy",
     "author": "plugged.host",
-    "version": "1.2.1",
+    "version": "2.2.0",
     "description": "The two plugged.host currencies and what they buy: credits for CPU, memory and disk in the resource store, tokens for plugged.host Plus; and the plans every account starts with.",
     "category": "plugin",
     "url": null,

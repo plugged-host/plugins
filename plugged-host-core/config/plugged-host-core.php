@@ -7,6 +7,12 @@ return [
     // plan and the store prices are set on noprofit.space (Admin > Settings) since 2.1.
 
     /*
+     * The release shown in footers (Support\Release): normally the VERSION file plus the
+     * plugins checkout's commit. Set it only for a deploy without .git, e.g. v2.2.0.9b53c14.
+     */
+    'release' => env('PLUGGED_HOST_RELEASE'),
+
+    /*
      * The first-login welcome tour (PluggedHost\Core\Livewire\PanelTourOverlay over the server
      * list and a server's console, gated by RequirePanelTour, state in users.panel_tour via
      * Support\PanelTour; /welcome?restart=1 replays it).

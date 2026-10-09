@@ -6,6 +6,7 @@ use App\Models\Plugin;
 use Illuminate\Console\Command;
 use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Core\Support\Release;
 
 /**
  * Is this install complete and healthy? Lists the plugged.host plugins with what each requires
@@ -22,6 +23,8 @@ class DoctorCommand extends Command
     public function handle(): int
     {
         $only = $this->argument('plugin');
+
+        $this->line(Release::label());
 
         if ($only === null) {
             $this->renderPlugins();
