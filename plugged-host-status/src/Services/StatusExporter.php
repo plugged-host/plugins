@@ -52,6 +52,34 @@ class StatusExporter
         $rssContent = $this->rss($incidentPayload['incidents']);
         $this->atomicWrite('data/feed.xml', $rssContent);
         $this->atomicWrite('feed.xml', $rssContent);
+        $this->atomicWrite('data/targets.json', $this->json($this->targetsPayload($settings)));
+    }
+
+    /**
+     * What the status Worker (status.plugged.host, on Cloudflare) probes from outside, so the
+     * page still knows which nodes are down when this panel is: each published node's label
+     * (as in current.json) and the address its wings answers on. Node addresses are not
+     * secret: every server's connection address is its node's FQDN, and browsers open the
+     * console websocket to wings directly.
+     *
+     * @param  Collection<int, StatusNodeSetting>  $settings
+     * @return array<string, mixed>
+     */
+    private function targetsPayload(Collection $settings): array
+    {
+        return [
+            'schema_version' => 1,
+            'generated_at' => now()->toIso8601String(),
+            'nodes' => $settings
+                ->filter(fn (StatusNodeSetting $setting) => $setting->node !== null)
+                ->map(fn (StatusNodeSetting $setting) => [
+                    'label' => $setting->display_name,
+                    'host' => (string) $setting->node->fqdn,
+                    'port' => (int) $setting->node->daemon_connect,
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 
     /** @param Collection<int, StatusNodeSetting> $settings @param Collection<int, StatusIncident> $incidents @return array<string, mixed> */
