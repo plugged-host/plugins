@@ -12,6 +12,10 @@
     "panels": ["admin"],
     "panel_version": null,
     "composer_packages": null,
+    "plugged_host": {
+        "requires": ["plugged-host-core"],
+        "optional": []
+    },
     "meta": {
         "status": "enabled",
         "status_message": null,

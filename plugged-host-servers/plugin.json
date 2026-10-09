@@ -12,6 +12,10 @@
     "panels": null,
     "panel_version": null,
     "composer_packages": null,
+    "plugged_host": {
+        "requires": ["plugged-host-core", "plugged-host-economy"],
+        "optional": ["plugged-host-ai", "plugged-host-ads"]
+    },
     "meta": {
         "status": "enabled",
         "status_message": null,

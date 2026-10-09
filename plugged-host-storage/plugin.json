@@ -12,6 +12,10 @@
     "panels": ["admin", "app", "server"],
     "panel_version": null,
     "composer_packages": null,
+    "plugged_host": {
+        "requires": ["plugged-host-core"],
+        "optional": ["plugged-host-discord"]
+    },
     "meta": {
         "status": "enabled",
         "status_message": null,

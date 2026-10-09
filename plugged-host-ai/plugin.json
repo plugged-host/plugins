@@ -15,6 +15,10 @@
     ],
     "panel_version": null,
     "composer_packages": null,
+    "plugged_host": {
+        "requires": ["plugged-host-core", "plugged-host-discord"],
+        "optional": ["plugged-host-economy", "plugged-host-servers", "plugged-host-ads"]
+    },
     "meta": {
         "status": "enabled",
         "status_message": null,

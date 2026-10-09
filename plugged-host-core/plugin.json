@@ -12,6 +12,10 @@
     "panels": null,
     "panel_version": null,
     "composer_packages": null,
+    "plugged_host": {
+        "requires": [],
+        "optional": []
+    },
     "meta": {
         "status": "enabled",
         "status_message": null
