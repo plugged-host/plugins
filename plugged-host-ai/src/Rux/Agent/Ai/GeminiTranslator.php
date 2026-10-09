@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Ai\Rux\Agent\Ai;
 
+use PluggedHost\Ai\Support\MessageContent;
 use stdClass;
 
 /**
@@ -124,9 +125,14 @@ final class GeminiTranslator
                 continue;
             }
 
-            $text = (string) ($message['content'] ?? '');
-            if (trim($text) !== '') {
-                $this->append($contents, 'user', [['text' => $text]]);
+            $parts = array_values(array_filter(array_map(static fn (array $part): ?array => match (true) {
+                $part['type'] === 'image' => ['inlineData' => ['mimeType' => $part['mime'], 'data' => $part['data']]],
+                trim($part['text']) !== '' => ['text' => $part['text']],
+                default => null,
+            }, MessageContent::parts($message['content'] ?? ''))));
+
+            if ($parts !== []) {
+                $this->append($contents, 'user', $parts);
             }
         }
 

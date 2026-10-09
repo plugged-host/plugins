@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\NeoBot;
 
 use Illuminate\Support\Facades\RateLimiter;
 use PluggedHost\Ai\Models\NeoBotMessage;
+use PluggedHost\Ai\Support\ImageInput;
 
 /**
  * The gateway daemon's filter for MESSAGE_CREATE. It has to be cheap, because it runs inside
@@ -53,8 +54,12 @@ final class NeoBotInbox
         }
 
         $content = trim((string) preg_replace('/<@!?' . preg_quote($botId, '/') . '>/', '', (string) ($message['content'] ?? '')));
+        $reference = (array) ($message['referenced_message'] ?? []);
+        $images = ImageInput::discordAttachments($message);
+        $replyImages = (string) ($reference['author']['id'] ?? '') !== $botId ? ImageInput::discordAttachments($reference) : [];
 
-        if ($content === '') {
+        // A screenshot alone (or "@bot" in reply to one) is a question too.
+        if ($content === '' && $images === [] && $replyImages === []) {
             return null;
         }
 
@@ -65,7 +70,6 @@ final class NeoBotInbox
         RateLimiter::hit($limiter, 60);
 
         $channelId = (string) $message['channel_id'];
-        $reference = (array) ($message['referenced_message'] ?? []);
 
         $mentions = collect((array) ($message['mentions'] ?? []))
             ->reject(fn ($user): bool => (string) ($user['id'] ?? '') === $botId)
@@ -89,11 +93,13 @@ final class NeoBotInbox
             'status' => NeoBotMessage::PENDING,
             'meta' => array_filter([
                 'mentions' => $mentions ?: null,
+                'images' => $images ?: null,
                 'reply_to' => isset($reference['id']) && (string) ($reference['author']['id'] ?? '') !== $botId ? [
                     'id' => (string) $reference['id'],
                     'author_id' => (string) ($reference['author']['id'] ?? ''),
                     'author_name' => (string) ($reference['author']['global_name'] ?? $reference['author']['username'] ?? ''),
                     'content' => mb_substr((string) ($reference['content'] ?? ''), 0, 1000),
+                    'images' => $replyImages ?: null,
                 ] : null,
             ]) ?: null,
         ])->id;

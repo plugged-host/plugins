@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Ai\Rux\Agent\Ai;
 
+use PluggedHost\Ai\Support\MessageContent;
 use stdClass;
 
 /**
@@ -78,9 +79,14 @@ final class AnthropicTranslator
                 continue;
             }
 
-            $text = (string) ($message['content'] ?? '');
-            if (trim($text) !== '') {
-                $this->append($out, 'user', [['type' => 'text', 'text' => $text]]);
+            $blocks = array_values(array_filter(array_map(static fn (array $part): ?array => match (true) {
+                $part['type'] === 'image' => ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $part['mime'], 'data' => $part['data']]],
+                trim($part['text']) !== '' => ['type' => 'text', 'text' => $part['text']],
+                default => null,
+            }, MessageContent::parts($message['content'] ?? ''))));
+
+            if ($blocks !== []) {
+                $this->append($out, 'user', $blocks);
             }
         }
 

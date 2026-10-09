@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
+use PluggedHost\Ai\Support\MessageContent;
 use stdClass;
 use Throwable;
 
@@ -78,6 +79,19 @@ class RuxAi
     }
 
     /**
+     * neo's vision flag for the slot; from before noprofit sent one, Gemini and Anthropic slots
+     * count as seeing images and OpenAI-style ones not (noprofit's default too).
+     *
+     * @param  array<string, mixed>  $provider
+     */
+    public static function seesImages(array $provider): bool
+    {
+        return isset($provider['vision'])
+            ? (bool) $provider['vision']
+            : in_array($provider['driver'] ?? 'openai', ['gemini', 'anthropic'], true);
+    }
+
+    /**
      * Whether rux can get neo's providers at all. Whether neo has a usable one is only known
      * per call (AiUnavailableException).
      */
@@ -105,8 +119,16 @@ class RuxAi
 
         $deadline = microtime(true) + $this->neo->failover()['deadline'];
         $transient = false;
+        $images = MessageContent::hasImages($messages);
+
+        // With images, the slots that see them go first; the others get a note in their place.
+        if ($images) {
+            usort($providers, static fn (array $a, array $b): int => self::seesImages($b) <=> self::seesImages($a));
+        }
 
         foreach ($providers as $provider) {
+            $slotMessages = $images && !self::seesImages($provider) ? MessageContent::withoutImages($messages) : $messages;
+
             if ($this->coolingDownUntil($provider) !== null) {
                 $transient = true;
 
@@ -135,8 +157,8 @@ class RuxAi
             }
 
             $outcome = $prompted
-                ? $this->call($provider, $this->prompted->messages($messages, $tools, $toolChoice, $this->gatewayTools($provider)), [], $toolChoice, min(max(5, (int) $provider['timeout']), $remaining))
-                : $this->call($provider, $messages, $tools, $toolChoice, min(max(5, (int) $provider['timeout']), $remaining));
+                ? $this->call($provider, $this->prompted->messages($slotMessages, $tools, $toolChoice, $this->gatewayTools($provider)), [], $toolChoice, min(max(5, (int) $provider['timeout']), $remaining))
+                : $this->call($provider, $slotMessages, $tools, $toolChoice, min(max(5, (int) $provider['timeout']), $remaining));
 
             if (isset($outcome['message'])) {
                 $this->countTokens($provider, $outcome);
