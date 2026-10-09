@@ -3,16 +3,16 @@
 namespace PluggedHost\Ai\Rux\Tools\Moderation;
 
 use Carbon\CarbonImmutable;
-use PluggedHost\Core\Support\Plugins;
-use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Ai\Rux\Models\RuxCase;
-use PluggedHost\Ai\Rux\Noprofit\NoprofitUnavailable;
-use PluggedHost\Ai\Rux\Noprofit\RuxNoprofit;
 use PluggedHost\Ai\Rux\Models\RuxGiveawayEntry;
-use PluggedHost\Ai\Rux\Support\RuxTime;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
+use PluggedHost\Ai\Rux\Support\RuxTime;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
+use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Discord\Contracts\DirectoryUnavailable;
+use PluggedHost\Discord\Contracts\DiscordAccounts;
+use PluggedHost\Discord\Models\DiscordLink;
 use Throwable;
 
 final class LookupMemberTool extends ModerationTool
@@ -46,10 +46,10 @@ final class LookupMemberTool extends ModerationTool
         $createdAt = CarbonImmutable::createFromTimestampMs((int) (((int) $target['id'] >> 22) + 1420070400000));
 
         try {
-            $noprofit = app(RuxNoprofit::class)->account($target['id'], 4);
-            $noprofitInfo = $noprofit === null ? 'not linked (cannot enter giveaways)' : ['account_id' => $noprofit['account_id'], 'name' => $noprofit['name'], 'admin' => $noprofit['is_admin']];
-        } catch (NoprofitUnavailable) {
-            $noprofitInfo = 'unknown (noprofit.space did not answer)';
+            $linked = app(DiscordAccounts::class)->account($target['id'], 4);
+            $noprofitInfo = $linked === null ? 'not linked (cannot enter giveaways)' : ['account_id' => $linked['account_id'], 'name' => $linked['name'], 'admin' => $linked['is_admin']];
+        } catch (DirectoryUnavailable) {
+            $noprofitInfo = 'unknown (the account directory did not answer)';
         }
 
         $link = DiscordLink::query()->where('discord_id', $target['id'])->whereNotNull('user_id')->with('user')->first();

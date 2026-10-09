@@ -4,12 +4,12 @@ use App\Tests\Integration\IntegrationTestCase;
 use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxCase;
 use PluggedHost\Ai\Rux\Moderation\ModerationService;
-use PluggedHost\Ai\Rux\Noprofit\RuxNoprofit;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Tools\Moderation\BanMemberTool;
 use PluggedHost\Ai\Rux\Tools\Moderation\ChannelSettingsTool;
 use PluggedHost\Ai\Rux\Tools\Moderation\PurgeMessagesTool;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
+use PluggedHost\Discord\Contracts\DiscordAccounts;
 
 require_once __DIR__ . '/../../../plugged-host-core/tests/Support/load-plugin.php';
 
@@ -34,9 +34,9 @@ beforeEach(function () {
     app()->instance(RuxAccess::class, $access);
 
     $this->noprofitAdmins = [];
-    $noprofit = Mockery::mock(RuxNoprofit::class);
-    $noprofit->shouldReceive('account')->andReturnUsing(fn (string $id) => ['is_admin' => in_array($id, $this->noprofitAdmins, true)]);
-    app()->instance(RuxNoprofit::class, $noprofit);
+    $accounts = Mockery::mock(DiscordAccounts::class);
+    $accounts->shouldReceive('account')->andReturnUsing(fn (string $id) => ['is_admin' => in_array($id, $this->noprofitAdmins, true)]);
+    app()->instance(DiscordAccounts::class, $accounts);
 });
 
 function moderatorContext(): RuxContext

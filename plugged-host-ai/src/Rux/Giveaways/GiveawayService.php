@@ -10,15 +10,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use PluggedHost\Ai\Discord\DiscordException;
-use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Discord\Resolver;
+use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxGiveaway;
 use PluggedHost\Ai\Rux\Models\RuxGiveawayEntry;
-use PluggedHost\Ai\Rux\Noprofit\NoprofitUnavailable;
-use PluggedHost\Ai\Rux\Noprofit\RuxNoprofit;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Support\RuxTime;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
+use PluggedHost\Discord\Contracts\DirectoryUnavailable;
+use PluggedHost\Discord\Contracts\DiscordAccounts;
+use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
 use Throwable;
 
 /**
@@ -39,7 +40,8 @@ class GiveawayService
 
     public function __construct(
         private readonly RuxDiscord $discord,
-        private readonly RuxNoprofit $noprofit,
+        private readonly DiscordAccounts $accounts,
+        private readonly DiscordCreditPayouts $payouts,
         private readonly Resolver $resolver,
     ) {}
 
@@ -76,8 +78,8 @@ class GiveawayService
         $excluded = null;
         if ($exclude > 0) {
             try {
-                $recent = $this->noprofit->recentGiveaways($exclude);
-            } catch (NoprofitUnavailable $e) {
+                $recent = $this->payouts->recentGiveaways($exclude);
+            } catch (DirectoryUnavailable $e) {
                 throw new InvalidArgumentException('Cannot look up the last giveaways\' winners right now (' . $e->getMessage() . '), so the giveaway was not created. Tell the admin to try again in a minute.');
             }
 
@@ -256,8 +258,8 @@ class GiveawayService
 
         if (!Cache::get($cacheKey)) {
             try {
-                $linked = $this->noprofit->account($discordId, 2) !== null;
-            } catch (NoprofitUnavailable $e) {
+                $linked = $this->accounts->account($discordId, 2) !== null;
+            } catch (DirectoryUnavailable $e) {
                 Log::warning('[rux] could not check a giveaway entry with noprofit.space', ['giveaway' => $giveaway->id, 'discord_id' => $discordId, 'error' => $e->getMessage()]);
 
                 return $this->ephemeralData(RuxConfig::say('entry.unavailable'));
@@ -347,7 +349,7 @@ class GiveawayService
 
         try {
             $winners = $this->pick($giveaway, $giveaway->winners_count);
-        } catch (NoprofitUnavailable $e) {
+        } catch (DirectoryUnavailable $e) {
             Log::warning('[rux] giveaway draw postponed: noprofit.space cannot say who is linked', ['giveaway' => $giveaway->id, 'error' => $e->getMessage()]);
             $giveaway->update(['status' => RuxGiveaway::ACTIVE]);
 
@@ -395,7 +397,7 @@ class GiveawayService
 
         try {
             $winners = $this->pick($giveaway, $count);
-        } catch (NoprofitUnavailable $e) {
+        } catch (DirectoryUnavailable $e) {
             throw new InvalidArgumentException('Cannot reroll right now: ' . $e->getMessage());
         }
 
@@ -428,7 +430,7 @@ class GiveawayService
      *
      * @return list<string>
      *
-     * @throws NoprofitUnavailable
+     * @throws DirectoryUnavailable
      */
     private function pick(RuxGiveaway $giveaway, int $count): array
     {
@@ -446,7 +448,7 @@ class GiveawayService
             return [];
         }
 
-        $linked = $this->noprofit->accounts($candidates);
+        $linked = $this->accounts->accounts($candidates);
         $eligible = array_values(array_filter($candidates, static fn (string $id): bool => isset($linked[$id])));
 
         // Fisher-Yates with the CSPRNG.
@@ -488,14 +490,14 @@ class GiveawayService
         }
 
         try {
-            $result = $this->noprofit->payGiveaway(
+            $result = $this->payouts->payGiveaway(
                 $giveaway->payoutKey($draw),
                 $giveaway->prize,
                 $giveaway->credits,
                 $entries->pluck('discord_id')->map(fn ($id): string => (string) $id)->values()->all(),
                 $giveaway->created_by_account_id,
             );
-        } catch (NoprofitUnavailable $e) {
+        } catch (DirectoryUnavailable $e) {
             $giveaway->update([
                 'payout_attempts' => $giveaway->payout_attempts + 1,
                 'payout_error' => mb_substr($e->getMessage(), 0, 250),

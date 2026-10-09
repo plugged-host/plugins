@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Discord\Console\Commands;
+namespace PluggedHost\Noprofit\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;

@@ -11,3 +11,7 @@
 - **Credits**: the credit sync (outbox, `/api/noprofit/credits/sync`, `noprofit:credits-sync`,
   migrations 012/013) moved here from plugged-host-economy unchanged; `NoprofitComputePlans`
   gives economy noprofit.space's plans, tiers and prices.
+- **Discord**: rux's noprofit.space client (`NoprofitRuxClient`, was plugged-host-ai's
+  `RuxNoprofit`) implements plugged-host-discord's `DiscordAccounts` and `DiscordCreditPayouts`.
+  The legacy giveaway export command moved here; migration 017 marks the legacy pending
+  recipients it exported, so the panel's own payouts never pay them again.

@@ -6,19 +6,19 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PluggedHost\Ai\Discord\DiscordException;
 use PluggedHost\Ai\Rux\Agent\Ai\AiBusyException;
 use PluggedHost\Ai\Rux\Agent\Ai\AiUnavailableException;
 use PluggedHost\Ai\Rux\Agent\Ai\RuxAi;
-use PluggedHost\Ai\Discord\DiscordException;
 use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxMessage;
-use PluggedHost\Ai\Rux\Noprofit\NoprofitUnavailable;
-use PluggedHost\Ai\Rux\Noprofit\RuxNoprofit;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\RuxToolRegistry;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
+use PluggedHost\Discord\Contracts\DirectoryUnavailable;
+use PluggedHost\Discord\Contracts\DiscordAccounts;
 use Throwable;
 
 /**
@@ -36,7 +36,7 @@ final class RuxAgent
         private readonly RuxAi $ai,
         private readonly RuxToolRegistry $tools,
         private readonly RuxPrompt $prompt,
-        private readonly RuxNoprofit $noprofit,
+        private readonly DiscordAccounts $accounts,
         private readonly RuxDiscord $discord,
         private readonly RuxAccess $access,
     ) {}
@@ -72,8 +72,8 @@ final class RuxAgent
         $order->refresh();
 
         try {
-            $actor = $this->noprofit->account($order->author_id);
-        } catch (NoprofitUnavailable $e) {
+            $actor = $this->accounts->account($order->author_id);
+        } catch (DirectoryUnavailable $e) {
             Log::warning('[rux] cannot check who sent an order', ['message' => $order->id, 'error' => $e->getMessage()]);
             $this->finish($order, RuxMessage::FAILED, ['error' => 'noprofit_unavailable']);
             $this->reply($order, RuxConfig::say('reply.noprofit_down'));
@@ -253,7 +253,7 @@ final class RuxAgent
 
         try {
             return $tool->execute($context, $arguments);
-        } catch (InvalidArgumentException|DiscordException|NoprofitUnavailable $e) {
+        } catch (InvalidArgumentException|DiscordException|DirectoryUnavailable $e) {
             return ToolResult::error($e->getMessage());
         } catch (Throwable $e) {
             report($e);

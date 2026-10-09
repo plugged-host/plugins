@@ -35,9 +35,23 @@ final class NeoBotConfig
      *
      * @param  array<string, mixed>  $replace
      */
+    /**
+     * :portal in the strings: where accounts live (AccountPortal: noprofit.space, or this panel).
+     *
+     * @return array{portal: string}
+     */
+    private static function portal(): array
+    {
+        try {
+            return ['portal' => app(AccountPortal::class)->name()];
+        } catch (\Throwable) {
+            return ['portal' => (string) config('app.name')];
+        }
+    }
+
     public static function say(string $key, array $replace = []): string
     {
-        return (string) trans('plugged-host-ai::strings.neo_bot.' . $key, $replace);
+        return (string) trans('plugged-host-ai::strings.neo_bot.' . $key, $replace + self::portal());
     }
 
     /**

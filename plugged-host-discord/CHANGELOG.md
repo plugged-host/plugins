@@ -2,6 +2,12 @@
 
 ## Unreleased (2.2)
 
+- **Works without noprofit.space**: `DiscordAccounts` (who a Discord user is) and
+  `DiscordCreditPayouts` (giveaway and admin credit payouts). Standalone the panel answers from
+  its own discord_links and pays through plugged-host-economy, recording giveaways in
+  discord_giveaways (new nullable `source_key`, migration 009) and paying a pending winner when
+  they link; plugged-host-noprofit binds noprofit.space's. The giveaway export to noprofit.space
+  moved to that plugin.
 - **Only the production panel acts on the Discord server** (`DiscordEnvironment`): the gateway
   daemon, slash-command registration and the 2x Booster role changes refuse to run elsewhere
   unless `DISCORD_ALLOW_NON_PRODUCTION=true`. Dev shares production's bot token, so its hourly

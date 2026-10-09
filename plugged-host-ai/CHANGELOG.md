@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- **rux works without noprofit.space**: who an order comes from, giveaway payouts and
+  give_credits go through plugged-host-discord's `DiscordAccounts` / `DiscordCreditPayouts`
+  (the panel's own, or noprofit.space's with plugged-host-noprofit). `RuxNoprofit` moved to
+  plugged-host-noprofit as `NoprofitRuxClient`. rux's and neo-on-Discord's copy names the
+  account portal (`:portal`) instead of noprofit.space.
+- neo's chat only links `/sso/link` where that route exists.
+
 ## Unreleased (2.1)
 
 - neo sends `usage_percent` with every turn and usage call (Plus 125%, PlusPlus 156%; Discord

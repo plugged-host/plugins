@@ -4,10 +4,10 @@ namespace PluggedHost\Ai\Rux\Tools\Credits;
 
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use PluggedHost\Ai\Rux\Noprofit\RuxNoprofit;
 use PluggedHost\Ai\Rux\Tools\Moderation\ModerationTool;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
+use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
 
 /**
  * Credits for one person, on the order of plugged.host's main admin only (config
@@ -52,7 +52,7 @@ final class GiveCreditsTool extends ModerationTool
         $target = $this->memberOrUser($context, $this->required($arguments, 'member'));
         $reason = $this->string($arguments, 'reason');
 
-        $grant = app(RuxNoprofit::class)->grantCredits('rux:grant:' . Str::ulid(), $target['id'], $credits, $reason !== null ? mb_substr($reason, 0, 200) : null, $context->actorAccountId);
+        $grant = app(DiscordCreditPayouts::class)->grantCredits('rux:grant:' . Str::ulid(), $target['id'], $credits, $reason !== null ? mb_substr($reason, 0, 200) : null, $context->actorAccountId);
         $case = $this->moderation->credits($context, $target, $credits, $reason, $grant['account_id']);
 
         return ToolResult::ok($this->caseResult($case, [

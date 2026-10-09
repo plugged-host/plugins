@@ -1,18 +1,24 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Noprofit;
+namespace PluggedHost\Noprofit\Discord;
 
+use App\Models\User;
 use Illuminate\Http\Client\Response;
 use InvalidArgumentException;
+use PluggedHost\Discord\Contracts\DirectoryUnavailable;
+use PluggedHost\Discord\Contracts\DiscordAccounts;
+use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
 use PluggedHost\Noprofit\Services\NoprofitClient;
+use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**
- * rux's side of noprofit.space's /api/v1/internal/rux/* API, signed with the credit sync
+ * noprofit.space's /api/v1/internal/rux/* API (moved here from plugged-host-ai's RuxNoprofit in
+ * 2.2), signed with the credit sync
  * secret. noprofit.space is the truth for three things rux needs: whose Discord is linked
  * (and whether that account is an admin), the winners of recent giveaways, and paying winners.
  */
-class RuxNoprofit
+class NoprofitRuxClient implements DiscordAccounts, DiscordCreditPayouts
 {
     private const BASE = '/api/v1/internal/rux';
 
@@ -27,9 +33,9 @@ class RuxNoprofit
      * The linked ones among these Discord ids, keyed by Discord id.
      *
      * @param  list<string>  $discordIds
-     * @return array<string, array{account_id: int, name: string, is_admin: bool}>
+     * @return array<string, array{account_id: int, name: string, is_admin: bool, user_id: ?int}>
      *
-     * @throws NoprofitUnavailable
+     * @throws DirectoryUnavailable
      */
     public function accounts(array $discordIds, int $timeout = 8): array
     {
@@ -48,17 +54,27 @@ class RuxNoprofit
                     'account_id' => (int) $row['account_id'],
                     'name' => (string) ($row['name'] ?? ''),
                     'is_admin' => ($row['is_admin'] ?? false) === true,
+                    'user_id' => null,
                 ];
             }
+        }
+
+        // The panel user behind each noprofit.space account, in one query.
+        $users = User::query()
+            ->whereIn(NoprofitLink::COLUMN, array_column($found, 'account_id'))
+            ->pluck('id', NoprofitLink::COLUMN);
+
+        foreach ($found as $discordId => $account) {
+            $found[$discordId]['user_id'] = isset($users[$account['account_id']]) ? (int) $users[$account['account_id']] : null;
         }
 
         return $found;
     }
 
     /**
-     * @return array{account_id: int, name: string, is_admin: bool}|null Null when not linked.
+     * @return array{account_id: int, name: string, is_admin: bool, user_id: ?int}|null Null when not linked.
      *
-     * @throws NoprofitUnavailable
+     * @throws DirectoryUnavailable
      */
     public function account(string $discordId, int $timeout = 8): ?array
     {
@@ -70,7 +86,7 @@ class RuxNoprofit
      *
      * @return list<array{id: int, prize: string, amount: int, created_at: ?string, winners: list<string>}>
      *
-     * @throws NoprofitUnavailable
+     * @throws DirectoryUnavailable
      */
     public function recentGiveaways(int $limit): array
     {
@@ -92,7 +108,7 @@ class RuxNoprofit
      * @param  list<string>  $discordIds
      * @return array{giveaway_id: int, created: bool, recipients: array<string, array{status: string, account_id: ?int}>}
      *
-     * @throws NoprofitUnavailable
+     * @throws DirectoryUnavailable
      */
     public function payGiveaway(string $key, string $prize, int $amount, array $discordIds, ?int $createdBy): array
     {
@@ -128,7 +144,7 @@ class RuxNoprofit
      * @return array{account_id: int, name: string, amount: int, balance_after: int, created: bool}
      *
      * @throws InvalidArgumentException when they have not linked Discord, or $grantedBy is no admin
-     * @throws NoprofitUnavailable
+     * @throws DirectoryUnavailable
      */
     public function grantCredits(string $key, string $discordId, int $amount, ?string $reason, int $grantedBy): array
     {
@@ -140,7 +156,7 @@ class RuxNoprofit
                 'reason' => $reason,
                 'granted_by' => $grantedBy,
             ], 15);
-        } catch (NoprofitUnavailable $e) {
+        } catch (DirectoryUnavailable $e) {
             throw match (true) {
                 str_contains($e->getMessage(), '(not_linked)') => new InvalidArgumentException("<@{$discordId}> has not linked Discord to a noprofit.space account, so there is no account to give credits to. They can link it at accounts.noprofit.space."),
                 str_contains($e->getMessage(), '(not_admin)') => new InvalidArgumentException('noprofit.space says the one giving credits is not an admin there.'),
@@ -160,24 +176,24 @@ class RuxNoprofit
     /**
      * @param  array<string, mixed>  $body
      *
-     * @throws NoprofitUnavailable
+     * @throws DirectoryUnavailable
      */
     private function send(string $path, array $body, int $timeout): Response
     {
         if (!$this->configured()) {
-            throw new NoprofitUnavailable('noprofit.space is not configured on this panel (NOPROFIT_SYNC_SECRET).');
+            throw new DirectoryUnavailable('noprofit.space is not configured on this panel (NOPROFIT_SYNC_SECRET).');
         }
 
         try {
             $response = $this->client->send('POST', self::BASE . $path, $body, $this->secret(), $timeout);
         } catch (Throwable $e) {
-            throw new NoprofitUnavailable('noprofit.space could not be reached: ' . class_basename($e), 0, $e);
+            throw new DirectoryUnavailable('noprofit.space could not be reached: ' . class_basename($e), 0, $e);
         }
 
         if (!$response->successful()) {
             $error = (string) ($response->json('error') ?? $response->json('message') ?? '');
 
-            throw new NoprofitUnavailable('noprofit.space answered HTTP ' . $response->status() . ($error !== '' ? " ({$error})" : '') . '.');
+            throw new DirectoryUnavailable('noprofit.space answered HTTP ' . $response->status() . ($error !== '' ? " ({$error})" : '') . '.');
         }
 
         return $response;

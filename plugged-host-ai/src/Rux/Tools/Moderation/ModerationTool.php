@@ -2,16 +2,16 @@
 
 namespace PluggedHost\Ai\Rux\Tools\Moderation;
 
-use PluggedHost\Ai\Rux\Discord\RuxDiscord;
+use InvalidArgumentException;
 use PluggedHost\Ai\Rux\Discord\Resolver;
-use PluggedHost\Ai\Rux\Moderation\ModerationService;
+use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxCase;
-use PluggedHost\Ai\Rux\Noprofit\NoprofitUnavailable;
-use PluggedHost\Ai\Rux\Noprofit\RuxNoprofit;
+use PluggedHost\Ai\Rux\Moderation\ModerationService;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\RuxTool;
-use InvalidArgumentException;
+use PluggedHost\Discord\Contracts\DirectoryUnavailable;
+use PluggedHost\Discord\Contracts\DiscordAccounts;
 
 abstract class ModerationTool extends RuxTool
 {
@@ -55,8 +55,8 @@ abstract class ModerationTool extends RuxTool
         }
 
         try {
-            return (bool) (app(RuxNoprofit::class)->account($discordId, 4)['is_admin'] ?? false);
-        } catch (NoprofitUnavailable) {
+            return (bool) (app(DiscordAccounts::class)->account($discordId, 4)['is_admin'] ?? false);
+        } catch (DirectoryUnavailable) {
             // Cannot tell: refusing is the safe mistake.
             return true;
         }

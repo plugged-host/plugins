@@ -6,7 +6,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use PluggedHost\Ai\Rux\Agent\Ai\RuxAi;
 use PluggedHost\Core\Contracts\AccountPortal;
-use PluggedHost\Noprofit\Services\NoprofitClient;
+use PluggedHost\Discord\Contracts\DiscordAccounts;
+use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
 use Throwable;
 
 /**
@@ -55,9 +56,23 @@ final class RuxConfig
      *
      * @param  array<string, mixed>  $replace
      */
+    /**
+     * :portal in the strings: where accounts live (AccountPortal: noprofit.space, or this panel).
+     *
+     * @return array{portal: string}
+     */
+    private static function portal(): array
+    {
+        try {
+            return ['portal' => app(AccountPortal::class)->name()];
+        } catch (\Throwable) {
+            return ['portal' => (string) config('app.name')];
+        }
+    }
+
     public static function say(string $key, array $replace = []): string
     {
-        return (string) trans('plugged-host-ai::strings.rux.' . $key, $replace, self::locale());
+        return (string) trans('plugged-host-ai::strings.rux.' . $key, $replace + self::portal(), self::locale());
     }
 
     /**
@@ -65,7 +80,7 @@ final class RuxConfig
      */
     public static function sayChoice(string $key, int $count, array $replace = []): string
     {
-        return (string) trans_choice('plugged-host-ai::strings.rux.' . $key, $count, $replace + ['count' => $count], self::locale());
+        return (string) trans_choice('plugged-host-ai::strings.rux.' . $key, $count, $replace + ['count' => $count] + self::portal(), self::locale());
     }
 
     /**
@@ -93,10 +108,8 @@ final class RuxConfig
             $blockers[] = 'No Discord server id (RUX_GUILD_ID).';
         }
 
-        $client = app(NoprofitClient::class);
-
-        if (!$client->configured((string) config('plugged-host-noprofit.sync_secret', ''))) {
-            $blockers[] = 'noprofit.space is not configured (NOPROFIT_SYNC_SECRET): rux cannot tell who is an admin.';
+        if (!app(DiscordAccounts::class)->configured() || !app(DiscordCreditPayouts::class)->configured()) {
+            $blockers[] = 'The account directory is not configured (with plugged-host-noprofit: NOPROFIT_SYNC_SECRET): rux cannot tell who is an admin.';
         }
 
         if (!app(RuxAi::class)->configured()) {
