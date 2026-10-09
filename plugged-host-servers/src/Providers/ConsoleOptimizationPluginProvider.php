@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Core\Providers;
+namespace PluggedHost\Servers\Providers;
 
 use App\Filament\Server\Widgets\ServerCpuChart;
 use App\Filament\Server\Widgets\ServerMemoryChart;
@@ -13,6 +13,10 @@ use PluggedHost\Servers\Filament\Server\Widgets\OptimizedServerMemoryChart;
 use PluggedHost\Servers\Filament\Server\Widgets\OptimizedServerNetworkChart;
 use PluggedHost\Servers\Filament\Server\Widgets\OptimizedServerOverview;
 
+/**
+ * Swaps the console page's stat widgets for this plugin's lighter versions. Lived in
+ * plugged-host-core until 2.2, which made core depend on servers' widget classes.
+ */
 class ConsoleOptimizationPluginProvider extends ServiceProvider
 {
     public function register(): void

@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Countries;
-use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Servers\Events\ServerMoved;
 use PluggedHost\Servers\Exceptions\TransferException;
 use PluggedHost\Servers\Models\ServerRelocation;
 use PluggedHost\Servers\Services\LocationCatalog;
@@ -1122,29 +1122,18 @@ class TransferService
         }
     }
 
-    protected function refreshSubdomains(ServerRelocation $relocation, Server $server): void
+    /**
+     * Tell the plugins that care (subdomains repoints its DNS records) that the server now
+     * lives on another node. A listener that throws must not fail a move that already happened.
+     */
+    protected function announceMove(ServerRelocation $relocation, Server $server): void
     {
-        $class = 'Boy132\\Subdomains\\Models\\Subdomain';
-
-        if (!Plugins::available($class)) {
-            return;
-        }
-
         try {
-            $subdomains = $class::query()->where('server_id', $server->getKey())->get();
-        } catch (Throwable) {
-            return;
-        }
-
-        foreach ($subdomains as $subdomain) {
-            try {
-                $subdomain->setRelation('server', $server);
-                $subdomain->upsertOnCloudflare();
-                $relocation->event('dns', ['name' => (string) ($subdomain->fqdn ?? $subdomain->name ?? '')]);
-            } catch (Throwable $e) {
-                Log::warning('[plugged-host-servers] subdomain update after transfer failed', ['server' => $server->getKey(), 'error' => $e->getMessage()]);
-                $relocation->event('dns_failed', ['name' => (string) ($subdomain->name ?? '')], 'warning');
-            }
+            ServerMoved::dispatch($server, function (string $key, array $params, string $level) use ($relocation): void {
+                $relocation->event($key, $params, $level);
+            });
+        } catch (Throwable $e) {
+            Log::warning('[plugged-host-servers] a listener failed after a transfer', ['server' => $server->getKey(), 'error' => $e->getMessage()]);
         }
     }
 
@@ -1400,7 +1389,7 @@ class TransferService
 
     protected function complete(ServerRelocation $relocation, Server $server): void
     {
-        $this->refreshSubdomains($relocation, $server->refresh());
+        $this->announceMove($relocation, $server->refresh());
 
         $relocation->moveState(ServerRelocation::COMPLETED);
         $relocation->phase = null;

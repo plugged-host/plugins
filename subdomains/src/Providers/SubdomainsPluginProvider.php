@@ -8,8 +8,11 @@ use App\Models\Server;
 use Boy132\Subdomains\Filament\Admin\Resources\Servers\RelationManagers\SubdomainRelationManager;
 use Boy132\Subdomains\Models\Subdomain;
 use Exception;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
+use Throwable;
 
 class SubdomainsPluginProvider extends ServiceProvider
 {
@@ -31,6 +34,21 @@ class SubdomainsPluginProvider extends ServiceProvider
                 ->connectTimeout(3)
                 ->baseUrl('https://api.cloudflare.com/client/v4/')
         );
+
+        // A server moved to another node (plugged-host-servers' transfers): point its records at
+        // the new node. Listened for by name, so this plugin does not need servers installed.
+        Event::listen('PluggedHost\\Servers\\Events\\ServerMoved', function (object $event): void {
+            foreach (Subdomain::query()->where('server_id', $event->server->getKey())->get() as $subdomain) {
+                try {
+                    $subdomain->setRelation('server', $event->server);
+                    $subdomain->upsertOnCloudflare();
+                    $event->note('dns', ['name' => (string) ($subdomain->fqdn ?? $subdomain->name ?? '')]);
+                } catch (Throwable $e) {
+                    Log::warning('[subdomains] subdomain update after transfer failed', ['server' => $event->server->getKey(), 'error' => $e->getMessage()]);
+                    $event->note('dns_failed', ['name' => (string) ($subdomain->name ?? '')], 'warning');
+                }
+            }
+        });
 
         Server::resolveRelationUsing('subdomains', fn (Server $server) => $server->hasMany(Subdomain::class, 'server_id', 'id'));
 
