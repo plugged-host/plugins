@@ -10,6 +10,7 @@ use App\Repositories\Daemon\DaemonServerRepository;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Queue\Filament\Server\Pages\StartQueuePage;
 use PluggedHost\Queue\Models\StartQueueEntry;
 use Throwable;
@@ -890,7 +891,7 @@ class StartQueueService
 
     protected function adsService(string $class): mixed
     {
-        if (!class_exists($class)) {
+        if (!Plugins::available($class)) {
             return null;
         }
 

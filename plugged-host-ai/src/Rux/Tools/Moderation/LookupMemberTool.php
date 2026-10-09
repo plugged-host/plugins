@@ -3,6 +3,7 @@
 namespace PluggedHost\Ai\Rux\Tools\Moderation;
 
 use Carbon\CarbonImmutable;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Ai\Rux\Models\RuxCase;
 use PluggedHost\Ai\Rux\Noprofit\NoprofitUnavailable;
@@ -58,7 +59,7 @@ final class LookupMemberTool extends ModerationTool
             $account = ['panel_username' => $user->username, 'servers' => $user->servers()->count()];
 
             try {
-                $credits = class_exists(\PluggedHost\Economy\Models\UserCredits::class)
+                $credits = Plugins::available(\PluggedHost\Economy\Models\UserCredits::class)
                     ? \PluggedHost\Economy\Models\UserCredits::query()->where('user_id', $user->id)->value('credits')
                     : null;
                 $account['credits'] = $credits !== null ? (int) $credits : null;

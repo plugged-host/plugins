@@ -20,6 +20,7 @@ use PluggedHost\Ai\Services\NeoGateway;
 use PluggedHost\Ai\Support\MclogsHandoff;
 use PluggedHost\Ai\Support\NeoAccess;
 use PluggedHost\Ai\Support\NeoPreferences;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -511,11 +512,11 @@ class NeoChat extends Component
         $ads = 'PluggedHost\\Ads\\Services\\AdDisplayService';
 
         try {
-            if (class_exists($gate) && $gate::isCurrentRoute()) {
+            if (Plugins::available($gate) && $gate::isCurrentRoute()) {
                 return true;
             }
 
-            return class_exists($ads) && app($ads)->onInterstitialRoute();
+            return Plugins::available($ads) && app($ads)->onInterstitialRoute();
         } catch (Throwable) {
             return false;
         }

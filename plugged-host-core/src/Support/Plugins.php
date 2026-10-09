@@ -30,9 +30,33 @@ final class Plugins
     /** @var array<string, array{requires: list<string>, optional: list<string>}> */
     private static array $dependencies = [];
 
+    /** @var null|array<string, string> plugin namespace prefix => plugin id */
+    private static ?array $namespaces = null;
+
     public static function enabled(string $id): bool
     {
         return self::$enabled[$id] ??= self::lookup($id);
+    }
+
+    /**
+     * class_exists() for another plugin's class: the class exists and the plugin that ships it
+     * is enabled. A class no plugin ships (the panel's, a vendor's) only has to exist.
+     */
+    public static function available(string $class): bool
+    {
+        if (!class_exists($class)) {
+            return false;
+        }
+
+        $class = ltrim($class, '\\');
+
+        foreach (self::namespaces() as $prefix => $id) {
+            if (str_starts_with($class, $prefix)) {
+                return self::enabled($id);
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -102,6 +126,34 @@ final class Plugins
     {
         self::$enabled = [];
         self::$dependencies = [];
+        self::$namespaces = null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function namespaces(): array
+    {
+        if (self::$namespaces !== null) {
+            return self::$namespaces;
+        }
+
+        $map = [];
+
+        try {
+            foreach (Plugin::query()->get(['id', 'namespace']) as $plugin) {
+                if ($plugin->namespace !== '' && $plugin->namespace !== 'Error') {
+                    $map[trim($plugin->namespace, '\\') . '\\'] = $plugin->id;
+                }
+            }
+        } catch (Throwable) {
+            return [];
+        }
+
+        // Longest prefix first, so a nested namespace is never claimed by its parent's plugin.
+        uksort($map, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+
+        return self::$namespaces = $map;
     }
 
     private static function lookup(string $id): bool

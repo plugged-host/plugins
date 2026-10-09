@@ -4,6 +4,7 @@ namespace PluggedHost\Limbo\Services;
 
 use App\Models\Server;
 use App\Repositories\Daemon\DaemonFileRepository;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -66,7 +67,7 @@ class ExemptionPruner
 
         $storage = 'PluggedHost\\Storage\\Services\\StorageService';
 
-        if (!class_exists($storage) || !method_exists($storage, 'excludePatterns')) {
+        if (!Plugins::available($storage) || !method_exists($storage, 'excludePatterns')) {
             return [];
         }
 

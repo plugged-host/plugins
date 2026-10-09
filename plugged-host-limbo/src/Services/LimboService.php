@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Limbo\Filament\Server\Pages\RestoreFromLimboPage;
 use PluggedHost\Limbo\Models\ServerLimboState;
 use Throwable;
@@ -658,7 +659,7 @@ class LimboService
     {
         $planner = 'PluggedHost\\Servers\\Services\\Transfers\\TransferPlanner';
 
-        return class_exists($planner) ? app($planner) : null;
+        return Plugins::available($planner) ? app($planner) : null;
     }
 
     /** @return array<int, string> */
@@ -756,14 +757,14 @@ class LimboService
         $service = 'PluggedHost\\Servers\\Services\\Transfers\\TransferService';
         $watcher = 'PluggedHost\\Servers\\Services\\Transfers\\TransferWatcher';
 
-        if (!class_exists($service) || !method_exists($service, 'adopt')) {
+        if (!Plugins::available($service) || !method_exists($service, 'adopt')) {
             return;
         }
 
         try {
             $transfer = $server->refresh()->transfer;
 
-            if ($transfer !== null && app($service)->adopt($transfer) !== null && class_exists($watcher)) {
+            if ($transfer !== null && app($service)->adopt($transfer) !== null && Plugins::available($watcher)) {
                 $watcher::ensureRunning();
             }
         } catch (Throwable $e) {
@@ -775,7 +776,7 @@ class LimboService
     {
         $storage = 'PluggedHost\\Storage\\Services\\StorageService';
 
-        if (class_exists($storage)) {
+        if (Plugins::available($storage)) {
             try {
                 return app($storage)->limboNode();
             } catch (Throwable) {
@@ -795,7 +796,7 @@ class LimboService
     {
         $service = 'PluggedHost\\Economy\\Services\\TokenService';
 
-        if (!class_exists($service)) {
+        if (!Plugins::available($service)) {
             return false;
         }
 
@@ -810,7 +811,7 @@ class LimboService
     {
         $service = 'PluggedHost\\Economy\\Services\\TokenService';
 
-        if ($cost <= 0 || !class_exists($service)) {
+        if ($cost <= 0 || !Plugins::available($service)) {
             return;
         }
 

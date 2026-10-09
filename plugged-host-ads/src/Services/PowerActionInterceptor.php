@@ -12,6 +12,7 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Auth;
 use PluggedHost\Ads\Filament\Server\Pages\StartGatePage;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -206,7 +207,7 @@ class PowerActionInterceptor
      */
     protected function askPlugin(string $service, User $user, Server $server, string $action): ?string
     {
-        if (!class_exists($service)) {
+        if (!Plugins::available($service)) {
             return null;
         }
 

@@ -5,6 +5,7 @@ namespace PluggedHost\Economy\Providers;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Services\MembershipService;
 use Throwable;
 
@@ -31,7 +32,7 @@ class MembershipServiceProvider extends ServiceProvider
 
         $display = self::ADS_DISPLAY;
 
-        if (!class_exists($display) || !method_exists($display, 'registerExemptionCheck')) {
+        if (!Plugins::available($display) || !method_exists($display, 'registerExemptionCheck')) {
             return;
         }
 

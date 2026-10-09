@@ -22,6 +22,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
@@ -417,7 +418,7 @@ class CreateServerPage extends Page
     {
         $store = 'PluggedHost\\Economy\\Filament\\App\\Pages\\PlusPage';
 
-        if (class_exists($store)) {
+        if (Plugins::available($store)) {
             $this->redirect($store::getUrl(panel: 'app'));
         }
     }

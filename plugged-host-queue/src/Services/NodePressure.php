@@ -3,6 +3,7 @@
 namespace PluggedHost\Queue\Services;
 
 use App\Models\Node;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -197,7 +198,7 @@ class NodePressure
      */
     protected function capacity(): mixed
     {
-        if (!class_exists(self::CAPACITY)) {
+        if (!Plugins::available(self::CAPACITY)) {
             return null;
         }
 

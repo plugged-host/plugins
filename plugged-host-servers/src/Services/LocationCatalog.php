@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Deployment\FindViableNodesService;
 use Illuminate\Support\Collection;
 use PluggedHost\Core\Support\Countries;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Support\PremiumAccess;
 
 /**
@@ -225,7 +226,7 @@ class LocationCatalog
     {
         $class = 'PluggedHost\\Status\\Services\\NodeLatency';
 
-        if ($nodeIds === [] || !class_exists($class)) {
+        if ($nodeIds === [] || !Plugins::available($class)) {
             return [];
         }
 

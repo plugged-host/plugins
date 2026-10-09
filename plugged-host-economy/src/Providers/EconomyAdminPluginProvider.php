@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Models\UserTokens;
 use PluggedHost\Economy\Services\TokenService;
@@ -98,7 +99,7 @@ class EconomyAdminPluginProvider extends ServiceProvider
             ->group(function (): void {
                 \Illuminate\Support\Facades\Route::get('/balances', function (\Illuminate\Http\Request $request) {
                     $user = $request->user();
-                    $tokens = class_exists(\PluggedHost\Economy\Services\TokenService::class)
+                    $tokens = Plugins::available(\PluggedHost\Economy\Services\TokenService::class)
                         ? (int) app(\PluggedHost\Economy\Services\TokenService::class)->balance($user) : 0;
                     $credits = (int) (UserCredits::forUser($user)?->credits ?? 0);
 
@@ -106,7 +107,7 @@ class EconomyAdminPluginProvider extends ServiceProvider
                 })->name('api:client:economy.balances');
 
                 \Illuminate\Support\Facades\Route::get('/transactions', function (\Illuminate\Http\Request $request) {
-                    $tokens = class_exists(\PluggedHost\Economy\Services\TokenService::class)
+                    $tokens = Plugins::available(\PluggedHost\Economy\Services\TokenService::class)
                         ? app(\PluggedHost\Economy\Services\TokenService::class)->recentTransactions($request->user(), 25) : [];
 
                     return response()->json(['data' => $tokens]);

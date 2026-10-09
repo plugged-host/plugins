@@ -5,6 +5,7 @@ namespace PluggedHost\Core\Services;
 use App\Models\Server;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\TokenService;
@@ -144,7 +145,7 @@ class AccountSummary
      */
     private function tokens(User $user): ?int
     {
-        if (!class_exists(TokenService::class)) {
+        if (!Plugins::available(TokenService::class)) {
             return null;
         }
 
@@ -159,7 +160,7 @@ class AccountSummary
 
     private function credits(User $user): ?int
     {
-        if (!class_exists(UserCredits::class)) {
+        if (!Plugins::available(UserCredits::class)) {
             return null;
         }
 

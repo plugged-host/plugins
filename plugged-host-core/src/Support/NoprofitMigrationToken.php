@@ -27,8 +27,8 @@ final class NoprofitMigrationToken
         $nonce = bin2hex(random_bytes(16));
         Cache::put(NoprofitAccountController::ISSUED_MIGRATION_KEY . $nonce, (int) $user->getKey(), $ttl);
 
-        $credits = class_exists(UserCredits::class) ? UserCredits::forUser($user) : null;
-        $discord = class_exists(DiscordLink::class) ? DiscordLink::query()->where('user_id', $user->id)->first() : null;
+        $credits = Plugins::available(UserCredits::class) ? UserCredits::forUser($user) : null;
+        $discord = Plugins::available(DiscordLink::class) ? DiscordLink::query()->where('user_id', $user->id)->first() : null;
 
         $usage = Server::query()
             ->where('owner_id', $user->id)

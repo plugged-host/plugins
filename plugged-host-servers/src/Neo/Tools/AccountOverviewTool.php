@@ -6,6 +6,7 @@ use App\Models\User;
 use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Ai\Tools\ToolContext;
 use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Neo\AccountTool;
 use PluggedHost\Servers\Services\ServerProvisioner;
@@ -71,7 +72,7 @@ final class AccountOverviewTool extends AccountTool
     private function plusPlus(User $user): string
     {
         $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
-        $until = class_exists($membership) ? app($membership)->plusPlusUntil($user) : null;
+        $until = Plugins::available($membership) ? app($membership)->plusPlusUntil($user) : null;
 
         return $until === null ? 'no' : 'yes, until ' . $until->toDateTimeString() . ' UTC (Premium locations, no ads, front of the queue, extra CPU)';
     }

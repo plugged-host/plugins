@@ -13,6 +13,7 @@ use App\Services\Allocations\AssignmentService;
 use App\Services\Deployment\FindViableNodesService;
 use App\Services\Servers\ServerCreationService;
 use Illuminate\Database\Eloquent\Collection;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Services\NoprofitCreditSync;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\NodeBalancer;
@@ -118,7 +119,7 @@ final class AccountAllowance
         $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
 
         try {
-            return class_exists($membership) ? (int) app($membership)->cpuBonus($user) : 0;
+            return Plugins::available($membership) ? (int) app($membership)->cpuBonus($user) : 0;
         } catch (\Throwable) {
             return 0;
         }

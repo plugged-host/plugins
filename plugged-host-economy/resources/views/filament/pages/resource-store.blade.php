@@ -105,6 +105,9 @@
 
         {{-- A leaderboard under the history. Renders nothing (no reserved space) unless the
              slot is granted. --}}
-        <x-plugged-host-ads::slot name="store-under-tx" />
+        {{-- The component lives in plugged-host-ads; its view namespace only exists while ads is enabled. --}}
+        @if (\PluggedHost\Core\Support\Plugins::enabled('plugged-host-ads'))
+            <x-plugged-host-ads::slot name="store-under-tx" />
+        @endif
     </div>
 </x-filament-panels::page>

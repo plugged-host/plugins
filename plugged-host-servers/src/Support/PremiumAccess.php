@@ -3,6 +3,7 @@
 namespace PluggedHost\Servers\Support;
 
 use App\Models\User;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Services\LocationCatalog;
 use Throwable;
 
@@ -21,7 +22,7 @@ class PremiumAccess
     public static function supported(): bool
     {
         try {
-            return class_exists(self::MEMBERSHIP) && app(self::MEMBERSHIP)->supported();
+            return Plugins::available(self::MEMBERSHIP) && app(self::MEMBERSHIP)->supported();
         } catch (Throwable) {
             return false;
         }

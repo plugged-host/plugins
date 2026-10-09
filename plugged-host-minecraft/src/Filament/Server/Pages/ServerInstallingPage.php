@@ -11,6 +11,7 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use PluggedHost\Core\Services\PerkDiscovery;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -216,7 +217,7 @@ class ServerInstallingPage extends Page
             'suffix' => config('panel.use_binary_prefix') ? ' MiB' : ' MB',
             // PerkDiscovery lives in plugged-host-core; guarded so minecraft degrades to an
             // empty perk list rather than 500ing the install screen if core is ever absent.
-            'perks' => class_exists(PerkDiscovery::class) ? app(PerkDiscovery::class)->forUser(auth()->user()) : [],
+            'perks' => Plugins::available(PerkDiscovery::class) ? app(PerkDiscovery::class)->forUser(auth()->user()) : [],
             'supportUrl' => config('plugged-host-discord.invite_url'),
         ];
     }

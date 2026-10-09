@@ -204,6 +204,9 @@
 
         {{-- WP4: the install wait is the least intrusive place there is for a unit — the user is
              already stuck here with nothing to do. Renders nothing unless the slot is granted. --}}
-        <x-plugged-host-ads::slot name="onboarding-install" />
+        {{-- The component lives in plugged-host-ads; its view namespace only exists while ads is enabled. --}}
+        @if (\PluggedHost\Core\Support\Plugins::enabled('plugged-host-ads'))
+            <x-plugged-host-ads::slot name="onboarding-install" />
+        @endif
     </div>
 </x-filament-panels::page>

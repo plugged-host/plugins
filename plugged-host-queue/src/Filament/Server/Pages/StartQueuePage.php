@@ -11,6 +11,7 @@ use Carbon\CarbonInterval;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Queue\Models\StartQueueEntry;
 use PluggedHost\Queue\Services\NodePressure;
 use PluggedHost\Queue\Services\NodeTransferService;
@@ -317,7 +318,7 @@ class StartQueuePage extends Page
 
             $page = 'PluggedHost\\Servers\\Filament\\Server\\Pages\\ServerTransferPage';
 
-            if ($this->transfers()->orchestrated() && class_exists($page)) {
+            if ($this->transfers()->orchestrated() && Plugins::available($page)) {
                 $this->redirect($page::getUrl(tenant: $server), navigate: false);
 
                 return;
@@ -486,7 +487,7 @@ class StartQueuePage extends Page
     {
         $class = 'PluggedHost\\Economy\\Filament\\App\\Pages\\PlusPage';
 
-        if (!class_exists($class)) {
+        if (!Plugins::available($class)) {
             return null;
         }
 
@@ -500,7 +501,7 @@ class StartQueuePage extends Page
     {
         $class = 'PluggedHost\\Economy\\Services\\MembershipService';
 
-        return class_exists($class) ? (int) $this->safely(fn () => app($class)->plusCost(), 0) : 0;
+        return Plugins::available($class) ? (int) $this->safely(fn () => app($class)->plusCost(), 0) : 0;
     }
 
     /**
@@ -556,7 +557,7 @@ class StartQueuePage extends Page
     {
         $class = 'PluggedHost\\Economy\\Filament\\App\\Pages\\EarnTokensPage';
 
-        if (!class_exists($class)) {
+        if (!Plugins::available($class)) {
             return null;
         }
 
@@ -584,7 +585,7 @@ class StartQueuePage extends Page
 
     protected function adsService(string $class): mixed
     {
-        if (!class_exists($class)) {
+        if (!Plugins::available($class)) {
             return null;
         }
 

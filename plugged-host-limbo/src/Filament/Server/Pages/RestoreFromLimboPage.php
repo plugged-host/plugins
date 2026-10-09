@@ -8,6 +8,7 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Limbo\Services\LimboService;
 use Throwable;
 
@@ -127,7 +128,7 @@ class RestoreFromLimboPage extends Page
         $service = 'PluggedHost\\Economy\\Services\\TokenService';
         $user = auth()->user();
 
-        if (!class_exists($service) || $user === null) {
+        if (!Plugins::available($service) || $user === null) {
             return 0;
         }
 

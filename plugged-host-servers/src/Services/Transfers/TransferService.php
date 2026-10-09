@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Countries;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Exceptions\TransferException;
 use PluggedHost\Servers\Models\ServerRelocation;
 use PluggedHost\Servers\Services\LocationCatalog;
@@ -1125,7 +1126,7 @@ class TransferService
     {
         $class = 'Boy132\\Subdomains\\Models\\Subdomain';
 
-        if (!class_exists($class)) {
+        if (!Plugins::available($class)) {
             return;
         }
 

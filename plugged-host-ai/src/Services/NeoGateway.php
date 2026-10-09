@@ -13,6 +13,7 @@ use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -288,7 +289,7 @@ final class NeoGateway
         $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
 
         try {
-            return $user !== null && class_exists($membership) ? max(100, (int) app($membership)->aiUsagePercent($user)) : 100;
+            return $user !== null && Plugins::available($membership) ? max(100, (int) app($membership)->aiUsagePercent($user)) : 100;
         } catch (Throwable) {
             return 100;
         }
@@ -302,7 +303,7 @@ final class NeoGateway
         $links = 'PluggedHost\\Discord\\Models\\DiscordLink';
 
         try {
-            return class_exists($links) ? $links::query()->where('discord_id', $discordId)->first()?->user : null;
+            return Plugins::available($links) ? $links::query()->where('discord_id', $discordId)->first()?->user : null;
         } catch (Throwable) {
             return null;
         }

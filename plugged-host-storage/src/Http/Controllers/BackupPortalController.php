@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Storage\Services\StorageService;
 
@@ -80,7 +81,7 @@ class BackupPortalController extends Controller
         $userServers = collect();
 
         if ($user) {
-            if (class_exists(DiscordLink::class)) {
+            if (Plugins::available(DiscordLink::class)) {
                 $discordLink = DiscordLink::where('user_id', $user->id)->first();
             }
 

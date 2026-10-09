@@ -174,7 +174,7 @@ final class PanelTourSteps
         $page = 'PluggedHost\\Servers\\Filament\\App\\Pages\\CreateServerPage';
         $allowance = 'PluggedHost\\Servers\\Support\\AccountAllowance';
 
-        if (!class_exists($page) || !class_exists($allowance)) {
+        if (!Plugins::available($page) || !Plugins::available($allowance)) {
             return null;
         }
 
@@ -190,7 +190,7 @@ final class PanelTourSteps
         $balance = 'PluggedHost\\ThemeV2\\Livewire\\ThemeV2Balance';
 
         try {
-            return class_exists($balance) && $balance::shouldMount();
+            return Plugins::available($balance) && $balance::shouldMount();
         } catch (Throwable) {
             return false;
         }
@@ -205,7 +205,7 @@ final class PanelTourSteps
         $page = 'PluggedHost\\Minecraft\\Filament\\Server\\Pages\\ServerOnboardingPage';
 
         try {
-            return class_exists($page) && $page::canAccess();
+            return Plugins::available($page) && $page::canAccess();
         } catch (Throwable) {
             return false;
         }
@@ -216,7 +216,7 @@ final class PanelTourSteps
         $page = 'PluggedHost\\Servers\\Filament\\Server\\Pages\\ServerSettings';
 
         try {
-            return class_exists($page) && $page::canAccess() ? $page::getUrl() : null;
+            return Plugins::available($page) && $page::canAccess() ? $page::getUrl() : null;
         } catch (Throwable) {
             return null;
         }

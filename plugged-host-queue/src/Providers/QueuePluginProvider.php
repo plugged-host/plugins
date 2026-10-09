@@ -4,6 +4,7 @@ namespace PluggedHost\Queue\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Queue\Console\Commands\QueueSweepCommand;
 use PluggedHost\Queue\Filament\Server\Pages\StartQueuePage;
 use PluggedHost\Queue\Services\PriorityPassService;
@@ -121,7 +122,7 @@ class QueuePluginProvider extends ServiceProvider
     {
         $display = self::ADS_DISPLAY;
 
-        if (!class_exists($display) || !method_exists($display, 'registerInterstitialRoute')) {
+        if (!Plugins::available($display) || !method_exists($display, 'registerInterstitialRoute')) {
             return;
         }
 

@@ -6,6 +6,7 @@ use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationItem;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Route;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
 use PluggedHost\Economy\Filament\App\Pages\PlusPage;
@@ -87,7 +88,7 @@ class ThemeV2Navigation
             [PlusPage::class, Heroicon::OutlinedSparkles, 'plus'],
             [EarnTokensPage::class, Heroicon::OutlinedCircleStack, 'tokens'],
         ] as [$page, $icon, $slug]) {
-            if (!class_exists($page) || !Route::has("filament.app.pages.{$slug}") || !$page::canAccess()) {
+            if (!Plugins::available($page) || !Route::has("filament.app.pages.{$slug}") || !$page::canAccess()) {
                 continue;
             }
 

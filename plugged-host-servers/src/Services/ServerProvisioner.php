@@ -11,6 +11,7 @@ use App\Exceptions\Service\Deployment\NoViableNodeException;
 use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Support\AccountAllowance;
 use Throwable;
@@ -140,7 +141,7 @@ class ServerProvisioner
         if ($types !== null) {
             // ServerOnboarding lives in plugged-host-minecraft; by class-string so servers does
             // not hard-depend on it.
-            if (class_exists(\PluggedHost\Minecraft\Models\ServerOnboarding::class)) {
+            if (Plugins::available(\PluggedHost\Minecraft\Models\ServerOnboarding::class)) {
                 \PluggedHost\Minecraft\Models\ServerOnboarding::markRequired($server);
             }
 
@@ -189,7 +190,7 @@ class ServerProvisioner
     {
         AccountAllowance::forgetMemo($user);
 
-        if (class_exists(\PluggedHost\Core\Services\AccountSummary::class)) {
+        if (Plugins::available(\PluggedHost\Core\Services\AccountSummary::class)) {
             app(\PluggedHost\Core\Services\AccountSummary::class)->forget($user);
         }
     }

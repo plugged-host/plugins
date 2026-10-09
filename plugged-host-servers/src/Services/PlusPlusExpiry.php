@@ -9,6 +9,7 @@ use App\Repositories\Daemon\DaemonServerRepository;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Exceptions\TransferException;
 use PluggedHost\Servers\Models\ServerRelocation;
 use PluggedHost\Servers\Services\Transfers\TransferPlanner;
@@ -48,7 +49,7 @@ class PlusPlusExpiry
 
     public static function available(): bool
     {
-        return class_exists(self::MEMBERSHIP) && PremiumAccess::supported();
+        return Plugins::available(self::MEMBERSHIP) && PremiumAccess::supported();
     }
 
     /**
@@ -323,7 +324,7 @@ class PlusPlusExpiry
         AccountAllowance::forgetMemo($user);
 
         $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
-        if (class_exists($membership)) {
+        if (Plugins::available($membership)) {
             app($membership)->forget($user);
         }
     }

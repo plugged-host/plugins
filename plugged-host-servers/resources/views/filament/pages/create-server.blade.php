@@ -46,6 +46,9 @@
         </div>
 
         {{-- Ad slot under creation form --}}
-        <x-plugged-host-ads::slot name="create-under-plan" />
+        {{-- The component lives in plugged-host-ads; its view namespace only exists while ads is enabled. --}}
+        @if (\PluggedHost\Core\Support\Plugins::enabled('plugged-host-ads'))
+            <x-plugged-host-ads::slot name="create-under-plan" />
+        @endif
     </div>
 </x-filament-panels::page>

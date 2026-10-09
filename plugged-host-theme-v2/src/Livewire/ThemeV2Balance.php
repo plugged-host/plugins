@@ -5,6 +5,7 @@ namespace PluggedHost\ThemeV2\Livewire;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
 use PluggedHost\Economy\Models\UserCredits;
@@ -118,7 +119,7 @@ class ThemeV2Balance extends Component
             return null;
         }
 
-        if (class_exists(\PluggedHost\Core\Services\AccountSummary::class)) {
+        if (Plugins::available(\PluggedHost\Core\Services\AccountSummary::class)) {
             try {
                 return app(\PluggedHost\Core\Services\AccountSummary::class)->forUser($user);
             } catch (Throwable) {
@@ -137,7 +138,7 @@ class ThemeV2Balance extends Component
     private static function tokens(): ?int
     {
         return static::remember('tokens', function (): ?int {
-            if (!class_exists(TokenService::class)) {
+            if (!Plugins::available(TokenService::class)) {
                 return null;
             }
 
@@ -154,7 +155,7 @@ class ThemeV2Balance extends Component
     private static function credits(): ?int
     {
         return static::remember('credits', function (): ?int {
-            if (!class_exists(UserCredits::class)) {
+            if (!Plugins::available(UserCredits::class)) {
                 return null;
             }
 
@@ -259,7 +260,7 @@ class ThemeV2Balance extends Component
      */
     private static function pageUrl(string $page): ?string
     {
-        if (!class_exists($page)) {
+        if (!Plugins::available($page)) {
             return null;
         }
 

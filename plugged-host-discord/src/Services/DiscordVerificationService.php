@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordInviteBaseline;
 use PluggedHost\Discord\Models\DiscordInvitedMember;
 use PluggedHost\Discord\Models\DiscordLink;
@@ -1006,7 +1007,7 @@ class DiscordVerificationService
         $link = DiscordLink::where('discord_id', $record->inviter_discord_id)->first();
         $user = $link?->user;
 
-        if (!$this->inviteClawbackEnabled() || $amount <= 0 || !$user || !class_exists(CreditRecoveryService::class)) {
+        if (!$this->inviteClawbackEnabled() || $amount <= 0 || !$user || !Plugins::available(CreditRecoveryService::class)) {
             $record->update(['revoked_at' => now(), 'revoked_credits' => 0]);
 
             return $empty;
@@ -1135,7 +1136,7 @@ class DiscordVerificationService
         int $net,
         int $creditsPerInvite
     ): void {
-        if ($net > 0 && $creditsPerInvite > 0 && class_exists(UserCredits::class)) {
+        if ($net > 0 && $creditsPerInvite > 0 && Plugins::available(UserCredits::class)) {
             UserCredits::forUser($user)?->addCredits(
                 $net,
                 'discord_invite',
@@ -1156,7 +1157,7 @@ class DiscordVerificationService
 
             // Amount 0: the balance did not move, the debt did. Without this the user
             // sees invites mature and no credits arrive, with no explanation anywhere.
-            if (class_exists(CreditTransaction::class)) {
+            if (Plugins::available(CreditTransaction::class)) {
                 CreditTransaction::create([
                     'user_id' => $user->id,
                     'amount' => 0,
@@ -1478,7 +1479,7 @@ class DiscordVerificationService
             'boost_count' => $boostCount,
             'panel_user' => $user,
             'discord_link' => $link,
-            'current_panel_balance' => $user && class_exists(UserCredits::class)
+            'current_panel_balance' => $user && Plugins::available(UserCredits::class)
                 ? (UserCredits::forUser($user)?->credits ?? 0)
                 : null,
         ];
@@ -1885,7 +1886,7 @@ class DiscordVerificationService
 
         $newRewarded = max($previousRewarded, $boostCount);
 
-        if ($creditsToAward > 0 && class_exists(UserCredits::class)) {
+        if ($creditsToAward > 0 && Plugins::available(UserCredits::class)) {
             // Claim the tier before paying it: $previousRewarded was read before a Discord round
             // trip, so a parallel sync may have paid it already. Only the request that moves
             // boosts_rewarded from that value pays; the claim rolls back if paying fails.

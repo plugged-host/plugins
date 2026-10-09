@@ -11,6 +11,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Http;
+use PluggedHost\Core\Support\Plugins;
 
 /**
  * @property int $id
@@ -82,7 +83,7 @@ class Subdomain extends Model implements HasLabel
 
         $this->token_cost = 0;
 
-        if (!class_exists(\PluggedHost\Economy\Services\TokenService::class)) {
+        if (!Plugins::available(\PluggedHost\Economy\Services\TokenService::class)) {
             return;
         }
 
@@ -114,7 +115,7 @@ class Subdomain extends Model implements HasLabel
 
     public static function calculateTokenCost(Server $server): int
     {
-        if (!class_exists(\PluggedHost\Economy\Services\TokenService::class)) {
+        if (!Plugins::available(\PluggedHost\Economy\Services\TokenService::class)) {
             return 0;
         }
 
@@ -142,7 +143,7 @@ class Subdomain extends Model implements HasLabel
             return false;
         }
 
-        if (class_exists(\PluggedHost\Discord\Models\DiscordLink::class)) {
+        if (Plugins::available(\PluggedHost\Discord\Models\DiscordLink::class)) {
             $linked = \PluggedHost\Discord\Models\DiscordLink::where('user_id', $user->id)
                 ->whereNotNull('discord_id')
                 ->where('discord_id', '!=', '')
@@ -179,7 +180,7 @@ class Subdomain extends Model implements HasLabel
 
     public static function getDiscordInviteUrl(): string
     {
-        if (class_exists(\PluggedHost\Discord\Services\DiscordVerificationService::class)) {
+        if (Plugins::available(\PluggedHost\Discord\Services\DiscordVerificationService::class)) {
             try {
                 return app(\PluggedHost\Discord\Services\DiscordVerificationService::class)->getInviteUrl();
             } catch (\Throwable) {}
@@ -194,7 +195,7 @@ class Subdomain extends Model implements HasLabel
             return false;
         }
 
-        if (class_exists(\PluggedHost\Discord\Models\DiscordLink::class)) {
+        if (Plugins::available(\PluggedHost\Discord\Models\DiscordLink::class)) {
             $link = \PluggedHost\Discord\Models\DiscordLink::where('user_id', $user->id)->first();
             if ($link && $link->isLinked()) {
                 if ($link->is_in_guild) {
@@ -203,7 +204,7 @@ class Subdomain extends Model implements HasLabel
 
                 // If not marked in guild, try a quick live check/sync via DiscordVerificationService
                 try {
-                    if (class_exists(\PluggedHost\Discord\Services\DiscordVerificationService::class)) {
+                    if (Plugins::available(\PluggedHost\Discord\Services\DiscordVerificationService::class)) {
                         $service = app(\PluggedHost\Discord\Services\DiscordVerificationService::class);
                         $sync = $service->syncUser($user);
                         if (($sync['status'] ?? null) === 'verified') {

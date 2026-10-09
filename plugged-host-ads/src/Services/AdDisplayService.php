@@ -3,6 +3,7 @@
 namespace PluggedHost\Ads\Services;
 
 use App\Models\User;
+use PluggedHost\Core\Support\Plugins;
 
 class AdDisplayService
 {
@@ -313,7 +314,7 @@ class AdDisplayService
         $seconds = max(5, (int) config('plugged-host-ads.refresh.seconds', 5));
 
         try {
-            if ($user !== null && class_exists(self::MEMBERSHIP) && app(self::MEMBERSHIP)->hasPlus($user)) {
+            if ($user !== null && Plugins::available(self::MEMBERSHIP) && app(self::MEMBERSHIP)->hasPlus($user)) {
                 return max($seconds, (int) config('plugged-host-ads.refresh.plus_seconds', 10));
             }
         } catch (\Throwable) {

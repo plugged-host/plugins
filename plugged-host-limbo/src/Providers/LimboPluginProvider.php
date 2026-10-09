@@ -5,6 +5,7 @@ namespace PluggedHost\Limbo\Providers;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Limbo\Console\Commands\LimboSweepCommand;
 use PluggedHost\Limbo\Filament\Server\Pages\RestoreFromLimboPage;
 use Throwable;
@@ -107,7 +108,7 @@ class LimboPluginProvider extends ServiceProvider
     {
         $service = 'PluggedHost\\Ads\\Services\\AdDisplayService';
 
-        if (!class_exists($service) || !method_exists($service, 'registerInterstitialRoute')) {
+        if (!Plugins::available($service) || !method_exists($service, 'registerInterstitialRoute')) {
             return;
         }
 

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
 use Throwable;
 
@@ -201,7 +202,7 @@ final class NoprofitAccountSync
             ->get()
             ->keyBy('owner_id');
 
-        $discord = class_exists(DiscordLink::class)
+        $discord = Plugins::available(DiscordLink::class)
             ? DiscordLink::query()->whereIn('user_id', $users->keys())->whereNotNull('discord_id')->get()->keyBy('user_id')
             : collect();
 

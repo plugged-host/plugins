@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use PluggedHost\Ads\Services\AdDisplayService;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -81,7 +82,7 @@ class InGameAdCommand extends Command
         }
 
         try {
-            if (class_exists(self::MEMBERSHIP) && app(self::MEMBERSHIP)->hasPlus($owner)) {
+            if (Plugins::available(self::MEMBERSHIP) && app(self::MEMBERSHIP)->hasPlus($owner)) {
                 return true;
             }
 

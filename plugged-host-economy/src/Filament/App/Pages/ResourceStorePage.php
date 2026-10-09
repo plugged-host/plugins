@@ -7,6 +7,7 @@ use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use PluggedHost\Core\Filament\App\Widgets\PerkDiscoveryWidget;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Livewire\DiscordRewards;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\ResourceStoreService;
@@ -73,7 +74,7 @@ class ResourceStorePage extends Page
     {
         // Somebody about to spend credits on RAM should first be told they can have some for
         // free (the Discord tier). Disappears once there is nothing left to claim.
-        return class_exists(PerkDiscoveryWidget::class) ? [PerkDiscoveryWidget::class] : [];
+        return Plugins::available(PerkDiscoveryWidget::class) ? [PerkDiscoveryWidget::class] : [];
     }
 
     public function buyCpu(int $amount, ResourceStoreService $service): void
@@ -126,7 +127,7 @@ class ResourceStorePage extends Page
         return [
             'credits' => (int) ($userCredits?->credits ?? 0),
             // "Earn credits on Discord": the Discord rewards tab on the profile page.
-            'rewardsUrl' => class_exists(DiscordRewards::class) ? DiscordRewards::url() : null,
+            'rewardsUrl' => Plugins::available(DiscordRewards::class) ? DiscordRewards::url() : null,
             // No plan yet (noprofit.space has not synced this account): nothing to show or sell.
             'resources' => $user instanceof User && AccountAllowance::forUser($user) !== null
                 ? $this->resources($user, (int) ($userCredits?->credits ?? 0), $store)

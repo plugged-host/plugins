@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use PluggedHost\Core\Services\Abuse\AbusePurge;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Core\Support\SuspensionReason;
 use Throwable;
 
@@ -33,7 +34,7 @@ class SuspendedServerPage extends Page
 
         $limbo = 'PluggedHost\\Limbo\\Services\\LimboService';
 
-        if (class_exists($limbo)) {
+        if (Plugins::available($limbo)) {
             try {
                 if (in_array(app($limbo)->state($server)?->state, ['hibernating', 'limbo', 'restoring'], true)) {
                     return false;

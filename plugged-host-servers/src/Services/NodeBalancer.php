@@ -4,6 +4,7 @@ namespace PluggedHost\Servers\Services;
 
 use App\Models\Node;
 use Illuminate\Support\Collection;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -240,7 +241,7 @@ class NodeBalancer
         $settingClass = 'PluggedHost\\Status\\Models\\StatusNodeSetting';
         $snapshotClass = 'PluggedHost\\Status\\Models\\StatusSnapshot';
 
-        if (!class_exists($settingClass) || !class_exists($snapshotClass)) {
+        if (!Plugins::available($settingClass) || !Plugins::available($snapshotClass)) {
             return collect();
         }
 

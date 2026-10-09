@@ -32,6 +32,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use PluggedHost\Core\Support\Plugins;
 
 class SubdomainResource extends Resource
 {
@@ -283,7 +284,7 @@ class SubdomainResource extends Resource
                         $server = Filament::getTenant();
                         $cost = Subdomain::calculateTokenCost($server);
                         $subNum = $server->subdomains()->count() + 1;
-                        $balance = class_exists(\PluggedHost\Economy\Services\TokenService::class)
+                        $balance = Plugins::available(\PluggedHost\Economy\Services\TokenService::class)
                             ? app(\PluggedHost\Economy\Services\TokenService::class)->balance($server->user)
                             : 0;
 
@@ -378,7 +379,7 @@ class SubdomainResource extends Resource
                                 }
 
                                 $cost = Subdomain::calculateTokenCost($server);
-                                if ($cost > 0 && class_exists(\PluggedHost\Economy\Services\TokenService::class)) {
+                                if ($cost > 0 && Plugins::available(\PluggedHost\Economy\Services\TokenService::class)) {
                                     $tokenService = app(\PluggedHost\Economy\Services\TokenService::class);
                                     $balance = $tokenService->balance($server->user);
                                     if ($balance < $cost) {

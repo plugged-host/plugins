@@ -4,6 +4,7 @@ namespace Boy132\Subdomains\Services;
 
 use Boy132\Subdomains\Models\Subdomain;
 use Exception;
+use PluggedHost\Core\Support\Plugins;
 
 class SubdomainService
 {
@@ -58,7 +59,7 @@ class SubdomainService
                 $tokensCharged = 0;
                 $cost = Subdomain::calculateTokenCost($server);
 
-                if ($cost > 0 && class_exists(\PluggedHost\Economy\Services\TokenService::class)) {
+                if ($cost > 0 && Plugins::available(\PluggedHost\Economy\Services\TokenService::class)) {
                     $tokenService = app(\PluggedHost\Economy\Services\TokenService::class);
                     if ($tokenService->isEnabled()) {
                         $owner = $server->user;

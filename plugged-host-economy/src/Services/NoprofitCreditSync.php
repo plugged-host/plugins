@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Core\Services\NoprofitClient;
 use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\NoprofitCreditOutbox;
 use PluggedHost\Economy\Models\UserCredits;
@@ -614,11 +615,11 @@ final class NoprofitCreditSync
     {
         UserCredits::forgetMemo($user);
 
-        if (class_exists(AccountSummary::class)) {
+        if (Plugins::available(AccountSummary::class)) {
             app(AccountSummary::class)->forget($user);
         }
 
-        if (class_exists(AccountAllowance::class)) {
+        if (Plugins::available(AccountAllowance::class)) {
             AccountAllowance::forgetMemo($user);
         }
     }

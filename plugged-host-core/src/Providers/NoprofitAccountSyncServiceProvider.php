@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Services\NoprofitAccountSync;
 use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
 
 /**
@@ -36,7 +37,7 @@ class NoprofitAccountSyncServiceProvider extends ServiceProvider
             }
         });
 
-        if (class_exists(DiscordLink::class)) {
+        if (Plugins::available(DiscordLink::class)) {
             DiscordLink::saved(function (DiscordLink $link): void {
                 if ($link->wasChanged(['discord_id', 'is_in_guild', 'invite_count', 'invite_debt', 'boost_count', 'boosts_rewarded', 'is_boosting']) || $link->wasRecentlyCreated) {
                     NoprofitAccountSync::schedule((int) $link->user_id);

@@ -4,6 +4,7 @@ namespace PluggedHost\Core\Services;
 
 use App\Models\User;
 use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Models\UserCredits;
@@ -139,7 +140,7 @@ class PerkDiscovery
      */
     private function discordEarnPerk(User $user): ?array
     {
-        if (!class_exists(DiscordLink::class) || !config('plugged-host-economy.credits.enabled', true)) {
+        if (!Plugins::available(DiscordLink::class) || !config('plugged-host-economy.credits.enabled', true)) {
             return null;
         }
 
@@ -151,7 +152,7 @@ class PerkDiscovery
         $perBoost = (int) config('plugged-host-discord.credits_per_boost_1', 0);
 
         // The Discord rewards tab on the profile page (plugged-host-discord).
-        $url = class_exists(\PluggedHost\Discord\Livewire\DiscordRewards::class)
+        $url = Plugins::available(\PluggedHost\Discord\Livewire\DiscordRewards::class)
             ? \PluggedHost\Discord\Livewire\DiscordRewards::url()
             : null;
 
@@ -181,7 +182,7 @@ class PerkDiscovery
      */
     private function storePerk(User $user): ?array
     {
-        if (!config('plugged-host-economy.credits.enabled', true) || !class_exists(ResourceStorePage::class)) {
+        if (!config('plugged-host-economy.credits.enabled', true) || !Plugins::available(ResourceStorePage::class)) {
             return null;
         }
 
@@ -190,7 +191,7 @@ class PerkDiscovery
         }
 
         // This account's next gigabyte: prices climb with what the account already has.
-        $price = class_exists(ResourceStoreService::class) ? app(ResourceStoreService::class)->price($user, 'memory', 1024) : 0;
+        $price = Plugins::available(ResourceStoreService::class) ? app(ResourceStoreService::class)->price($user, 'memory', 1024) : 0;
 
         if ($price <= 0) {
             return null;
@@ -242,7 +243,7 @@ class PerkDiscovery
 
     private function discordLink(User $user): ?DiscordLink
     {
-        if (!class_exists(DiscordLink::class)) {
+        if (!Plugins::available(DiscordLink::class)) {
             return null;
         }
 

@@ -6,6 +6,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Queue\Models\StartQueueEntry;
 use PluggedHost\Queue\Models\StartQueuePriority;
 use Throwable;
@@ -144,7 +145,7 @@ class PriorityPassService
                 $window->save();
 
                 $user = User::query()->find($window->user_id);
-                $ledger = class_exists(self::TOKENS) ? app(self::TOKENS) : null;
+                $ledger = Plugins::available(self::TOKENS) ? app(self::TOKENS) : null;
 
                 if ($user !== null && $ledger !== null && $tokens > 0) {
                     $ledger->add(
@@ -164,7 +165,7 @@ class PriorityPassService
     /** plugged-host-economy's MembershipService, or null when it is not installed. */
     protected function membership(): mixed
     {
-        if (!class_exists(self::MEMBERSHIP)) {
+        if (!Plugins::available(self::MEMBERSHIP)) {
             return null;
         }
 

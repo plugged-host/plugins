@@ -7,6 +7,7 @@ use App\Models\Server;
 use App\Models\User;
 use App\Repositories\Daemon\DaemonServerRepository;
 use PluggedHost\Ai\Tools\ToolResult;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -24,7 +25,7 @@ final class PowerChain
 
     public function dispatch(User $user, Server $server, string $action): ToolResult
     {
-        if (in_array($action, ['start', 'restart'], true) && class_exists(self::INTERCEPTOR)) {
+        if (in_array($action, ['start', 'restart'], true) && Plugins::available(self::INTERCEPTOR)) {
             try {
                 $url = app(self::INTERCEPTOR)->interceptFor($user, $server, $action);
             } catch (Throwable $e) {

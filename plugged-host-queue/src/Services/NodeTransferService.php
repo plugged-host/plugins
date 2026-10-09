@@ -11,6 +11,7 @@ use App\Services\Deployment\FindViableNodesService;
 use App\Services\Servers\TransferServerService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -112,7 +113,7 @@ class NodeTransferService
     /** Is plugged-host-servers' orchestrator there to run the move? */
     public function orchestrated(): bool
     {
-        return class_exists(self::ORCHESTRATOR);
+        return Plugins::available(self::ORCHESTRATOR);
     }
 
     public function requiresPriority(): bool
@@ -225,7 +226,7 @@ class NodeTransferService
     {
         $planner = 'PluggedHost\\Servers\\Services\\Transfers\\TransferPlanner';
 
-        if (!class_exists($planner)) {
+        if (!Plugins::available($planner)) {
             return true;
         }
 

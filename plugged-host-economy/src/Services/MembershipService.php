@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Models\UserMembership;
 use Throwable;
@@ -337,12 +338,12 @@ class MembershipService
     protected function forgetAllowance(User $user): void
     {
         $allowance = 'PluggedHost\\Servers\\Support\\AccountAllowance';
-        if (class_exists($allowance)) {
+        if (Plugins::available($allowance)) {
             $allowance::forgetMemo($user);
         }
 
         $summary = 'PluggedHost\\Core\\Services\\AccountSummary';
-        if (class_exists($summary)) {
+        if (Plugins::available($summary)) {
             app($summary)->forget($user);
         }
     }

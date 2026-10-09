@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordInvitedMember;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\DiscordVerificationService;
@@ -160,7 +161,7 @@ class DiscordRewards extends Component
     /** @param  list<string>  $types */
     private function sumOf(User $user, array $types): int
     {
-        if (!class_exists(CreditTransaction::class)) {
+        if (!Plugins::available(CreditTransaction::class)) {
             return 0;
         }
 
@@ -172,7 +173,7 @@ class DiscordRewards extends Component
 
     private function history(User $user): Collection
     {
-        if (!class_exists(CreditTransaction::class)) {
+        if (!Plugins::available(CreditTransaction::class)) {
             return collect();
         }
 

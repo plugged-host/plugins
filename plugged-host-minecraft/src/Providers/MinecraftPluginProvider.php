@@ -4,6 +4,7 @@ namespace PluggedHost\Minecraft\Providers;
 
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -40,7 +41,7 @@ class MinecraftPluginProvider extends ServiceProvider
     {
         $registry = 'PluggedHost\\Ai\\Tools\\NeoToolRegistry';
 
-        if (!class_exists($registry)) {
+        if (!Plugins::available($registry)) {
             return;
         }
 

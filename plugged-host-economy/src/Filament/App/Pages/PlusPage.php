@@ -6,6 +6,7 @@ use App\Models\User;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\MembershipService;
 use PluggedHost\Economy\Services\TokenService;
@@ -109,7 +110,7 @@ class PlusPage extends Page
     {
         $passes = 'PluggedHost\\Queue\\Services\\PriorityPassService';
 
-        if (class_exists($passes)) {
+        if (Plugins::available($passes)) {
             try {
                 app($passes)->stampWaiting($user);
             } catch (Throwable) {

@@ -13,6 +13,7 @@ use App\Services\Deployment\FindViableNodesService;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Storage\Models\NodeFailover;
 use Throwable;
 
@@ -115,7 +116,7 @@ class FailoverService
     {
         $class = 'PluggedHost\\Status\\Services\\NodeHealth';
 
-        if (!class_exists($class)) {
+        if (!Plugins::available($class)) {
             return false;
         }
 

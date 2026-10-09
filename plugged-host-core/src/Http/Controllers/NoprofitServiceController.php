@@ -11,6 +11,7 @@ use PluggedHost\Core\Services\AccountDeletionService;
 use PluggedHost\Core\Services\NoprofitAccountSync;
 use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Core\Support\NoprofitMigrationToken;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Jobs\SyncDiscordMembershipJob;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\DiscordVerificationService;
@@ -77,7 +78,7 @@ final class NoprofitServiceController
             'state' => ['required', 'string', 'regex:/^[A-Za-z0-9]{32,128}$/'],
         ]);
 
-        $user = class_exists(DiscordLink::class)
+        $user = Plugins::available(DiscordLink::class)
             ? DiscordLink::query()->where('discord_id', $data['discord_id'])->first()?->user
             : null;
 
