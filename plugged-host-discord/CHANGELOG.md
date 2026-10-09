@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- **Only the production panel acts on the Discord server** (`DiscordEnvironment`): the gateway
+  daemon, slash-command registration and the 2x Booster role changes refuse to run elsewhere
+  unless `DISCORD_ALLOW_NON_PRODUCTION=true`. Dev shares production's bot token, so its hourly
+  sync could change real members' roles from dev's data. neo and rux already had this rule.
+
 ## Unreleased (2.1)
 
 - **Discord rewards tab on the profile page** (first tab, `?tab=discord-rewards`): what invites

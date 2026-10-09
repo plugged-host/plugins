@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Discord\Services\DiscordVerificationService;
 use PluggedHost\Discord\Support\DiscordBotSupervisor;
+use PluggedHost\Discord\Support\DiscordEnvironment;
 
 /**
  * Keeps the Discord gateway daemon up from inside the plugin.
@@ -63,6 +64,16 @@ class DiscordBotSuperviseCommand extends Command
 
         // Nothing to supervise until the bot is configured at all.
         if ($verification->getBotToken() === '') {
+            return self::SUCCESS;
+        }
+
+        // A non-production panel leaves the real Discord server alone, and stops a daemon an
+        // older build may have started here.
+        if (!DiscordEnvironment::allowsGuildAccess()) {
+            if ($supervisor->isRunning()) {
+                $supervisor->stop();
+            }
+
             return self::SUCCESS;
         }
 
@@ -172,6 +183,12 @@ class DiscordBotSuperviseCommand extends Command
             return self::FAILURE;
         }
 
+        if (($blocker = DiscordEnvironment::blocker()) !== null) {
+            $this->error($blocker);
+
+            return self::FAILURE;
+        }
+
         if ($supervisor->isRunning()) {
             $this->info('Discord gateway daemon is already running (pid ' . ($supervisor->readStatus()['pid'] ?? '?') . ').');
 
@@ -209,6 +226,8 @@ class DiscordBotSuperviseCommand extends Command
             $rows[] = ['Supervision', 'PAUSED' . ($since ? ' since ' . $this->ago($since) : '') . ' — --start to resume'];
         } elseif (!config('plugged-host-discord.supervisor.enabled', true)) {
             $rows[] = ['Supervision', 'disabled via DISCORD_BOT_SUPERVISOR_ENABLED'];
+        } elseif (!DiscordEnvironment::allowsGuildAccess()) {
+            $rows[] = ['Supervision', 'idle — not the production panel (DISCORD_ALLOW_NON_PRODUCTION)'];
         } else {
             $rows[] = ['Supervision', 'active — the scheduler checks every minute'];
         }

@@ -207,6 +207,20 @@ return [
     |
     */
     'public_key' => env('DISCORD_PUBLIC_KEY', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Act on the Discord server from a non-production panel
+    |--------------------------------------------------------------------------
+    |
+    | Off by default: only the production panel connects the gateway, registers
+    | slash commands and gives or takes roles. A dev panel sharing production's
+    | bot token would otherwise change real members' roles from its own data.
+    | Turn on only with this panel's own Discord application.
+    | See PluggedHost\Discord\Support\DiscordEnvironment.
+    |
+    */
+    'allow_non_production' => (bool) env('DISCORD_ALLOW_NON_PRODUCTION', false),
 ];
 
 

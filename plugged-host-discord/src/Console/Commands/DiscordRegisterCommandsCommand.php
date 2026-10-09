@@ -6,6 +6,7 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use PluggedHost\Discord\Services\DiscordVerificationService;
+use PluggedHost\Discord\Support\DiscordEnvironment;
 
 class DiscordRegisterCommandsCommand extends Command
 {
@@ -23,6 +24,12 @@ class DiscordRegisterCommandsCommand extends Command
 
         if (empty($botToken)) {
             $this->error('Discord Bot Token is not configured. Please set DISCORD_BOT_TOKEN in .env or plugin settings.');
+
+            return self::FAILURE;
+        }
+
+        if (($blocker = DiscordEnvironment::blocker()) !== null) {
+            $this->error($blocker);
 
             return self::FAILURE;
         }

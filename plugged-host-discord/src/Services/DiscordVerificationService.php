@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use PluggedHost\Discord\Models\DiscordInviteBaseline;
 use PluggedHost\Discord\Models\DiscordInvitedMember;
 use PluggedHost\Discord\Models\DiscordLink;
+use PluggedHost\Discord\Support\DiscordEnvironment;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\CreditRecoveryService;
@@ -353,7 +354,7 @@ class DiscordVerificationService
 
         $guildId = $this->getGuildId();
         $botToken = $this->getBotToken();
-        if (empty($guildId) || empty($botToken)) {
+        if (empty($guildId) || empty($botToken) || !DiscordEnvironment::allowsGuildAccess()) {
             return null;
         }
 
@@ -391,7 +392,7 @@ class DiscordVerificationService
         $guildId = $this->getGuildId();
         $botToken = $this->getBotToken();
 
-        if (empty($roleId) || empty($guildId) || empty($botToken)) {
+        if (empty($roleId) || empty($guildId) || empty($botToken) || !DiscordEnvironment::allowsGuildAccess()) {
             return false;
         }
 
@@ -418,7 +419,7 @@ class DiscordVerificationService
         $guildId = $this->getGuildId();
         $botToken = $this->getBotToken();
 
-        if (empty($roleId) || empty($guildId) || empty($botToken)) {
+        if (empty($roleId) || empty($guildId) || empty($botToken) || !DiscordEnvironment::allowsGuildAccess()) {
             return false;
         }
 

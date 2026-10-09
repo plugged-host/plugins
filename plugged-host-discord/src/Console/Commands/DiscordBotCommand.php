@@ -11,6 +11,7 @@ use PluggedHost\Discord\Models\DiscordInvitedMember;
 use PluggedHost\Discord\Services\DiscordBotService;
 use PluggedHost\Discord\Services\DiscordVerificationService;
 use PluggedHost\Discord\Support\DiscordBotSupervisor;
+use PluggedHost\Discord\Support\DiscordEnvironment;
 
 class DiscordBotCommand extends Command
 {
@@ -57,6 +58,12 @@ class DiscordBotCommand extends Command
 
         if (empty($botToken)) {
             $this->error('Discord Bot Token is not configured. Please set DISCORD_BOT_TOKEN in .env or plugin settings.');
+
+            return self::FAILURE;
+        }
+
+        if (($blocker = DiscordEnvironment::blocker()) !== null) {
+            $this->error($blocker);
 
             return self::FAILURE;
         }
