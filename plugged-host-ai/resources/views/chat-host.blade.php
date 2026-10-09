@@ -64,6 +64,8 @@
     .neo-chip { display: inline-flex; align-items: center; min-height: 2.125rem; padding: .375rem .875rem; border-radius: 9999px; background: var(--neo-raise-2); color: var(--neo-text); font-size: .8125rem; font-weight: 500; transition: background-color .15s ease; }
     .neo-chip:hover { background: var(--neo-raise-3); }
 
+    .neo-msg-images { align-self: flex-end; max-width: 85%; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .375rem; }
+    .neo-msg-images img { display: block; max-width: 10rem; max-height: 10rem; border-radius: .75rem; object-fit: cover; }
     .neo-msg-user { align-self: flex-end; max-width: 85%; padding: .5rem .75rem; border-radius: .75rem .75rem .25rem .75rem; background: var(--neo-raise-2); color: var(--neo-text); white-space: pre-wrap; word-break: break-word; }
     .neo-msg-ai { max-width: 100%; word-break: break-word; color: var(--neo-nav); }
     .neo-msg-ai p { margin: 0 0 .5rem; } .neo-msg-ai p:last-child { margin-bottom: 0; }
@@ -110,6 +112,11 @@
     .neo-bar { flex: 1; height: .25rem; border-radius: 9999px; background: var(--neo-raise); overflow: hidden; }
     .neo-bar > i { display: block; height: 100%; min-width: .25rem; border-radius: inherit; background: var(--neo-accent-text); }
     .neo-bar.neo-bar-warn > i { background: var(--neo-warning); } .neo-bar.neo-bar-full > i { background: var(--neo-danger); }
+    .neo-attachments { display: flex; flex-wrap: wrap; gap: .5rem; padding: .25rem .25rem 0; }
+    .neo-attachment { position: relative; width: 3.5rem; height: 3.5rem; }
+    .neo-attachment img { width: 100%; height: 100%; object-fit: cover; border-radius: .5rem; }
+    .neo-attachment-remove { position: absolute; top: -.375rem; right: -.375rem; width: 1.375rem; height: 1.375rem; display: grid; place-items: center; border-radius: 9999px; border: 1px solid var(--neo-line); background: var(--neo-modal); color: var(--neo-muted); transition: color .15s ease; }
+    .neo-attachment-remove:hover { color: var(--neo-text); }
     .neo-flash { display: flex; align-items: center; gap: .375rem; font-size: .75rem; color: var(--neo-danger-text); padding: 0 .25rem; }
     .neo-compose { display: flex; align-items: flex-end; gap: .375rem; padding: .3rem .3rem .3rem .4rem; border-radius: .75rem; border: 1px solid var(--neo-line); background: var(--neo-sunken); transition: border-color .15s ease; }
     .neo-compose:focus-within { border-color: var(--neo-accent-text); }
@@ -166,7 +173,8 @@
         .neo-send { width: 2.75rem; height: 2.75rem; }
         .neo-btn { min-height: 2.75rem; }
         .neo-chip { min-height: 2.75rem; padding: .5rem 1rem; }
-        .neo-msg-user { max-width: 90%; }
+        .neo-msg-user, .neo-msg-images { max-width: 90%; }
+        .neo-attachment-remove { width: 1.75rem; height: 1.75rem; }
     }
 </style>
 @livewire('plugged-host-ai.chat')

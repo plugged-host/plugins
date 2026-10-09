@@ -86,6 +86,16 @@ final class ImageInput
      */
     public static function dataUrl(string $bytes): ?string
     {
+        $jpeg = self::jpeg($bytes);
+
+        return $jpeg === null ? null : 'data:image/jpeg;base64,' . base64_encode($jpeg);
+    }
+
+    /**
+     * The same image as JPEG bytes (dataUrl()), for keeping on disk.
+     */
+    public static function jpeg(string $bytes): ?string
+    {
         $size = @getimagesizefromstring($bytes);
 
         if ($size === false || !in_array($size['mime'] ?? '', self::TYPES, true) || $size[0] < 1 || $size[1] < 1 || $size[0] * $size[1] > self::MAX_PIXELS) {
@@ -111,7 +121,7 @@ final class ImageInput
         ob_start();
         imagejpeg($canvas, null, 85);
 
-        return 'data:image/jpeg;base64,' . base64_encode((string) ob_get_clean());
+        return (string) ob_get_clean();
     }
 
     private static function isDiscordUrl(string $url): bool

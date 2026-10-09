@@ -5,6 +5,8 @@ namespace PluggedHost\Ai\Agent;
 use Illuminate\Support\Collection;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Models\NeoMessage;
+use PluggedHost\Ai\Support\ImageInput;
+use PluggedHost\Ai\Support\MessageContent;
 use PluggedHost\Ai\Tools\ToolContext;
 
 /**
@@ -41,8 +43,9 @@ final class ContextBuilder
         $included = [$current];
         $used = $this->estimate([$system]) + $this->estimate($current);
 
-        foreach (array_reverse($turns) as $turn) {
-            $compact = array_map(fn (array $message): array => $this->stub($message), $turn);
+        foreach (array_reverse($turns) as $age => $turn) {
+            // The exchange before this one keeps its images, for a follow-up about them.
+            $compact = array_map(fn (array $message): array => $this->stub($message, keepImages: $age === 0), $turn);
             $cost = $this->estimate($compact);
 
             if ($used + $cost > $budget) {
@@ -53,7 +56,7 @@ final class ContextBuilder
             $used += $cost;
         }
 
-        $messages = [$system, ...array_merge(...$included)];
+        $messages = $this->withImages([$system, ...array_merge(...$included)]);
 
         if ($finalAnswer) {
             $messages[] = [
@@ -101,7 +104,7 @@ final class ContextBuilder
     private function canonical(NeoMessage $row): ?array
     {
         return match ($row->role) {
-            NeoMessage::USER => ['role' => 'user', 'content' => (string) $row->content],
+            NeoMessage::USER => self::user($row),
             NeoMessage::ASSISTANT => array_filter([
                 'role' => 'assistant',
                 'content' => $row->content,
@@ -117,6 +120,55 @@ final class ContextBuilder
             ],
             default => null,
         };
+    }
+
+    /**
+     * A user message; images it came with are listed in _images until withImages() reads them.
+     *
+     * @return array<string, mixed>
+     */
+    private static function user(NeoMessage $row): array
+    {
+        $paths = array_values(array_filter(array_column((array) (((array) $row->meta)['images'] ?? []), 'path'), 'is_string'));
+
+        if ($paths === []) {
+            return ['role' => 'user', 'content' => (string) $row->content];
+        }
+
+        $note = '(They attached ' . (count($paths) === 1 ? 'an image' : count($paths) . ' images') . '.)';
+
+        return ['role' => 'user', 'content' => trim((string) $row->content . "\n" . $note), '_images' => $paths];
+    }
+
+    /**
+     * Read the images still listed in the messages into image parts, newest first, at most
+     * ImageInput::MAX_IMAGES; ones that are gone or over the limit stay a note.
+     *
+     * @param  list<array<string, mixed>>  $messages
+     * @return list<array<string, mixed>>
+     */
+    private function withImages(array $messages): array
+    {
+        $left = ImageInput::MAX_IMAGES;
+
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            if (!isset($messages[$i]['_images'])) {
+                continue;
+            }
+
+            $images = [];
+            foreach ($messages[$i]['_images'] as $path) {
+                if ($left > 0 && ($image = ChatImages::dataUrl($path)) !== null) {
+                    $images[] = $image;
+                    $left--;
+                }
+            }
+
+            unset($messages[$i]['_images']);
+            $messages[$i]['content'] = MessageContent::with((string) $messages[$i]['content'], $images);
+        }
+
+        return $messages;
     }
 
     /**
@@ -150,10 +202,14 @@ final class ContextBuilder
      * @param  array<string, mixed>  $message
      * @return array<string, mixed>
      */
-    private function stub(array $message): array
+    private function stub(array $message, bool $keepImages = false): array
     {
         $size = $message['_size'] ?? null;
         unset($message['_size']);
+
+        if (!$keepImages) {
+            unset($message['_images']);
+        }
 
         if ($message['role'] === 'tool' && strlen((string) $message['content']) > 600) {
             $message['content'] = '[earlier tool output omitted, ' . ($size ?? strlen((string) $message['content'])) . ' characters]';
@@ -173,12 +229,14 @@ final class ContextBuilder
     }
 
     /**
-     * Rough token estimate (≈3 characters per token for mixed code and prose).
+     * Rough token estimate (≈3 characters per token for mixed code and prose, ≈1600 an image).
      *
      * @param  list<array<string, mixed>>  $messages
      */
     private function estimate(array $messages): int
     {
-        return (int) ceil(strlen((string) json_encode($messages)) / 3);
+        $images = array_sum(array_map(static fn (array $message): int => count($message['_images'] ?? []), $messages));
+
+        return (int) ceil(strlen((string) json_encode($messages)) / 3) + 1600 * $images;
     }
 }

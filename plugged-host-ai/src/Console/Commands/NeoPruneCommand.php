@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
+use PluggedHost\Ai\Agent\ChatImages;
 use PluggedHost\Ai\Models\NeoBotMessage;
 use PluggedHost\Ai\Models\NeoConversation;
 
@@ -27,6 +28,7 @@ class NeoPruneCommand extends Command
             ->delete();
 
         $this->info("Deleted {$deleted} neo conversation(s) older than {$days} days.");
+        $this->info('Removed the images of ' . ChatImages::sweep() . ' deleted neo conversation(s).');
 
         if (Schema::hasTable('neo_bot_messages')) {
             $deleted = NeoBotMessage::query()->where('created_at', '<', now()->subDays($days))->delete();

@@ -10,13 +10,17 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Ai\Agent\ChatImages;
 use PluggedHost\Ai\Agent\NeoAgent;
 use PluggedHost\Ai\Agent\ServerGuard;
 use PluggedHost\Ai\Agent\StepResult;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Models\NeoMessage;
 use PluggedHost\Ai\Services\NeoGateway;
+use PluggedHost\Ai\Support\ImageInput;
 use PluggedHost\Ai\Support\MclogsHandoff;
 use PluggedHost\Ai\Support\NeoAccess;
 use PluggedHost\Ai\Support\NeoPreferences;
@@ -31,6 +35,8 @@ use Throwable;
  */
 class NeoChat extends Component
 {
+    use WithFileUploads;
+
     public const PANELS = ['app', 'server'];
 
     #[Locked]
@@ -42,6 +48,20 @@ class NeoChat extends Component
     public bool $opened = false;
 
     public string $draft = '';
+
+    /**
+     * Images for the next message (picked, pasted or dropped), at most ImageInput::MAX_IMAGES.
+     *
+     * @var list<TemporaryUploadedFile>
+     */
+    public array $images = [];
+
+    /**
+     * Where uploads land before they join $images, so several picks add up.
+     *
+     * @var list<TemporaryUploadedFile>
+     */
+    public array $uploads = [];
 
     /**
      * chat | settings (the gear) | history (earlier chats). A user who switched neo off only
@@ -121,14 +141,37 @@ class NeoChat extends Component
     public function send(): array
     {
         return $this->guarded(function (): StepResult {
-            $result = $this->agent()->send($this->conversation(), $this->user(), $this->draft);
+            $result = $this->agent()->send($this->conversation(), $this->user(), $this->draft, images: $this->images);
 
             if ($result->state === StepResult::CONTINUE) {
                 $this->draft = '';
+                $this->images = [];
             }
 
             return $result;
         });
+    }
+
+    /**
+     * New uploads join the images; ones that are not an image neo takes are left out with a note.
+     */
+    public function updatedUploads(): void
+    {
+        $rules = ['image', 'mimes:png,jpg,jpeg,webp,gif', 'max:' . (ImageInput::MAX_BYTES / 1024)];
+        $valid = array_values(array_filter((array) $this->uploads, static fn ($file): bool => validator(['file' => $file], ['file' => $rules])->passes()));
+
+        count($valid) < count((array) $this->uploads)
+            ? $this->addError('uploads', trans('plugged-host-ai::strings.chat.image_error'))
+            : $this->resetErrorBag('uploads');
+
+        $this->images = array_slice([...$this->images, ...$valid], 0, ImageInput::MAX_IMAGES);
+        $this->uploads = [];
+    }
+
+    public function removeImage(int $index): void
+    {
+        unset($this->images[$index]);
+        $this->images = array_values($this->images);
     }
 
     /**
@@ -280,6 +323,7 @@ class NeoChat extends Component
     {
         $user = $this->user();
         $this->ownConversation($user, $id)->delete();
+        ChatImages::forget([$id]);
 
         if ($this->conversationId === $id) {
             $this->conversationId = $this->agent()->conversationFor($user, $this->server())->id;
@@ -306,7 +350,9 @@ class NeoChat extends Component
     {
         $user = $this->account();
 
-        NeoConversation::query()->where('user_id', $user->id)->delete();
+        $ids = NeoConversation::query()->where('user_id', $user->id)->pluck('id');
+        NeoConversation::query()->whereKey($ids)->delete();
+        ChatImages::forget($ids);
         $this->conversationId = NeoPreferences::enabled($user) ? $this->agent()->conversationFor($user, $this->server())->id : null;
 
         Notification::make()->title(trans('plugged-host-ai::strings.profile.deleted'))->success()->send();

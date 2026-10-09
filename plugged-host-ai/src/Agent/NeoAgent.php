@@ -5,6 +5,7 @@ namespace PluggedHost\Ai\Agent;
 use App\Models\Server;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -17,6 +18,7 @@ use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
 use PluggedHost\Ai\Services\NeoGateway;
+use PluggedHost\Ai\Support\ImageInput;
 use PluggedHost\Ai\Support\NeoAccess;
 use PluggedHost\Ai\Support\NeoPreferences;
 use PluggedHost\Ai\Support\SecretRedactor;
@@ -118,15 +120,16 @@ final class NeoAgent
 
     /**
      * @param  (callable(): void)|null  $then  Runs inside the transaction, after the user message is stored.
+     * @param  list<UploadedFile>  $images  Attached in the chat; kept with the conversation (ChatImages).
      */
-    public function send(NeoConversation $conversation, User $user, string $text, ?callable $then = null): StepResult
+    public function send(NeoConversation $conversation, User $user, string $text, ?callable $then = null, array $images = []): StepResult
     {
         if (($blocked = $this->blockedReason($conversation, $user)) !== null) {
             return StepResult::of(StepResult::BLOCKED, $blocked);
         }
 
         $text = trim($text);
-        if ($text === '') {
+        if ($text === '' && $images === []) {
             return StepResult::of(StepResult::DONE);
         }
 
@@ -142,7 +145,18 @@ final class NeoAgent
         }
         RateLimiter::hit($key, 60);
 
-        DB::transaction(function () use ($conversation, $text, $then): void {
+        $stored = [];
+        foreach (array_slice($images, 0, ImageInput::MAX_IMAGES) as $file) {
+            if (($image = ChatImages::store($conversation, $file)) !== null) {
+                $stored[] = $image;
+            }
+        }
+
+        if ($images !== [] && $stored === []) {
+            return StepResult::of(StepResult::ERROR, trans('plugged-host-ai::strings.errors.image_unreadable'));
+        }
+
+        DB::transaction(function () use ($conversation, $text, $then, $stored): void {
             // Anything still waiting belongs to the previous request: answer it so every tool
             // call keeps a result (providers reject a transcript with an unanswered call).
             $conversation->messages()
@@ -153,14 +167,14 @@ final class NeoAgent
                     'content' => 'Not run: the user sent a new message instead.',
                 ]);
 
-            $this->append($conversation, NeoMessage::USER, ['content' => $text]);
+            $this->append($conversation, NeoMessage::USER, ['content' => $text] + ($stored === [] ? [] : ['meta' => ['images' => $stored]]));
 
             if ($then !== null) {
                 $then();
             }
 
             $conversation->update([
-                'title' => $conversation->title ?? Str::limit($text, 60),
+                'title' => $conversation->title ?? Str::limit($text !== '' ? $text : trans('plugged-host-ai::strings.chat.image'), 60),
                 'status' => NeoConversation::RUNNING,
                 'step_count' => 0,
                 'last_error' => null,
