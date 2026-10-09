@@ -3,7 +3,7 @@
     dashboard, the profile page) so the copy and the numbers exist once.
 
     Renders nothing at all when there is nothing left to claim — that is the point of the
-    whole thing: PluggedHost\Core\Services\PerkDiscovery returns an empty list for a user who
+    whole thing: PluggedHost\Economy\Services\PerkDiscovery returns an empty list for a user who
     has already linked Discord and joined the server, so the card disappears instead of
     nagging forever the way the always-on announcement banner did.
 
@@ -29,12 +29,12 @@
         :collapse-id="$collapseId ?? null"
     >
         <x-slot name="heading">
-            {{ $heading ?? trans('plugged-host-core::strings.perks.heading') }}
+            {{ $heading ?? trans('plugged-host-economy::strings.perks.heading') }}
         </x-slot>
 
         @unless ($compact ?? false)
             <x-slot name="description">
-                {{ $description ?? trans('plugged-host-core::strings.perks.description') }}
+                {{ $description ?? trans('plugged-host-economy::strings.perks.description') }}
             </x-slot>
         @endunless
 

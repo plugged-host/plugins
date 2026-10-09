@@ -237,4 +237,28 @@ return [
     'tokens_result_invalid' => 'That could not be verified, so no tokens were added',
     'tokens_result_error' => 'Something went wrong. No tokens were added.',
 
+    'perks' => [
+        'heading' => 'Get more out of your account',
+        // The dashboard's collapsed one-line variant. The count belongs in the heading because
+        // a closed bar has to say how much is behind it, or nobody opens it.
+        'heading_compact' => 'Unlock more resources (:count)',
+        'description' => 'Upgrades you have not claimed yet. Each one leaves this list once it is yours.',
+        'discord_link_title' => 'Link Discord for :gain',
+        'discord_link_body' => 'Connect your Discord account and join our server to raise your limits for free.',
+        'discord_link_cta' => 'Link Discord',
+        'discord_join_title' => 'Join our Discord for :gain',
+        'discord_join_body' => 'Your account is linked, but the upgrade only lands once you are a member of the server.',
+        'discord_join_cta' => 'Join server',
+        'discord_earn_title' => 'Earn :credits credits per friend you invite',
+        'discord_earn_body' => 'Invite people to our Discord with your own invite link, then spend the credits on more resources.',
+        'discord_earn_body_boost' => 'Invite people with your own invite link, or boost the server for :credits credits, then spend it all on more resources.',
+        'discord_earn_cta' => 'View invites',
+        'store_title' => ':price credits buys :amount more RAM',
+        'store_body' => 'You have :balance credits. Spend them on CPU, RAM or disk space.',
+        'store_cta' => 'Open store',
+        'gain_cpu' => '+:amount CPU',
+        'gain_memory' => '+:amount RAM',
+        'gain_disk' => '+:amount disk space',
+        'gain_and' => 'and',
+    ],
 ];

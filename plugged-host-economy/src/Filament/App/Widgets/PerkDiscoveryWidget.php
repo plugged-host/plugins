@@ -1,9 +1,9 @@
 <?php
 
-namespace PluggedHost\Core\Filament\App\Widgets;
+namespace PluggedHost\Economy\Filament\App\Widgets;
 
 use Filament\Widgets\Widget;
-use PluggedHost\Core\Services\PerkDiscovery;
+use PluggedHost\Economy\Services\PerkDiscovery;
 
 /**
  * The perk-discovery widget.
@@ -30,7 +30,7 @@ class PerkDiscoveryWidget extends Widget
 
     protected int|string|array $columnSpan = 'full';
 
-    protected string $view = 'plugged-host-core::filament.widgets.perk-discovery';
+    protected string $view = 'plugged-host-economy::filament.widgets.perk-discovery';
 
     public static function canView(): bool
     {

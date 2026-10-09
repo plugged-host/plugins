@@ -1,9 +1,9 @@
 <?php
 
-namespace PluggedHost\Core\Providers;
+namespace PluggedHost\Economy\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use PluggedHost\Core\Services\PerkDiscovery;
+use PluggedHost\Economy\Services\PerkDiscovery;
 
 /**
  * Wires up perk discovery, which exists to replace an announcement banner that was pinned

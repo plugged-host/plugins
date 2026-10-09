@@ -197,10 +197,12 @@
 
         {{-- Somewhere to look while waiting, and the least intrusive place there is to
              mention a perk: the user is already stuck on this screen with nothing to do. --}}
-        @include('plugged-host-core::filament.components.perk-list', [
-            'perks' => $perks,
-            'heading' => trans('plugged-host-minecraft::strings.installing.while_you_wait'),
-        ])
+        @if (\PluggedHost\Core\Support\Plugins::enabled('plugged-host-economy'))
+            @include('plugged-host-economy::filament.components.perk-list', [
+                'perks' => $perks,
+                'heading' => trans('plugged-host-minecraft::strings.installing.while_you_wait'),
+            ])
+        @endif
 
         {{-- WP4: the install wait is the least intrusive place there is for a unit — the user is
              already stuck here with nothing to do. Renders nothing unless the slot is granted. --}}

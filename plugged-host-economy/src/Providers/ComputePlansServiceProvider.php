@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\AccountSummary;
 use PluggedHost\Economy\Services\LocalComputePlans;
 use Throwable;
 
@@ -18,6 +19,9 @@ class ComputePlansServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scopedIf(ComputePlans::class, LocalComputePlans::class);
+
+        // The topbar's numbers, memoised for one request (the chips render on every page).
+        $this->app->scoped(AccountSummary::class);
     }
 
     public function boot(): void

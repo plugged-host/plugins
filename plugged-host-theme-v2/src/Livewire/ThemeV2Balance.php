@@ -6,8 +6,8 @@ use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 use PluggedHost\Core\Support\Plugins;
-use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
+use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\TokenService;
 use PluggedHost\ThemeV2\Support\ThemeV2Access;
@@ -119,9 +119,9 @@ class ThemeV2Balance extends Component
             return null;
         }
 
-        if (Plugins::available(\PluggedHost\Core\Services\AccountSummary::class)) {
+        if (Plugins::available(\PluggedHost\Economy\Services\AccountSummary::class)) {
             try {
-                return app(\PluggedHost\Core\Services\AccountSummary::class)->forUser($user);
+                return app(\PluggedHost\Economy\Services\AccountSummary::class)->forUser($user);
             } catch (Throwable) {
                 return null;
             }
@@ -133,7 +133,7 @@ class ThemeV2Balance extends Component
     /**
      * `use`-importing a class from plugged-host-economy is safe even when that plugin is not
      * installed — a use statement is an alias, not a load — so long as every touch is behind
-     * class_exists(). This mirrors PluggedHost\Core\Services\AccountSummary::tokens().
+     * class_exists(). This mirrors PluggedHost\Economy\Services\AccountSummary::tokens().
      */
     private static function tokens(): ?int
     {

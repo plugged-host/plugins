@@ -18,7 +18,6 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use PluggedHost\Core\Livewire\PanelTourOverlay;
-use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Core\Services\AllocationInvariant;
 use PluggedHost\Core\Services\GuardedBuildModificationService;
 use PluggedHost\Core\Services\GuardedServerDeletionService;
@@ -38,9 +37,6 @@ class CoreRuntimeServiceProvider extends ServiceProvider
         $this->app->bind(TransferServerService::class, GuardedTransferServerService::class);
         $this->app->bind(BuildModificationService::class, GuardedBuildModificationService::class);
 
-        // scoped(), not singleton(): the memo inside is per-request by design, and a singleton
-        // would hand a queue worker one user's balances for the life of the process.
-        $this->app->scoped(AccountSummary::class);
 
         Livewire::listen('mount', function (object $component): void {
             if ($component instanceof ListServers) {

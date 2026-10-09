@@ -2,12 +2,12 @@
 
 namespace PluggedHost\Servers\Services;
 
+use App\Exceptions\Service\Deployment\NoViableAllocationException;
+use App\Exceptions\Service\Deployment\NoViableNodeException;
 use App\Models\Egg;
 use App\Models\Server;
 use App\Models\User;
 use App\Repositories\Daemon\DaemonFileRepository;
-use App\Exceptions\Service\Deployment\NoViableAllocationException;
-use App\Exceptions\Service\Deployment\NoViableNodeException;
 use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -190,8 +190,8 @@ class ServerProvisioner
     {
         AccountAllowance::forgetMemo($user);
 
-        if (Plugins::available(\PluggedHost\Core\Services\AccountSummary::class)) {
-            app(\PluggedHost\Core\Services\AccountSummary::class)->forget($user);
+        if (Plugins::available(\PluggedHost\Economy\Services\AccountSummary::class)) {
+            app(\PluggedHost\Economy\Services\AccountSummary::class)->forget($user);
         }
     }
 

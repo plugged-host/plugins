@@ -389,34 +389,9 @@ return [
         'ready_body' => ':server ist fertig installiert und kann jetzt gestartet werden.',
     ],
 
-    // Speist alle Entdeckungs-Oberflächen über PluggedHost\Core\Services\PerkDiscovery.
+    // Speist alle Entdeckungs-Oberflächen über PluggedHost\Economy\Services\PerkDiscovery.
     // Die Beträge kommen zur Laufzeit aus den noprofit.space-Stufen und den Shop-Preisen, hier
     // steht also keine Zahl doppelt — ändert sich eine Stufe, ändert sich dieser Text mit.
-    'perks' => [
-        'heading' => 'Hol mehr aus deinem Konto',
-        // Die eingeklappte Einzeiler-Variante fürs Dashboard. Die Anzahl steht in der
-        // Überschrift, weil eine geschlossene Leiste sagen muss, was dahinter steckt.
-        'heading_compact' => 'Mehr Ressourcen freischalten (:count)',
-        'description' => 'Upgrades, die du noch nicht eingelöst hast. Jedes verschwindet aus der Liste, sobald es dir gehört.',
-        'discord_link_title' => 'Discord verknüpfen für :gain',
-        'discord_link_body' => 'Verknüpfe dein Discord-Konto und tritt unserem Server bei, um deine Limits kostenlos zu erhöhen.',
-        'discord_link_cta' => 'Discord verknüpfen',
-        'discord_join_title' => 'Tritt unserem Discord bei für :gain',
-        'discord_join_body' => 'Dein Konto ist verknüpft, das Upgrade gibt es aber erst als Mitglied des Servers.',
-        'discord_join_cta' => 'Server beitreten',
-        'discord_earn_title' => ':credits Guthaben pro eingeladener Person',
-        'discord_earn_body' => 'Lade mit deinem eigenen Invite-Link Leute in unseren Discord ein und gib das Guthaben für mehr Ressourcen aus.',
-        'discord_earn_body_boost' => 'Lade mit deinem eigenen Invite-Link Leute ein oder booste den Server für :credits Guthaben — und gib alles für mehr Ressourcen aus.',
-        'discord_earn_cta' => 'Invites ansehen',
-        'store_title' => ':price Guthaben bringen :amount mehr RAM',
-        'store_body' => 'Du hast :balance Guthaben. Gib es für CPU, RAM oder Speicherplatz aus.',
-        'store_cta' => 'Shop öffnen',
-        'gain_cpu' => '+:amount CPU',
-        'gain_memory' => '+:amount RAM',
-        'gain_disk' => '+:amount Speicherplatz',
-        'gain_and' => 'und',
-    ],
-
     // Die Willkommenstour (PluggedHost\Core\Livewire\PanelTourOverlay, Schritte in
     // Support\PanelTourSteps). Sie liegt über dem echten Panel, also steht jeder Schritt neben
     // dem, was er erklärt, und nennt es so, wie es auf dem Bildschirm heißt -- genau darum geht

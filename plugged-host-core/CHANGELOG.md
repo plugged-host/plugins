@@ -2,6 +2,8 @@
 
 ## Unreleased (2.2)
 
+- `AccountSummary` and `PerkDiscovery` moved to plugged-host-economy: core no longer reaches
+  into economy, servers or discord.
 - **noprofit.space moved out to plugged-host-noprofit** (sign-in, account link and sync,
   `/migrate`, identity lock, SFTP check, `/api/noprofit/*`). Without it the panel uses
   Pelican's own sign-in again. New `AccountPortal` contract: where people manage their account

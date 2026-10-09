@@ -1,12 +1,11 @@
 <?php
 
-namespace PluggedHost\Core\Services;
+namespace PluggedHost\Economy\Services;
 
 use App\Models\Server;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use PluggedHost\Core\Support\Plugins;
-use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\TokenService;
 use Throwable;
@@ -15,7 +14,7 @@ use Throwable;
  * One flat, cheap snapshot of everything the topbar chips display.
  *
  * This exists because the chips render on *every* page of the app and server panels, and the
- * obvious way to build them is ruinous: AccountAllowance::getCpuLeft(), getMemoryLeft() and
+ * obvious way to build them is ruinous: servers' AccountAllowance::getCpuLeft(), getMemoryLeft() and
  * getDiskLeft() each run their own `$user->servers()->sum(...)`, and getOverage() runs four
  * more. Reusing those would put half a dozen aggregate queries on every request in the panel
  * to render three small numbers.
@@ -110,9 +109,9 @@ class AccountSummary
     /** @return ?array<string, int|null> */
     private function build(User $user): ?array
     {
-        $limits = AccountAllowance::forUser($user);
+        $limits = AccountLimits::forUser($user);
 
-        if (!$limits) {
+        if ($limits === null) {
             return null;
         }
 
@@ -131,11 +130,11 @@ class AccountSummary
             'tokens' => $this->tokens($user),
             'credits' => $this->credits($user),
             'cpu_used' => (int) ($used->cpu_used ?? 0),
-            'cpu_limit' => (int) $limits->cpu,
+            'cpu_limit' => (int) $limits['cpu'],
             'memory_used' => (int) ($used->memory_used ?? 0),
-            'memory_limit' => (int) $limits->memory,
+            'memory_limit' => (int) $limits['memory'],
             'disk_used' => (int) ($used->disk_used ?? 0),
-            'disk_limit' => (int) $limits->disk,
+            'disk_limit' => (int) $limits['disk'],
             'servers_used' => (int) ($used->servers_used ?? 0),
         ];
     }

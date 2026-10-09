@@ -10,8 +10,8 @@ use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use PluggedHost\Core\Services\PerkDiscovery;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Economy\Services\PerkDiscovery;
 use Throwable;
 
 /**

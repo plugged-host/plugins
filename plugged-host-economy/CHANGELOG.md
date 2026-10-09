@@ -2,6 +2,9 @@
 
 ## Unreleased (2.2)
 
+- The topbar's `AccountSummary` and the "get more resources" perks (`PerkDiscovery`, its widget
+  and view) moved here from core; `AccountLimits` is the one definition of what an account may
+  use, read by servers' `AccountAllowance` too.
 - **Works without noprofit.space.** Plans, tiers, limits and store prices come from
   `ComputePlans`: set in this plugin's settings (Plans & store prices, `COMPUTE_*`,
   `CREDITS_STARTING_BALANCE`) by default, or from noprofit.space when plugged-host-noprofit is

@@ -14,7 +14,7 @@ use App\Services\Deployment\FindViableNodesService;
 use App\Services\Servers\ServerCreationService;
 use Illuminate\Database\Eloquent\Collection;
 use PluggedHost\Core\Support\Plugins;
-use PluggedHost\Economy\Contracts\ComputePlans;
+use PluggedHost\Economy\Services\AccountLimits;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\NodeBalancer;
 use PluggedHost\Servers\Services\NodeCapacity;
@@ -98,31 +98,11 @@ final class AccountAllowance
             return self::$forUserMemo[$id];
         }
 
-        $plan = Plugins::enabled('plugged-host-economy') ? app(ComputePlans::class)->plan($user) : null;
-        if ($plan === null) {
-            return self::$forUserMemo[$id] = null;
-        }
+        $limits = Plugins::enabled('plugged-host-economy') ? AccountLimits::forUser($user) : null;
 
-        // 0 reads as "unlimited" everywhere on the panel; on noprofit.space it means nothing
-        // at all, so a zero plan is kept at the smallest real limit instead. PlusPlus adds its
-        // CPU while it runs (MembershipService::cpuBonus; plusplus:expire takes it back off the
-        // servers when it ends).
-        return self::$forUserMemo[$id] = new self(
-            cpu: max(1, (int) $plan['cpu'] + self::cpuBonus($user)),
-            memory: max(1, (int) $plan['memory']),
-            disk: max(1, (int) $plan['disk']),
-        );
-    }
-
-    private static function cpuBonus(User $user): int
-    {
-        $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
-
-        try {
-            return Plugins::available($membership) ? (int) app($membership)->cpuBonus($user) : 0;
-        } catch (\Throwable) {
-            return 0;
-        }
+        return self::$forUserMemo[$id] = $limits === null
+            ? null
+            : new self(cpu: $limits['cpu'], memory: $limits['memory'], disk: $limits['disk']);
     }
 
     public function getCpuLeft(?User $user): ?int

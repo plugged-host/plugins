@@ -14,7 +14,7 @@
     "composer_packages": null,
     "plugged_host": {
         "requires": ["plugged-host-core", "plugged-host-servers"],
-        "optional": ["plugged-host-ai", "plugged-host-ads"]
+        "optional": ["plugged-host-economy", "plugged-host-ai", "plugged-host-ads"]
     },
     "meta": {
         "status": "enabled",

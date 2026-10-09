@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Core\Services;
+namespace PluggedHost\Economy\Services;
 
 use App\Models\User;
 use PluggedHost\Core\Contracts\AccountPortal;
@@ -79,9 +79,9 @@ class PerkDiscovery
                 'id' => 'discord-join',
                 'icon' => 'tabler-brand-discord',
                 'color' => 'info',
-                'title' => trans('plugged-host-core::strings.perks.discord_join_title', ['gain' => $gain]),
-                'body' => trans('plugged-host-core::strings.perks.discord_join_body'),
-                'cta' => trans('plugged-host-core::strings.perks.discord_join_cta'),
+                'title' => trans('plugged-host-economy::strings.perks.discord_join_title', ['gain' => $gain]),
+                'body' => trans('plugged-host-economy::strings.perks.discord_join_body'),
+                'cta' => trans('plugged-host-economy::strings.perks.discord_join_cta'),
                 'url' => $inviteUrl,
                 'external' => true,
             ];
@@ -98,9 +98,9 @@ class PerkDiscovery
             'id' => 'discord-link',
             'icon' => 'tabler-brand-discord',
             'color' => 'info',
-            'title' => trans('plugged-host-core::strings.perks.discord_link_title', ['gain' => $gain]),
-            'body' => trans('plugged-host-core::strings.perks.discord_link_body'),
-            'cta' => trans('plugged-host-core::strings.perks.discord_link_cta'),
+            'title' => trans('plugged-host-economy::strings.perks.discord_link_title', ['gain' => $gain]),
+            'body' => trans('plugged-host-economy::strings.perks.discord_link_body'),
+            'cta' => trans('plugged-host-economy::strings.perks.discord_link_cta'),
             'url' => $linkUrl,
             'external' => $portal->external(),
         ];
@@ -132,7 +132,7 @@ class PerkDiscovery
             $delta = (int) $tiers['discord'][$resource] - (int) $tiers['default'][$resource];
 
             if ($delta > 0) {
-                $gains[] = trans("plugged-host-core::strings.perks.gain_$resource", [
+                $gains[] = trans("plugged-host-economy::strings.perks.gain_$resource", [
                     'amount' => $resource === 'cpu' ? $delta . '%' : $this->formatMebibytes($delta),
                 ]);
             }
@@ -171,13 +171,13 @@ class PerkDiscovery
             'id' => 'discord-earn',
             'icon' => 'tabler-gift',
             'color' => 'primary',
-            'title' => trans('plugged-host-core::strings.perks.discord_earn_title', [
+            'title' => trans('plugged-host-economy::strings.perks.discord_earn_title', [
                 'credits' => number_format($perInvite),
             ]),
             'body' => $perBoost > 0
-                ? trans('plugged-host-core::strings.perks.discord_earn_body_boost', ['credits' => number_format($perBoost)])
-                : trans('plugged-host-core::strings.perks.discord_earn_body'),
-            'cta' => trans('plugged-host-core::strings.perks.discord_earn_cta'),
+                ? trans('plugged-host-economy::strings.perks.discord_earn_body_boost', ['credits' => number_format($perBoost)])
+                : trans('plugged-host-economy::strings.perks.discord_earn_body'),
+            'cta' => trans('plugged-host-economy::strings.perks.discord_earn_cta'),
             'url' => $url,
             'external' => false,
         ];
@@ -208,14 +208,14 @@ class PerkDiscovery
             'id' => 'store',
             'icon' => 'tabler-shopping-bag',
             'color' => 'success',
-            'title' => trans('plugged-host-core::strings.perks.store_title', [
+            'title' => trans('plugged-host-economy::strings.perks.store_title', [
                 'price' => number_format($price),
                 'amount' => $this->formatMebibytes(1024),
             ]),
-            'body' => trans('plugged-host-core::strings.perks.store_body', [
+            'body' => trans('plugged-host-economy::strings.perks.store_body', [
                 'balance' => number_format(UserCredits::forUser($user)?->credits ?? 0),
             ]),
-            'cta' => trans('plugged-host-core::strings.perks.store_cta'),
+            'cta' => trans('plugged-host-economy::strings.perks.store_cta'),
             'url' => ResourceStorePage::getUrl(panel: 'app'),
             'external' => false,
         ];
@@ -234,7 +234,7 @@ class PerkDiscovery
 
         $last = array_pop($gains);
 
-        return implode(', ', $gains) . ' ' . trans('plugged-host-core::strings.perks.gain_and') . ' ' . $last;
+        return implode(', ', $gains) . ' ' . trans('plugged-host-economy::strings.perks.gain_and') . ' ' . $last;
     }
 
     private function formatMebibytes(int $amount): string

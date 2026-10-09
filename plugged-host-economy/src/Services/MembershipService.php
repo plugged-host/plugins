@@ -342,7 +342,7 @@ class MembershipService
             $allowance::forgetMemo($user);
         }
 
-        $summary = 'PluggedHost\\Core\\Services\\AccountSummary';
+        $summary = 'PluggedHost\\Economy\\Services\\AccountSummary';
         if (Plugins::available($summary)) {
             app($summary)->forget($user);
         }

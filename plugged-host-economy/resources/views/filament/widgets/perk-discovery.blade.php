@@ -10,9 +10,9 @@
     The other surfaces still include the partial in its original card form.
 --}}
 <x-filament-widgets::widget>
-    @include('plugged-host-core::filament.components.perk-list', [
+    @include('plugged-host-economy::filament.components.perk-list', [
         'perks' => $perks,
-        'heading' => trans('plugged-host-core::strings.perks.heading_compact', ['count' => count($perks)]),
+        'heading' => trans('plugged-host-economy::strings.perks.heading_compact', ['count' => count($perks)]),
         'collapsible' => true,
         'collapsed' => true,
         'collapseId' => 'plugged-host-perks-dashboard',
