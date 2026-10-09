@@ -3,67 +3,61 @@
 namespace PluggedHost\Servers\Support;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Schema;
+use PluggedHost\Servers\Services\LocationCatalog;
 use Throwable;
 
 /**
- * The per-user "paid locations unlocked" flag (WP13) — one purchase covers both the Plus and
- * Premium tiers, which are two labels over this single entitlement. Same shape as
- * Support\PanelTour: reads and writes users.premium_unlocked_at behind
- * a memoised Schema::hasColumn guard, using forceFill(...)->saveQuietly() since the column cannot
- * live in upstream User::$fillable (and users.customization is off-limits — EditProfile rebuilds
- * it).
+ * Who may use the paid locations. The Plus locations come with plugged.host Plus, the Premium
+ * ones with PlusPlus, both sold and kept by plugged-host-economy (MembershipService, reached by
+ * class name). Without economy, or before its table exists, every paid location is locked.
  *
- * When the column does not exist yet (migration unrun) everything reports "locked" and unlock()
- * is a no-op, so paid locations are simply omitted — the plan's standard dark-until-migration
- * degrade.
+ * The one-time "unlock every paid location" (users.premium_unlocked_at) this class used to
+ * sell is gone; whoever bought it got Plus (economy migration 015).
  */
 class PremiumAccess
 {
-    private static ?bool $columnExists = null;
+    private const MEMBERSHIP = 'PluggedHost\\Economy\\Services\\MembershipService';
 
     public static function supported(): bool
     {
-        if (self::$columnExists === null) {
-            try {
-                self::$columnExists = Schema::hasColumn('users', 'premium_unlocked_at');
-            } catch (Throwable) {
-                self::$columnExists = false;
-            }
+        try {
+            return class_exists(self::MEMBERSHIP) && app(self::MEMBERSHIP)->supported();
+        } catch (Throwable) {
+            return false;
         }
-
-        return self::$columnExists;
     }
 
-    public static function isUnlocked(?User $user): bool
+    /**
+     * May this user deploy to (or move to) a location of $tier? Free is open to everyone.
+     */
+    public static function isUnlocked(?User $user, string $tier = LocationCatalog::PREMIUM): bool
     {
+        if ($tier === LocationCatalog::FREE) {
+            return true;
+        }
+
         if ($user === null || !self::supported()) {
             return false;
         }
 
         try {
-            return $user->premium_unlocked_at !== null;
+            $membership = app(self::MEMBERSHIP);
+
+            return $tier === LocationCatalog::PLUS ? $membership->hasPlus($user) : $membership->hasPlusPlus($user);
         } catch (Throwable) {
             return false;
         }
     }
 
-    public static function unlock(User $user): bool
+    /**
+     * What a tier needs: 'plus' or 'plusplus' (null for free).
+     */
+    public static function requires(string $tier): ?string
     {
-        if (!self::supported()) {
-            return false;
-        }
-
-        try {
-            if ($user->premium_unlocked_at !== null) {
-                return true; // already unlocked
-            }
-
-            $user->forceFill(['premium_unlocked_at' => now()])->saveQuietly();
-
-            return true;
-        } catch (Throwable) {
-            return false;
-        }
+        return match ($tier) {
+            LocationCatalog::PLUS => 'plus',
+            LocationCatalog::PREMIUM => 'plusplus',
+            default => null,
+        };
     }
 }

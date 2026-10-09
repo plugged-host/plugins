@@ -59,7 +59,6 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
 
         // Paid tiers (WP13) live in nested config arrays; flatten them for the form fields.
         $data['premium_tag'] = config('plugged-host-servers.user-creatable-servers.premium.tag', 'premium');
-        $data['premium_cost'] = (int) config('plugged-host-servers.user-creatable-servers.premium.cost', 25);
         $data['plus_tag'] = config('plugged-host-servers.user-creatable-servers.plus.tag', 'plus');
 
         $data['transfers_enabled'] = (bool) config('plugged-host-servers.transfers.enabled', true);
@@ -174,14 +173,6 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-servers::strings.settings.premium_tag_hint'))
                         ->required()
                         ->default(fn () => config('plugged-host-servers.user-creatable-servers.premium.tag', 'premium')),
-                    TextInput::make('premium_cost')
-                        ->label(trans('plugged-host-servers::strings.settings.premium_cost'))
-                        ->helperText(trans('plugged-host-servers::strings.settings.premium_cost_hint'))
-                        ->required()
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(1000000)
-                        ->default(fn () => config('plugged-host-servers.user-creatable-servers.premium.cost', 25)),
                     TextInput::make('plus_tag')
                         ->label(trans('plugged-host-servers::strings.settings.plus_tag'))
                         ->helperText(trans('plugged-host-servers::strings.settings.plus_tag_hint'))
@@ -244,7 +235,6 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
             'NODES_STORAGE_PERCENT' => $data['storage_percent'] ?? '90',
             'NODES_STORAGE_GUARD_STRICT' => !empty($data['storage_guard_strict']) ? 'true' : 'false',
             'UCS_PREMIUM_TAG' => trim((string) ($data['premium_tag'] ?? '')) !== '' ? trim((string) $data['premium_tag']) : 'premium',
-            'UCS_PREMIUM_COST' => (string) max(0, min(1000000, (int) ($data['premium_cost'] ?? 25))),
             'UCS_PLUS_TAG' => trim((string) ($data['plus_tag'] ?? '')) !== '' ? trim((string) $data['plus_tag']) : 'plus',
             'TRANSFERS_ENABLED' => !empty($data['transfers_enabled']) ? 'true' : 'false',
             'TRANSFERS_COOLDOWN_HOURS' => (string) max(0, min(720, (int) ($data['transfers_cooldown_hours'] ?? 6))),

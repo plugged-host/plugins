@@ -51,6 +51,30 @@ final class AddRuleTool extends RuxTool
         ], ['when', 'keywords', 'action']);
     }
 
+    /**
+     * A rule's keywords as rux keeps them: normalized and unique, without everyday single words
+     * (they would send almost every message to the AI). At least 3 must be left.
+     *
+     * @param  array<mixed>  $raw
+     * @return array{keywords: list<string>, dropped: list<string>}
+     */
+    public static function keywords(array $raw): array
+    {
+        $keywords = array_values(array_unique(array_filter(array_map(
+            static fn ($k): string => mb_substr(RuxRule::normalize((string) $k), 0, 60),
+            $raw,
+        ), static fn (string $k): bool => mb_strlen($k) >= 2)));
+
+        $dropped = array_values(array_filter($keywords, static fn (string $k): bool => !str_contains($k, ' ') && in_array($k, self::COMMON_WORDS, true)));
+        $keywords = array_values(array_diff($keywords, $dropped));
+
+        if (count($keywords) < 3) {
+            throw new InvalidArgumentException('Give at least 3 specific keywords (topic words or phrases, not everyday words like ' . implode(', ', array_slice($dropped ?: ['new', 'add', 'when'], 0, 5)) . ').');
+        }
+
+        return ['keywords' => array_slice($keywords, 0, 80), 'dropped' => $dropped];
+    }
+
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
         $action = strtolower($this->required($arguments, 'action'));
@@ -58,18 +82,7 @@ final class AddRuleTool extends RuxTool
             throw new InvalidArgumentException('action must be one of ' . implode(', ', RuxRule::ACTIONS) . '.');
         }
 
-        $keywords = array_values(array_unique(array_filter(array_map(
-            static fn ($k): string => mb_substr(RuxRule::normalize((string) $k), 0, 60),
-            (array) ($arguments['keywords'] ?? []),
-        ), static fn (string $k): bool => mb_strlen($k) >= 2)));
-
-        // Everyday single words would send almost every message to the AI.
-        $dropped = array_values(array_filter($keywords, static fn (string $k): bool => !str_contains($k, ' ') && in_array($k, self::COMMON_WORDS, true)));
-        $keywords = array_values(array_diff($keywords, $dropped));
-
-        if (count($keywords) < 3) {
-            throw new InvalidArgumentException('Give at least 3 specific keywords (topic words or phrases, not everyday words like ' . implode(', ', array_slice($dropped ?: ['new', 'add', 'when'], 0, 5)) . ').');
-        }
+        ['keywords' => $keywords, 'dropped' => $dropped] = self::keywords((array) ($arguments['keywords'] ?? []));
 
         $duration = $this->string($arguments, 'duration');
         $seconds = $duration !== null ? RuxTime::duration($duration) : null;
@@ -85,7 +98,7 @@ final class AddRuleTool extends RuxTool
         $rule = RuxRule::query()->create([
             'guild_id' => $context->guildId,
             'description' => mb_substr($this->required($arguments, 'when'), 0, 300),
-            'keywords' => array_slice($keywords, 0, 80),
+            'keywords' => $keywords,
             'action' => $action,
             'duration_seconds' => in_array($action, ['timeout', 'ban'], true) ? $seconds : null,
             'delete_message' => $action === 'delete' || $this->bool($arguments, 'delete_message'),

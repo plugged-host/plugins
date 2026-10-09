@@ -1,5 +1,5 @@
 {{-- The in-content ad slot. Rendered by PluggedHost\Ads\Providers\AdsPluginServiceProvider. --}}
-<div class="ph-support-slot" style="width: 100%; margin: 2rem auto 1rem auto; clear: both; position: relative; z-index: {{ $zIndex }}; text-align: center; overflow: visible;">
+<div class="ph-support-slot" data-ph-slot style="width: 100%; margin: 2rem auto 1rem auto; clear: both; position: relative; z-index: {{ $zIndex }}; text-align: center; overflow: visible;">
     @if ($notice)
         {{-- Deliberately empty, and outside every ad-shaped wrapper: a cosmetic
              filter that collapses the units below must not also take away the

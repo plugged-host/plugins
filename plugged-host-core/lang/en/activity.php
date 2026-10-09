@@ -4,4 +4,5 @@
 return [
     'activity.server.suspension.suspend' => 'suspended :server',
     'activity.server.suspension.unsuspend' => 'unsuspended :server',
+    'activity.server.abuse.deleted' => 'deleted server :name for abuse',
 ];

@@ -211,6 +211,7 @@ class StoragePluginProvider extends ServiceProvider
         return response($body, 200, [
             'Content-Type' => 'application/json',
             'X-PH-Signature' => hash_hmac('sha256', $body, $secret),
+            'Cache-Control' => 'no-store',
         ]);
     }
 
@@ -222,7 +223,12 @@ class StoragePluginProvider extends ServiceProvider
             abort(503);
         }
 
-        return response()->download($path, 'bundle.tar.gz', ['Content-Type' => 'application/gzip']);
+        // no-store: Cloudflare otherwise caches .tar.gz for hours and hands the agent a bundle
+        // whose digest no longer matches the manifest.
+        return response()->download($path, 'bundle.tar.gz', [
+            'Content-Type' => 'application/gzip',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     private function registerBackupPortalRoutes(): void

@@ -149,10 +149,18 @@ moderation permissions.
 ### Who rux listens to
 
 - **Admins**: Discord accounts linked to a **noprofit.space admin** account (`users.is_admin`).
-  They can order everything. noprofit.space is asked on every order, before the model is called.
+  They can order everything except giving credits. noprofit.space is asked on every order, before the model is called.
+- **The main admin** (`RUX_CREDIT_GRANTERS`, Discord ids; Admin → Plugins → plugged.host AI → rux)
+  can also have rux give someone credits (`give_credits`, at most `RUX_CREDIT_MAX`, 10,000 by
+  default, at once). The tool checks the order's author itself, so other admins, moderators,
+  standing rules and text rux reads cannot make it pay. noprofit.space books the credits as an
+  admin adjustment on the account the person linked Discord to (`POST /api/v1/internal/rux/credits`,
+  idempotent per grant) and the credit sync brings the balance to plugged.host.
 - **Moderators**: members of a role an admin made a rux moderator role (`set_moderator_role`).
-  They can order moderation only: look up members, warn, timeout, kick, ban, unban, purge,
-  lock/slowmode, clear warnings, and list rules and giveaways. They can never act on staff,
+  They can order moderation only: look up members, warn, timeout, kick, ban, unban, change
+  nicknames, read, delete and purge messages, lock/slowmode, clear warnings, and see the rules,
+  giveaways, case log, bans and role permissions. They only read or delete in channels they can
+  see on Discord themselves, and never touch the mod log channel. They can never act on staff,
   noprofit.space admins, other moderators or themselves. Making a role moderators also gives it Discord's Timeout, Kick,
   Ban and Manage Messages permissions, unless the admin says not to. Taking the role back removes
   exactly what rux added.
@@ -169,15 +177,21 @@ providers' API keys, never against anyone's neo limits.
 | `create_giveaway`: credits per winner, end time, winners, channel, keep out the winners of the last N giveaways | `lookup_member`: profile, roles, noprofit.space and plugged.host accounts, giveaway wins, past cases |
 | `edit_giveaway`: end time, credits, winners, headline | `warn_member`, `timeout_member` (up to 28 days, "0" lifts it), `kick_member`, `ban_member`, `unban_user` |
 | `end_giveaway`: draw now | `purge_messages`: the last N messages, optionally from one person |
-| `cancel_giveaway`: nobody wins | `channel_settings`: lock/unlock for @everyone, slowmode |
-| `reroll_giveaway`: extra winners, paid too | `manage_role`, `send_message`, `server_overview` |
-| `list_giveaways` | `clear_warnings` |
+| `cancel_giveaway`: nobody wins | `read_messages`: the latest in a channel (or one person's), or one message by link |
+| `reroll_giveaway`: extra winners, paid too | `delete_messages`: particular messages by link or id, any age |
+| `list_giveaways` | `edit_message`: fix rux's own posts, pin/unpin any message (admins) |
+| `give_credits`: credits for one person (main admin only) | |
+| | `channel_settings`: lock/unlock for @everyone, slowmode |
+| | `set_nickname`, `clear_warnings`, `list_cases` (the case log, filterable), `list_bans` |
+| | `manage_role`, `role_info` (a role's permissions), `send_message`, `server_overview` |
 | **Rules and access** (admins) | |
-| `add_rule`, `remove_rule`, `list_rules` | `watch_channel`, `set_moderator_role` |
+| `add_rule`, `edit_rule`, `remove_rule`, `list_rules` (moderators too) | `watch_channel`, `set_moderator_role` |
 
 Every moderation action is a case in `rux_cases`. It is posted to the mod log channel when one is
 set, and Discord's audit log shows the order ("rux for <admin>: <reason>"). The member gets a DM
-with the reason; for kicks and bans the DM goes out before they are removed.
+with the reason; for kicks and bans the DM goes out before they are removed. When rux acts by
+itself (a rule, a watched channel) or deletes chosen messages, the case keeps what the member
+said (300 characters), so "why was he warned?" has an answer in `list_cases` and the mod log.
 
 ### Warnings
 
@@ -320,6 +334,13 @@ cools down: 10 minutes for auth errors; its Retry-After (or Gemini's retry delay
 for rate limits and outages; not at all for "request too large". A cooling-down provider is
 skipped, and each provider's daily token cap holds per day. The drivers are copies of neo's
 (`src/Agent/Ai`: OpenAI chat, Anthropic Messages, and Google AI Studio's Gemini API).
+
+Some gateways drop the tools of a request and put in their own (justwoker since 2026-10-03,
+which even runs them on its side). Before giving a provider tools, rux asks it once with a tiny
+call whether a tool of rux's gets through, and keeps the answer for 6 hours. For a provider that
+drops them, rux describes its tools in the system prompt (`PromptedTools`, names prefixed
+`rux_`), names the gateway's own tools as off limits, and reads the model's
+`<rux_tool_calls>` block back into ordinary tool calls.
 
 rux calls the providers directly. The model calls never go through neo, and no neo limits
 apply. To see what rux has (fetches now):

@@ -2,6 +2,30 @@
 
 ## Unreleased (2.1)
 
+- **plugged.host Plus and PlusPlus** replace the queue's priority passes and the one-time
+  Plus/Premium location unlock. `MembershipService` + `user_memberships` (migration 015, run
+  2026-10-03: all 54 unlock holders became Plus). Plus: 25 tokens once — Plus locations, queue
+  priority, no in-game ads, +25% neo usage. PlusPlus: needs Plus, 10 tokens / 7 days or 150
+  credits / 14 days (settings `membership_*`) — Premium locations, no ads anywhere (ads
+  exemption), front of the queue, +50% CPU, another +25% neo usage.
+- **The Token Store became the plugged.host Plus page** (`PlusPage`, `/plus`, Plus only;
+  `/token-store` redirects). The Tokens page (`/tokens`) is in the sidebar again and is earning
+  and history only; the store's earn block (`store-earn` view, `STORE_HOOK`) is gone.
+
+- **No resource cap; prices climb instead.** CPU, memory and disk are priced on noprofit.space's
+  curve (`Support\ComputePricing`, a copy of noprofit.space's): cheaper on the way to the limit
+  (half price at half of it, full price at it), climbing to 4× at the soft limit (125% of the
+  limit), doubling every 5% of the limit past it. The store offers 1, 2 and 4 steps, priced as
+  the area under the curve; the meter runs to the soft limit. `getPriceForCpu/Memory/Disk()`
+  became `price($user, $resource, $amount)` (and `value()` for taking resources back);
+  `getUserResourceSummary()` and the `max_*_reached` strings are gone.
+- **Prices always come from noprofit.space.** Asked for again when the store renders (older than a
+  minute) and before a purchase (older than 30 s); nothing is sold on prices over 15 minutes
+  old. noprofit.space pushes new prices the moment an admin saves them (the sync endpoint now
+  accepts an empty `items`), and refuses a purchase that paid less than its price (409, undone
+  here).
+- Credit clawbacks value reclaimed resources at the top of the curve.
+
 - **Server slots are no longer sold.** Accounts have no server count any more (only their plan's
   CPU, memory and disk), so the store's slot row, `CREDITS_PRICE_SERVER_SLOT`, slot reclaiming
   and `user_credits.extra_server_limit` are gone. Migration

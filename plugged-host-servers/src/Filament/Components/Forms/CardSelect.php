@@ -87,12 +87,13 @@ class CardSelect extends Field
                 // 'level' => 'great'|'good'|'ok'|'poor']. Null when latency is unknown.
                 'signal' => (isset($option['signal']) && is_array($option['signal'])) ? $option['signal'] : null,
                 // WP13 location tier ('free' | 'plus' | 'premium'), shown as a pill with an uptime
-                // tooltip. A locked Plus/Premium card is inert with its own unlock button rather
-                // than a plain disabled radio; an unlocked one is selectable and keeps the pill.
+                // tooltip. A locked Plus/Premium card is inert with a button to the Token Store
+                // (requires: 'plus' | 'plusplus') rather than a plain disabled radio; an unlocked
+                // one is selectable and keeps the pill.
                 // Null for cards that are not locations.
                 'tier' => isset($option['tier']) ? (string) $option['tier'] : null,
                 'locked' => (bool) ($option['locked'] ?? false),
-                'cost' => isset($option['cost']) ? (int) $option['cost'] : 0,
+                'requires' => isset($option['requires']) ? (string) $option['requires'] : null,
                 'disabled' => (bool) ($option['disabled'] ?? false),
             ])
             ->values()

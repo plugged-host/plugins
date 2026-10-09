@@ -17,8 +17,9 @@ use PluggedHost\Economy\Models\UserCredits;
  * reports whatever it could not take rather than failing:
  *
  *   1. the credit balance,
- *   2. purchased resources sold back at the same store rate they were bought at,
- *      but only out of the headroom the user's servers are not already using,
+ *   2. purchased resources sold back at what the store would charge for them now
+ *      (the top of the price curve, see ComputePricing), but only out of the
+ *      headroom the user's servers are not already using,
  *   3. the remainder, returned as `shortfall` for the caller to carry as debt.
  *
  * Step 2 is the part that needs care: shrinking a limit below what running
@@ -95,8 +96,8 @@ class CreditRecoveryService
     }
 
     /**
-     * Walk the purchasable resources cheapest-disruption first, converting each
-     * back into credits at the store rate.
+     * Walk the purchasable resources cheapest-disruption first, taking each back
+     * off the top at what the store would charge for it now.
      *
      * Disk goes first because it is the least performance-sensitive and usually
      * has the most slack.
@@ -116,55 +117,27 @@ class CreditRecoveryService
 
         $headroom = $this->resourceHeadroom($user, $userCredits);
 
-        $plan = [
-            // key => [credits per unit, units available, price resolver]
-            'disk' => [
-                'per_unit' => $this->store->getPriceForDisk(5120) / 5120,
-                'available' => min((int) $userCredits->extra_disk, $headroom['disk']),
-                'price' => fn (int $units): int => $this->store->getPriceForDisk($units),
-            ],
-            'cpu' => [
-                'per_unit' => $this->store->getPriceForCpu(50) / 50,
-                'available' => min((int) $userCredits->extra_cpu, $headroom['cpu']),
-                'price' => fn (int $units): int => $this->store->getPriceForCpu($units),
-            ],
-            'memory' => [
-                'per_unit' => $this->store->getPriceForMemory(1024) / 1024,
-                'available' => min((int) $userCredits->extra_memory, $headroom['memory']),
-                'price' => fn (int $units): int => $this->store->getPriceForMemory($units),
-            ],
-        ];
-
-        foreach ($plan as $resource => $spec) {
+        foreach (['disk', 'cpu', 'memory'] as $resource) {
             if ($owed <= 0) {
                 break;
             }
 
-            $perUnit = (float) $spec['per_unit'];
-            $available = max(0, (int) $spec['available']);
-
-            if ($perUnit <= 0 || $available <= 0) {
+            $available = max(0, min((int) $userCredits->{"extra_{$resource}"}, $headroom[$resource]));
+            if ($available <= 0) {
                 continue;
             }
 
-            $units = min($available, (int) ceil($owed / $perUnit));
-            if ($units <= 0) {
-                continue;
-            }
+            $units = $this->unitsWorth($user, $userCredits, $resource, $owed, $available);
 
             // Never credit back more than is owed, even when the store's ceil()
             // pricing values the reclaimed slice slightly above the debt.
-            $value = min($owed, ($spec['price'])($units));
+            $value = min($owed, $this->store->value($user, $resource, $units, $userCredits));
             if ($value <= 0) {
                 continue;
             }
 
             DB::transaction(function () use ($userCredits, $resource, $units) {
-                $userCredits->reduceExtraResources(
-                    cpu: $resource === 'cpu' ? $units : 0,
-                    memory: $resource === 'memory' ? $units : 0,
-                    disk: $resource === 'disk' ? $units : 0,
-                );
+                $userCredits->reduceExtraResources(...[$resource => $units]);
             });
 
             $reclaimed[$resource] += $units;
@@ -192,6 +165,31 @@ class CreditRecoveryService
         }
 
         return [$owed, $reclaimed, $recovered];
+    }
+
+    /**
+     * The least of $resource (at most $available) whose store value covers $owed:
+     * the top of the curve is the dearest part, so this takes as little as it can.
+     */
+    protected function unitsWorth(User $user, UserCredits $userCredits, string $resource, int $owed, int $available): int
+    {
+        if ($this->store->value($user, $resource, $available, $userCredits) <= $owed) {
+            return $available;
+        }
+
+        [$low, $high] = [1, $available];
+
+        while ($low < $high) {
+            $middle = intdiv($low + $high, 2);
+
+            if ($this->store->value($user, $resource, $middle, $userCredits) >= $owed) {
+                $high = $middle;
+            } else {
+                $low = $middle + 1;
+            }
+        }
+
+        return $low;
     }
 
     /**

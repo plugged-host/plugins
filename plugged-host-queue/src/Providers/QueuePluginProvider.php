@@ -2,7 +2,6 @@
 
 namespace PluggedHost\Queue\Providers;
 
-use App\Models\User;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Queue\Console\Commands\QueueSweepCommand;
@@ -50,7 +49,6 @@ class QueuePluginProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerAsInterstitial();
-        $this->registerAdFreeExemption();
         $this->injectActivityDescriptions();
         $this->registerClientApi();
     }
@@ -132,37 +130,6 @@ class QueuePluginProvider extends ServiceProvider
         } catch (Throwable) {
             // A registry that will not take our callback costs us an ad placement
             // decision, not a queue. Nothing here is allowed to break a boot.
-        }
-    }
-
-    /**
-     * Tell plugged-host-ads that an ad-free pass holder is excused from advertising.
-     *
-     * The dear tier sells two things and this is the second one. Registering here rather
-     * than teaching ads about tokens means one method over there — `isExemptUser()` —
-     * decides it for banners, the social bar, the popunder, the start gate *and* the
-     * ad-block detector at once, exactly as it already does for the exempt-role list. A
-     * user who paid to not see ads has not bought "fewer ads".
-     *
-     * The callback takes `?User` and is handed whoever is being rendered for, which is
-     * not always the logged-in user, so it must not reach for auth() itself.
-     */
-    protected function registerAdFreeExemption(): void
-    {
-        $display = self::ADS_DISPLAY;
-
-        if (!class_exists($display) || !method_exists($display, 'registerExemptionCheck')) {
-            return;
-        }
-
-        try {
-            $display::registerExemptionCheck(
-                static fn (mixed $user): bool => $user instanceof User
-                    && app(PriorityPassService::class)->isAdFree($user),
-            );
-        } catch (Throwable) {
-            // Same bargain as above: a refused registration costs the buyer their quiet
-            // window, which is a support ticket. A thrown boot is an outage.
         }
     }
 }

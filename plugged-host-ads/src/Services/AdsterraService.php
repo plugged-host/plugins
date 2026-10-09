@@ -18,7 +18,12 @@ use stdClass;
  * per unit, which is why no host is a constant: a unit that suddenly stops
  * filling is usually a stale host in `.env`, not a bug in here.
  *
- * @phpstan-type AdsterraUnit array{id: string, format: string, width: int|null, height: int, isolated: bool, document: string|null, markup: string|null, options: string|null, src: string|null}
+ * Third, a zone is served at most once per page: every banner and the native unit
+ * are handed out from a request-scoped pool (`take*()`), so two placements on one
+ * page can never ask for the same zone, which splits its fill.
+ *
+ * @phpstan-type AdsterraUnit array{id: string, format: string, width: int|null, height: int, isolated: bool, document: string|null, markup: string|null, options: string|null, src: string|null, units?: array<int, array<string, mixed>>}
+ * @phpstan-type BannerZone array{key: string, size: string, host: string}
  */
 class AdsterraService
 {
@@ -26,7 +31,7 @@ class AdsterraService
     public const BANNER_SIZES = ['728x90', '468x60', '320x50', '300x250', '160x600', '160x300'];
 
     /**
-     * How many extra banner zones the waiting room will render.
+     * How many pool banners the waiting room renders beside its leaderboard.
      *
      * A cap, not a target. Each one is a separate network request that has to fill
      * before the page settles, and past a handful the marginal impression is worth
@@ -34,17 +39,57 @@ class AdsterraService
      */
     public const MAX_GATE_BANNERS = 6;
 
+    /** Upper bound on configured banner zones (ADS_ADSTERRA_BANNERS). */
+    public const MAX_POOL = 24;
+
+    /** The horizontal banners, widest first: one slot that takes whichever fits. */
+    public const LEADERBOARD = '728x90|468x60|320x50';
+
+    /** Unit spec of the in-content slot at the foot of every page. */
+    public const IN_CONTENT = [self::LEADERBOARD, 'native'];
+
+    /** @var array<string, true> Banner keys already handed out in this request. */
+    protected array $taken = [];
+
+    protected bool $nativeTaken = false;
+
+    /** @var array<int, AdsterraUnit>|null */
+    protected ?array $gateUnits = null;
+
     /**
-     * Units that belong in the in-content ad slot, in render order.
+     * Units for the in-content slot at the foot of every page, in render order.
      *
      * @return array<int, AdsterraUnit>
      */
     public function inContentUnits(): array
     {
-        return array_values(array_filter([
-            $this->bannerUnit(),
-            $this->nativeUnit(),
-        ]));
+        return $this->unitsFor(self::IN_CONTENT);
+    }
+
+    /**
+     * Units for a list of specs: `native`, a size (`300x250`), or sizes joined by `|`,
+     * widest first (`728x90|468x60|320x50`), which the browser narrows to the widest
+     * that fits its container (see `pick()`). Each one comes out of this request's
+     * pool, so a spec whose zones are already on the page renders nothing.
+     *
+     * @param  array<int, string>  $specs
+     * @return array<int, AdsterraUnit>
+     */
+    public function unitsFor(array $specs): array
+    {
+        $units = [];
+
+        foreach ($specs as $spec) {
+            $spec = trim((string) $spec);
+
+            $units[] = match (true) {
+                $spec === 'native' => $this->takeNative(),
+                str_contains($spec, '|') => $this->pick(explode('|', $spec)),
+                default => $this->takeBanner($spec),
+            };
+        }
+
+        return array_values(array_filter($units));
     }
 
     /**
@@ -52,77 +97,199 @@ class AdsterraService
      *
      * The gate is the one surface where more units is the point — the user is
      * waiting on a timer either way, so the page may as well be worth something —
-     * but each format is still a separate switch. Turning them all off leaves the
-     * countdown, which is a legitimate configuration: `isEnabled()` on the gate
-     * already refuses to run with no Adsterra at all.
+     * so after the leaderboard it takes every zone left in the pool, up to the cap,
+     * then the native unit. Turning the switches off leaves the countdown, which is a
+     * legitimate configuration: `isEnabled()` on the gate already refuses to run with
+     * no Adsterra at all.
+     *
+     * Remembered for the request: the gate and the start queue both ask from their
+     * view data, and a second call would find the pool already handed out.
      *
      * @return array<int, AdsterraUnit>
      */
     public function gateUnits(): array
     {
+        if ($this->gateUnits !== null) {
+            return $this->gateUnits;
+        }
+
         $units = [];
 
         if ($this->gateAdEnabled('banner', true)) {
-            $units[] = $this->bannerUnit();
+            $units[] = $this->pick(explode('|', self::LEADERBOARD));
         }
 
-        foreach ($this->extraBannerUnits() as $unit) {
-            $units[] = $unit;
-        }
+        $extra = 0;
 
-        if ($this->gateAdEnabled('native', true)) {
-            $units[] = $this->nativeUnit();
-        }
-
-        return array_values(array_filter($units));
-    }
-
-    /**
-     * The additional banner zones configured for the waiting room.
-     *
-     * Configured as `key:size` pairs in one field rather than as N pairs of fields,
-     * because the number of zones a publisher has is not something we can guess and
-     * `.env` holds scalars: `ADS_START_GATE_BANNERS="abc123:300x250,def456:160x600"`.
-     * A malformed entry is dropped, not repaired — a wrong key renders an empty box
-     * that looks like a bug, so it is better to render nothing.
-     *
-     * @return array<int, AdsterraUnit>
-     */
-    public function extraBannerUnits(): array
-    {
-        $raw = trim((string) config('plugged-host-ads.start_credits.gate_ads.banners', ''));
-
-        if ($raw === '') {
-            return [];
-        }
-
-        $units = [];
-        $seen = [];
-
-        foreach (preg_split('/[,\n]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $entry) {
-            if (count($units) >= self::MAX_GATE_BANNERS) {
+        foreach ($this->bannerPool() as $zone) {
+            if ($extra >= self::MAX_GATE_BANNERS) {
                 break;
             }
 
-            $parts = explode(':', trim($entry), 2);
-            $key = $this->cleanKey($parts[0] ?? '');
-            $size = trim($parts[1] ?? '');
-
-            if ($key === null || isset($seen[$key . $size])) {
+            if (isset($this->taken[$zone['key']])) {
                 continue;
             }
 
-            $unit = $this->bannerUnit($key, $size !== '' ? $size : null);
+            $unit = $this->takeZone($zone);
 
-            if ($unit === null) {
-                continue;
+            if ($unit !== null) {
+                $units[] = $unit;
+                $extra++;
             }
-
-            $seen[$key . $size] = true;
-            $units[] = $unit;
         }
 
-        return $units;
+        if ($this->gateAdEnabled('native', true)) {
+            $units[] = $this->takeNative();
+        }
+
+        return $this->gateUnits = array_values(array_filter($units));
+    }
+
+    /**
+     * Every configured banner zone: the main banner (banner_key, banner_size,
+     * banner_host) first, then ADS_ADSTERRA_BANNERS in its order.
+     *
+     * The list is `key:WIDTHxHEIGHT:host` entries, comma separated, because `.env`
+     * holds scalars and Adsterra issues a different host per zone. Without a host an
+     * entry uses banner_host. A malformed entry is dropped, not repaired: a wrong
+     * key or size renders an empty box that looks like a bug.
+     *
+     * @return array<int, BannerZone>
+     */
+    public function bannerPool(): array
+    {
+        $pool = [];
+        $defaultHost = $this->cleanHost((string) config('plugged-host-ads.adsterra.banner_host', ''));
+
+        $main = $this->cleanKey((string) config('plugged-host-ads.adsterra.banner_key', ''));
+
+        if ($main !== null && $defaultHost !== null) {
+            [$width, $height] = $this->bannerSize();
+            $pool[$main] = ['key' => $main, 'size' => "{$width}x{$height}", 'host' => $defaultHost];
+        }
+
+        $raw = (string) config('plugged-host-ads.adsterra.banners', '');
+
+        foreach (preg_split('/[,\s]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $entry) {
+            if (count($pool) >= self::MAX_POOL) {
+                break;
+            }
+
+            [$key, $size, $host] = array_pad(explode(':', $entry, 3), 3, null);
+
+            $key = $this->cleanKey((string) $key);
+            $host = $host === null || $host === '' ? $defaultHost : $this->cleanHost($host);
+
+            if ($key === null || $host === null || isset($pool[$key])
+                || !in_array($size, self::BANNER_SIZES, true)) {
+                continue;
+            }
+
+            $pool[$key] = ['key' => $key, 'size' => $size, 'host' => $host];
+        }
+
+        return array_values($pool);
+    }
+
+    /**
+     * The next zone of this size that is not on the page yet, as a unit.
+     *
+     * @return AdsterraUnit|null
+     */
+    public function takeBanner(string $size): ?array
+    {
+        foreach ($this->bannerPool() as $zone) {
+            if ($zone['size'] !== $size || isset($this->taken[$zone['key']])) {
+                continue;
+            }
+
+            if (($unit = $this->takeZone($zone)) !== null) {
+                return $unit;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * One slot over several banner sizes, widest first.
+     *
+     * Rendered as one `<template>` per size, and the page's unit script inserts the
+     * widest one that fits the slot's width, or none. Hiding the others with CSS is
+     * not an option: a hidden iframe still loads, and an impression nobody can see is
+     * what a network audits for. A single size still goes through here, so a banner
+     * that is wider than a phone is left out instead of cropped.
+     *
+     * Inline (non-isolated) banners write into the top document as they load and
+     * cannot wait in a template, so with banner_isolate off only the widest renders.
+     *
+     * @param  array<int, string>  $sizes
+     * @return AdsterraUnit|null
+     */
+    public function pick(array $sizes): ?array
+    {
+        if (!(bool) config('plugged-host-ads.adsterra.banner_isolate', true)) {
+            foreach ($sizes as $size) {
+                if (($unit = $this->takeBanner(trim($size))) !== null) {
+                    return $unit;
+                }
+            }
+
+            return null;
+        }
+
+        $units = array_values(array_filter(array_map(fn (string $size): ?array => $this->takeBanner(trim($size)), $sizes)));
+
+        if ($units === []) {
+            return null;
+        }
+
+        usort($units, fn (array $a, array $b): int => ($b['width'] ?? 0) <=> ($a['width'] ?? 0));
+
+        return [
+            'id' => 'pick-' . implode('-', array_column($units, 'id')),
+            'format' => 'pick',
+            'width' => null,
+            'height' => max(array_column($units, 'height')),
+            'isolated' => true,
+            'document' => null,
+            'markup' => null,
+            'options' => null,
+            'src' => null,
+            'units' => $units,
+        ];
+    }
+
+    /**
+     * The native unit, once per page.
+     *
+     * @return AdsterraUnit|null
+     */
+    public function takeNative(): ?array
+    {
+        if ($this->nativeTaken) {
+            return null;
+        }
+
+        $unit = $this->nativeUnit();
+        $this->nativeTaken = $unit !== null;
+
+        return $unit;
+    }
+
+    /**
+     * @param  BannerZone  $zone
+     * @return AdsterraUnit|null
+     */
+    protected function takeZone(array $zone): ?array
+    {
+        $unit = $this->bannerUnit($zone['key'], $zone['size'], $zone['host']);
+
+        if ($unit !== null) {
+            $this->taken[$zone['key']] = true;
+        }
+
+        return $unit;
     }
 
     /** The page-level formats, in the order they are written into the document. */
@@ -275,8 +442,8 @@ class AdsterraService
     public function isConfigured(): bool
     {
         return $this->configuredScripts() !== []
-            || $this->inContentUnits() !== []
-            || $this->extraBannerUnits() !== []
+            || $this->bannerPool() !== []
+            || $this->nativeUnit() !== null
             || $this->gateScript() !== null
             || $this->directLink() !== null;
     }
@@ -294,11 +461,14 @@ class AdsterraService
     {
         $urls = [];
 
-        $key = $this->cleanKey((string) config('plugged-host-ads.adsterra.banner_key', ''));
-        $host = $this->cleanHost((string) config('plugged-host-ads.adsterra.banner_host', ''));
+        // One zone per banner host: the question is whether the host answers.
+        $hosts = [];
 
-        if ($key !== null && $host !== null) {
-            $urls[] = "https://{$host}/{$key}/invoke.js";
+        foreach ($this->bannerPool() as $zone) {
+            if (!isset($hosts[$zone['host']])) {
+                $hosts[$zone['host']] = true;
+                $urls[] = "https://{$zone['host']}/{$zone['key']}/invoke.js";
+            }
         }
 
         foreach ($this->configuredScripts() as $url) {
@@ -343,10 +513,10 @@ class AdsterraService
     /**
      * @return AdsterraUnit|null
      */
-    protected function bannerUnit(?string $key = null, ?string $size = null): ?array
+    protected function bannerUnit(?string $key = null, ?string $size = null, ?string $host = null): ?array
     {
         $key = $this->cleanKey($key ?? (string) config('plugged-host-ads.adsterra.banner_key', ''));
-        $host = $this->cleanHost((string) config('plugged-host-ads.adsterra.banner_host', ''));
+        $host = $this->cleanHost($host ?? (string) config('plugged-host-ads.adsterra.banner_host', ''));
 
         if ($key === null || $host === null) {
             return null;

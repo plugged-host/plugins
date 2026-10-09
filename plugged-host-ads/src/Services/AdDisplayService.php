@@ -8,6 +8,9 @@ class AdDisplayService
 {
     public const ANTIBLOCK_MODES = ['notice', 'modal', 'block'];
 
+    /** plugged-host-economy's Plus/PlusPlus service, asked by class name (optional dependency). */
+    private const MEMBERSHIP = 'PluggedHost\\Economy\\Services\\MembershipService';
+
     /**
      * Other plugins' pages that are themselves an ad interstitial.
      *
@@ -120,8 +123,8 @@ class AdDisplayService
      *
      * Extracted so the start gate can ask the same question the slot does. One answer
      * has to mean one thing: a donator who was promised no ads has not been promised
-     * "no banners, but still a waiting room". The registered checks (today: the queue's
-     * paid ad-free window) inherit that promise for the same reason.
+     * "no banners, but still a waiting room". The registered checks (today: plugged.host
+     * PlusPlus, plugged-host-economy) inherit that promise for the same reason.
      *
      * Note the order. Roles are free to evaluate and hold for whole populations, so they
      * are asked first and a match short-circuits before anything reaches a database.
@@ -137,22 +140,32 @@ class AdDisplayService
             return static::$exemptUserMemo[$userId];
         }
 
-        $exemptRoles = $this->getExemptRoles();
-
-        if (!empty($exemptRoles)) {
-            try {
-                if ($user->roles()->whereIn('name', $exemptRoles)->exists()) {
-                    return static::$exemptUserMemo[$userId] = true;
-                }
-            } catch (\Throwable) {
-                // Fallback to in-memory collection check if relations not loaded
-                if ($user->roles && $user->roles->pluck('name')->intersect($exemptRoles)->isNotEmpty()) {
-                    return static::$exemptUserMemo[$userId] = true;
-                }
-            }
+        if ($this->isExemptByRole($user)) {
+            return static::$exemptUserMemo[$userId] = true;
         }
 
         return static::$exemptUserMemo[$userId] = $this->hasRegisteredExemption($user);
+    }
+
+    /**
+     * The exempt-role half of isExemptUser(), without what other plugins registered (today
+     * PlusPlus). The start queue lets exempt roles skip the line; a paid ad exemption only buys
+     * priority in it.
+     */
+    public function isExemptByRole(?User $user): bool
+    {
+        $exemptRoles = $this->getExemptRoles();
+
+        if ($user === null || empty($exemptRoles)) {
+            return false;
+        }
+
+        try {
+            return $user->roles()->whereIn('name', $exemptRoles)->exists();
+        } catch (\Throwable) {
+            // Fallback to in-memory collection check if relations not loaded
+            return $user->roles && $user->roles->pluck('name')->intersect($exemptRoles)->isNotEmpty();
+        }
     }
 
     /**
@@ -285,6 +298,29 @@ class AdDisplayService
         $placements = (array) config('plugged-host-ads.placements', []);
 
         return is_array($placements[$name] ?? null) ? $placements[$name] : null;
+    }
+
+    /**
+     * Seconds in view before a sandboxed unit reloads for this user, or 0 for no refresh.
+     * Plus owners get the slower plus_seconds; PlusPlus never gets here (exempt from ads).
+     */
+    public function refreshSeconds(?User $user): int
+    {
+        if (!(bool) config('plugged-host-ads.refresh.enabled', true)) {
+            return 0;
+        }
+
+        $seconds = max(5, (int) config('plugged-host-ads.refresh.seconds', 5));
+
+        try {
+            if ($user !== null && class_exists(self::MEMBERSHIP) && app(self::MEMBERSHIP)->hasPlus($user)) {
+                return max($seconds, (int) config('plugged-host-ads.refresh.plus_seconds', 10));
+            }
+        } catch (\Throwable) {
+            // No membership answer: the everyone interval.
+        }
+
+        return $seconds;
     }
 
     public function antiBlockEnabled(): bool

@@ -179,10 +179,12 @@ class TransferService
      *
      * @param  string|null  $location  location code; null only together with $only
      * @param  array<int, int>|null  $only  node ids to choose from, in order (start queue offer)
+     * @param  array<string, mixed>  $remember  extra detail recorded with the move (a "Lighten the
+     *                                         load" batch: batch, queued, parallel, only_stopped)
      *
      * @throws TransferException
      */
-    public function start(Server $server, User $user, ?string $location, string $origin = ServerRelocation::ORIGIN_USER, ?array $only = null, bool $startAfter = false): ServerRelocation
+    public function start(Server $server, User $user, ?string $location, string $origin = ServerRelocation::ORIGIN_USER, ?array $only = null, bool $startAfter = false, array $remember = []): ServerRelocation
     {
         if (($reason = $this->blockedReason($server, $user, $origin)) !== null) {
             throw new TransferException(...$reason);
@@ -217,7 +219,7 @@ class TransferService
         // queue picked the node.
         $shownLocation = $location ?? $this->planner->locationOf($destinations->first());
 
-        $relocation = DB::transaction(function () use ($server, $user, $location, $origin, $only, $startAfter, $shownLocation) {
+        $relocation = DB::transaction(function () use ($server, $user, $location, $origin, $only, $startAfter, $shownLocation, $remember) {
             // Serialises double clicks: the second one waits here and then sees the first.
             Server::query()->whereKey($server->getKey())->lockForUpdate()->first();
 
@@ -239,6 +241,11 @@ class TransferService
             $relocation->state_at = now();
             $relocation->remember('only', $only);
             $relocation->remember('from_location', $this->planner->locationOf($server->node));
+
+            foreach ($remember as $key => $value) {
+                $relocation->remember($key, $value);
+            }
+
             $relocation->event('requested', ['location' => $shownLocation ?? '']);
             $relocation->save();
 
@@ -250,7 +257,10 @@ class TransferService
             ->property('location', $this->locationName($shownLocation))
             ->log();
 
-        TransferWatcher::ensureRunning();
+        // A batch wakes the watcher once, after its last move is queued (LoadLightener).
+        if (!isset($remember['batch'])) {
+            TransferWatcher::ensureRunning();
+        }
 
         return $relocation;
     }
@@ -284,6 +294,24 @@ class TransferService
             $this->releaseAttempt($relocation);
             $relocation->event('cancelled', [], 'warning');
             $this->finish($relocation, ServerRelocation::CANCELLED, 'cancelled');
+
+            return true;
+        }, 15);
+    }
+
+    /**
+     * Take a queued move ("Lighten the load") that has not had its turn yet off the list.
+     * Nothing was reserved or stopped for it, so there is nothing to undo.
+     */
+    public function withdraw(ServerRelocation $relocation, User $admin): bool
+    {
+        return (bool) $this->locked($relocation, function (ServerRelocation $relocation) use ($admin): bool {
+            if (!$relocation->isWaiting()) {
+                return false;
+            }
+
+            $relocation->remember('cancelled_by', $admin->getKey());
+            $this->skip($relocation, 'withdrawn');
 
             return true;
         }, 15);
@@ -480,6 +508,10 @@ class TransferService
 
     protected function prepare(ServerRelocation $relocation, Server $server): void
     {
+        if ($relocation->isWaiting() && !$this->takeTurn($relocation, $server)) {
+            return;
+        }
+
         if ((int) $server->node_id !== $relocation->from_node_id) {
             // Somewhere else already (a node failover, an admin). Nothing of ours to undo.
             $this->finish($relocation, ServerRelocation::FAILED, 'server_moved', restorePower: false);
@@ -718,6 +750,92 @@ class TransferService
     // ---------------------------------------------------------------------------------
     // Steps
     // ---------------------------------------------------------------------------------
+
+    /**
+     * A queued move waits here, holding nothing, until fewer than its `parallel` moves off the
+     * same node are under way and no older one is waiting. Then it checks again what the batch
+     * promised: a server that went somewhere else is skipped, a "stopped servers" batch skips
+     * one its owner has started since (nobody gets kicked), and a batch whose last three moves
+     * all failed stops instead of failing every server in turn.
+     */
+    protected function takeTurn(ServerRelocation $relocation, Server $server): bool
+    {
+        if (!$this->due($relocation, 'turn', 5)) {
+            return false;
+        }
+
+        $others = ServerRelocation::query()
+            ->active()
+            ->where('from_node_id', $relocation->from_node_id)
+            ->whereKeyNot($relocation->getKey())
+            ->get();
+
+        $underWay = $others->reject(fn (ServerRelocation $other) => $other->isWaiting())->count();
+        $ahead = $others->contains(fn (ServerRelocation $other) => $other->isWaiting() && $other->getKey() < $relocation->getKey());
+
+        if ($ahead || $underWay >= max(1, (int) $relocation->info('parallel', 1))) {
+            return false;
+        }
+
+        if ((int) $server->node_id !== $relocation->from_node_id || $this->hasOpenTransfer($server)) {
+            $this->skip($relocation, 'moved');
+
+            return false;
+        }
+
+        if ($this->batchFailing($relocation)) {
+            $this->skip($relocation, 'failing');
+
+            return false;
+        }
+
+        if ($relocation->info('only_stopped')) {
+            $state = $this->details($server, $relocation->fromNode)['state'] ?? null;
+
+            // Unreachable (null) goes ahead and fails the usual way in prepare().
+            if ($state !== null && $state !== 'offline') {
+                $this->skip($relocation, 'running');
+
+                return false;
+            }
+        }
+
+        $relocation->remember('queued', false);
+        $relocation->remember('turn_at', now()->getTimestamp());
+        $relocation->event('turn');
+        $relocation->save();
+
+        return true;
+    }
+
+    /** Did the last three moves of this batch that ended all fail? */
+    protected function batchFailing(ServerRelocation $relocation): bool
+    {
+        $batch = $relocation->info('batch');
+
+        if (!is_string($batch) || $batch === '') {
+            return false;
+        }
+
+        $ended = ServerRelocation::query()
+            ->where('from_node_id', $relocation->from_node_id)
+            ->whereIn('state', [ServerRelocation::COMPLETED, ServerRelocation::FAILED, ServerRelocation::STUCK])
+            ->where('detail->batch', $batch)
+            ->latest('finished_at')
+            ->limit(3)
+            ->pluck('state');
+
+        return $ended->count() >= 3 && !$ended->contains(ServerRelocation::COMPLETED);
+    }
+
+    /** End a queued move before its turn. Nothing to undo; the owner is not told (notifyPeople). */
+    protected function skip(ServerRelocation $relocation, string $why): void
+    {
+        $relocation->remember('skipped', $why);
+        $relocation->remember('queued', false);
+        $relocation->event('skipped_' . $why, [], 'warning');
+        $this->finish($relocation, ServerRelocation::CANCELLED, 'skipped_' . $why, restorePower: false);
+    }
 
     /**
      * Pick the node for this attempt, claim its ports and create upstream's transfer row.
@@ -1253,9 +1371,15 @@ class TransferService
         $server = Server::query()->find($relocation->server_id);
 
         if ($server instanceof Server) {
+            $reason = $relocation->error ?? match (true) {
+                $relocation->info('skipped') !== null => 'skipped_' . $relocation->info('skipped'),
+                $state === ServerRelocation::CANCELLED => 'cancelled',
+                default => 'internal_error',
+            };
+
             Activity::event("server:transfer.$state")
                 ->subject($server)
-                ->property('reason', trans('plugged-host-servers::strings.transfers.reasons.' . ($relocation->error ?? 'internal_error')))
+                ->property('reason', trans('plugged-host-servers::strings.transfers.reasons.' . $reason))
                 ->log();
 
             $this->notifyPeople($relocation, $server, $state);
@@ -1433,7 +1557,15 @@ class TransferService
 
     protected function notifyPeople(ServerRelocation $relocation, Server $server, string $state): void
     {
-        $recipients = collect([$server->user, $relocation->user])
+        // A batch ("Lighten the load") is the admin's business, followed on the node page,
+        // until it changes something for the owner: a new address, or a server held up.
+        $batch = $relocation->info('batch') !== null;
+
+        if ($batch && !in_array($state, [ServerRelocation::COMPLETED, ServerRelocation::STUCK], true)) {
+            return;
+        }
+
+        $recipients = collect([$server->user, $batch ? null : $relocation->user])
             ->filter(fn ($user) => $user instanceof User)
             ->unique(fn (User $user) => $user->getKey());
 

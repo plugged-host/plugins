@@ -296,6 +296,51 @@ class DiscordRest
     }
 
     /**
+     * @return array<string, mixed>|null Null when it does not exist (any more).
+     */
+    public function message(string $channelId, string $messageId): ?array
+    {
+        try {
+            return $this->json('GET', "channels/{$channelId}/messages/{$messageId}");
+        } catch (DiscordException $e) {
+            if ($e->isNotFound()) {
+                return null;
+            }
+
+            throw $e;
+        }
+    }
+
+    public function pin(string $channelId, string $messageId, bool $pinned, ?string $reason): void
+    {
+        $this->call($pinned ? 'PUT' : 'DELETE', "channels/{$channelId}/messages/pins/{$messageId}", null, $reason);
+    }
+
+    /**
+     * The server's bans, up to $max of them.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function bans(string $guildId, int $max = 2000): array
+    {
+        $bans = [];
+        $after = null;
+
+        while (count($bans) < $max) {
+            $page = array_values($this->json('GET', "guilds/{$guildId}/bans", null, null, array_filter(['limit' => 1000, 'after' => $after])));
+            array_push($bans, ...$page);
+
+            if (count($page) < 1000) {
+                break;
+            }
+
+            $after = (string) end($page)['user']['id'];
+        }
+
+        return array_slice($bans, 0, $max);
+    }
+
+    /**
      * @param  list<string>  $messageIds  1 to 100 ids, none older than 14 days.
      */
     public function deleteMessages(string $channelId, array $messageIds, ?string $reason): void

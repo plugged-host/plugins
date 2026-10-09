@@ -6,7 +6,7 @@
 
 {{--
     The sidebar's usage card and balances (ThemeV2Balance). Each part links to where it is
-    topped up — usage and credits to the Resource Store, tokens to the Token Store — with
+    topped up — usage and credits to the Resource Store, tokens to the Tokens page — with
     wire:navigate so the click does not throw away the current page's state. A part whose store
     is unavailable renders as a plain element: it must not look clickable if nothing happens.
 

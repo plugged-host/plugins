@@ -50,6 +50,7 @@ final class NeoGateway
     {
         $response = $this->send('POST', '/turn', NoprofitLink::identity($user) + [
             'service' => 'plugged-host',
+            'usage_percent' => self::usagePercent($user),
             'conversation' => $conversation->uuid,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
@@ -83,6 +84,7 @@ final class NeoGateway
         $response = $this->send('POST', '/turn', [
             'discord_id' => $discordId,
             'service' => self::DISCORD_SERVICE,
+            'usage_percent' => self::usagePercent(self::panelUserForDiscord($discordId)),
             'conversation' => 'discord:' . $conversation,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
@@ -117,7 +119,11 @@ final class NeoGateway
             return $cached;
         }
 
-        $response = $this->send('POST', '/usage', ['discord_id' => $discordId, 'service' => self::DISCORD_SERVICE], 8);
+        $response = $this->send('POST', '/usage', [
+            'discord_id' => $discordId,
+            'service' => self::DISCORD_SERVICE,
+            'usage_percent' => self::usagePercent(self::panelUserForDiscord($discordId)),
+        ], 8);
 
         if (!$response->successful()) {
             throw new GatewayUnavailableException('usage_http_' . $response->status());
@@ -143,7 +149,7 @@ final class NeoGateway
         }
 
         try {
-            $response = $this->send('POST', '/usage', NoprofitLink::identity($user) + ['service' => 'plugged-host'], 8);
+            $response = $this->send('POST', '/usage', NoprofitLink::identity($user) + ['service' => 'plugged-host', 'usage_percent' => self::usagePercent($user)], 8);
         } catch (Throwable) {
             return null;
         }
@@ -271,6 +277,35 @@ final class NeoGateway
     private function actor(User $actor): array
     {
         return ['id' => (string) $actor->id, 'name' => (string) $actor->username];
+    }
+
+    /**
+     * How much neo this account gets, as a percentage of the free limits: more with
+     * plugged.host Plus and PlusPlus (plugged-host-economy's MembershipService).
+     */
+    public static function usagePercent(?User $user): int
+    {
+        $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
+
+        try {
+            return $user !== null && class_exists($membership) ? max(100, (int) app($membership)->aiUsagePercent($user)) : 100;
+        } catch (Throwable) {
+            return 100;
+        }
+    }
+
+    /**
+     * The panel account a Discord account is linked to (plugged-host-discord's mirror), if any.
+     */
+    private static function panelUserForDiscord(string $discordId): ?User
+    {
+        $links = 'PluggedHost\\Discord\\Models\\DiscordLink';
+
+        try {
+            return class_exists($links) ? $links::query()->where('discord_id', $discordId)->first()?->user : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function discordKey(string $discordId): string

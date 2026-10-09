@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- neo sends `usage_percent` with every turn and usage call (Plus 125%, PlusPlus 156%; Discord
+  turns look the account up through the Discord link), which noprofit.space applies to the limits.
+- neo knows there are no private tickets (human help in the Discord server's public channels)
+  and that legal/privacy complaints go to legal@plugged.host / privacy@plugged.host; its
+  knowledge covers plugged.host Plus/PlusPlus and the new store pricing.
+
 ## 1.3.0
 
 - **plugged.host AI.** The plugin was `plugged-host-neo` ("plugged.host neo"); it is now

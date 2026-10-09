@@ -16,7 +16,8 @@ final class NoprofitCreditsController
     public function sync(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'items' => ['required', 'array', 'max:500'],
+            // Empty when noprofit.space only sends new prices (Admin > Settings saved).
+            'items' => ['present', 'array', 'max:500'],
             'items.*.account_id' => ['required', 'integer', 'min:1'],
             'items.*.balance' => ['required', 'integer', 'min:0'],
             'items.*.version' => ['required', 'integer', 'min:0'],

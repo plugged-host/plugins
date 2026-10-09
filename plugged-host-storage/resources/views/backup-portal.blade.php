@@ -569,6 +569,9 @@
                                                 <span class="sep" aria-hidden="true">&middot;</span>
                                                 <span>{{ \Carbon\Carbon::parse($srv['mtime'])->diffForHumans() }}</span>
                                             @endif
+                                        @elseif ($srv['unreachable'])
+                                            <span class="dot" aria-hidden="true"></span>
+                                            <span>Backup storage is unreachable right now, try again in a few minutes</span>
                                         @else
                                             <span class="dot" aria-hidden="true"></span>
                                             <span>Waiting for the first copy from the node</span>
@@ -597,7 +600,7 @@
 
     <footer class="footer">
         <div class="container">
-            &copy; {{ date('Y') }} plugged.host &middot; <a href="{{ $panelUrl }}" target="_blank">Panel</a> &middot; <a href="https://status.plugged.host" target="_blank">Status</a> &middot; <a href="https://discord.gg/TYUrdQbYFt" target="_blank">Discord support</a>
+            &copy; {{ date('Y') }} plugged.host &middot; <a href="{{ $panelUrl }}" target="_blank">Panel</a> &middot; <a href="https://status.plugged.host" target="_blank">Status</a> &middot; <a href="https://discord.gg/plugged-host-1502647500295635085" target="_blank">Discord support</a>
         </div>
     </footer>
 

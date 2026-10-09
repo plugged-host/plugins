@@ -61,6 +61,8 @@
 
                 @if($hasBackup)
                     <x-filament::badge color="success">Available</x-filament::badge>
+                @elseif($backupInfo === null)
+                    <x-filament::badge color="gray">Unreachable right now</x-filament::badge>
                 @else
                     <x-filament::badge color="gray">Waiting for first copy</x-filament::badge>
                 @endif

@@ -12,7 +12,7 @@ return [
     'balance' => [
         'tokens' => 'tokens',
         'credits' => 'credits',
-        'open_tokens' => 'Open the Token Store',
+        'open_tokens' => 'Open the Tokens page',
         'open_credits' => 'Open the Resource Store',
     ],
 

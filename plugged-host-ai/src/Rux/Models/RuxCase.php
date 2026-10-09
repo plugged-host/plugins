@@ -3,6 +3,8 @@
 namespace PluggedHost\Ai\Rux\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use PluggedHost\Ai\Rux\Support\RuxText;
+use PluggedHost\Ai\Rux\Support\RuxTime;
 
 /**
  * One moderation action rux took on someone's order (ModerationService).
@@ -46,6 +48,27 @@ class RuxCase extends Model
         'revoked_at',
         'meta',
     ];
+
+    /**
+     * The case in one line for the model: number, action, when, who, why, and what the member
+     * said when rux caught them.
+     */
+    public function line(bool $withMember = false): string
+    {
+        $said = $this->meta['said'] ?? null;
+
+        return '#' . $this->id . ' ' . $this->action
+            . ($this->automatic ? ($this->rule_id !== null ? " (automatic, rule #{$this->rule_id})" : ' (automatic)') : '')
+            . ($this->revoked_at !== null ? ' (cleared)' : '')
+            . ' ' . RuxTime::human($this->created_at)
+            . ($withMember && $this->target_id !== null ? " on <@{$this->target_id}>" : '')
+            . ($withMember && !$this->automatic ? " by <@{$this->moderator_discord_id}>" : '')
+            . ($this->channel_id !== null ? " in <#{$this->channel_id}>" : '')
+            . ($this->duration_seconds ? ' for ' . RuxTime::humanDuration($this->duration_seconds) : '')
+            . (isset($this->meta['deleted']) ? ", {$this->meta['deleted']} deleted" : '')
+            . ($this->reason ? ": {$this->reason}" : '')
+            . (is_string($said) && $said !== '' ? ' (they said: "' . RuxText::untrusted($said, 200) . '")' : '');
+    }
 
     protected $casts = [
         'moderator_account_id' => 'integer',

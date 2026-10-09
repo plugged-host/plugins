@@ -58,6 +58,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'enabled' => (bool) config('plugged-host-ads.enabled', true),
             'adsterra_banner_key' => (string) config('plugged-host-ads.adsterra.banner_key', ''),
             'adsterra_banner_host' => (string) config('plugged-host-ads.adsterra.banner_host', ''),
+            'adsterra_banners' => str_replace(',', "\n", (string) config('plugged-host-ads.adsterra.banners', '')),
             'adsterra_banner_size' => (string) config('plugged-host-ads.adsterra.banner_size', '728x90'),
             'adsterra_native_script' => (string) config('plugged-host-ads.adsterra.native_script', ''),
             'adsterra_native_container' => (string) config('plugged-host-ads.adsterra.native_container', ''),
@@ -82,7 +83,14 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'slot_onboarding' => (bool) config('plugged-host-ads.placements.onboarding-install.enabled', true),
             'slot_server_tools' => (bool) config('plugged-host-ads.placements.server-tools.enabled', false),
 
+            'refresh_enabled' => (bool) config('plugged-host-ads.refresh.enabled', true),
+            'refresh_seconds' => (int) config('plugged-host-ads.refresh.seconds', 5),
+            'refresh_plus_seconds' => (int) config('plugged-host-ads.refresh.plus_seconds', 10),
+
             'z_index' => (int) config('plugged-host-ads.z_index', 0),
+            'in_game_enabled' => (bool) config('plugged-host-ads.in_game.enabled', true),
+            'in_game_message' => (string) config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host'),
+            'in_game_interval' => (int) config('plugged-host-ads.in_game.interval_minutes', 60),
             'exempt_roles' => $exemptRoles,
             'antiblock_enabled' => (bool) config('plugged-host-ads.antiblock.enabled', false),
             'antiblock_mode' => app(AdDisplayService::class)->antiBlockMode(),
@@ -113,7 +121,6 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 
             'start_gate_navigation' => (bool) config('plugged-host-ads.start_credits.gate_on_navigation', false),
             'start_gate_ad_banner' => (bool) config('plugged-host-ads.start_credits.gate_ads.banner', true),
-            'start_gate_ad_banners' => (string) config('plugged-host-ads.start_credits.gate_ads.banners', ''),
             'start_gate_ad_native' => (bool) config('plugged-host-ads.start_credits.gate_ads.native', true),
             'start_gate_ad_social_bar' => (bool) config('plugged-host-ads.start_credits.gate_ads.social_bar', true),
             'start_gate_ad_popunder' => (bool) config('plugged-host-ads.start_credits.gate_ads.popunder', true),
@@ -162,6 +169,13 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-ads::strings.adsterra_banner_host_helper'))
                         ->placeholder('www.highperformanceformat.com')
                         ->default(fn () => config('plugged-host-ads.adsterra.banner_host', '')),
+                    Textarea::make('adsterra_banners')
+                        ->label(trans('plugged-host-ads::strings.adsterra_banners'))
+                        ->helperText(trans('plugged-host-ads::strings.adsterra_banners_helper'))
+                        ->placeholder('a1b2c3d4e5f60718293a4b5c6d7e8f90:300x250:www.highperformanceformat.com')
+                        ->rows(6)
+                        ->columnSpanFull()
+                        ->default(fn () => str_replace(',', "\n", (string) config('plugged-host-ads.adsterra.banners', ''))),
                     TextInput::make('adsterra_native_script')
                         ->label(trans('plugged-host-ads::strings.adsterra_native_script'))
                         ->helperText(trans('plugged-host-ads::strings.adsterra_native_script_helper'))
@@ -311,6 +325,32 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-ads.placements.server-tools.enabled', false)),
                 ]),
 
+            Section::make(trans('plugged-host-ads::strings.section_refresh'))
+                ->description(trans('plugged-host-ads::strings.section_refresh_desc'))
+                ->columns(2)
+                ->schema([
+                    Toggle::make('refresh_enabled')
+                        ->label(trans('plugged-host-ads::strings.refresh_enabled'))
+                        ->inline(false)
+                        ->columnSpanFull()
+                        ->default(fn () => config('plugged-host-ads.refresh.enabled', true)),
+                    TextInput::make('refresh_seconds')
+                        ->label(trans('plugged-host-ads::strings.refresh_seconds'))
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(3600)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.refresh.seconds', 5)),
+                    TextInput::make('refresh_plus_seconds')
+                        ->label(trans('plugged-host-ads::strings.refresh_plus_seconds'))
+                        ->helperText(trans('plugged-host-ads::strings.refresh_plus_seconds_helper'))
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(3600)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.refresh.plus_seconds', 10)),
+                ]),
+
             Section::make(trans('plugged-host-ads::strings.section_styling'))
                 ->description(trans('plugged-host-ads::strings.section_styling_desc'))
                 ->columns(2)
@@ -320,6 +360,30 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-ads::strings.z_index_helper'))
                         ->numeric()
                         ->default(fn () => config('plugged-host-ads.z_index', 0)),
+                ]),
+
+            Section::make(trans('plugged-host-ads::strings.section_in_game'))
+                ->description(trans('plugged-host-ads::strings.section_in_game_desc'))
+                ->columns(2)
+                ->schema([
+                    Toggle::make('in_game_enabled')
+                        ->label(trans('plugged-host-ads::strings.in_game_enabled'))
+                        ->inline(false)
+                        ->columnSpanFull()
+                        ->default(fn () => config('plugged-host-ads.in_game.enabled', true)),
+                    TextInput::make('in_game_message')
+                        ->label(trans('plugged-host-ads::strings.in_game_message'))
+                        ->helperText(trans('plugged-host-ads::strings.in_game_message_helper'))
+                        ->maxLength(200)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host')),
+                    TextInput::make('in_game_interval')
+                        ->label(trans('plugged-host-ads::strings.in_game_interval'))
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(1440)
+                        ->required()
+                        ->default(fn () => config('plugged-host-ads.in_game.interval_minutes', 60)),
                 ]),
 
             Section::make(trans('plugged-host-ads::strings.section_exemptions'))
@@ -584,12 +648,6 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->placeholder('//pl12345678.example.com/a1/b2/c3/a1b2c3.js')
                         ->columnSpanFull()
                         ->default(fn () => config('plugged-host-ads.adsterra.gate_script', '')),
-                    TextInput::make('start_gate_ad_banners')
-                        ->label(trans('plugged-host-ads::strings.start_gate_ad_banners'))
-                        ->helperText(trans('plugged-host-ads::strings.start_gate_ad_banners_helper'))
-                        ->placeholder('abc123…:300x250, def456…:160x600')
-                        ->columnSpanFull()
-                        ->default(fn () => config('plugged-host-ads.start_credits.gate_ads.banners', '')),
                     Toggle::make('start_gate_ad_social_bar')
                         ->label(trans('plugged-host-ads::strings.start_gate_ad_social_bar'))
                         ->helperText(trans('plugged-host-ads::strings.start_gate_ad_social_bar_helper'))
@@ -639,6 +697,10 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
         $minDwell = $this->clamp($data['start_min_dwell'] ?? 15, 0, 120);
         $maxDwell = max($minDwell, $this->clamp($data['start_max_dwell'] ?? 30, 1, 300));
 
+        // Plus is never refreshed faster than everyone else (AdDisplayService::refreshSeconds()).
+        $refreshSeconds = $this->clamp($data['refresh_seconds'] ?? 5, 5, 3600);
+        $refreshPlusSeconds = max($refreshSeconds, $this->clamp($data['refresh_plus_seconds'] ?? 10, 5, 3600));
+
         $values = [
             'ADS_ENABLED' => !empty($data['enabled']) ? 'true' : 'false',
             'ADS_SHOW_APP_PANEL' => !empty($data['show_app_panel']) ? 'true' : 'false',
@@ -653,7 +715,14 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_SLOT_ONBOARDING' => !empty($data['slot_onboarding']) ? 'true' : 'false',
             'ADS_SLOT_SERVER_TOOLS' => !empty($data['slot_server_tools']) ? 'true' : 'false',
 
+            'ADS_REFRESH_ENABLED' => !empty($data['refresh_enabled']) ? 'true' : 'false',
+            'ADS_REFRESH_SECONDS' => (string) $refreshSeconds,
+            'ADS_REFRESH_PLUS_SECONDS' => (string) $refreshPlusSeconds,
+
             'ADS_Z_INDEX' => (string) ($data['z_index'] ?? 0),
+            'ADS_IN_GAME_ENABLED' => !empty($data['in_game_enabled']) ? 'true' : 'false',
+            'ADS_IN_GAME_MESSAGE' => $this->envText($data['in_game_message'] ?? '') ?: 'This server is powered by plugged.host',
+            'ADS_IN_GAME_INTERVAL' => (string) $this->clamp($data['in_game_interval'] ?? 60, 5, 1440),
             'ADS_EXEMPT_ROLES' => (string) $exemptRoles,
 
             'ADS_ADSTERRA_BANNER_KEY' => $this->envText($data['adsterra_banner_key'] ?? ''),
@@ -664,6 +733,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_ADSTERRA_BANNER_SIZE' => in_array($data['adsterra_banner_size'] ?? null, AdsterraService::BANNER_SIZES, true)
                 ? $data['adsterra_banner_size']
                 : '728x90',
+            'ADS_ADSTERRA_BANNERS' => $this->envBannerPool($data['adsterra_banners'] ?? ''),
             'ADS_ADSTERRA_NATIVE_SCRIPT' => $this->envText($data['adsterra_native_script'] ?? ''),
             'ADS_ADSTERRA_NATIVE_CONTAINER' => $this->envText($data['adsterra_native_container'] ?? ''),
             'ADS_ADSTERRA_NATIVE_HEIGHT' => (string) $this->clamp($data['adsterra_native_height'] ?? 320, 80, 2000),
@@ -701,7 +771,6 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 
             'ADS_START_GATE_ON_NAVIGATION' => !empty($data['start_gate_navigation']) ? 'true' : 'false',
             'ADS_START_GATE_BANNER' => !empty($data['start_gate_ad_banner']) ? 'true' : 'false',
-            'ADS_START_GATE_BANNERS' => $this->envBannerList($data['start_gate_ad_banners'] ?? ''),
             'ADS_START_GATE_NATIVE' => !empty($data['start_gate_ad_native']) ? 'true' : 'false',
             'ADS_START_GATE_SOCIAL_BAR' => !empty($data['start_gate_ad_social_bar']) ? 'true' : 'false',
             'ADS_START_GATE_POPUNDER' => !empty($data['start_gate_ad_popunder']) ? 'true' : 'false',
@@ -746,33 +815,57 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
     }
 
     /**
-     * The extra banner zones arrive as free text — `key:size, key:size` — and get
-     * normalised here rather than at read time so the admin sees what was actually
-     * kept when the form reloads. A malformed entry is dropped, never guessed at:
-     * a wrong size makes Adsterra serve nothing, which looks like a broken panel
-     * rather than a typo. The size is optional; without one the unit falls back to
-     * the main banner size in AdsterraService.
+     * The banner pool arrives as free text: Adsterra banner snippets pasted as issued, or
+     * `key:WIDTHxHEIGHT:host` entries, one per line or comma separated. It is normalised
+     * here, at the write boundary, so the admin sees what was kept when the form reloads.
+     * A snippet gives all three values: `key`, `width` and `height` from its atOptions,
+     * the host from its invoke.js URL. A malformed entry is dropped, never guessed at: a
+     * wrong size makes Adsterra serve nothing, which looks like a broken panel rather than
+     * a typo. A missing host means banner_host (see AdsterraService::bannerPool()).
      *
-     * Commas survive the .env round trip: Env::writeVariables() double-quotes any
-     * value that is not purely alphanumeric.
+     * Commas and colons survive the .env round trip: Env::writeVariables() double-quotes
+     * any value that is not purely alphanumeric.
      */
-    protected function envBannerList(mixed $value): string
+    protected function envBannerPool(mixed $value): string
     {
-        $entries = preg_split('/[,\s]+/', (string) $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
+        $text = (string) $value;
         $clean = [];
-        foreach ($entries as $entry) {
-            [$key, $size] = array_pad(explode(':', $entry, 2), 2, null);
 
-            if (preg_match('/^[A-Za-z0-9]{8,64}$/', (string) $key) !== 1) {
+        $snippet = '~atOptions\s*=\s*\{(.*?)\}.*?<script[^>]*\bsrc\s*=\s*["\']([^"\']+)["\']~is';
+
+        if (preg_match_all($snippet, $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as [, $options, $src]) {
+                $field = fn (string $name): string => preg_match("~['\"]{$name}['\"]\s*:\s*['\"]?([A-Za-z0-9]+)~", $options, $m) ? $m[1] : '';
+                $host = AdsterraService::normalizeHost($src);
+
+                if ($host !== null) {
+                    $clean[] = $field('key') . ':' . $field('width') . 'x' . $field('height') . ':' . $host;
+                }
+            }
+
+            $text = (string) preg_replace('~<script\b.*?</script>~is', ' ', $text);
+        }
+
+        foreach (preg_split('/[,\s]+/', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $entry) {
+            $clean[] = $entry;
+        }
+
+        $kept = [];
+
+        foreach ($clean as $entry) {
+            [$key, $size, $host] = array_pad(explode(':', $entry, 3), 3, null);
+
+            if (preg_match('/^[A-Za-z0-9]{8,64}$/', (string) $key) !== 1
+                || !in_array($size, AdsterraService::BANNER_SIZES, true)
+                || isset($kept[$key])) {
                 continue;
             }
 
-            $size = in_array($size, AdsterraService::BANNER_SIZES, true) ? $size : null;
-            $clean[] = $size === null ? $key : "{$key}:{$size}";
+            $host = $host === null || $host === '' ? null : AdsterraService::normalizeHost($host);
+            $kept[$key] = $host === null ? "{$key}:{$size}" : "{$key}:{$size}:{$host}";
         }
 
-        return implode(',', array_slice(array_values(array_unique($clean)), 0, AdsterraService::MAX_GATE_BANNERS));
+        return implode(',', array_slice(array_values($kept), 0, AdsterraService::MAX_POOL));
     }
 
     /**

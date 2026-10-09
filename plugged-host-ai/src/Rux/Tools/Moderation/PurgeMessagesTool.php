@@ -48,15 +48,12 @@ final class PurgeMessagesTool extends ModerationTool
         $from = null;
 
         if ($fromInput !== null) {
-            try {
-                $from = $this->resolver->member($context->guildId, $fromInput);
-            } catch (InvalidArgumentException $e) {
-                // Someone who left (or was just banned) is not a member any more.
-                $from = preg_match('/^<@!?\d{17,20}>$|^\d{17,20}$/', $fromInput) === 1 ? $this->resolver->user($fromInput) : throw $e;
-            }
+            // Someone who left (or was just banned) is not a member any more.
+            $from = $this->memberOrUser($context, $fromInput);
         }
 
         $this->guardChannel($context, $channel);
+        $this->guardVisible($context, $channel);
 
         if ($from !== null) {
             $this->guard($context, $from);

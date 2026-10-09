@@ -6,7 +6,16 @@
      gets a fresh, opaque origin, so document.write works for it and the panel's
      DOM, cookies and Livewire state are out of its reach. See
      PluggedHost\Ads\Services\AdsterraService::document(). --}}
-@if ($isolated)
+{{-- A slot over several sizes (AdsterraService::pick()): one inert <template> per size,
+     widest first. The unit script inserts the widest that fits the slot, or none, so no
+     frame loads that nobody sees. --}}
+@if (($unit['format'] ?? '') === 'pick')
+    <div data-ph-pick style="width:100%;">
+        @foreach ($unit['units'] ?? [] as $candidate)
+            <template data-ph-width="{{ (int) ($candidate['width'] ?? 0) }}">@include('plugged-host-ads::filament.adsterra-unit', ['unit' => $candidate, 'sandbox' => $sandbox])</template>
+        @endforeach
+    </div>
+@elseif ($isolated)
     <iframe data-ph-unit="adsterra-{{ $unit['format'] }}"
             sandbox="{{ $sandbox }}"
             srcdoc="{{ $unit['document'] }}"

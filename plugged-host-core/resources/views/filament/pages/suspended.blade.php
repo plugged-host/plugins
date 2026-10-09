@@ -1,6 +1,7 @@
 {{--
     A suspended server, for its owner and subusers (SuspendedServerPage): that it is suspended,
-    by what and when, and why (the admin's note, or what the abuse scan found). The one action,
+    by what and when, and why (the admin's note, or what the abuse scan found), and when it will be
+    deleted if the abuse checks suspended it (AbusePurge). The one action,
     help on Discord, is the page's header action. Same card as limbo's restore page.
 --}}
 <x-filament-panels::page>
@@ -17,6 +18,9 @@
                 <p class="ph-row-body">
                     {{ trans('plugged-host-core::strings.suspended.by_' . (in_array($reason['source'], ['abuse_scan', 'admin'], true) ? $reason['source'] : 'system'), ['time' => $reason['at']->diffForHumans()]) }}
                 </p>
+            @endif
+            @if ($deletesAt = $this->deletesAt())
+                <p class="ph-row-body">{{ trans('plugged-host-core::strings.suspended.deletes_at', ['time' => $deletesAt->diffForHumans()]) }}</p>
             @endif
         </div>
 

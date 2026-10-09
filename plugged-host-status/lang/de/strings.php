@@ -22,8 +22,8 @@ return [
         'section_retention_hint' => 'Wie lange der Verlauf aufbewahrt wird, bevor er bereinigt wird, und ab wann ein Node als ausgelastet gilt.',
         'history_days' => 'Aufbewahrung des Verlaufs (Tage)',
         'history_days_hint' => 'Anzahl der Tage an Snapshots, die aufbewahrt werden, bevor ältere Einträge bereinigt werden.',
-        'resource_threshold_percent' => 'Schwellenwert für Ressourcenauslastung (%)',
-        'resource_threshold_percent_hint' => 'Eine CPU-, RAM- oder Speicherauslastung über diesem Prozentwert markiert einen Node als ausgelastet.',
+        'resource_threshold_percent' => 'Schwellenwert für CPU-Auslastung (%)',
+        'resource_threshold_percent_hint' => 'Eine CPU-Auslastung ab diesem Prozentwert bei fünf Prüfungen in Folge markiert einen Node als beeinträchtigt. Ein Node, der nur voll ist (RAM oder Speicher), bleibt betriebsbereit.',
     ],
 
     'admin' => [

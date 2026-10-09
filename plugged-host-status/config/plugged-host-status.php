@@ -30,5 +30,6 @@ return [
 
     // Retention + node pressure classification.
     'history_days' => (int) env('STATUS_HISTORY_DAYS', 90),
-    'resource_threshold_percent' => (float) env('STATUS_RESOURCE_THRESHOLD_PERCENT', 90),
+    // CPU use (%) that, held for five checks, marks a node degraded. Memory and disk do not count.
+    'resource_threshold_percent' => (float) env('STATUS_RESOURCE_THRESHOLD_PERCENT', 95),
 ];

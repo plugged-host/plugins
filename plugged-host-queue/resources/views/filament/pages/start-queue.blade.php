@@ -257,78 +257,35 @@
         @php
             $unitsAbove = array_slice($units, 0, 2);
             $unitsBelow = array_slice($units, 2);
-            // One filled button per view: the ad-free tier (or the only tier) while the
-            // priority offer is on screen, otherwise the sponsored link.
-            $offerShown = !$priorityActive && $priorityAvailable && filled($priorityTiers);
+            // One filled button per view: Plus while its offer is on screen, otherwise the
+            // sponsored link.
+            $offerShown = !$priorityActive && $priorityAvailable && filled($storeUrl);
         @endphp
 
         @if ($hasAdPartial && $unitsAbove !== [])
             @include('plugged-host-ads::filament.interstitial-units', ['units' => $unitsAbove, 'sandbox' => $sandbox])
         @endif
 
-        {{-- What tokens buy. Two states: a live window, which is a receipt, and the offer
-             itself, which has to say the price, the length and the balance in one place —
-             a button that spends somebody's tokens without showing them the number is a
-             complaint waiting to happen. The store sells the same two tiers; this is the
-             copy for somebody who is already waiting and wants out now. --}}
+        {{-- Priority comes with plugged.host Plus and PlusPlus. Two states: the receipt, and
+             the offer, which links to the Token Store where Plus is sold. --}}
         @if ($priorityActive)
-            {{-- The receipt: the same success callout the Economy page shows for it. --}}
             <x-filament::callout
                 color="success"
-                :heading="trans('plugged-host-queue::strings.priority_active_heading')"
-                :description="trans('plugged-host-queue::strings.priority_active_body', ['remaining' => $priorityHuman])
-                    . ($priorityAdFree ? ' ' . trans('plugged-host-queue::strings.priority_active_ad_free', ['remaining' => $priorityAdFreeHuman]) : '')"
+                :heading="trans($priorityLevel >= 2 ? 'plugged-host-queue::strings.priority_plusplus_heading' : 'plugged-host-queue::strings.priority_plus_heading')"
+                :description="trans($priorityLevel >= 2 ? 'plugged-host-queue::strings.priority_plusplus_body' : 'plugged-host-queue::strings.priority_plus_body')"
             />
         @elseif ($offerShown)
             <x-filament::section>
-                <div class="flex flex-col gap-5">
+                <div class="ph-queue-row">
                     <div class="flex min-w-0 flex-col gap-1">
-                        <span class="ph-queue-heading">{{ trans('plugged-host-queue::strings.priority_heading') }}</span>
-                        <p class="ph-queue-muted">{{ trans('plugged-host-queue::strings.priority_body') }}</p>
-                        <p class="ph-queue-small">
-                            {{ trans('plugged-host-queue::strings.priority_balance', ['balance' => $balance]) }}
-                            @if ($earnUrl)
-                                <a href="{{ $earnUrl }}" class="ph-queue-link">
-                                    {{ trans('plugged-host-queue::strings.priority_earn_link') }}
-                                </a>
-                            @endif
-                        </p>
+                        <span class="ph-queue-heading">{{ trans('plugged-host-queue::strings.plus_offer_heading') }}</span>
+                        <p class="ph-queue-muted">{{ trans('plugged-host-queue::strings.plus_offer_body', ['cost' => number_format($plusCost)]) }}</p>
                     </div>
 
-                    {{-- One full-width row per tier, cheapest first. The ad-free tier's
-                         button is the filled one, because it is the one being upsold. --}}
-                    <div class="ph-queue-rows flex flex-col">
-                        @foreach ($priorityTiers as $tier)
-                            <div class="ph-queue-row">
-                                <div class="flex min-w-0 flex-col gap-0.5">
-                                    <div class="flex flex-wrap items-baseline gap-x-2">
-                                        <span class="ph-queue-title">
-                                            {{ trans($tier['ad_free']
-                                                ? 'plugged-host-queue::strings.priority_tier_ad_free'
-                                                : 'plugged-host-queue::strings.priority_tier_standard') }}
-                                        </span>
-                                        <span class="ph-queue-small tabular-nums">
-                                            {{ trans('plugged-host-queue::strings.priority_tier_days', ['days' => $tier['days']]) }}
-                                        </span>
-                                    </div>
-                                    <p class="ph-queue-small">
-                                        {{ trans($tier['ad_free']
-                                            ? 'plugged-host-queue::strings.priority_tier_no_ads_note'
-                                            : 'plugged-host-queue::strings.priority_tier_ads_note') }}
-                                    </p>
-                                </div>
-
-                                <div class="ph-queue-action">
-                                    <x-filament::button wire:click="buyPriority('{{ $tier['key'] }}')"
-                                                        wire:loading.attr="disabled"
-                                                        :disabled="$tier['unaffordable']"
-                                                        :color="($tier['ad_free'] || count($priorityTiers) === 1) ? 'primary' : 'gray'"
-                                                        class="w-full justify-center">
-                                        {{ trans('plugged-host-queue::strings.priority_cta', ['cost' => $tier['cost']]) }}
-                                    </x-filament::button>
-                                </div>
-                            </div>
-                        @endforeach
+                    <div class="ph-queue-action">
+                        <x-filament::button :href="$storeUrl" tag="a" color="primary" class="w-full justify-center">
+                            {{ trans('plugged-host-queue::strings.plus_offer_cta') }}
+                        </x-filament::button>
                     </div>
                 </div>
             </x-filament::section>

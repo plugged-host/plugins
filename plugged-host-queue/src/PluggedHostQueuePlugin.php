@@ -10,7 +10,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 
 /**
  * The queue's Filament plugin: page discovery per panel, and the settings form.
@@ -63,11 +62,6 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
             'release_interval' => (int) config('plugged-host-queue.release_interval', 20),
             'stale_after' => (int) config('plugged-host-queue.stale_after', 180),
             'pass_minutes' => (int) config('plugged-host-queue.pass_minutes', 10),
-            'priority_token_cost' => (int) config('plugged-host-queue.priority.token_cost', 15),
-            'priority_days' => (int) config('plugged-host-queue.priority.days', 3),
-            'priority_ad_free_enabled' => (bool) config('plugged-host-queue.priority.ad_free.enabled', true),
-            'priority_ad_free_cost' => (int) config('plugged-host-queue.priority.ad_free.token_cost', 35),
-            'priority_ad_free_days' => (int) config('plugged-host-queue.priority.ad_free.days', 2),
             'transfer_enabled' => (bool) config('plugged-host-queue.transfer.enabled', true),
             'transfer_require_priority' => (bool) config('plugged-host-queue.transfer.require_priority', true),
             'transfer_max_disk' => (int) config('plugged-host-queue.transfer.max_disk', 3072),
@@ -170,54 +164,6 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-queue.pass_minutes', 10)),
                 ]),
 
-            Section::make(trans('plugged-host-queue::strings.section_priority'))
-                ->description(trans('plugged-host-queue::strings.section_priority_desc'))
-                ->columns(2)
-                ->schema([
-                    TextInput::make('priority_token_cost')
-                        ->label(trans('plugged-host-queue::strings.priority_token_cost'))
-                        ->helperText(trans('plugged-host-queue::strings.priority_token_cost_helper'))
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(10000)
-                        ->default(fn () => config('plugged-host-queue.priority.token_cost', 15)),
-                    TextInput::make('priority_days')
-                        ->label(trans('plugged-host-queue::strings.priority_days'))
-                        ->helperText(trans('plugged-host-queue::strings.priority_days_helper'))
-                        ->numeric()
-                        ->minValue(1)
-                        ->maxValue(365)
-                        ->default(fn () => config('plugged-host-queue.priority.days', 3)),
-                    Toggle::make('priority_ad_free_enabled')
-                        ->label(trans('plugged-host-queue::strings.priority_ad_free_enabled'))
-                        ->helperText(trans('plugged-host-queue::strings.priority_ad_free_enabled_helper'))
-                        ->inline(false)
-                        ->onIcon(TablerIcon::Check)
-                        ->offIcon(TablerIcon::X)
-                        ->live()
-                        ->columnSpanFull()
-                        ->default(fn () => config('plugged-host-queue.priority.ad_free.enabled', true)),
-                    // Hidden rather than merely ignored when the tier is not sold: two
-                    // numbers that do nothing are how an admin ends up believing they
-                    // changed a price.
-                    TextInput::make('priority_ad_free_cost')
-                        ->label(trans('plugged-host-queue::strings.priority_ad_free_cost'))
-                        ->helperText(trans('plugged-host-queue::strings.priority_ad_free_cost_helper'))
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(10000)
-                        ->visible(fn (Get $get): bool => (bool) $get('priority_ad_free_enabled'))
-                        ->default(fn () => config('plugged-host-queue.priority.ad_free.token_cost', 35)),
-                    TextInput::make('priority_ad_free_days')
-                        ->label(trans('plugged-host-queue::strings.priority_ad_free_days'))
-                        ->helperText(trans('plugged-host-queue::strings.priority_ad_free_days_helper'))
-                        ->numeric()
-                        ->minValue(1)
-                        ->maxValue(365)
-                        ->visible(fn (Get $get): bool => (bool) $get('priority_ad_free_enabled'))
-                        ->default(fn () => config('plugged-host-queue.priority.ad_free.days', 2)),
-                ]),
-
             Section::make(trans('plugged-host-queue::strings.section_transfer'))
                 ->description(trans('plugged-host-queue::strings.section_transfer_desc'))
                 ->columns(2)
@@ -276,24 +222,6 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
             'START_QUEUE_RELEASE_INTERVAL' => (string) $this->clamp($data['release_interval'] ?? 20, 0, 600),
             'START_QUEUE_STALE_AFTER' => (string) $this->clamp($data['stale_after'] ?? 180, 0, 3600),
             'START_QUEUE_PASS_MINUTES' => (string) $this->clamp($data['pass_minutes'] ?? 10, 0, 1440),
-
-            'START_QUEUE_PRIORITY_COST' => (string) $this->clamp($data['priority_token_cost'] ?? 15, 0, 10000),
-            'START_QUEUE_PRIORITY_DAYS' => (string) $this->clamp($data['priority_days'] ?? 3, 1, 365),
-
-            // The hidden fields come back absent when the tier is switched off, so both
-            // fall back to what is configured rather than to the factory number — turning
-            // the tier off and on again must not quietly reprice it.
-            'START_QUEUE_PRIORITY_AD_FREE_ENABLED' => !empty($data['priority_ad_free_enabled']) ? 'true' : 'false',
-            'START_QUEUE_PRIORITY_AD_FREE_COST' => (string) $this->clamp(
-                $data['priority_ad_free_cost'] ?? config('plugged-host-queue.priority.ad_free.token_cost', 35),
-                0,
-                10000,
-            ),
-            'START_QUEUE_PRIORITY_AD_FREE_DAYS' => (string) $this->clamp(
-                $data['priority_ad_free_days'] ?? config('plugged-host-queue.priority.ad_free.days', 2),
-                1,
-                365,
-            ),
 
             'START_QUEUE_TRANSFER_ENABLED' => !empty($data['transfer_enabled']) ? 'true' : 'false',
             'START_QUEUE_TRANSFER_REQUIRE_PRIORITY' => !empty($data['transfer_require_priority']) ? 'true' : 'false',

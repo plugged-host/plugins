@@ -103,12 +103,25 @@ final class AccountAllowance
         }
 
         // 0 reads as "unlimited" everywhere on the panel; on noprofit.space it means nothing
-        // at all, so a zero plan is kept at the smallest real limit instead.
+        // at all, so a zero plan is kept at the smallest real limit instead. PlusPlus adds its
+        // CPU while it runs (MembershipService::cpuBonus; plusplus:expire takes it back off the
+        // servers when it ends).
         return self::$forUserMemo[$id] = new self(
-            cpu: max(1, (int) $plan['cpu']),
+            cpu: max(1, (int) $plan['cpu'] + self::cpuBonus($user)),
             memory: max(1, (int) $plan['memory']),
             disk: max(1, (int) $plan['disk']),
         );
+    }
+
+    private static function cpuBonus(User $user): int
+    {
+        $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
+
+        try {
+            return class_exists($membership) ? (int) app($membership)->cpuBonus($user) : 0;
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 
     public function getCpuLeft(?User $user): ?int
@@ -236,12 +249,10 @@ final class AccountAllowance
             return false;
         }
 
-        // WP13: a paid-tier (Plus/Premium) location is only deployable by a user who has made the
-        // paid unlock. This is the server-side authority — the create page's card state is only
-        // presentation.
+        // A Plus location needs plugged.host Plus, a Premium one PlusPlus. This is the
+        // server-side authority — the create page's card state is only presentation.
         if ($location !== null
-            && app(LocationCatalog::class)->resolve($location)[1] !== LocationCatalog::FREE
-            && !PremiumAccess::isUnlocked($user)) {
+            && !PremiumAccess::isUnlocked($user, app(LocationCatalog::class)->resolve($location)[1])) {
             return false;
         }
 

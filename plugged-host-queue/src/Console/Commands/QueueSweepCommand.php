@@ -94,7 +94,11 @@ class QueueSweepCommand extends Command
                 $entry->server?->name ?? "#{$entry->server_id}",
                 $entry->node?->name ?? "#{$entry->node_id}",
                 $entry->action,
-                $entry->priority ? 'yes' : '',
+                match ((int) $entry->priority) {
+                    2 => 'plus+',
+                    1 => 'plus',
+                    default => '',
+                },
                 $queue->position($entry),
                 $queue->elapsed($entry) . 's',
                 $reason ?? $this->holdingReason($entry, $queue, $pressure),

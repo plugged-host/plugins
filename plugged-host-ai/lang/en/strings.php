@@ -279,6 +279,7 @@ return [
             'role_remove' => 'Role removed',
             'rule_add' => 'Rule added',
             'rule_remove' => 'Rule removed',
+            'rule_edit' => 'Rule changed',
             'watch_add' => 'Channel watched',
             'watch_remove' => 'Channel no longer watched',
             'mod_role_add' => 'Moderator role added',
@@ -290,6 +291,9 @@ return [
             'duration' => 'Duration',
             'details' => 'Details',
             'clear_warnings' => 'Warnings cleared',
+            'nickname' => 'Nickname changed',
+            'credits' => 'Credits given',
+            'said' => 'Message',
             'by_rux' => 'rux, automatically',
             'by_rule' => 'rux, rule #:rule',
             'warnings' => ':count warnings in total',
@@ -316,9 +320,9 @@ return [
     // neo on Discord: the fixed texts it posts (its answers are written by the model, in the
     // asker's language) and its settings tab.
     'neo_bot' => [
-        'unavailable' => 'I can\'t answer right now, sorry. Try again in a few minutes, or open a ticket if it\'s urgent.',
+        'unavailable' => 'I can\'t answer right now, sorry. Try again in a few minutes, or ask the staff here if it\'s urgent.',
         'failed' => 'Something went wrong on my side. Try again in a moment.',
-        'empty' => 'Sorry, I don\'t have an answer to that. A ticket gets you a human.',
+        'empty' => 'Sorry, I don\'t have an answer to that. Ask in the server and a human can help.',
         'limited' => 'You\'ve used your neo limit for now. It resets :time.',
         'limited_unlinked' => 'You\'ve used neo\'s limit for Discord accounts that aren\'t linked. It resets :time. Link your Discord to a noprofit.space account for the full limits: :link',
         'settings' => [

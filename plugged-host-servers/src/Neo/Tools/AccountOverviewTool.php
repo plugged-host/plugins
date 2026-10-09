@@ -2,12 +2,14 @@
 
 namespace PluggedHost\Servers\Neo\Tools;
 
+use App\Models\User;
 use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Ai\Tools\ToolContext;
 use PluggedHost\Ai\Tools\ToolResult;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Neo\AccountTool;
 use PluggedHost\Servers\Services\ServerProvisioner;
+use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Support\PremiumAccess;
 use stdClass;
 
@@ -55,7 +57,8 @@ final class AccountOverviewTool extends AccountTool
             'cpu: ' . $fmt($summary['cpu_used'] ?? 0, $summary['cpu_limit'] ?? 0, '%'),
             'memory: ' . $fmt($summary['memory_used'] ?? 0, $summary['memory_limit'] ?? 0, ' MB'),
             'disk: ' . $fmt($summary['disk_used'] ?? 0, $summary['disk_limit'] ?? 0, ' MB'),
-            'paid_locations_unlocked: ' . (PremiumAccess::isUnlocked($user) ? 'yes' : 'no'),
+            'plugged.host Plus: ' . (PremiumAccess::isUnlocked($user, LocationCatalog::PLUS) ? 'yes (Plus locations, queue priority, no in-game ads)' : 'no'),
+            'plugged.host PlusPlus: ' . $this->plusPlus($user),
         ];
 
         if (array_filter($overage) !== []) {
@@ -63,5 +66,13 @@ final class AccountOverviewTool extends AccountTool
         }
 
         return ToolResult::ok(implode("\n", $lines), 'Checked account');
+    }
+
+    private function plusPlus(User $user): string
+    {
+        $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
+        $until = class_exists($membership) ? app($membership)->plusPlusUntil($user) : null;
+
+        return $until === null ? 'no' : 'yes, until ' . $until->toDateTimeString() . ' UTC (Premium locations, no ads, front of the queue, extra CPU)';
     }
 }

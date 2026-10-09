@@ -195,7 +195,7 @@ class RuleService
     /**
      * Act on a message that breaks a rule: what the rule says, plus a short notice in the channel.
      *
-     * @param  array<string, mixed>  $hit  message_id, channel_id, author_id, author_name
+     * @param  array<string, mixed>  $hit  message_id, channel_id, author_id, author_name, content
      */
     public function enforce(RuxRule $rule, array $hit): void
     {
@@ -207,6 +207,7 @@ class RuleService
             channelId: $hit['channel_id'],
             direct: false,
             sourceMessageId: $hit['message_id'],
+            evidence: isset($hit['content']) ? (string) $hit['content'] : null,
         );
         $target = ['id' => $hit['author_id'], 'name' => $hit['author_name']];
         $reason = $rule->reason ?: Str::ucfirst($rule->description);
@@ -267,6 +268,7 @@ class RuleService
             channelId: $hit['channel_id'],
             direct: false,
             sourceMessageId: $hit['message_id'],
+            evidence: isset($hit['content']) ? (string) $hit['content'] : null,
         );
         $target = ['id' => $hit['author_id'], 'name' => $hit['author_name']];
         $deleted = false;

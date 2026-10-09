@@ -12,6 +12,8 @@ use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
 use PluggedHost\Core\Http\Middleware\RequireNoprofitLink;
 use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
+use PluggedHost\Core\Services\Abuse\AbuseEnforcer;
+use PluggedHost\Core\Services\Abuse\AbusePurge;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\CreateAction;
@@ -47,6 +49,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
         $panel->discoverPages(plugin_path($this->getId(), "src/Filament/$id/Pages"), "PluggedHost\\Core\\Filament\\$id\\Pages");
         $panel->discoverResources(plugin_path($this->getId(), "src/Filament/$id/Resources"), "PluggedHost\\Core\\Filament\\$id\\Resources");
         $panel->discoverWidgets(plugin_path($this->getId(), "src/Filament/$id/Widgets"), "PluggedHost\\Core\\Filament\\$id\\Widgets");
+        $panel->discoverClusters(plugin_path($this->getId(), "src/Filament/$id/Clusters"), "PluggedHost\\Core\\Filament\\$id\\Clusters");
 
         // Signing in and signing up happen on noprofit.space: MigrationEndpointServiceProvider
         // points every panel's login and /register at it. No ->registration() here, so the
@@ -181,6 +184,12 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
         $data = [
             'tour_enabled' => (bool) config('plugged-host-core.tour.enabled', true),
             'tour_version' => (string) config('plugged-host-core.tour.version', '2'),
+            'abuse_mode' => AbuseEnforcer::mode(),
+            // Not round-tripped: the field is a secret, left empty means "keep the current one".
+            'abuse_alert_webhook' => '',
+            'abuse_cpu_percent' => (int) config('plugged-host-core.abuse.cpu_percent', 90),
+            'abuse_cpu_minutes' => (int) config('plugged-host-core.abuse.cpu_minutes', 20),
+            'abuse_delete_after_hours' => AbusePurge::hours(),
         ];
 
         // One Select per panel, because a navigation key is a class name and a class only
@@ -219,6 +228,53 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->maxLength(64)
                         ->default(fn () => (string) config('plugged-host-core.tour.version', '2')),
+                ]),
+            Section::make('Abuse protection')
+                ->description('Every server\'s files, startup and console are checked every 3 hours, servers at their CPU limit right away, and what runs on the nodes every minute where the agent is installed. Findings: Servers > Abuse.')
+                ->columns(2)
+                ->schema([
+                    Select::make('abuse_mode')
+                        ->label('When a critical finding comes in')
+                        ->options([
+                            'suspend' => 'Suspend the server',
+                            'report' => 'Report only',
+                            'off' => 'Off',
+                        ])
+                        ->required()
+                        ->default(fn () => AbuseEnforcer::mode()),
+                    TextInput::make('abuse_alert_webhook')
+                        ->label('Staff alert webhook')
+                        ->helperText(filled(config('plugged-host-core.abuse.alert_webhook'))
+                            ? 'A Discord webhook is set. Leave empty to keep it, or enter "none" to remove it.'
+                            : 'A Discord webhook URL for suspensions and new critical findings. Not set.')
+                        ->password()
+                        ->revealable()
+                        ->autocomplete(false)
+                        ->rules(['nullable', 'regex:/^(none|https:\/\/\S+)$/i']),
+                    TextInput::make('abuse_cpu_percent')
+                        ->label('CPU watch: share of the server\'s CPU limit')
+                        ->numeric()
+                        ->minValue(50)
+                        ->maxValue(100)
+                        ->suffix('%')
+                        ->required()
+                        ->default(fn () => (int) config('plugged-host-core.abuse.cpu_percent', 90)),
+                    TextInput::make('abuse_cpu_minutes')
+                        ->label('CPU watch: minutes at that level before a full check')
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(1440)
+                        ->required()
+                        ->default(fn () => (int) config('plugged-host-core.abuse.cpu_minutes', 20)),
+                    TextInput::make('abuse_delete_after_hours')
+                        ->label('Delete abuse-suspended servers after')
+                        ->helperText('Only servers the abuse checks suspended, and not if an admin unsuspended one or dismissed a finding on it. 0 never deletes.')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(8760)
+                        ->suffix('hours')
+                        ->required()
+                        ->default(fn () => AbusePurge::hours()),
                 ]),
             Section::make('Sidebar visibility')
                 ->description('Hide navigation entries you do not want users to see. The pages stay reachable by URL — this only removes them from the sidebar.')
@@ -344,11 +400,23 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
 
     public function saveSettings(array $data): void
     {
-        $this->writeToEnvironment([
+        $environment = [
             'TOUR_ENABLED' => $data['tour_enabled'] ? 'true' : 'false',
             'TOUR_VERSION' => (string) $data['tour_version'],
             'NAV_HIDDEN_ITEMS' => implode(',', $this->hiddenNavigationFromForm($data)),
-        ]);
+            'ABUSE_MODE' => in_array($data['abuse_mode'] ?? null, AbuseEnforcer::MODES, true) ? $data['abuse_mode'] : AbuseEnforcer::mode(),
+            'ABUSE_CPU_PERCENT' => (string) max(50, min(100, (int) ($data['abuse_cpu_percent'] ?? 90))),
+            'ABUSE_CPU_MINUTES' => (string) max(5, min(1440, (int) ($data['abuse_cpu_minutes'] ?? 20))),
+            'ABUSE_DELETE_AFTER_HOURS' => (string) max(0, min(8760, (int) ($data['abuse_delete_after_hours'] ?? 24))),
+        ];
+
+        $webhook = trim((string) ($data['abuse_alert_webhook'] ?? ''));
+
+        if ($webhook !== '') {
+            $environment['ABUSE_ALERT_WEBHOOK'] = strtolower($webhook) === 'none' ? '' : $webhook;
+        }
+
+        $this->writeToEnvironment($environment);
 
         Notification::make()
             ->title('Settings saved')

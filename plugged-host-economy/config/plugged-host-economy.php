@@ -57,4 +57,39 @@ return [
         'enabled' => (bool) env('TOKENS_ENABLED', true),
         'daily_grant' => (int) env('TOKENS_DAILY_GRANT', 0),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | plugged.host Plus and PlusPlus
+    |--------------------------------------------------------------------------
+    |
+    | Plus is bought once with tokens and kept for good: the Plus locations,
+    | priority in the start queue, and no in-game ads on Minecraft servers.
+    |
+    | PlusPlus needs Plus and runs for a while, paid with tokens or credits, and
+    | is bought again to keep it: everything in Plus, the Premium locations, no
+    | ads anywhere, the highest priority in the start queue, and cpu_bonus more
+    | CPU (in %, on top of the account's allowance).
+    |
+    | neo (AI) usage: Plus raises the limits to plus_ai_percent of the free ones,
+    | PlusPlus by another plusplus_ai_percent on top of Plus (125 x 125 = 156%).
+    | noprofit.space meters neo and applies the percentage the panel sends. When it runs out, servers
+    | on Premium locations move out and CPU over the allowance comes off the
+    | servers, evenly (plugged-host-servers, plusplus:expire).
+    |
+    | These replaced the queue's priority passes and the one-time Plus/Premium
+    | location unlock; whoever had bought the unlock got Plus.
+    |
+    */
+    'membership' => [
+        'enabled' => (bool) env('MEMBERSHIP_ENABLED', true),
+        'plus_token_cost' => (int) env('PLUS_TOKEN_COST', 25),
+        'plusplus_token_cost' => (int) env('PLUSPLUS_TOKEN_COST', 10),
+        'plusplus_token_days' => (int) env('PLUSPLUS_TOKEN_DAYS', 7),
+        'plusplus_credit_cost' => (int) env('PLUSPLUS_CREDIT_COST', 150),
+        'plusplus_credit_days' => (int) env('PLUSPLUS_CREDIT_DAYS', 14),
+        'plusplus_cpu_bonus' => (int) env('PLUSPLUS_CPU_BONUS', 50),
+        'plus_ai_percent' => (int) env('PLUS_AI_PERCENT', 125),
+        'plusplus_ai_percent' => (int) env('PLUSPLUS_AI_PERCENT', 125),
+    ],
 ];

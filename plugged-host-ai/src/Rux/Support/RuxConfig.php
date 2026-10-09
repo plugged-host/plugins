@@ -15,10 +15,10 @@ final class RuxConfig
 {
     /**
      * What the bot needs on the server: view channels, send messages (and in threads), embed
-     * links, read history, manage messages, manage channels, kick, ban, manage roles and
-     * time members out.
+     * links, read history, manage messages, pin messages, manage channels, kick, ban, manage
+     * roles, manage nicknames and time members out.
      */
-    public const BOT_PERMISSIONS = '1374658063382';
+    public const BOT_PERMISSIONS = '2253174605966358';
 
     private static ?bool $tablesExist = null;
 

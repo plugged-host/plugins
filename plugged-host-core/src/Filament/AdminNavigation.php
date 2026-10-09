@@ -10,7 +10,7 @@ use Filament\Navigation\NavigationItem;
  * into a collapsed Advanced group at the bottom.
  *
  *   Dashboard
- *   Servers                  Servers, Nodes, Eggs, Available Resources
+ *   Servers                  Servers, Nodes, Eggs, Available Resources, Abuse
  *   Users                    Users, Roles
  *   Announcements & status   Announcements, Status page (incidents, nodes, components)
  *   Subdomains               Domains, SRV Targets
@@ -35,6 +35,7 @@ final class AdminNavigation
             \App\Filament\Admin\Resources\Nodes\NodeResource::class,
             \App\Filament\Admin\Resources\Eggs\EggResource::class,
             'PluggedHost\\Servers\\Filament\\Admin\\Pages\\AvailableResources',
+            \PluggedHost\Core\Filament\Admin\Clusters\Abuse::class,
         ],
         'users' => [
             \App\Filament\Admin\Resources\Users\UserResource::class,

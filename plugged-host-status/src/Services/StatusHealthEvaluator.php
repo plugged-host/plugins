@@ -6,14 +6,26 @@ use PluggedHost\Status\Models\StatusNodeSetting;
 
 class StatusHealthEvaluator
 {
-    /** @return array{status: string, failure_count: int, healthy_count: int, resource_pressure_count: int} */
+    /**
+     * A node's public status. Unreachable: degraded from the second missed check in a row (one
+     * miss is a blip, not an incident), offline from the third. Reachable but with its CPU
+     * saturated for five checks in a row: degraded, because servers on it really are slower.
+     * A node that is merely full (memory or disk) is working normally and stays operational:
+     * new servers go elsewhere and the start queue handles starts.
+     *
+     * @return array{status: string, failure_count: int, healthy_count: int, resource_pressure_count: int}
+     */
     public function node(StatusNodeSetting $setting, bool $reachable, bool $underPressure, bool $maintenance): array
     {
         if (!$reachable) {
             $failures = $setting->failure_count + 1;
 
             return [
-                'status' => $failures >= 3 ? 'offline' : 'degraded',
+                'status' => match (true) {
+                    $failures >= 3 => 'offline',
+                    $failures >= 2 => 'degraded',
+                    default => $setting->status ?: 'operational',
+                },
                 'failure_count' => $failures,
                 'healthy_count' => 0,
                 'resource_pressure_count' => 0,
@@ -40,7 +52,8 @@ class StatusHealthEvaluator
             ];
         }
 
-        $recovering = $setting->failure_count > 0 || $setting->status === 'degraded';
+        // Coming back from a real episode (not a single missed check): two good checks first.
+        $recovering = in_array($setting->status, ['degraded', 'offline'], true);
         $healthy = $recovering ? $setting->healthy_count + 1 : max(2, $setting->healthy_count);
 
         return [
@@ -69,14 +82,17 @@ class StatusHealthEvaluator
         return $failures >= 3 ? 'offline' : 'degraded';
     }
 
-    /** @param array<string, int|float> $metrics */
+    /**
+     * CPU saturation only. Memory and disk fill up on a busy game node by design (servers hold
+     * the RAM they were given), and a full node is not a slow one, so neither marks it degraded.
+     *
+     * @param  array<string, int|float>  $metrics
+     */
     public function underResourcePressure(array $metrics): bool
     {
-        $threshold = (float) config('plugged-host-status.resource_threshold_percent', 90);
+        $threshold = (float) config('plugged-host-status.resource_threshold_percent', 95);
 
-        return $this->percentage($metrics['cpu_used'] ?? 0, $metrics['cpu_total'] ?? 0) >= $threshold
-            || $this->percentage($metrics['memory_used'] ?? 0, $metrics['memory_total'] ?? 0) >= $threshold
-            || $this->percentage($metrics['storage_used'] ?? 0, $metrics['storage_total'] ?? 0) >= $threshold;
+        return $this->percentage($metrics['cpu_used'] ?? 0, $metrics['cpu_total'] ?? 0) >= $threshold;
     }
 
     public function priority(string $status): int

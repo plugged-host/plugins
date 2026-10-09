@@ -67,6 +67,10 @@ class PluggedHostEconomyPlugin implements HasPluginSettings, Plugin
             $data['tokens_' . $key] = $value;
         }
 
+        foreach (config('plugged-host-economy.membership', []) as $key => $value) {
+            $data['membership_' . $key] = $value;
+        }
+
         return $data;
     }
 
@@ -95,12 +99,12 @@ class PluggedHostEconomyPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-economy.credits.reclaim_resources', true)),
                 ]),
             Section::make('Tokens')
-                ->description('Tokens are the priority currency: earned by completing a sponsored link (plugged.host Ads), spent on priority in the start queue. They are deliberately not interchangeable with credits — credits grow the Discord, tokens pay for hardware.')
+                ->description('Tokens are the membership currency: earned by completing a sponsored link (plugged.host Ads), spent on plugged.host Plus and PlusPlus. They are deliberately not interchangeable with credits — credits grow the Discord, tokens pay for hardware.')
                 ->columns(2)
                 ->schema([
                     Toggle::make('tokens_enabled')
                         ->label('Enable tokens')
-                        ->helperText('Off hides every token surface and stops the queue selling priority. Balances are kept, not zeroed.')
+                        ->helperText('Off hides every token surface and stops selling Plus and PlusPlus. Balances are kept, not zeroed.')
                         ->inline(false)
                         ->onIcon(TablerIcon::Check)
                         ->offIcon(TablerIcon::X)
@@ -110,8 +114,37 @@ class PluggedHostEconomyPlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->numeric()
                         ->minValue(0)
-                        ->helperText('Handed out lazily the first time a balance is read each day. 0 means tokens must be earned — at 1/day a priority pass funds itself every couple of weeks.')
+                        ->helperText('Handed out lazily the first time a balance is read each day. 0 means tokens must be earned. At 1/day a month buys Plus.')
                         ->default(fn () => config('plugged-host-economy.tokens.daily_grant', 0)),
+                ]),
+            Section::make('plugged.host Plus & PlusPlus')
+                ->description('Plus is bought once with tokens: Plus locations, priority in the start queue, no in-game ads. PlusPlus needs Plus and is bought for days at a time with tokens or credits: Premium locations, no ads anywhere, the front of the queue, extra CPU and more neo (AI) usage. When it runs out, servers leave Premium locations and CPU over the allowance comes off evenly.')
+                ->columns(2)
+                ->schema([
+                    Toggle::make('membership_enabled')
+                        ->label('Sell Plus and PlusPlus')
+                        ->helperText('Off stops selling. What people already have keeps working.')
+                        ->inline(false)
+                        ->columnSpanFull()
+                        ->onIcon(TablerIcon::Check)
+                        ->offIcon(TablerIcon::X)
+                        ->default(fn () => config('plugged-host-economy.membership.enabled', true)),
+                    TextInput::make('membership_plus_token_cost')->label('Plus (tokens, once)')->required()->numeric()->minValue(0)
+                        ->default(fn () => config('plugged-host-economy.membership.plus_token_cost', 25)),
+                    TextInput::make('membership_plusplus_cpu_bonus')->label('PlusPlus CPU bonus (%)')->required()->numeric()->minValue(0)->maxValue(1000)
+                        ->default(fn () => config('plugged-host-economy.membership.plusplus_cpu_bonus', 50)),
+                    TextInput::make('membership_plus_ai_percent')->label('Plus neo (AI) usage (% of free)')->required()->numeric()->minValue(100)->maxValue(1000)
+                        ->default(fn () => config('plugged-host-economy.membership.plus_ai_percent', 125)),
+                    TextInput::make('membership_plusplus_ai_percent')->label('PlusPlus neo (AI) usage (% of Plus)')->required()->numeric()->minValue(100)->maxValue(1000)
+                        ->default(fn () => config('plugged-host-economy.membership.plusplus_ai_percent', 125)),
+                    TextInput::make('membership_plusplus_token_cost')->label('PlusPlus price in tokens')->required()->numeric()->minValue(0)
+                        ->default(fn () => config('plugged-host-economy.membership.plusplus_token_cost', 10)),
+                    TextInput::make('membership_plusplus_token_days')->label('Days for the token price')->required()->numeric()->minValue(1)
+                        ->default(fn () => config('plugged-host-economy.membership.plusplus_token_days', 7)),
+                    TextInput::make('membership_plusplus_credit_cost')->label('PlusPlus price in credits')->required()->numeric()->minValue(0)
+                        ->default(fn () => config('plugged-host-economy.membership.plusplus_credit_cost', 150)),
+                    TextInput::make('membership_plusplus_credit_days')->label('Days for the credit price')->required()->numeric()->minValue(1)
+                        ->default(fn () => config('plugged-host-economy.membership.plusplus_credit_days', 14)),
                 ]),
         ];
     }
@@ -123,6 +156,15 @@ class PluggedHostEconomyPlugin implements HasPluginSettings, Plugin
             'CREDITS_RECLAIM_RESOURCES' => !empty($data['credits_reclaim_resources']) ? 'true' : 'false',
             'TOKENS_ENABLED' => !empty($data['tokens_enabled']) ? 'true' : 'false',
             'TOKENS_DAILY_GRANT' => $data['tokens_daily_grant'] ?? '0',
+            'MEMBERSHIP_ENABLED' => !empty($data['membership_enabled']) ? 'true' : 'false',
+            'PLUS_TOKEN_COST' => (string) max(0, (int) ($data['membership_plus_token_cost'] ?? 25)),
+            'PLUSPLUS_TOKEN_COST' => (string) max(0, (int) ($data['membership_plusplus_token_cost'] ?? 10)),
+            'PLUSPLUS_TOKEN_DAYS' => (string) max(1, (int) ($data['membership_plusplus_token_days'] ?? 7)),
+            'PLUSPLUS_CREDIT_COST' => (string) max(0, (int) ($data['membership_plusplus_credit_cost'] ?? 150)),
+            'PLUSPLUS_CREDIT_DAYS' => (string) max(1, (int) ($data['membership_plusplus_credit_days'] ?? 14)),
+            'PLUSPLUS_CPU_BONUS' => (string) max(0, (int) ($data['membership_plusplus_cpu_bonus'] ?? 50)),
+            'PLUS_AI_PERCENT' => (string) max(100, min(1000, (int) ($data['membership_plus_ai_percent'] ?? 125))),
+            'PLUSPLUS_AI_PERCENT' => (string) max(100, min(1000, (int) ($data['membership_plusplus_ai_percent'] ?? 125))),
         ]);
 
         Notification::make()

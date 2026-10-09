@@ -26,6 +26,25 @@ class RuxAccess
 
     private const ADMINISTRATOR = 1 << 3;
 
+    private const VIEW_CHANNEL = 1 << 10;
+
+    /** Discord's permission bits, as its own settings name them. */
+    private const PERMISSION_NAMES = [
+        0 => 'Create Invite', 1 => 'Kick Members', 2 => 'Ban Members', 3 => 'Administrator', 4 => 'Manage Channels',
+        5 => 'Manage Server', 6 => 'Add Reactions', 7 => 'View Audit Log', 8 => 'Priority Speaker', 9 => 'Video',
+        10 => 'View Channels', 11 => 'Send Messages', 12 => 'Send Text-to-Speech Messages', 13 => 'Manage Messages',
+        14 => 'Embed Links', 15 => 'Attach Files', 16 => 'Read Message History', 17 => 'Mention @everyone, @here and All Roles',
+        18 => 'Use External Emoji', 19 => 'View Server Insights', 20 => 'Connect', 21 => 'Speak', 22 => 'Mute Members',
+        23 => 'Deafen Members', 24 => 'Move Members', 25 => 'Use Voice Activity', 26 => 'Change Nickname',
+        27 => 'Manage Nicknames', 28 => 'Manage Roles', 29 => 'Manage Webhooks', 30 => 'Manage Expressions',
+        31 => 'Use Application Commands', 32 => 'Request to Speak', 33 => 'Manage Events', 34 => 'Manage Threads',
+        35 => 'Create Public Threads', 36 => 'Create Private Threads', 37 => 'Use External Stickers',
+        38 => 'Send Messages in Threads', 39 => 'Use Activities', 40 => 'Timeout Members',
+        41 => 'View Creator Monetization Analytics', 42 => 'Use Soundboard', 43 => 'Create Expressions',
+        44 => 'Create Events', 45 => 'Use External Sounds', 46 => 'Send Voice Messages', 49 => 'Create Polls',
+        50 => 'Use External Apps', 51 => 'Pin Messages', 52 => 'Bypass Slowmode',
+    ];
+
     /** Kick, ban, administrator, manage server, manage messages, time out. */
     private const STAFF_PERMISSIONS = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 5) | (1 << 13) | (1 << 40);
 
@@ -77,7 +96,7 @@ class RuxAccess
 
         try {
             $roleIds ??= $this->memberRoles($discordId) ?? [];
-            $owner = Cache::remember("plugged-host-ai:rux:guild-owner:{$guildId}", 3600, fn (): string => (string) ($this->discord->json('GET', "guilds/{$guildId}")['owner_id'] ?? ''));
+            $owner = $this->owner();
             $roles = collect($this->discord->roles($guildId))->keyBy('id');
         } catch (DiscordException) {
             // When Discord cannot say, treat them as staff: leaving someone alone is the safe mistake.
@@ -94,6 +113,73 @@ class RuxAccess
         }
 
         return ($permissions & self::STAFF_PERMISSIONS) !== 0;
+    }
+
+    /**
+     * Whether a member can see a channel on Discord (View Channel after the channel's
+     * overwrites; a thread goes by its parent). rux sees every channel, so a moderator only gets
+     * to read or delete in the ones they can open themselves.
+     *
+     * @param  array<string, mixed>  $channel
+     */
+    public function canView(string $discordId, array $channel): bool
+    {
+        $guildId = RuxConfig::guildId();
+
+        try {
+            if ($discordId === $this->owner()) {
+                return true;
+            }
+
+            $roleIds = $this->memberRoles($discordId);
+            if ($roleIds === null) {
+                return false;
+            }
+
+            if (in_array((int) ($channel['type'] ?? -1), [10, 11, 12], true) && isset($channel['parent_id'])) {
+                $channel = $this->discord->channel((string) $channel['parent_id']);
+            }
+
+            $roles = collect($this->discord->roles($guildId))->keyBy('id');
+        } catch (DiscordException) {
+            return false;
+        }
+
+        $permissions = (int) ($roles[$guildId]['permissions'] ?? 0);
+        foreach ($roleIds as $roleId) {
+            $permissions |= (int) ($roles[$roleId]['permissions'] ?? 0);
+        }
+
+        if (($permissions & self::ADMINISTRATOR) !== 0) {
+            return true;
+        }
+
+        $overwrites = collect((array) ($channel['permission_overwrites'] ?? []))->keyBy(fn (array $o): string => (string) ($o['id'] ?? ''));
+        $apply = static function (int $permissions, ?array $overwrite): int {
+            return $overwrite === null ? $permissions : ($permissions & ~(int) ($overwrite['deny'] ?? 0)) | (int) ($overwrite['allow'] ?? 0);
+        };
+
+        $permissions = $apply($permissions, $overwrites[$guildId] ?? null);
+
+        $allow = 0;
+        $deny = 0;
+        foreach ($roleIds as $roleId) {
+            $allow |= (int) ($overwrites[$roleId]['allow'] ?? 0);
+            $deny |= (int) ($overwrites[$roleId]['deny'] ?? 0);
+        }
+        $permissions = ($permissions & ~$deny) | $allow;
+
+        $member = $overwrites[$discordId] ?? null;
+        $permissions = $apply($permissions, $member !== null && (int) ($member['type'] ?? 0) === 1 ? $member : null);
+
+        return ($permissions & self::VIEW_CHANNEL) !== 0;
+    }
+
+    private function owner(): string
+    {
+        $guildId = RuxConfig::guildId();
+
+        return Cache::remember("plugged-host-ai:rux:guild-owner:{$guildId}", 3600, fn (): string => (string) ($this->discord->json('GET', "guilds/{$guildId}")['owner_id'] ?? ''));
     }
 
     /**
@@ -173,11 +259,14 @@ class RuxAccess
      */
     public static function permissionNames(int $bits): array
     {
-        return array_values(array_filter([
-            $bits & (1 << 40) ? 'Timeout Members' : null,
-            $bits & (1 << 1) ? 'Kick Members' : null,
-            $bits & (1 << 2) ? 'Ban Members' : null,
-            $bits & (1 << 13) ? 'Manage Messages' : null,
-        ]));
+        $names = [];
+
+        for ($bit = 0; $bit < 63; $bit++) {
+            if (($bits & (1 << $bit)) !== 0) {
+                $names[] = self::PERMISSION_NAMES[$bit] ?? "permission bit {$bit}";
+            }
+        }
+
+        return $names;
     }
 }

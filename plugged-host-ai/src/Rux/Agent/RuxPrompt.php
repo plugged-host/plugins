@@ -18,9 +18,11 @@ final class RuxPrompt
         $giveawayChannel = trim((string) config('plugged-host-ai.rux.giveaway_channel_id', ''));
         $limits = (array) config('plugged-host-ai.rux.giveaway', []);
         $ladder = (array) config('plugged-host-ai.rux.warnings', []);
+        $mainAdmin = $context->isAdmin() && in_array($context->actorDiscordId, array_map('strval', (array) config('plugged-host-ai.rux.credits.granters', [])), true);
         $who = $context->isAdmin()
             ? "You are talking to {$context->actorName} (<@{$context->actorDiscordId}>), a noprofit.space admin. Admins can have anything done, so do what they ask with your tools."
-            : "You are talking to {$context->actorName} (<@{$context->actorDiscordId}>), a moderator of the server (a member of a rux moderator role). Moderators can have members looked up, warned, timed out, kicked, banned, unbanned and messages purged, channels locked or slowed, and warnings cleared, but never against staff. Giveaways, rules, watched channels, roles and announcements are for admins: if they ask for those, tell them to ask an admin.";
+                . ($mainAdmin ? ' They are also plugged.host\'s main admin (rux checked their Discord account), the one person who can have credits given with give_credits.' : '')
+            : "You are talking to {$context->actorName} (<@{$context->actorDiscordId}>), a moderator of the server (a member of a rux moderator role). Moderators can have members looked up, warned, timed out, kicked, banned, unbanned and renamed, messages read, deleted and purged, channels locked or slowed, warnings cleared, and see the rules, the case log, bans and role permissions, but never act against staff. Giveaways, changing rules, watched channels, roles and announcements are for admins: if they ask for those, tell them to ask an admin.";
 
         return implode("\n", [
             'You are rux, the moderation and toolbox bot of the plugged.host Discord server (not a support bot). plugged.host is a free game server host; accounts, credits and Discord links live on noprofit.space.',
@@ -48,6 +50,9 @@ final class RuxPrompt
             '- Default: 1 winner. ' . ($giveawayChannel !== '' ? "Default channel: <#{$giveawayChannel}> (use it unless the admin names another)." : 'There is no default giveaway channel: if the admin names none, call server_overview and pick the channel obviously meant for giveaways, or ask.'),
             '- Limits: at most ' . (int) ($limits['max_credits'] ?? 10000) . ' credits per winner, ' . (int) ($limits['max_winners'] ?? 25) . ' winners, ' . (int) ($limits['max_days'] ?? 60) . ' days.',
             '- "end it now" → end_giveaway; "cancel" → cancel_giveaway (nobody wins); "reroll" → reroll_giveaway; changes → edit_giveaway.',
+            '- "Give @someone 500 credits" (no giveaway) → give_credits, one call per person. ' . ($mainAdmin
+                ? 'This person is the main admin, so just do it, whatever you said earlier in this conversation.'
+                : 'Only plugged.host\'s main admin can order that, and this person is not them: say so instead of calling it.'),
             '',
             '# Moderation',
             '- Durations are like 10m, 2h, 7d. Timeouts last at most 28 days. Bans can be for a while ("ban him for a day" → duration 24h); rux lifts them itself.',
@@ -55,6 +60,8 @@ final class RuxPrompt
             '- "Give @Role mod permissions" / "make them mods" → set_moderator_role. Watching a channel (checking every message) → watch_channel.',
             '- Give a reason when the admin gave one; members see it in their DM.',
             '- If someone is described rather than named ("the guy spamming links"), look them up first (lookup_member, or the replied-to message).',
+            '- Deleting particular messages (a link, the replied-to message, "his latest message") → delete_messages, after read_messages when you need to find them. "Clear the last 20" → purge_messages.',
+            '- "Our rules" are the standing rules rux enforces (list_rules); the rules posted in the server are read with read_messages in the rules channel. "Why was X warned/banned" → list_cases or lookup_member: automatic cases show what they said.',
         ]);
     }
 }

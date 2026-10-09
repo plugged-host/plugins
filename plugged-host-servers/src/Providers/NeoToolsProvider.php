@@ -37,7 +37,6 @@ class NeoToolsProvider extends ServiceProvider
             \PluggedHost\Servers\Neo\Tools\AccountOverviewTool::class,
             \PluggedHost\Servers\Neo\Tools\CreateOptionsTool::class,
             \PluggedHost\Servers\Neo\Tools\CreateServerTool::class,
-            \PluggedHost\Servers\Neo\Tools\UnlockPaidLocationsTool::class,
             \PluggedHost\Servers\Neo\Tools\ResizeServerTool::class,
             \PluggedHost\Servers\Neo\Tools\RenameServerTool::class,
             \PluggedHost\Servers\Neo\Tools\DeleteServerTool::class,

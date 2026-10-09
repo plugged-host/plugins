@@ -2,6 +2,12 @@
 
 ## Unreleased (2.1)
 
+- **A full node is not a degraded one.** Only CPU at or above the threshold (now 95% by
+  default) for five checks marks a reachable node degraded; memory and disk use no longer do
+  (79% of the week's "degraded performance" was nodes with RAM at 90%). A single missed check
+  no longer flips a node to degraded (two in a row do, three mean offline), and one blip no
+  longer leaves it "recovering".
+
 - **One "Status page" entry in the admin sidebar** (`Filament\Admin\Clusters\StatusPage`,
   `/admin/status`) with Incidents, Nodes and Components as tabs, instead of three sidebar rows.
   Their URLs moved under `/admin/status/…`.

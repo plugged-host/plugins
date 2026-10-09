@@ -22,8 +22,8 @@ return [
         'section_retention_hint' => 'How long history is kept before pruning, and when a node counts as under pressure.',
         'history_days' => 'History retention (days)',
         'history_days_hint' => 'Number of days of snapshots kept before older rows are pruned.',
-        'resource_threshold_percent' => 'Resource pressure threshold (%)',
-        'resource_threshold_percent_hint' => 'CPU, memory or disk usage above this percentage marks a node as under pressure.',
+        'resource_threshold_percent' => 'CPU pressure threshold (%)',
+        'resource_threshold_percent_hint' => 'CPU use at or above this percentage for five checks in a row marks a node degraded. A node that is only full (memory or disk) stays operational.',
     ],
 
     'admin' => [

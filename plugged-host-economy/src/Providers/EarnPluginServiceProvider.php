@@ -2,8 +2,6 @@
 
 namespace PluggedHost\Economy\Providers;
 
-use App\Models\User;
-use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
@@ -13,7 +11,6 @@ use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
 use PluggedHost\Economy\Services\Rewards\LinkvertiseProvider;
 use PluggedHost\Economy\Services\Rewards\RewardRegistry;
 use PluggedHost\Economy\Services\TokenEarnService;
-use PluggedHost\Economy\Support\EarnOffers;
 use Throwable;
 
 /**
@@ -31,24 +28,12 @@ use Throwable;
  * config and cache keys on every hit. TokenEarnService takes economy's own TokenService as its
  * second argument, resolved out of the container.
  *
- * The two render hooks below draw the earn surfaces that sit outside the earn page: the
- * Linkvertise Full Script (earn page only) and the earn block on economy's own store page. They
- * were ad render hooks by history, not by nature — earning is opt-in and neither is gated on
+ * The render hook below loads the Linkvertise Full Script on the earn page only. It was an ad
+ * render hook by history, not by nature — earning is opt-in and is not gated on
  * AdDisplayService, so an ad-exempt user who opens the earn page still gets a working link.
  */
 class EarnPluginServiceProvider extends ServiceProvider
 {
-    /**
-     * The hook the Token Store renders under its token balance.
-     *
-     * A literal on both sides, and on purpose: matching it by string is what lets a render
-     * hook put content on the store page without the page importing the hook. Economy's own
-     * copy is `TokenStorePage::HOOK_AFTER_TOKENS` — if you rename one, grep for the string,
-     * not for the constant. (Both live in this plugin now, but the string contract is kept so
-     * the page stays decoupled from who fills the slot.)
-     */
-    protected const STORE_HOOK = 'plugged-host-economy::store.after-tokens';
-
     public function register(): void
     {
         $this->app->singleton(LinkvertiseProvider::class);
@@ -59,7 +44,6 @@ class EarnPluginServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerLinkvertiseFullScript();
-        $this->registerStoreEarnBlock();
     }
 
     /**
@@ -117,70 +101,5 @@ class EarnPluginServiceProvider extends ServiceProvider
                 }
             },
         );
-    }
-
-    /**
-     * The earning offers, on the Token Store, under the token balance.
-     *
-     * The user asked for one place for money, so the offers appear next to the balance they add
-     * to. What does *not* move is the trip: the block renders links to EarnTokensPage, never the
-     * sponsored anchor. In Full Script mode that anchor only pays if linkvertise.js rewrote it,
-     * and that script is loaded on the earn page alone — see registerLinkvertiseFullScript(),
-     * which must not be widened to this route. An anchor here would open, look correct, and earn
-     * nothing.
-     *
-     * Everything is inside a try/catch that answers null, because this closure runs while
-     * rendering the store page: with tokens switched off `canAccess()` closes it.
-     */
-    protected function registerStoreEarnBlock(): void
-    {
-        FilamentView::registerRenderHook(
-            self::STORE_HOOK,
-            function (): ?Htmlable {
-                try {
-                    if (!EarnTokensPage::canAccess()) {
-                        return null;
-                    }
-
-                    [$user] = $this->context();
-
-                    if (!$user instanceof User) {
-                        return null;
-                    }
-
-                    return new HtmlString(view('plugged-host-economy::filament.store-earn', [
-                        // Presentation only. EarnOffers deliberately opens no claim, so
-                        // rendering the store page cannot spend an attempt against the
-                        // per-hour throttle that the real trip needs.
-                        'providers' => app(EarnOffers::class)->cards($user),
-                        'earnUrl' => $this->earnUrl(),
-                    ])->render());
-                } catch (Throwable) {
-                    return null;
-                }
-            },
-        );
-    }
-
-    protected function earnUrl(): ?string
-    {
-        try {
-            return EarnTokensPage::getUrl(panel: 'app');
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    /**
-     * @return array{0: ?User, 1: ?string, 2: bool}
-     */
-    protected function context(): array
-    {
-        $panelId = Filament::getCurrentPanel()?->getId();
-
-        /** @var ?User $user */
-        $user = Filament::auth()->user();
-
-        return [$user, $panelId, !Filament::auth()->check()];
     }
 }

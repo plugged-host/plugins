@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (2.1)
+
+- Sidebar: Resource Store, plugged.host Plus, Tokens (the Token Store row is gone); the token
+  balance opens the Tokens page.
+
 ## 1.2.1
 
 - Enforce dark-only mode on all panels (`$panel->darkMode(true, isForced: true)` + `$panel->themeSwitcher(false)`), stripping light mode and the theme switcher dropdown.

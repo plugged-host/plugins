@@ -92,53 +92,11 @@ return [
     'pass_minutes' => (int) env('START_QUEUE_PASS_MINUTES', 10),
 
     /*
-    |--------------------------------------------------------------------------
-    | Priority — what tokens buy
-    |--------------------------------------------------------------------------
-    |
-    | One purchase, account-wide, for a window of days: every start of every
-    | server the user owns sorts ahead of everyone without it for that long.
-    | Within each of the two groups the order is strictly the order people
-    | arrived, so a pass bought at the back of the line puts you behind the other
-    | pass holders and in front of everyone else — never in front of someone who
-    | also paid and got there first.
-    |
-    | Tokens are minted by plugged-host-ads (a sponsored link) and held by
-    | plugged-host-economy. This is what they are for; nothing else spends them.
-    | plugged-host-ads' earn page reads `token_cost` and `days` to explain the
-    | price, so those two are the one part of this file another plugin depends on
-    | by name — which is why the cheaper tier keeps them and the second tier is
-    | nested underneath rather than the pair being replaced by a tier list.
-    |
-    | Two tiers are sold, and the difference between them is advertising:
-    |
-    |   standard — the cheap one. Longer window, and the panel still carries ads.
-    |   ad_free  — dearer and shorter. Priority *and* no advertising for its whole
-    |              length: no banners, no social bar, no popunder, no start gate,
-    |              and no ad-block detection either, because all of those hang off
-    |              the same `AdDisplayService::isExemptUser()` the exempt-role list
-    |              uses. A user who paid to not see ads has not bought "fewer ads".
-    |
-    | The two windows are tracked separately (`expires_at` and `ad_free_until`), so
-    | buying standard while an ad-free window is open extends the priority and
-    | leaves the quiet part exactly as long as it was paid for.
-    |
+    | Priority is no longer sold here: plugged.host Plus puts its holders ahead of
+    | everyone without it (level 1), PlusPlus at the very front (level 2). Both are
+    | sold and kept by plugged-host-economy (MembershipService); PriorityPassService
+    | reads the level. The old passes were refunded (queue-refund-priority-passes).
     */
-    'priority' => [
-        'token_cost' => (int) env('START_QUEUE_PRIORITY_COST', 15),
-        'days' => (int) env('START_QUEUE_PRIORITY_DAYS', 3),
-
-        /*
-         * The ad-free tier. `enabled` false sells only the cheap one and hides the
-         * second card everywhere it is offered; windows already bought keep running,
-         * because switching an offer off must not repossess something paid for.
-         */
-        'ad_free' => [
-            'enabled' => (bool) env('START_QUEUE_PRIORITY_AD_FREE_ENABLED', true),
-            'token_cost' => (int) env('START_QUEUE_PRIORITY_AD_FREE_COST', 35),
-            'days' => (int) env('START_QUEUE_PRIORITY_AD_FREE_DAYS', 2),
-        ],
-    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -160,8 +118,8 @@ return [
     | one. Off, the pool widens to every viable node, which can silently move
     | somebody to another continent.
     |
-    | require_priority — whether the offer needs an active pass. On, it is part
-    | of what the 15 tokens buy. Off, anyone stuck in the queue can move.
+    | require_priority — whether the offer needs plugged.host Plus. On, it is
+    | part of what Plus buys. Off, anyone stuck in the queue can move.
     |
     */
     'transfer' => [

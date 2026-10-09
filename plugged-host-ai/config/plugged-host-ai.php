@@ -131,6 +131,14 @@ return [
             'max_exclude_recent' => 10,
         ],
 
+        // Credits rux gives someone (give_credits): only on the order of these Discord users,
+        // plugged.host's main admin (who must be a noprofit.space admin too), at most this
+        // many at once.
+        'credits' => [
+            'granters' => array_values(array_filter(array_map('trim', explode(',', (string) env('RUX_CREDIT_GRANTERS', ''))))),
+            'max_per_grant' => (int) env('RUX_CREDIT_MAX', 10000),
+        ],
+
         // The agent loop. Every step re-sends the context, so these decide what one order costs
         // on the AI's API key.
         'agent' => [
