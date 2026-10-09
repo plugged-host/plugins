@@ -7,11 +7,11 @@ use App\Exceptions\Service\Deployment\NoViableNodeException;
 use App\Models\Egg;
 use App\Models\Server;
 use App\Models\User;
-use App\Repositories\Daemon\DaemonFileRepository;
 use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Servers\Events\ServerProvisioned;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Support\AccountAllowance;
 use Throwable;
@@ -138,18 +138,11 @@ class ServerProvisioner
             throw new ProvisioningException('over_quota');
         }
 
-        if ($types !== null) {
-            // ServerOnboarding lives in plugged-host-minecraft; by class-string so servers does
-            // not hard-depend on it.
-            if (Plugins::available(\PluggedHost\Minecraft\Models\ServerOnboarding::class)) {
-                \PluggedHost\Minecraft\Models\ServerOnboarding::markRequired($server);
-            }
-
-            try {
-                app(DaemonFileRepository::class)->setServer($server)->putContent('eula.txt', "eula=true\n");
-            } catch (Throwable) {
-                // Also written by the Server\Installed listener once the install finishes.
-            }
+        // The game's plugin sets it up from here (plugged-host-minecraft: onboarding, the EULA).
+        try {
+            ServerProvisioned::dispatch($server, $types !== null);
+        } catch (Throwable $e) {
+            report($e);
         }
 
         return $server;

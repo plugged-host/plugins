@@ -37,15 +37,14 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
-use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
-use PluggedHost\Servers\Support\AccountAllowance;
-use PluggedHost\Servers\Exceptions\ProvisioningException;
-use PluggedHost\Servers\Services\ServerResizer;
 use Illuminate\Validation\ValidationException;
+use PluggedHost\Servers\Contracts\SoftwareSwitcher;
+use PluggedHost\Servers\Exceptions\ProvisioningException;
+use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
 use PluggedHost\Servers\Services\GameCatalog;
-use PluggedHost\Minecraft\Services\MinecraftVersionCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
-use PluggedHost\Minecraft\Services\ServerSoftwareSwitcher;
+use PluggedHost\Servers\Services\ServerResizer;
+use PluggedHost\Servers\Support\AccountAllowance;
 
 /**
  * Modern, unified single-page server settings.
@@ -685,8 +684,9 @@ class ServerSettings extends ServerFormPage
         }
 
         $catalog = app(GameCatalog::class)->typesFor($server->egg);
+        $switcher = $this->switcher();
 
-        if ($catalog === null) {
+        if ($catalog === null || $switcher === null) {
             return [];
         }
 
@@ -733,17 +733,17 @@ class ServerSettings extends ServerFormPage
                         ->selectablePlaceholder(false)
                         ->in(array_keys($options))
                         ->helperText(fn (Get $get) => $descriptions[$get('loader')] ?? null)
-                        ->afterStateUpdated(fn (Set $set) => $set('minecraft_version', MinecraftVersionCatalog::LATEST)),
+                        ->afterStateUpdated(fn (Set $set) => $set('minecraft_version', $switcher->latest())),
                     Select::make('minecraft_version')
                         ->label(trans('plugged-host-servers::strings.minecraft_version'))
                         ->required()
                         ->dehydrated(false)
-                        ->options(fn (Get $get) => app(MinecraftVersionCatalog::class)->options((string) $get('loader')))
+                        ->options(fn (Get $get) => $switcher->versions((string) $get('loader')))
                         ->selectablePlaceholder(false)
                         ->searchable()
                         ->native(false)
                         ->optionsLimit(500)
-                        ->in(fn (Get $get) => array_keys(app(MinecraftVersionCatalog::class)->options((string) $get('loader'))))
+                        ->in(fn (Get $get) => array_keys($switcher->versions((string) $get('loader'))))
                         ->helperText(trans('plugged-host-servers::strings.minecraft_version_hint')),
                 ]),
         ];
@@ -758,7 +758,7 @@ class ServerSettings extends ServerFormPage
             return false;
         }
 
-        if (app(GameCatalog::class)->typesFor($server->egg) === null) {
+        if ($this->switcher() === null || app(GameCatalog::class)->typesFor($server->egg) === null) {
             return false;
         }
 
@@ -774,8 +774,8 @@ class ServerSettings extends ServerFormPage
         $loader = $this->currentLoader($server);
         $version = $this->currentVersion($server);
 
-        if ($loader === null || !app(MinecraftVersionCatalog::class)->supports($loader, $version)) {
-            $version = MinecraftVersionCatalog::LATEST;
+        if ($loader === null || !$this->switcher()->supports($loader, $version)) {
+            $version = $this->switcher()->latest();
         }
 
         return [
@@ -786,12 +786,21 @@ class ServerSettings extends ServerFormPage
 
     protected function currentLoader(Server $server): ?string
     {
-        return app(ServerSoftwareSwitcher::class)->loader($server);
+        return $this->switcher()?->current($server);
     }
 
     protected function currentVersion(Server $server): string
     {
-        return app(ServerSoftwareSwitcher::class)->version($server);
+        return (string) $this->switcher()?->currentVersion($server);
+    }
+
+    /**
+     * What switches the server's software and version (a game plugin binds it: Minecraft's), or
+     * null when none is installed: then the section is not shown.
+     */
+    protected function switcher(): ?SoftwareSwitcher
+    {
+        return app()->bound(SoftwareSwitcher::class) ? app(SoftwareSwitcher::class) : null;
     }
 
     public function applyVersion(): void
@@ -820,9 +829,12 @@ class ServerSettings extends ServerFormPage
             return;
         }
 
-        $version = trim((string) ($this->data['minecraft_version'] ?? '')) ?: MinecraftVersionCatalog::LATEST;
+        $switcher = $this->switcher();
+        abort_if($switcher === null, 404);
 
-        if (!app(MinecraftVersionCatalog::class)->supports($loader, $version)) {
+        $version = trim((string) ($this->data['minecraft_version'] ?? '')) ?: $switcher->latest();
+
+        if (!$switcher->supports($loader, $version)) {
             Notification::make()
                 ->title(trans('plugged-host-servers::strings.notifications.change_version_failed'))
                 ->body(trans('plugged-host-servers::strings.notifications.unsupported_version', [
@@ -839,7 +851,7 @@ class ServerSettings extends ServerFormPage
         $previousVersion = $this->currentVersion($server);
 
         try {
-            app(ServerSoftwareSwitcher::class)->apply($server, $loader, $version);
+            $switcher->apply($server, $loader, $version);
         } catch (Exception $exception) {
             report($exception);
 

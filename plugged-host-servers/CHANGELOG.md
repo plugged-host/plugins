@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- servers no longer knows plugged-host-minecraft: the settings page's "Server software" section
+  goes through a `SoftwareSwitcher` contract a game plugin binds, a new server announces
+  `ServerProvisioned` (minecraft sets up onboarding and the EULA), a finished move announces
+  `ServerMoved` (subdomains repoints DNS). The settings page styles moved here from core.
+
 ## Unreleased (2.1)
 
 - **Plus locations need plugged.host Plus, Premium locations PlusPlus** (`PremiumAccess`, tier

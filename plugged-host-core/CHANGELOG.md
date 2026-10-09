@@ -2,6 +2,8 @@
 
 ## Unreleased (2.2)
 
+- The console's onboarding callout moved to minecraft and the server settings page styles to
+  servers; core's runtime provider no longer names either plugin's pages.
 - `AccountSummary` and `PerkDiscovery` moved to plugged-host-economy: core no longer reaches
   into economy, servers or discord.
 - **noprofit.space moved out to plugged-host-noprofit** (sign-in, account link and sync,

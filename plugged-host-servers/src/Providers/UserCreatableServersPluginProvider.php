@@ -11,13 +11,18 @@ use Filament\Actions\DissociateAction;
 use Filament\Actions\DissociateBulkAction;
 use Filament\Facades\Filament;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Facades\FilamentView;
 use Filament\Tables\Table;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Services\AllocationInvariant;
 use PluggedHost\Economy\Events\AccountLimitsChanged;
 use PluggedHost\Servers\Filament\Components\Actions\CreateNetworkPortsAction;
 use PluggedHost\Servers\Filament\Components\Actions\CreateServerAction;
+use PluggedHost\Servers\Filament\Server\Pages\ServerSettings;
 use PluggedHost\Servers\Services\BalancedAllocationSelectionService;
 use PluggedHost\Servers\Support\AccountAllowance;
 
@@ -137,6 +142,8 @@ class UserCreatableServersPluginProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->registerServerSettingsStyles();
+
         // Economy says an account's limits changed: forget the allowance remembered for it.
         Event::listen(AccountLimitsChanged::class, fn (AccountLimitsChanged $event) => AccountAllowance::forgetMemo($event->user));
 
@@ -165,5 +172,36 @@ class UserCreatableServersPluginProvider extends ServiceProvider
         $owner = $livewire->getOwnerRecord();
 
         return $owner instanceof Server ? $owner : null;
+    }
+
+    /**
+     * The combined server settings page: sticky jump-nav and scroll-reveal.
+     *
+     * PAGE_START, scoped to that one page, for both of the reasons the server-list rule
+     * above spells out — a <style> in <head> outlives the page that asked for it under
+     * wire:navigate, and `html { scroll-behavior }` in particular would then follow the
+     * user around the whole panel. In the body it dies with the page.
+     *
+     * Plain CSS against the panel's own runtime palette variables rather than Tailwind
+     * utilities, so this needs no `yarn build` and cannot render unstyled if
+     * public/build is ever replaced by an upgrade before the next one.
+     *
+     * The reveal classes are applied by Alpine (see ServerSettings::revealing()), never by
+     * CSS alone: .ph-reveal is what hides a section, and nothing adds it unless Alpine is
+     * alive to take it back off again.
+     */
+    protected function registerServerSettingsStyles(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::PAGE_START,
+            fn (): Htmlable => new HtmlString(<<<'HTML'
+                <style>
+                    html {
+                        scroll-behavior: smooth;
+                    }
+                </style>
+                HTML),
+            ServerSettings::class,
+        );
     }
 }

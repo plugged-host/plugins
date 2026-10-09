@@ -23,8 +23,6 @@ use PluggedHost\Core\Services\GuardedBuildModificationService;
 use PluggedHost\Core\Services\GuardedServerDeletionService;
 use PluggedHost\Core\Services\GuardedTransferServerService;
 use PluggedHost\Core\Support\PanelTour;
-use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
-use PluggedHost\Servers\Filament\Server\Pages\ServerSettings;
 use Throwable;
 
 class CoreRuntimeServiceProvider extends ServiceProvider
@@ -118,38 +116,6 @@ class CoreRuntimeServiceProvider extends ServiceProvider
             ListServers::class,
         );
 
-        $this->registerServerSettingsStyles();
-    }
-
-    /**
-     * The combined server settings page: sticky jump-nav and scroll-reveal.
-     *
-     * PAGE_START, scoped to that one page, for both of the reasons the server-list rule
-     * above spells out — a <style> in <head> outlives the page that asked for it under
-     * wire:navigate, and `html { scroll-behavior }` in particular would then follow the
-     * user around the whole panel. In the body it dies with the page.
-     *
-     * Plain CSS against the panel's own runtime palette variables rather than Tailwind
-     * utilities, so this needs no `yarn build` and cannot render unstyled if
-     * public/build is ever replaced by an upgrade before the next one.
-     *
-     * The reveal classes are applied by Alpine (see ServerSettings::revealing()), never by
-     * CSS alone: .ph-reveal is what hides a section, and nothing adds it unless Alpine is
-     * alive to take it back off again.
-     */
-    protected function registerServerSettingsStyles(): void
-    {
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::PAGE_START,
-            fn (): Htmlable => new HtmlString(<<<'HTML'
-                <style>
-                    html {
-                        scroll-behavior: smooth;
-                    }
-                </style>
-                HTML),
-            ServerSettings::class,
-        );
     }
 
     public function boot(): void
@@ -199,37 +165,6 @@ class CoreRuntimeServiceProvider extends ServiceProvider
                     (string) view('plugged-host-core::filament.components.brand-text')->render(),
                 );
             },
-        );
-
-        // --- Server console -------------------------------------------------------------
-        //
-        // Pointer to the first-run setup guide. Scoped to the console because that is where a new
-        // owner lands, and PAGE_START rather than a head style so it dies with the page under
-        // wire:navigate.
-        //
-        // canAccess() is the only condition: it already answers "Minecraft server, not
-        // installing, may write files, setup still pending", so the callout and the nav item can
-        // never disagree about whether there is anything to set up. Guarded because it reads the
-        // egg's variables — a page must not 500 because the guide could not decide.
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::PAGE_START,
-            function (): Htmlable {
-                try {
-                    if (!ServerOnboardingPage::canAccess()) {
-                        return new HtmlString('');
-                    }
-
-                    $url = ServerOnboardingPage::getUrl();
-                } catch (Throwable) {
-                    return new HtmlString('');
-                }
-
-                return new HtmlString((string) view(
-                    'plugged-host-core::filament.components.onboarding-callout',
-                    ['url' => $url],
-                )->render());
-            },
-            Console::class,
         );
     }
 

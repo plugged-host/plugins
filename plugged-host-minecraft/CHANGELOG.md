@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- Binds servers' `SoftwareSwitcher`, sets new servers up from `ServerProvisioned`, and draws the
+  console's "not set up yet" callout itself (moved from core).
+
 ## 1.2.1
 
 - Fix: the post-install Geyser restart used the nonexistent `DaemonPowerRepository`; it now uses `DaemonServerRepository::power('restart')`.

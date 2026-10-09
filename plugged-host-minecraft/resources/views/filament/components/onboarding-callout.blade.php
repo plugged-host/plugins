@@ -17,8 +17,8 @@
 <div class="mb-6">
     <x-filament::callout
         color="primary"
-        :heading="trans('plugged-host-core::strings.onboarding.callout_heading')"
-        :description="trans('plugged-host-core::strings.onboarding.callout_body')"
+        :heading="trans('plugged-host-minecraft::strings.onboarding.callout_heading')"
+        :description="trans('plugged-host-minecraft::strings.onboarding.callout_body')"
     >
         <x-slot name="footer">
             <x-filament::button
@@ -26,7 +26,7 @@
                 :href="$url"
                 size="sm"
             >
-                {{ trans('plugged-host-core::strings.onboarding.callout_action') }}
+                {{ trans('plugged-host-minecraft::strings.onboarding.callout_action') }}
             </x-filament::button>
         </x-slot>
     </x-filament::callout>

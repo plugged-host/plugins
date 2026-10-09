@@ -2,9 +2,21 @@
 
 namespace PluggedHost\Minecraft\Providers;
 
+use App\Filament\Server\Pages\Console;
+use App\Repositories\Daemon\DaemonFileRepository;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
+use PluggedHost\Minecraft\Models\ServerOnboarding;
+use PluggedHost\Minecraft\Services\MinecraftSoftwareSwitcher;
+use PluggedHost\Servers\Contracts\SoftwareSwitcher;
+use PluggedHost\Servers\Events\ServerProvisioned;
 use Throwable;
 
 /**
@@ -14,8 +26,59 @@ use Throwable;
  */
 class MinecraftPluginProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        // servers' settings page switches loader and version through this.
+        $this->app->singleton(SoftwareSwitcher::class, MinecraftSoftwareSwitcher::class);
+    }
+
     public function boot(): void
     {
+                // Pointer to the first-run setup guide. Scoped to the console because that is where a new
+        // owner lands, and PAGE_START rather than a head style so it dies with the page under
+        // wire:navigate.
+        //
+        // canAccess() is the only condition: it already answers "Minecraft server, not
+        // installing, may write files, setup still pending", so the callout and the nav item can
+        // never disagree about whether there is anything to set up. Guarded because it reads the
+        // egg's variables — a page must not 500 because the guide could not decide.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::PAGE_START,
+            function (): Htmlable {
+                try {
+                    if (!ServerOnboardingPage::canAccess()) {
+                        return new HtmlString('');
+                    }
+
+                    $url = ServerOnboardingPage::getUrl();
+                } catch (Throwable) {
+                    return new HtmlString('');
+                }
+
+                return new HtmlString((string) view(
+                    'plugged-host-minecraft::filament.components.onboarding-callout',
+                    ['url' => $url],
+                )->render());
+            },
+            Console::class,
+        );
+
+        // A user's new server whose egg has Minecraft software types: onboarding comes first, and
+        // the EULA is accepted (also written by the Server\Installed listener once installed).
+        Event::listen(ServerProvisioned::class, function (ServerProvisioned $event): void {
+            if (!$event->switchable) {
+                return;
+            }
+
+            ServerOnboarding::markRequired($event->server);
+
+            try {
+                app(DaemonFileRepository::class)->setServer($event->server)->putContent('eula.txt', "eula=true\n");
+            } catch (Throwable) {
+                // The install has not created the volume yet; the Installed listener writes it.
+            }
+        });
+
         foreach (['en', 'de'] as $locale) {
             try {
                 $lines = trans('plugged-host-minecraft::activity', [], $locale);

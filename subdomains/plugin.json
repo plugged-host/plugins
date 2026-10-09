@@ -17,7 +17,7 @@
     "composer_packages": null,
     "plugged_host": {
         "requires": ["plugged-host-core"],
-        "optional": ["plugged-host-economy", "plugged-host-discord"]
+        "optional": ["plugged-host-economy", "plugged-host-discord", "plugged-host-servers"]
     },
     "meta": {
         "status": "enabled",
