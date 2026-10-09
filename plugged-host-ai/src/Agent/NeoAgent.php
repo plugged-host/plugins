@@ -10,13 +10,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PluggedHost\Ai\Contracts\NeoBackend;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Models\NeoMessage;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
-use PluggedHost\Ai\Services\NeoGateway;
 use PluggedHost\Ai\Support\NeoAccess;
 use PluggedHost\Ai\Support\NeoPreferences;
 use PluggedHost\Ai\Support\SecretRedactor;
@@ -25,15 +25,17 @@ use PluggedHost\Ai\Tools\Tool;
 use PluggedHost\Ai\Tools\ToolContext;
 use PluggedHost\Ai\Tools\ToolResult;
 use PluggedHost\Ai\Tools\ToolRisk;
+use PluggedHost\Core\Contracts\AccountPortal;
 use Throwable;
 
 /**
  * neo's agent loop, one unit of work per call.
  *
  * The browser drives it: send() starts a turn, then step() is called until it stops returning
- * `continue`. Each step either runs one queued tool or makes one model call through the
- * gateway, and everything is persisted, so no PHP request holds a worker for a whole
- * conversation, no queue worker is needed, and a turn resumes after the user navigates away.
+ * `continue`. Each step either runs one queued tool or makes one model call through the backend
+ * (NeoBackend: this panel's providers and limits, or noprofit.space's gateway), and everything is
+ * persisted, so no PHP request holds a worker for a whole conversation, no queue worker is
+ * needed, and a turn resumes after the user navigates away.
  *
  * Every step re-checks that neo is on, that the user still has it on, and that they may still
  * use this server; every tool re-checks its permissions right before it runs.
@@ -41,7 +43,7 @@ use Throwable;
 final class NeoAgent
 {
     public function __construct(
-        private readonly NeoGateway $gateway,
+        private readonly NeoBackend $backend,
         private readonly NeoToolRegistry $tools,
         private readonly ContextBuilder $context,
     ) {}
@@ -333,7 +335,7 @@ final class NeoAgent
         $available = $this->tools->available($context);
 
         try {
-            $response = $this->gateway->turn(
+            $response = $this->backend->turn(
                 $user,
                 $conversation,
                 $this->context->build($conversation, $context, $finalAnswer),
@@ -345,7 +347,7 @@ final class NeoAgent
                 'time' => $this->localTime($e->retryAt, $user),
             ]), ['window' => $e->window, 'retry_at' => $e->retryAt]);
         } catch (NotLinkedException) {
-            return $this->halt($conversation, NeoConversation::UNLINKED, StepResult::UNLINKED, trans('plugged-host-ai::strings.errors.unlinked'));
+            return $this->halt($conversation, NeoConversation::UNLINKED, StepResult::UNLINKED, trans('plugged-host-ai::strings.errors.unlinked', ['portal' => app(AccountPortal::class)->name()]));
         } catch (GatewayBusyException $e) {
             return StepResult::busy($e->retryAfter);
         } catch (GatewayUnavailableException $e) {

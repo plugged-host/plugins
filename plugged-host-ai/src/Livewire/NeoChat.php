@@ -13,14 +13,13 @@ use Livewire\Component;
 use PluggedHost\Ai\Agent\NeoAgent;
 use PluggedHost\Ai\Agent\ServerGuard;
 use PluggedHost\Ai\Agent\StepResult;
+use PluggedHost\Ai\Contracts\NeoBackend;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Models\NeoMessage;
-use PluggedHost\Ai\Services\NeoGateway;
 use PluggedHost\Ai\Support\MclogsHandoff;
 use PluggedHost\Ai\Support\NeoAccess;
 use PluggedHost\Ai\Support\NeoPreferences;
 use PluggedHost\Core\Support\Plugins;
-use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**
@@ -391,13 +390,14 @@ class NeoChat extends Component
      */
     private function settings(User $user, bool $enabled): array
     {
-        $usage = $enabled ? app(NeoGateway::class)->usage($user) : null;
+        $usage = $enabled ? app(NeoBackend::class)->usage($user) : null;
 
         return [
             'enabled' => $enabled,
             'auto_approve' => NeoPreferences::autoApprove($user),
             'limits' => is_array($usage['limits'] ?? null) ? $usage['limits'] : null,
-            'linked' => NoprofitLink::accountId($user) !== null || ($usage['linked'] ?? false),
+            // Unknown (backend down) counts as linked: the limits then say "unavailable".
+            'linked' => $usage['linked'] ?? true,
             'retention_days' => (int) config('plugged-host-ai.retention_days', 30),
         ];
     }
@@ -443,7 +443,7 @@ class NeoChat extends Component
      */
     private function usage(User $user): ?array
     {
-        $usage = app(NeoGateway::class)->usage($user);
+        $usage = app(NeoBackend::class)->usage($user);
 
         return is_array($usage['limits'] ?? null) ? $usage['limits'] : null;
     }

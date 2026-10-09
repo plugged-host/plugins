@@ -5,7 +5,8 @@ namespace PluggedHost\Ai\Services\Gateway;
 use RuntimeException;
 
 /**
- * Base for everything that can go wrong talking to noprofit.space's neo gateway.
+ * Base for everything that can go wrong in a neo turn on its backend (NeoBackend: this panel,
+ * or noprofit.space's neo gateway).
  */
 class GatewayException extends RuntimeException
 {

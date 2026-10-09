@@ -6,8 +6,10 @@ plugged.host's AI in one plugin:
   and accounts with the user's own permissions; on Discord it is account support for anyone.
 - **rux**, the Discord moderation and credit giveaway bot.
 
-neo's model calls and usage limits belong to noprofit.space; rux uses neo's providers directly.
-Each part has its own tab under Admin → Plugins → plugged.host AI → Settings.
+neo's model calls and usage limits run on this panel (its own AI providers and limits, see
+[Standalone setup](#standalone-setup)), or on noprofit.space when plugged-host-noprofit is enabled;
+rux uses neo's providers directly either way. Each part has its own tab under Admin → Plugins →
+plugged.host AI → Settings.
 
 ## neo in the panel
 
@@ -25,17 +27,54 @@ app and server panels and it carries the task out with that user's own permissio
 
 ### Where things live
 
-- **noprofit.space** holds the AI provider chain (keys, models, failover), the 5-hour and weekly
-  token limits, and the usage ledger. This plugin never sees a provider key.
 - **This plugin** owns the chat, the agent loop, the tools, approvals, conversation history and
-  the profile tab. It talks to noprofit.space's `/api/v1/internal/neo/*` with HMAC-signed
-  requests (core's `NoprofitClient`), identifying users by the noprofit account link.
+  the profile tab.
+- **The AI provider chain** (keys, models, failover), the 5-hour and weekly token limits and the
+  usage ledger sit behind three contracts in `src/Contracts`:
+  - `NeoBackend`: where a model turn runs and is metered;
+  - `NeoSettingsStore`: where the settings form keeps providers and limits;
+  - `ProviderSource`: the providers `Chat\ProviderChain` calls (rux, and neo when it runs here).
+
+  `Providers/AiBackendServiceProvider` binds the panel's own (`Services\LocalNeoBackend`,
+  `Services\EnvNeoSettingsStore`, `Chat\ConfiguredProviders`). With **plugged-host-noprofit**
+  enabled, noprofit.space holds all of it and that plugin binds its own: neo's turns go to
+  noprofit.space's `/api/v1/internal/neo/*` (HMAC-signed with `NEO_GATEWAY_SECRET`, set in that
+  plugin's settings) and this panel never sees a provider key.
 
 ### Settings
 
 Admin → Plugins → plugged.host AI → Settings, tab "neo", edits both: panel values go to this panel's `.env`
-(`NEO_ENABLED`, `NEO_GATEWAY_SECRET`, `NEO_MAX_STEPS`, …); providers and limits are saved on
-noprofit.space. Use "Test provider" after saving to check a slot answers and can call tools.
+(`NEO_ENABLED`, `NEO_MAX_STEPS`, …); providers and limits are saved where the backend keeps them
+(this panel's `.env`, or noprofit.space). Use "Test provider" after saving to check a slot answers
+and can call tools.
+
+### Standalone setup
+
+Without plugged-host-noprofit, neo runs on this panel:
+
+1. `php artisan migrate` (migration `016_create_neo_usage_tables`: `neo_usage_windows`,
+   `neo_usage_events`).
+2. Admin → Plugins → plugged.host AI → Settings → neo: paste an API key into at least one provider
+   slot, check endpoint and model, save, and press "Test provider".
+3. Switch neo on (`NEO_ENABLED`).
+
+The provider and limit settings use noprofit.space's env names, so a chain moves between the two
+by copying lines. They go in the panel's `.env` (the form writes them; every one is optional):
+
+| Panel `.env` | Default | |
+|---|---|---|
+| `NEO_P{1,2,3}_ENABLED`, `_LABEL`, `_DRIVER` (`openai`, `anthropic`, `gemini`), `_ENDPOINT`, `_API_KEY`, `_MODEL`, `_MAX_TOKENS`, `_TIMEOUT`, `_DAILY_TOKEN_CAP` | Groq Qwen, Groq gpt-oss, justwoker Opus, no keys | provider slots, tried in order |
+| `NEO_P{n}_EXTRA_HEADERS_B64`, `NEO_P{n}_EXTRA_BODY_B64` | `{}` / the slot's | base64-encoded JSON objects |
+| `NEO_SHORT_WINDOW_HOURS`, `NEO_SHORT_TOKENS` | 5, 3000000 | the short window |
+| `NEO_LONG_WINDOW_DAYS`, `NEO_LONG_TOKENS` | 7, 15000000 | the long window |
+| `NEO_DISCORD_UNLINKED_PERCENT` | 50 | neo on Discord for people who have not linked Discord |
+| `NEO_DEFAULT_COOLDOWN`, `NEO_CHAIN_DEADLINE`, `NEO_MAX_BUSY_WAIT`, `NEO_MAX_CONCURRENT` | 60, 80, 60, 4 | failover: cooldown after a failure, time budget of a turn, longest wait that is "busy", model calls at once |
+| `NEO_GATEWAY_ENABLED`, `NEO_TOOLS_PROBE` | true, true | neo's turns on/off; ask a slot once whether tools get through |
+
+Limits are tokens (input + output) per account and window, scaled by plugged.host Plus and
+PlusPlus (economy), as on noprofit.space. Endpoints must be public `https` URLs
+(`Chat\EndpointGuard`, checked on save and test). Every panel user is "linked": there is no
+"Activate neo" step.
 
 ### Per-user controls (the gear in the chat)
 
@@ -74,31 +113,32 @@ from a provider's `boot()`; a tool implements `PluggedHost\Ai\Tools\Tool`.
 ## neo on Discord
 
 neo also answers on the plugged.host Discord server, as its own bot. There it is **account
-support**: anyone may ask, linked to noprofit.space or not, about their plugged.host and
-noprofit.space account and how plugged.host works (sign-in, linking Discord, the allowance,
-credits and tokens, stores, rewards, locations, hibernation, deleting an account, where to get
-help). It is **not server support**: for anything about a server itself it sends people to neo
+support**: anyone may ask, linked or not, about their plugged.host account (and noprofit.space
+account, with plugged-host-noprofit) and how plugged.host works (sign-in, linking Discord, the
+allowance, credits and tokens, stores, rewards, locations, hibernation, deleting an account,
+where to get help). It is **not server support**: for anything about a server itself it sends people to neo
 in the panel (open the server, click neo), which can read the console and files and fix it.
 
 - **When it answers:** DMs, @mentions, replies to neo's messages, and "hey neo, …" (the last
   needs the Message Content intent). Bots are ignored; a few messages per minute per person.
   Several messages sent in a row are answered together.
-- **What it sees:** noprofit.space says whether the Discord account is linked and to which
-  account. In a **DM** with a linked account that uses the panel, neo can look that account up
-  with read-only tools from neo's registry: `account_overview`, `list_servers`,
+- **What it sees:** neo's backend says whether the Discord account is linked and to which
+  account (this panel's Discord links through plugged-host-discord's `DiscordAccounts`, or
+  noprofit.space). In a **DM** with a linked account that uses the panel, neo can look that
+  account up with read-only tools from neo's registry: `account_overview`, `list_servers`,
   `list_create_options`. They only ever see that one user. In public channels it has no tools
   and asks people to DM it for their own account. It changes nothing, anywhere.
-- **Limits:** every answer goes through noprofit.space's neo gateway (service
-  `plugged-host-discord`). A linked Discord account uses its account's 5-hour and weekly
-  windows, shared with neo in the panel. An unlinked one gets windows of its own at
+- **Limits:** every answer is metered by neo's backend (service `plugged-host-discord`). A linked
+  Discord account uses its account's 5-hour and weekly windows, shared with neo in the panel. An unlinked one gets windows of its own at
   `NEO_DISCORD_UNLINKED_PERCENT` (50 %) of the limits, set on the neo tab's limits section.
   When a window is used up, neo says when it resets (and, unlinked, that linking gives the full
   limits).
 - **Memory:** `neo_bot_messages`, one conversation per person per channel/DM; the last hour is
   replayed. Pruned with neo's conversations after `NEO_RETENTION_DAYS`.
 - **Production only:** `NeoBotConfig::blockers()` needs `APP_ENV=production`, the switch on, a
-  token, a server id, neo's gateway secret and the table, so the dev panel never connects a
-  second gateway on the same token.
+  token, a server id, neo's AI (a usable provider here, or `NEO_GATEWAY_SECRET` with
+  plugged-host-noprofit) and the table, so the dev panel never connects a second gateway on the
+  same token.
 
 ### Setup
 
@@ -259,7 +299,9 @@ do not. The settings page says so.
 - `APP_ENV=production`;
 - rux is switched on;
 - a token and a server id are set;
-- noprofit.space (`NOPROFIT_SYNC_SECRET`) is configured, and at least one AI provider is;
+- the account directory is configured (with plugged-host-noprofit: `NOPROFIT_SYNC_SECRET`), and
+  neo's AI providers are (a usable provider here, or `NEO_GATEWAY_SECRET` with
+  plugged-host-noprofit);
 - the tables exist. Even with a token in its `.env`,
 the dev panel never connects a second gateway session.
 
@@ -321,19 +363,22 @@ rux uses three routes on accounts.noprofit.space, signed with `NOPROFIT_SYNC_SEC
 ### AI
 
 rux uses neo's providers, 1:1, in neo's order and with neo's failover: whatever is set in
-neo's settings (Admin → Plugins → plugged.host AI → neo) is what rux runs. rux fetches the chain from
-noprofit.space (`GET /api/v1/internal/neo/providers`, signed with `NEO_GATEWAY_SECRET`, the
-secret neo's plugin uses) and fetches it again once a fetch is a minute old
-(`ai.refresh_seconds`), so a change in neo's settings reaches rux within a minute. The last
+neo's settings (Admin → Plugins → plugged.host AI → neo) is what rux runs (the bound
+`ProviderSource`). Standalone they are read from this panel's `.env` as neo uses them. With
+plugged-host-noprofit, rux fetches the chain from noprofit.space
+(`GET /api/v1/internal/neo/providers`, signed with `NEO_GATEWAY_SECRET`) and fetches it again
+once a fetch is a minute old, so a change in neo's settings reaches rux within a minute. The last
 chain fetched is kept, encrypted with the app key, in
 `storage/app/plugged-host/rux/neo-providers.enc`: while noprofit.space is unreachable rux keeps
 using it.
 
-The failover rules are copied from noprofit.space's `ProviderChain`. A provider that fails
-cools down: 10 minutes for auth errors; its Retry-After (or Gemini's retry delay, or a minute)
-for rate limits and outages; not at all for "request too large". A cooling-down provider is
-skipped, and each provider's daily token cap holds per day. The drivers are copies of neo's
-(`src/Agent/Ai`: OpenAI chat, Anthropic Messages, and Google AI Studio's Gemini API).
+The chain is `Chat\ProviderChain`, shared with neo when neo runs on this panel; rux's cooldowns,
+token counts and cache keys (`plugged-host-ai:rux:ai:*`) are its own. The failover rules are
+copied from noprofit.space's `ProviderChain`. A provider that fails cools down: 10 minutes for
+auth errors; its Retry-After (or Gemini's retry delay, or a minute) for rate limits and outages;
+not at all for "request too large". A cooling-down provider is skipped, and each provider's daily
+token cap holds per day. The drivers are copies of neo's on noprofit.space (`src/Chat`: OpenAI
+chat, Anthropic Messages, and Google AI Studio's Gemini API).
 
 Some gateways drop the tools of a request and put in their own (justwoker since 2026-10-03,
 which even runs them on its side). Before giving a provider tools, rux asks it once with a tiny
@@ -343,7 +388,7 @@ drops them, rux describes its tools in the system prompt (`PromptedTools`, names
 `<rux_tool_calls>` block back into ordinary tool calls.
 
 rux calls the providers directly. The model calls never go through neo, and no neo limits
-apply. To see what rux has (fetches now):
+apply. To see what rux has (with plugged-host-noprofit it fetches now):
 
 ```bash
 sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-ai

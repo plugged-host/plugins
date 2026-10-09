@@ -1,30 +1,35 @@
 <?php
 
-namespace PluggedHost\Ai\Services;
+namespace PluggedHost\Noprofit\Ai;
 
 use App\Models\User;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use PluggedHost\Ai\Contracts\NeoBackend;
+use PluggedHost\Ai\Contracts\NeoSettingsStore;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
+use PluggedHost\Ai\Support\NeoUsagePercent;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Noprofit\Services\NoprofitClient;
 use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**
- * neo's side of noprofit.space's /api/v1/internal/neo/* API. noprofit.space holds the provider
- * keys and the usage limits; this class only builds signed requests (through core's
- * NoprofitClient) and turns the gateway's status codes into typed exceptions.
+ * neo's side of noprofit.space's /api/v1/internal/neo/* API (plugged-host-ai's NeoGateway until
+ * 2.2). noprofit.space holds the provider keys and the usage limits; this class only builds signed
+ * requests (through NoprofitClient) and turns the gateway's status codes into typed exceptions. It
+ * is plugged-host-ai's NeoBackend and NeoSettingsStore while this plugin is enabled.
  *
  * The panel chat names its user's account; neo on Discord names a Discord account, which
  * noprofit.space meters as the account it is linked to, or on its own at a share of the limits.
  */
-final class NeoGateway
+final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
 {
     private const BASE = '/api/v1/internal/neo';
 
@@ -51,13 +56,13 @@ final class NeoGateway
     {
         $response = $this->send('POST', '/turn', NoprofitLink::identity($user) + [
             'service' => 'plugged-host',
-            'usage_percent' => self::usagePercent($user),
+            'usage_percent' => NeoUsagePercent::for($user),
             'conversation' => $conversation->uuid,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
             'tools' => $tools,
             'tool_choice' => $toolChoice,
-        ], (int) config('plugged-host-ai.gateway_timeout', 90));
+        ], $this->timeout());
 
         $data = (array) $response->json();
 
@@ -85,13 +90,13 @@ final class NeoGateway
         $response = $this->send('POST', '/turn', [
             'discord_id' => $discordId,
             'service' => self::DISCORD_SERVICE,
-            'usage_percent' => self::usagePercent(self::panelUserForDiscord($discordId)),
+            'usage_percent' => NeoUsagePercent::for(self::panelUserForDiscord($discordId)),
             'conversation' => 'discord:' . $conversation,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
             'tools' => $tools,
             'tool_choice' => $toolChoice,
-        ], (int) config('plugged-host-ai.gateway_timeout', 90));
+        ], $this->timeout());
 
         $data = (array) $response->json();
 
@@ -105,9 +110,10 @@ final class NeoGateway
     }
 
     /**
-     * Who a Discord account is on noprofit.space and where its windows stand: linked, account_id
-     * and name (when linked), limits, blocked (the window that refuses new turns, or null) and
-     * unlinked_percent. Cached briefly, so a burst of messages asks once.
+     * Who a Discord account is on noprofit.space and where its windows stand: linked, account_id,
+     * user_id (the panel user of that account, if it has one) and name (when linked), limits,
+     * blocked (the window that refuses new turns, or null) and unlinked_percent. Cached briefly,
+     * so a burst of messages asks once.
      *
      * @return array<string, mixed>
      *
@@ -117,20 +123,20 @@ final class NeoGateway
     {
         $cached = Cache::get($this->discordKey($discordId));
         if (is_array($cached)) {
-            return $cached;
+            return $this->withPanelUser($cached);
         }
 
         $response = $this->send('POST', '/usage', [
             'discord_id' => $discordId,
             'service' => self::DISCORD_SERVICE,
-            'usage_percent' => self::usagePercent(self::panelUserForDiscord($discordId)),
+            'usage_percent' => NeoUsagePercent::for(self::panelUserForDiscord($discordId)),
         ], 8);
 
         if (!$response->successful()) {
             throw new GatewayUnavailableException('usage_http_' . $response->status());
         }
 
-        $data = (array) $response->json();
+        $data = $this->withPanelUser((array) $response->json());
         Cache::put($this->discordKey($discordId), $data, 20);
 
         return $data;
@@ -150,7 +156,7 @@ final class NeoGateway
         }
 
         try {
-            $response = $this->send('POST', '/usage', NoprofitLink::identity($user) + ['service' => 'plugged-host', 'usage_percent' => self::usagePercent($user)], 8);
+            $response = $this->send('POST', '/usage', NoprofitLink::identity($user) + ['service' => 'plugged-host', 'usage_percent' => NeoUsagePercent::for($user)], 8);
         } catch (Throwable) {
             return null;
         }
@@ -167,6 +173,19 @@ final class NeoGateway
         }
 
         return $result;
+    }
+
+    /**
+     * A panel user noprofit.space does not know yet signs in there once (/sso/link).
+     */
+    public function activationUrl(): ?string
+    {
+        return Route::has('plugged-host.sso.link') ? route('plugged-host.sso.link') : null;
+    }
+
+    public function label(): string
+    {
+        return 'noprofit.space';
     }
 
     /**
@@ -273,26 +292,27 @@ final class NeoGateway
     }
 
     /**
+     * The panel user of the noprofit.space account a Discord account is linked to (user_id), if
+     * it has one.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withPanelUser(array $data): array
+    {
+        if (!array_key_exists('user_id', $data)) {
+            $data['user_id'] = !empty($data['linked']) && (int) ($data['account_id'] ?? 0) > 0 ? NoprofitLink::userFor((int) $data['account_id'])?->id : null;
+        }
+
+        return $data;
+    }
+
+    /**
      * @return array{id: string, name: string}
      */
     private function actor(User $actor): array
     {
         return ['id' => (string) $actor->id, 'name' => (string) $actor->username];
-    }
-
-    /**
-     * How much neo this account gets, as a percentage of the free limits: more with
-     * plugged.host Plus and PlusPlus (plugged-host-economy's MembershipService).
-     */
-    public static function usagePercent(?User $user): int
-    {
-        $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
-
-        try {
-            return $user !== null && Plugins::available($membership) ? max(100, (int) app($membership)->aiUsagePercent($user)) : 100;
-        } catch (Throwable) {
-            return 100;
-        }
     }
 
     /**
@@ -321,6 +341,11 @@ final class NeoGateway
 
     private function secret(): string
     {
-        return (string) config('plugged-host-ai.gateway_secret', '');
+        return (string) config('plugged-host-noprofit.neo_gateway_secret', '');
+    }
+
+    private function timeout(): int
+    {
+        return (int) config('plugged-host-noprofit.neo_gateway_timeout', 90);
     }
 }

@@ -4,6 +4,7 @@ namespace PluggedHost\Noprofit\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Doctor\Doctor;
+use PluggedHost\Core\Support\Plugins;
 
 class NoprofitDoctorServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,16 @@ class NoprofitDoctorServiceProvider extends ServiceProvider
             return $missing === []
                 ? Doctor::ok('accounts at ' . config('plugged-host-noprofit.accounts_url'))
                 : Doctor::fail('not set: ' . implode(', ', $missing) . ' (same values as in noprofit.space\'s .env)');
+        });
+
+        Doctor::check('plugged-host-noprofit', 'neo\'s AI gateway secret', function (): array {
+            if (!Plugins::enabled('plugged-host-ai')) {
+                return Doctor::ok('plugged-host-ai is off');
+            }
+
+            return strlen((string) config('plugged-host-noprofit.neo_gateway_secret')) >= 32
+                ? Doctor::ok('set')
+                : Doctor::fail('NEO_GATEWAY_SECRET is not set (at least 32 characters, same value as in noprofit.space\'s .env): neo cannot think and rux has no AI');
         });
     }
 }

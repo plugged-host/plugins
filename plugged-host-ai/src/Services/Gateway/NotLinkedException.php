@@ -3,6 +3,7 @@
 namespace PluggedHost\Ai\Services\Gateway;
 
 /**
- * noprofit.space does not know which account this panel user belongs to yet.
+ * The backend does not know which account this panel user belongs to yet (only noprofit.space's
+ * gateway says so: NeoBackend::activationUrl() is where they connect it).
  */
 class NotLinkedException extends GatewayException {}

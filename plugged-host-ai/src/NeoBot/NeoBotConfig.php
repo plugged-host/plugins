@@ -3,7 +3,7 @@
 namespace PluggedHost\Ai\NeoBot;
 
 use Illuminate\Support\Facades\Schema;
-use PluggedHost\Ai\Services\NeoGateway;
+use PluggedHost\Ai\Contracts\NeoBackend;
 use PluggedHost\Core\Contracts\AccountPortal;
 use Throwable;
 
@@ -79,8 +79,8 @@ final class NeoBotConfig
             $blockers[] = 'No Discord server id (NEO_BOT_GUILD_ID).';
         }
 
-        if (!app(NeoGateway::class)->configured()) {
-            $blockers[] = 'noprofit.space\'s neo gateway is not configured (NEO_GATEWAY_SECRET): neo cannot think.';
+        if (!app(NeoBackend::class)->configured()) {
+            $blockers[] = 'neo has no AI (set up a provider in neo\'s settings, or with plugged-host-noprofit set NEO_GATEWAY_SECRET): neo cannot think.';
         }
 
         if (!self::tablesExist()) {

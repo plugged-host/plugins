@@ -12,10 +12,6 @@ return [
     // neo's master switch. Ships dark: nothing renders and every entry point refuses until on.
     'enabled' => (bool) env('NEO_ENABLED', false),
 
-    // Signs every call to noprofit.space's /api/v1/internal/neo/* (must match its .env).
-    'gateway_secret' => (string) env('NEO_GATEWAY_SECRET', ''),
-    'gateway_timeout' => (int) env('NEO_GATEWAY_TIMEOUT', 90),
-
     // Agent loop and context budget. Every model call re-sends the context, so these two
     // decide what one question costs against the user's limits.
     'max_steps' => (int) env('NEO_MAX_STEPS', 25),
@@ -28,7 +24,7 @@ return [
     'max_write_bytes' => (int) env('NEO_MAX_WRITE_BYTES', 262144),
     'console_lines' => (int) env('NEO_CONSOLE_LINES', 80),
 
-    // Per-user request rate limits on top of noprofit.space's token windows.
+    // Per-user request rate limits on top of the token windows (`local.limits`, or noprofit.space's).
     'messages_per_minute' => (int) env('NEO_MESSAGES_PER_MINUTE', 10),
     'tools_per_minute' => (int) env('NEO_TOOLS_PER_MINUTE', 60),
 
@@ -50,11 +46,41 @@ return [
      * quoting mangles raw JSON; an unset one falls back to the slot default.
      */
     'local' => [
+        // Off: every neo turn is refused (rux keeps its AI).
+        'enabled' => (bool) env('NEO_GATEWAY_ENABLED', true),
+
+        // Ask each slot once (kept 6 hours) whether the tools of a request reach the model; a slot
+        // that drops them gets the tools written into the prompt (Chat\PromptedTools).
+        'tools_probe' => (bool) env('NEO_TOOLS_PROBE', true),
+
+        // Provider endpoints must be public https URLs (Chat\EndpointGuard, checked on save).
+        'endpoint_guard' => true,
+
+        // Tokens (input + output, every model the same) per subject and anchored window. A user's
+        // limits are scaled by Plus and PlusPlus (economy); neo on Discord answers people who have
+        // not linked Discord too, with windows of their own at discord_unlinked_percent of these.
+        'limits' => [
+            'short' => [
+                'hours' => (int) env('NEO_SHORT_WINDOW_HOURS', 5),
+                'tokens' => (int) env('NEO_SHORT_TOKENS', 3000000),
+            ],
+            'long' => [
+                'days' => (int) env('NEO_LONG_WINDOW_DAYS', 7),
+                'tokens' => (int) env('NEO_LONG_TOKENS', 15000000),
+            ],
+            'discord_unlinked_percent' => (int) env('NEO_DISCORD_UNLINKED_PERCENT', 50),
+        ],
+
         'failover' => [
             'default_cooldown' => (int) env('NEO_DEFAULT_COOLDOWN', 60),
             'auth_cooldown' => 600,
             'max_cooldown' => 900,
+            // Every provider down for longer than this is an outage, not a wait (seconds).
+            'max_busy_wait' => (int) env('NEO_MAX_BUSY_WAIT', 60),
+            // The time budget of one turn across all providers (seconds).
             'deadline' => (int) env('NEO_CHAIN_DEADLINE', 80),
+            // Model calls in flight at once, panel-wide (each holds a PHP worker).
+            'max_concurrent' => (int) env('NEO_MAX_CONCURRENT', 4),
         ],
 
         'providers' => (static function (): array {
@@ -135,9 +161,9 @@ return [
      * to the panel's neo. Its own Discord application and token, production panel only (two
      * gateways on one token would answer every message twice).
      *
-     * Every answer goes through noprofit.space's neo gateway: a Discord account linked to an
-     * account uses that account's limits, an unlinked one gets windows of its own at
-     * NEO_DISCORD_UNLINKED_PERCENT (on noprofit.space) of them.
+     * Every answer is metered like neo in the panel (here, or on noprofit.space): a Discord account
+     * linked to an account uses that account's limits, an unlinked one gets windows of its own at
+     * NEO_DISCORD_UNLINKED_PERCENT of them.
      */
     'neo_bot' => [
         // Ships dark.
@@ -157,7 +183,7 @@ return [
         'history_turns' => 6,
         'max_message_chars' => 2000,
         'tool_output_chars' => 6000,
-        // How long one answer may wait in total while noprofit.space says every provider is busy.
+        // How long one answer may wait in total while every provider is busy.
         'busy_wait_seconds' => 120,
 
         // Messages per Discord user per minute that reach a worker at all.
@@ -214,8 +240,8 @@ return [
         ],
 
         // Credits rux gives someone (give_credits): only on the order of these Discord users,
-        // plugged.host's main admin (who must be a noprofit.space admin too), at most this
-        // many at once.
+        // plugged.host's main admin (who must be an admin of the account system too), at most
+        // this many at once.
         'credits' => [
             'granters' => array_values(array_filter(array_map('trim', explode(',', (string) env('RUX_CREDIT_GRANTERS', ''))))),
             'max_per_grant' => (int) env('RUX_CREDIT_MAX', 10000),

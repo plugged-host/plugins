@@ -9,30 +9,29 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PluggedHost\Ai\Contracts\NeoBackend;
 use PluggedHost\Ai\Discord\DiscordException;
 use PluggedHost\Ai\Models\NeoBotMessage;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
-use PluggedHost\Ai\Services\NeoGateway;
 use PluggedHost\Ai\Support\SecretRedactor;
 use PluggedHost\Ai\Tools\NeoToolRegistry;
 use PluggedHost\Ai\Tools\Tool;
 use PluggedHost\Ai\Tools\ToolContext;
 use PluggedHost\Ai\Tools\ToolResult;
 use PluggedHost\Ai\Tools\ToolRisk;
-use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**
  * neo on Discord, in its own worker process (plugged-host:neo-bot-handle).
  *
  * It answers every message waiting in one conversation (one person in one channel or DM);
- * several sent in a row are answered together. noprofit.space first says who the Discord
- * account is and whether its limits allow another answer: a linked account uses its own
- * limits, an unlinked one a share of them. Then the usual loop: model turn (metered by
- * noprofit.space) → run its tool calls → feed the results back, until it answers in text.
+ * several sent in a row are answered together. neo's backend (this panel, or noprofit.space)
+ * first says who the Discord account is and whether its limits allow another answer: a linked
+ * account uses its own limits, an unlinked one a share of them. Then the usual loop: model turn
+ * (metered by the backend) → run its tool calls → feed the results back, until it answers in text.
  *
  * Account support only. The tools are read-only account lookups from neo's registry, offered
  * in DMs to a Discord account linked to a plugged.host user, and they only ever see that user.
@@ -43,7 +42,7 @@ final class NeoBotAgent
     public const TOOLS = ['account_overview', 'list_servers', 'list_create_options'];
 
     public function __construct(
-        private readonly NeoGateway $gateway,
+        private readonly NeoBackend $backend,
         private readonly NeoToolRegistry $tools,
         private readonly NeoBotPrompt $prompt,
         private readonly NeoBotDiscord $discord,
@@ -94,9 +93,9 @@ final class NeoBotAgent
         $last = $rows->last();
 
         try {
-            $who = $this->gateway->discordUsage($first->author_id);
+            $who = $this->backend->discordUsage($first->author_id);
         } catch (GatewayUnavailableException $e) {
-            Log::warning('[neo-bot] cannot ask noprofit.space about a Discord account', ['message' => $first->id, 'error' => $e->getMessage()]);
+            Log::warning('[neo-bot] cannot look up a Discord account', ['message' => $first->id, 'error' => $e->getMessage()]);
             $this->finish($rows, NeoBotMessage::FAILED, ['error' => 'noprofit_unavailable']);
             $send($last, NeoBotConfig::say('unavailable'));
 
@@ -110,7 +109,7 @@ final class NeoBotAgent
             return;
         }
 
-        $panelUser = !empty($who['linked']) && (int) ($who['account_id'] ?? 0) > 0 ? NoprofitLink::userFor((int) $who['account_id']) : null;
+        $panelUser = !empty($who['linked']) && (int) ($who['user_id'] ?? 0) > 0 ? User::query()->find((int) $who['user_id']) : null;
         $available = $first->isDirect() && $panelUser !== null ? $this->availableTools() : [];
 
         $this->finish($rows, NeoBotMessage::RUNNING, ['linked' => (bool) ($who['linked'] ?? false), 'account_id' => $who['account_id'] ?? null, 'user_id' => $panelUser?->id]);
@@ -250,7 +249,7 @@ final class NeoBotAgent
     }
 
     /**
-     * One model turn through noprofit.space, waiting out a busy gateway until $busyUntil.
+     * One model turn through neo's backend, waiting out a busy one until $busyUntil.
      *
      * @param  list<array<string, mixed>>  $messages
      * @param  list<array<string, mixed>>  $definitions
@@ -264,7 +263,7 @@ final class NeoBotAgent
             $this->typing($first);
 
             try {
-                return $this->gateway->discordTurn($first->author_id, $first->conversation, $messages, $definitions, $toolChoice);
+                return $this->backend->discordTurn($first->author_id, $first->conversation, $messages, $definitions, $toolChoice);
             } catch (GatewayBusyException $e) {
                 if (time() + 1 >= $busyUntil) {
                     throw new GatewayUnavailableException('busy_too_long');

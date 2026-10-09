@@ -54,6 +54,7 @@ class PluggedHostNoprofitPlugin implements HasPluginSettings, Plugin
             'sso_secret' => '',
             'migration_secret' => '',
             'sync_secret' => '',
+            'neo_gateway_secret' => '',
             'resolve_ip' => (string) config('plugged-host-noprofit.resolve_ip'),
             'ca_bundle' => (string) config('plugged-host-noprofit.ca_bundle'),
         ];
@@ -83,6 +84,8 @@ class PluggedHostNoprofitPlugin implements HasPluginSettings, Plugin
                     $secret('sso_secret', 'Sign-in secret (NOPROFIT_SSO_SECRET)'),
                     $secret('migration_secret', 'Account secret (NOPROFIT_MIGRATION_SECRET)'),
                     $secret('sync_secret', 'Sync secret (NOPROFIT_SYNC_SECRET)'),
+                    // plugged-host-ai's neo and rux; at least 32 characters, like noprofit.space's.
+                    $secret('neo_gateway_secret', 'neo\'s AI gateway secret (NEO_GATEWAY_SECRET)')->minLength(32),
                     TextInput::make('resolve_ip')
                         ->label('Resolve the accounts host to (optional)')
                         ->helperText('e.g. 127.0.0.1 when noprofit.space runs on this box, so internal calls skip Cloudflare.'),
@@ -107,6 +110,12 @@ class PluggedHostNoprofitPlugin implements HasPluginSettings, Plugin
             if ($value !== '') {
                 $environment[$env] = $value;
             }
+        }
+
+        // Kept as plugged-host-ai checked it: printable, no spaces, at least 32 characters.
+        $neoSecret = trim((string) ($data['neo_gateway_secret'] ?? ''));
+        if (strlen($neoSecret) >= 32 && preg_match('/^[\x21-\x7E]+$/', $neoSecret) === 1) {
+            $environment['NEO_GATEWAY_SECRET'] = $neoSecret;
         }
 
         $this->writeToEnvironment($environment);

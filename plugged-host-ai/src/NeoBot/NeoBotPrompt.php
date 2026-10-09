@@ -14,10 +14,12 @@ use Throwable;
 final class NeoBotPrompt
 {
     /**
-     * @param  array<string, mixed>  $who  noprofit.space's answer about this Discord account.
+     * @param  array<string, mixed>  $who  neo's backend's answer about this Discord account (NeoBackend::discordUsage).
      */
     public function build(string $discordId, string $name, array $who, ?User $panelUser, bool $direct, bool $tools): string
     {
+        $portal = app(AccountPortal::class);
+
         return trim(view('plugged-host-ai::prompts.discord', [
             'discordId' => $discordId,
             'name' => $name,
@@ -29,7 +31,10 @@ final class NeoBotPrompt
             'direct' => $direct,
             'tools' => $tools,
             'panelUrl' => rtrim((string) config('app.url'), '/'),
-            'accountsUrl' => app(AccountPortal::class)->manageUrl() ?? rtrim((string) config('app.url'), '/'),
+            // Where accounts live: noprofit.space (external) or the panel itself.
+            'external' => $portal->external(),
+            'portal' => $portal->name(),
+            'accountsUrl' => $portal->manageUrl() ?? rtrim((string) config('app.url'), '/'),
             'linkUrl' => NeoBotConfig::linkUrl(),
             'supportUrl' => (string) (config('plugged-host-discord.invite_url') ?: config('plugged-host-ai.support_url')),
             'resets' => static function (string $iso): string {

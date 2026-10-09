@@ -16,10 +16,15 @@ With it enabled, noprofit.space takes over, through the contracts the other plug
   (`noprofit:accounts-sync`); noprofit.space calls `/api/noprofit/*` for summaries, deletion
   and Discord links.
 - Converted accounts' SFTP passwords are checked against noprofit.space.
+- **neo's AI** (plugged-host-ai): neo's model turns and its 5-hour/weekly limits run on
+  noprofit.space's neo gateway (`Ai\NoprofitNeoBackend`, `/api/v1/internal/neo/*`), the AI
+  settings form edits the providers and limits there, and rux fetches neo's providers from it
+  (`Ai\NoprofitNeoProviders`, kept in `storage/app/plugged-host/rux/neo-providers.enc`). The
+  panel's own `NEO_P*`/`NEO_SHORT_*` settings are then unused.
 
 ## Setup
 
-Both sides share three secrets; set the same values in noprofit.space's `.env` and here
+Both sides share these secrets; set the same values in noprofit.space's `.env` and here
 (Admin › Plugins › plugged.host noprofit.space, stored in the panel `.env`):
 
 | Panel `.env` | Purpose |
@@ -28,6 +33,7 @@ Both sides share three secrets; set the same values in noprofit.space's `.env` a
 | `NOPROFIT_SSO_SECRET` | sign-in tokens |
 | `NOPROFIT_MIGRATION_SECRET` | account export/commit/summary/delete, `/migrate` |
 | `NOPROFIT_SYNC_SECRET` | credits and Discord links, both directions |
+| `NEO_GATEWAY_SECRET` | neo's AI gateway and rux's providers (at least 32 characters; `NEO_GATEWAY_TIMEOUT`, default 90 s, bounds a turn) |
 | `NOPROFIT_RESOLVE_IP`, `NOPROFIT_CA_BUNDLE` | optional: reach noprofit.space on this box directly |
 
 noprofit.space must list `{APP_URL}/sso/callback` as a callback. Then run

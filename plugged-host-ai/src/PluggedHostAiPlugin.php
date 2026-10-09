@@ -20,10 +20,10 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
 use Illuminate\Support\Facades\Cache;
+use PluggedHost\Ai\Contracts\NeoSettingsStore;
 use PluggedHost\Ai\NeoBot\NeoBotSettings;
 use PluggedHost\Ai\Rux\Support\RuxSettings;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
-use PluggedHost\Ai\Services\NeoGateway;
 use stdClass;
 use Throwable;
 
@@ -32,11 +32,12 @@ use Throwable;
  * NeoPluginProvider, the two Discord bots by NeoBotServiceProvider and RuxServiceProvider) and
  * its settings, one tab each for neo, neo on Discord (NeoBotSettings) and rux (RuxSettings).
  *
- * neo's tab edits two places at once:
- *   - panel-side values (master switch, gateway secret, loop budget, privacy switches) go to
- *     this panel's .env through EnvironmentWriterTrait, like every plugged.host plugin;
- *   - provider slots and usage limits live on noprofit.space and are read and written over the
- *     signed gateway API, so they never have to be hand-edited in noprofit.space's .env.
+ * neo's tab edits two things:
+ *   - panel-side values (master switch, loop budget, privacy switches) go to this panel's .env
+ *     through EnvironmentWriterTrait, like every plugged.host plugin;
+ *   - provider slots and usage limits go to the bound NeoSettingsStore: this panel's .env too
+ *     (EnvNeoSettingsStore), or noprofit.space over its signed API with plugged-host-noprofit
+ *     (whose settings hold the gateway secret), so they never have to be hand-edited.
  *
  * Secrets follow the "masked, save-if-changed" convention (see PluggedHostMinecraftPlugin):
  * never loaded into the form, written only when a new value is typed. Upstream swallows any
@@ -65,7 +66,6 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
     {
         $data = [
             'enabled' => (bool) config('plugged-host-ai.enabled', false),
-            'gateway_secret' => '',
             'max_steps' => (int) config('plugged-host-ai.max_steps', 10),
             'context_tokens' => (int) config('plugged-host-ai.context_tokens', 16000),
             'redact_secrets' => (bool) config('plugged-host-ai.redact_secrets', true),
@@ -133,22 +133,14 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
     private function neoForm(): array
     {
         $t = fn (string $key, array $replace = []): string => trans('plugged-host-ai::strings.settings.' . $key, $replace);
-        $hasSecret = strlen((string) config('plugged-host-ai.gateway_secret')) >= 32;
         $remote = self::remoteConfig();
+        $where = ['where' => app(NeoSettingsStore::class)->label()];
 
         $form = [
             Section::make($t('section_panel'))
                 ->description($t('section_panel_hint'))
                 ->schema([
                     Toggle::make('enabled')->label($t('enabled'))->helperText($t('enabled_hint')),
-                    TextInput::make('gateway_secret')
-                        ->label($t('gateway_secret'))
-                        ->password()
-                        ->revealable()
-                        ->autocomplete(false)
-                        ->minLength(32)
-                        ->placeholder($hasSecret ? '•••••••• ' . $t('secret_set') : $t('secret_unset'))
-                        ->helperText($t('gateway_secret_hint')),
                     Grid::make(2)->schema([
                         TextInput::make('max_steps')->label($t('max_steps'))->helperText($t('max_steps_hint'))->numeric()->minValue(1)->maxValue(30)->required(),
                         TextInput::make('context_tokens')->label($t('context_tokens'))->helperText($t('context_tokens_hint'))->numeric()->minValue(4000)->maxValue(200000)->required(),
@@ -160,9 +152,9 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 ]),
             Section::make($t('section_status'))->schema([
                 Text::make(match (true) {
-                    !$remote['ok'] => $t('unreachable', ['reason' => $remote['error']]),
-                    !($remote['data']['env_writable'] ?? false) => $t('env_not_writable'),
-                    default => $t('connected'),
+                    !$remote['ok'] => $t('unreachable', $where + ['reason' => $remote['error']]),
+                    !($remote['data']['env_writable'] ?? false) => $t('env_not_writable', $where),
+                    default => $t('connected', $where),
                 }),
             ]),
         ];
@@ -213,11 +205,6 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             $local['NEO_SUPPORT_URL'] = $supportUrl;
         }
 
-        $secret = trim((string) ($data['gateway_secret'] ?? ''));
-        if (strlen($secret) >= 32 && preg_match('/^[\x21-\x7E]+$/', $secret) === 1) {
-            $local['NEO_GATEWAY_SECRET'] = $secret;
-        }
-
         // The two Discord bots' tabs, only when the form sent them (an absent tab must not
         // switch a bot off).
         foreach (['neo_bot' => NeoBotSettings::class, 'rux' => RuxSettings::class] as $tab => $settings) {
@@ -227,12 +214,6 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         }
 
         $this->writeToEnvironment($local);
-
-        // writeToEnvironment() cleared the config cache, but this request still holds the old
-        // values; the remote save below must already sign with a newly typed secret.
-        if (isset($local['NEO_GATEWAY_SECRET'])) {
-            config()->set('plugged-host-ai.gateway_secret', $local['NEO_GATEWAY_SECRET']);
-        }
 
         if (!is_array($data['remote'] ?? null) || !self::remoteConfig()['ok']) {
             Notification::make()->title(trans('plugged-host-ai::strings.settings.saved'))->success()->send();
@@ -305,7 +286,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         }
 
         try {
-            $result = app(NeoGateway::class)->testProvider($slot, [], $actor);
+            $result = app(NeoSettingsStore::class)->testProvider($slot, [], $actor);
         } catch (GatewayUnavailableException $e) {
             $result = ['ok' => false, 'error' => $e->getMessage()];
         }
@@ -330,7 +311,8 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
     }
 
     /**
-     * Send the remote part of the form to noprofit.space. Returns an error message or null.
+     * Send the provider and limit part of the form to the NeoSettingsStore. Returns an error
+     * message or null.
      *
      * @param  array<string, mixed>  $remote
      */
@@ -367,7 +349,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         }
 
         try {
-            $result = app(NeoGateway::class)->saveConfig([
+            $result = app(NeoSettingsStore::class)->saveConfig([
                 'gateway_enabled' => !empty($remote['gateway_enabled']),
                 'limits' => array_map('intval', (array) ($remote['limits'] ?? [])),
                 'failover' => array_map('intval', (array) ($remote['failover'] ?? [])),
@@ -389,8 +371,9 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
     }
 
     /**
-     * noprofit.space's view of the AI settings, memoised briefly: upstream builds a fresh
-     * plugin object for every Livewire round-trip of the settings form.
+     * The NeoSettingsStore's view of the AI settings (this panel's, or noprofit.space's),
+     * memoised briefly: upstream builds a fresh plugin object for every Livewire round-trip of
+     * the settings form.
      *
      * @return array{ok: bool, data: array<string, mixed>, error: ?string}
      */
@@ -402,7 +385,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         }
 
         try {
-            $result = ['ok' => true, 'data' => app(NeoGateway::class)->config(), 'error' => null];
+            $result = ['ok' => true, 'data' => app(NeoSettingsStore::class)->config(), 'error' => null];
             Cache::put(self::REMOTE_CACHE, $result, 30);
         } catch (Throwable $e) {
             $result = ['ok' => false, 'data' => [], 'error' => $e->getMessage()];

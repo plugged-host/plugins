@@ -1,5 +1,9 @@
 @php
-    $s = fn (string $key, array $replace = []) => trans('plugged-host-ai::strings.' . $key, $replace);
+    // :portal in the strings: where accounts live (AccountPortal: noprofit.space, or this panel).
+    $portal = ['portal' => app(\PluggedHost\Core\Contracts\AccountPortal::class)->name()];
+    $s = fn (string $key, array $replace = []) => trans('plugged-host-ai::strings.' . $key, $replace + $portal);
+    // Where a user the backend does not know yet connects their account; null when there is nothing to connect.
+    $activationUrl = fn (): ?string => app(\PluggedHost\Ai\Contracts\NeoBackend::class)->activationUrl();
     $icon = fn (string $name, string $class = 'neo-i') => svg($name, $class)->toHtml();
 
     $stateIcon = fn (string $status): string => match ($status) {
@@ -262,8 +266,8 @@
                     </div>
                     @if(!$settings['linked'])
                         <div class="neo-set-hint">{{ $s('profile.unlinked') }}</div>
-                        @if(\Illuminate\Support\Facades\Route::has('plugged-host.sso.link'))
-                            <a class="neo-btn neo-btn-primary" href="{{ route('plugged-host.sso.link') }}">{{ $s('profile.link') }}</a>
+                        @if(filled($link = $activationUrl()))
+                            <a class="neo-btn neo-btn-primary" href="{{ $link }}">{{ $s('profile.link') }}</a>
                         @endif
                     @elseif(!is_array($settings['limits']))
                         <div class="neo-set-hint">{{ $s('profile.unavailable') }}</div>
@@ -395,8 +399,8 @@
                                     <div class="neo-notice-body">
                                         <span>{{ $message->content }}</span>
                                         @if($kind === 'unlinked')
-                                            @if(\Illuminate\Support\Facades\Route::has('plugged-host.sso.link'))
-                                                <a class="neo-btn" href="{{ route('plugged-host.sso.link') }}">{{ $s('chat.activate') }}</a>
+                                            @if(filled($link = $activationUrl()))
+                                                <a class="neo-btn" href="{{ $link }}">{{ $s('chat.activate') }}</a>
                                             @endif
                                         @elseif(in_array($kind, ['error', 'limited'], true) && $loop->last)
                                             <button type="button" class="neo-btn" x-on:click="run(() => $wire.retry())">{{ $s('chat.retry') }}</button>

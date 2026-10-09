@@ -3,11 +3,11 @@
 namespace PluggedHost\Ai\Console\Commands;
 
 use Illuminate\Console\Command;
+use PluggedHost\Ai\Contracts\NeoBackend;
 use PluggedHost\Ai\Models\NeoBotMessage;
 use PluggedHost\Ai\NeoBot\NeoBotAgent;
 use PluggedHost\Ai\NeoBot\NeoBotConfig;
 use PluggedHost\Ai\NeoBot\NeoBotSupervisor;
-use PluggedHost\Ai\Services\NeoGateway;
 
 /**
  * Ask neo on Discord something from the terminal, as a given Discord account, without Discord:
@@ -25,7 +25,7 @@ class NeoBotAskCommand extends Command
 
     protected $description = 'Ask neo on Discord a question from the terminal (prints the answer)';
 
-    public function handle(NeoBotSupervisor $supervisor, NeoBotAgent $agent, NeoGateway $gateway): int
+    public function handle(NeoBotSupervisor $supervisor, NeoBotAgent $agent, NeoBackend $backend): int
     {
         if (($relaunched = $supervisor->relaunchAsWebUser($this)) !== null) {
             return $relaunched;
@@ -39,8 +39,8 @@ class NeoBotAskCommand extends Command
             return self::FAILURE;
         }
 
-        if (!$gateway->configured() || !NeoBotConfig::tablesExist()) {
-            $this->error('neo\'s gateway is not configured, or the neo_bot_messages table is missing.');
+        if (!$backend->configured() || !NeoBotConfig::tablesExist()) {
+            $this->error('neo has no AI configured, or the neo_bot_messages table is missing.');
 
             return self::FAILURE;
         }

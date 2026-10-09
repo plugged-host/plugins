@@ -20,3 +20,8 @@
   (`rux/neo-providers.enc`) and cache keys. Config `plugged-host-noprofit.neo_gateway_secret`
   (`NEO_GATEWAY_SECRET`, was `plugged-host-ai.rux.ai.gateway_secret`), `neo_gateway_timeout`
   (`NEO_GATEWAY_TIMEOUT`) and `neo_providers_refresh`.
+- **neo**: plugged-host-ai's `NeoGateway` moved here as `Ai\NoprofitNeoBackend`, plugged-host-ai's
+  `NeoBackend` and `NeoSettingsStore` while this plugin is enabled (same `/api/v1/internal/neo/*`
+  calls, cache keys and the `plugged-host-discord` service name). The neo gateway secret is a
+  field of this plugin's settings now (`NEO_GATEWAY_SECRET`, at least 32 characters), and
+  `plugged-host:doctor` checks it while plugged-host-ai is on.

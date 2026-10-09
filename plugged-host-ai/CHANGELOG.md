@@ -17,6 +17,25 @@
   plugged-host-noprofit (`NeoProviders` moved there). `RuxAi` is now a thin wrapper; rux's
   blocker asks whether there are providers instead of checking `NEO_GATEWAY_SECRET`.
   `plugged-host-ai.rux.ai.*` is gone.
+- **neo works without noprofit.space.** New contracts `NeoBackend` (turns, Discord turns,
+  usage, the activation link) and `NeoSettingsStore` (the settings form's providers and limits).
+  Standalone, `LocalNeoBackend` does what noprofit.space's neo gateway does, on this panel: the
+  per-account turn lock and concurrency slots, the anchored 5-hour/weekly windows
+  (`NeoUsageMeter`, a port of noprofit.space's `NeoUsageService`, Plus/PlusPlus scaling, Discord
+  accounts nobody linked at `NEO_DISCORD_UNLINKED_PERCENT`), the provider chain for 'neo', and
+  the same answer shapes and exceptions. New migration `016_create_neo_usage_tables`
+  (`neo_usage_windows`, `neo_usage_events`). `EnvNeoSettingsStore` keeps providers and limits in
+  the panel `.env` with noprofit.space's env names (`NEO_P{n}_*`, `NEO_SHORT_*`, `NEO_LONG_*`,
+  `NEO_DISCORD_UNLINKED_PERCENT`, `NEO_MAX_BUSY_WAIT`, `NEO_MAX_CONCURRENT`, `NEO_GATEWAY_ENABLED`,
+  `NEO_TOOLS_PROBE`), masks keys, refuses non-public endpoints (`Chat\EndpointGuard`) and tests
+  a slot with a one-shot call. With plugged-host-noprofit, `NeoGateway` moved there as
+  `NoprofitNeoBackend` (same API calls, cache keys and service names).
+- The gateway secret (`NEO_GATEWAY_SECRET`, `NEO_GATEWAY_TIMEOUT`) moved to
+  plugged-host-noprofit's config and settings; `plugged-host-ai.gateway_secret`/`gateway_timeout`
+  are gone. neo's chat shows "Activate neo" only when the backend has an activation link
+  (`NeoBackend::activationUrl()`). neo's texts, its knowledge and its Discord prompt name the
+  account portal (`:portal`) and only mention noprofit.space when it is the account system.
+  neo-on-Discord takes the panel user from `discordUsage()['user_id']`.
 
 ## Unreleased (2.1)
 
