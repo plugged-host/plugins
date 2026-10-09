@@ -3,7 +3,7 @@
     "name": "plugged.host Status",
     "author": "plugged.host",
     "version": "1.2.1",
-    "description": "Public status pipeline: per-minute node and endpoint probing, incident and node admin resources, and JSON/RSS export for a static status site. Runs standalone.",
+    "description": "Incidents, maintenance and the public status export (JSON/RSS, plus the node list) the status page Worker reads; node figures come from core's node telemetry.",
     "category": "plugin",
     "url": null,
     "update_url": null,

@@ -1,26 +1,37 @@
 # plugged.host Core
 
-Core plugged.host features in one plugin.
+The platform the other plugged.host plugins build on. It depends on no other plugin; they
+depend on it. What it holds:
 
-## Features
+- **Plugin dependencies**: every plugin.json declares `plugged_host.requires` / `optional`;
+  `Support\Plugins::enabled()` / `available()` answer whether another plugin is really on
+  (Pelican autoloads disabled plugins, so `class_exists()` cannot), and
+  `php artisan plugged-host:doctor` lists the plugins and runs every enabled plugin's health
+  checks (`Doctor\Doctor::check()`), with heartbeats for the scheduler and the queue worker.
+- **Shared hooks**: `Power\StartChain` (the one Livewire hook in front of every server start;
+  limbo, the start queue and the ad room register as `StartGate`s), `Contracts\AccountPortal`
+  (where people manage their account and link Discord: the panel by default,
+  noprofit.space with plugged-host-noprofit), `Nodes\NodeTelemetry` (every node probed once a
+  minute: reachability, latency, load; servers, storage and status read it), the suspended-server
+  page hooks (`claimedWhen()`, `deletionTimeUsing()`).
+- **Suspension and accounts**: the suspend toggle on the admin server list, the page a suspended
+  server shows its owner, account deletion with its servers.
+- **Panel hardening**: a primary allocation for every server, guarded deletion/transfer/build
+  services, console and daemon resilience, the session cookie, readable error pages.
+- **Navigation and onboarding**: the sidebar order and hidden items, the welcome tour, perks.
 
-- Sign-in through noprofit.space (SSO); sign-up, passkeys, two-factor codes, Discord linking, legal acceptance and account deletion live there
-- Public status collection, 90-day history, node aliases, and incident publishing
-- Available Resources admin page with aggregate and per-node usage charts
-- User-created servers within the account's noprofit.space plan, with multi-tier presets (Starter to Master)
-- Credits economy and Resource Store for purchasing additional CPU, RAM and Disk
-- Automatic allocation placement during server creation
-- Automatic next-port creation from the client Network page
-- Always shows all accessible servers, hides server list tabs, and removes Pelican footer branding
-- Enforces a primary allocation for every server
-- Resource usage overview for users with direct store integration
-- Configurable deployment tags, ports, eggs, databases, allocations, backups, and server actions
+Abuse protection is its own plugin (`plugged-host-abuse`), as is the noprofit.space
+integration (`plugged-host-noprofit`).
 
-## Setup
+## Settings
 
-By default, servers can be created on any public node with enough available resources. To restrict deployment to specific nodes, set `UCS_DEPLOYMENT_TAGS` to a comma-separated list of node tags.
+Admin › Plugins › plugged.host Core: the welcome tour (`TOUR_ENABLED`, `TOUR_VERSION`) and the
+sidebar entries to hide (`NAV_HIDDEN_ITEMS`).
 
-Sign-up (which methods are open), starting credits, the legal documents and their versions, the compute tiers and caps, and the store prices for CPU, memory and disk are set on noprofit.space (Admin › Settings). The panel's own settings (welcome tour, sidebar) are in the `plugged.host Core` plugin settings.
+## Checking an install
 
-The public status exporter writes sanitized JSON and RSS data to `STATUS_EXPORT_PATH` (default: `/var/www/status`).
-
+```bash
+sudo -u www-data php artisan plugged-host:doctor              # everything
+sudo -u www-data php artisan plugged-host:doctor plugged-host-core
+sudo -u www-data php artisan plugged-host:sample-nodes        # probe every node now
+```
