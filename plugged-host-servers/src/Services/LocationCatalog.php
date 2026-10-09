@@ -6,8 +6,8 @@ use App\Models\Node;
 use App\Models\User;
 use App\Services\Deployment\FindViableNodesService;
 use Illuminate\Support\Collection;
+use PluggedHost\Core\Nodes\NodeTelemetry;
 use PluggedHost\Core\Support\Countries;
-use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Support\PremiumAccess;
 
 /**
@@ -224,14 +224,12 @@ class LocationCatalog
      */
     private function latencyByNode(array $nodeIds): array
     {
-        $class = 'PluggedHost\\Status\\Services\\NodeLatency';
-
-        if ($nodeIds === [] || !Plugins::available($class)) {
+        if ($nodeIds === []) {
             return [];
         }
 
         try {
-            return app($class)->medianForNodes($nodeIds);
+            return app(NodeTelemetry::class)->medianLatency($nodeIds);
         } catch (\Throwable) {
             return [];
         }

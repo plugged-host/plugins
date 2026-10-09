@@ -4,7 +4,7 @@ namespace PluggedHost\Servers\Services;
 
 use App\Models\Node;
 use Illuminate\Support\Collection;
-use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Core\Nodes\NodeTelemetry;
 use Throwable;
 
 /**
@@ -14,7 +14,7 @@ use Throwable;
  * identical nodes can have vastly different real container loads), this service
  * evaluates nodes by their rolling 5-minute average of RAM and CPU usage.
  *
- * It uses the minute-by-minute telemetry snapshots collected in `status_snapshots`.
+ * It uses the minute-by-minute node telemetry core samples (NodeTelemetry).
  * If a node lacks snapshot history (e.g. newly joined), it falls back to live daemon
  * statistics (`NodeCapacity`). Unreachable or failing nodes are penalized so healthy
  * nodes are selected first.
@@ -231,45 +231,17 @@ class NodeBalancer
     }
 
     /**
-     * Query status snapshots in a single batch for all requested nodes.
+     * The recent samples of core's node telemetry for all requested nodes, as objects with a
+     * `metrics` array (the shape calculateMetrics() reads).
      *
      * @param  array<int, int>  $nodeIds
      * @return Collection<int, Collection<int, mixed>> Keyed by node_id
      */
     protected function fetchRecentSnapshots(array $nodeIds, int $minutes): Collection
     {
-        $settingClass = 'PluggedHost\\Status\\Models\\StatusNodeSetting';
-        $snapshotClass = 'PluggedHost\\Status\\Models\\StatusSnapshot';
-
-        if (!Plugins::available($settingClass) || !Plugins::available($snapshotClass)) {
-            return collect();
-        }
-
         try {
-            /** @var Collection<int, string> $publicIdMap node_id => public_id */
-            $publicIdMap = $settingClass::query()
-                ->whereIn('node_id', $nodeIds)
-                ->pluck('public_id', 'node_id');
-
-            if ($publicIdMap->isEmpty()) {
-                return collect();
-            }
-
-            $since = now()->subMinutes($minutes);
-            $snapshots = $snapshotClass::query()
-                ->where('component_type', 'node')
-                ->whereIn('component_key', $publicIdMap->values())
-                ->where('checked_at', '>=', $since)
-                ->orderByDesc('checked_at')
-                ->get()
-                ->groupBy('component_key');
-
-            $result = collect();
-            foreach ($publicIdMap as $nodeId => $publicId) {
-                $result->put($nodeId, $snapshots->get($publicId, collect()));
-            }
-
-            return $result;
+            return collect(app(NodeTelemetry::class)->recent($nodeIds, $minutes))
+                ->map(fn (array $samples) => collect($samples)->map(fn (array $sample) => (object) ['metrics' => $sample]));
         } catch (Throwable) {
             return collect();
         }

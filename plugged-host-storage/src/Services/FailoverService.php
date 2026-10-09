@@ -13,7 +13,7 @@ use App\Services\Deployment\FindViableNodesService;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Core\Nodes\NodeTelemetry;
 use PluggedHost\Storage\Models\NodeFailover;
 use Throwable;
 
@@ -22,7 +22,7 @@ use Throwable;
  *
  * OPERATOR OVERRIDE (recorded 2026-09-18): failover is FULLY AUTOMATIC once a node is offline
  * for ~5 minutes. `failover_mode` defaults to `auto`. Detection is the panel's own minute probe
- * (NodeHealth, the status plugin) reaching the failure threshold. The storage agent's
+ * (core's NodeTelemetry, every node) reaching the failure threshold. The storage agent's
  * reachability probe is used as corroboration: if the agent can still reach the node, it is by
  * definition still "responding to pings", so we DECLINE to fail over (that is a partition, not a
  * dead node, and acting would create two live copies) — this honours the operator's own
@@ -108,20 +108,13 @@ class FailoverService
     }
 
     /**
-     * Node looks dead to the panel: NodeHealth reports at least `$threshold` consecutive probe
-     * failures. Resolved by class-string so status stays independently removable; with no status
-     * plugin there is no panel witness and failover cannot fire.
+     * Node looks dead to the panel: core's node telemetry has at least `$threshold` consecutive
+     * failed probes in a row (one a minute, every node).
      */
     private function looksDown(Node $node, int $threshold): bool
     {
-        $class = 'PluggedHost\\Status\\Services\\NodeHealth';
-
-        if (!Plugins::available($class)) {
-            return false;
-        }
-
         try {
-            return app($class)->consecutiveFailures((int) $node->getKey()) >= $threshold;
+            return app(NodeTelemetry::class)->consecutiveFailures((int) $node->getKey()) >= $threshold;
         } catch (Throwable) {
             return false;
         }

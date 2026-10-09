@@ -3,10 +3,10 @@
 namespace PluggedHost\Status\Services;
 
 use App\Models\Node;
-use App\Repositories\Daemon\DaemonSystemRepository;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use PluggedHost\Core\Nodes\NodeTelemetry;
 use PluggedHost\Status\Models\StatusDailyUptime;
 use PluggedHost\Status\Models\StatusNodeSetting;
 use PluggedHost\Status\Models\StatusSnapshot;
@@ -14,7 +14,10 @@ use Throwable;
 
 class StatusCollector
 {
-    public function __construct(private readonly StatusHealthEvaluator $health) {}
+    public function __construct(
+        private readonly StatusHealthEvaluator $health,
+        private readonly NodeTelemetry $telemetry,
+    ) {}
 
     public function collect(): void
     {
@@ -108,40 +111,26 @@ class StatusCollector
             return;
         }
 
-        $reachable = false;
+        // Core samples every node once a minute (NodeTelemetry); read that rather than asking
+        // wings a second time. No sample in the last 150 s counts as unreachable.
+        $sample = $this->telemetry->latest((int) $node->getKey());
+        $reachable = (bool) ($sample['reachable'] ?? false);
+        $responseMs = $reachable && is_int($sample['response_time_ms'] ?? null) ? $sample['response_time_ms'] : null;
         $metrics = null;
-        // Time the daemon probe so NodeLatency (WP3) has a real per-node "panel → node" figure.
-        // No migration needed — it rides in the existing status_snapshots.metrics JSON (fact 7).
-        $started = microtime(true);
-        $responseMs = null;
 
-        try {
-            $statistics = Http::daemon($node)
-                ->connectTimeout(2)
-                ->timeout(3)
-                ->get('/api/system/utilization')
-                ->throw()
-                ->json();
-            $responseMs = (int) round((microtime(true) - $started) * 1000);
-
-            $system = (new DaemonSystemRepository())
-                ->setNode($node)
-                ->getSystemInformation();
-
-            $threads = max(0, (int) ($system['cpu_count'] ?? 0));
-            if ($threads > 0 && (int) ($statistics['memory_total'] ?? 0) > 0) {
-                $metrics = [
-                    'cpu_used' => round(max(0, (float) ($statistics['cpu_percent'] ?? 0)) * $threads, 2),
-                    'cpu_total' => $threads * 100,
-                    'memory_used' => max(0, (int) ($statistics['memory_used'] ?? 0)),
-                    'memory_total' => max(0, (int) ($statistics['memory_total'] ?? 0)),
-                    'storage_used' => max(0, (int) ($statistics['disk_used'] ?? 0)),
-                    'storage_total' => max(0, (int) ($statistics['disk_total'] ?? 0)),
-                    'response_time_ms' => $responseMs,
-                ];
-                $reachable = true;
-            }
-        } catch (Throwable) {
+        if ($reachable && (int) ($sample['cpu_total'] ?? 0) > 0 && (int) ($sample['memory_total'] ?? 0) > 0) {
+            $metrics = [
+                'cpu_used' => $sample['cpu_used'],
+                'cpu_total' => $sample['cpu_total'],
+                'memory_used' => $sample['memory_used'],
+                'memory_total' => $sample['memory_total'],
+                'storage_used' => $sample['disk_used'],
+                'storage_total' => $sample['disk_total'],
+                'response_time_ms' => $responseMs,
+            ];
+        } else {
+            // The status page has always counted a node it could not read the load of as down.
+            $reachable = false;
         }
 
         $underPressure = $metrics !== null && $this->health->underResourcePressure($metrics);
