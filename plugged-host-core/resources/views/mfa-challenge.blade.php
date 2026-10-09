@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="/plugged.host_nobg.png" />
+    <link rel="icon" href="{{ config('app.favicon', '/plugged.host_nobg.png') }}" />
     <title>Two-factor check &bull; plugged.host</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,7 @@
 <body>
     <div class="auth-card">
         <div class="auth-header">
-            <img src="/plugged.host_nobg.png" alt="plugged.host" class="auth-logo">
+            <img src="{{ config('app.logo', '/plugged.host_nobg.png') }}" alt="plugged.host" class="auth-logo">
             <h1 class="auth-title">Two-factor check</h1>
             <p class="auth-subtitle">
                 @if($method === 'email')
