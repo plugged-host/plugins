@@ -11,6 +11,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use PluggedHost\Storage\Providers\StoragePluginProvider;
+use PluggedHost\Storage\Services\StorageSetup;
 
 /**
  * Filament registration for the storage plugin. The panel-side wiring (agent routes, failover
@@ -52,7 +53,12 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
      */
     public function getSettingsFormData(): array
     {
+        $setup = app(StorageSetup::class);
+
         return [
+            // A fresh one-time command each time the settings open (StorageSetup).
+            'setup_command' => $setup->command($setup->issue()),
+
             // Agent connection.
             'agent_url' => (string) config('plugged-host-storage.agent_url', ''),
             'mirror_public_key' => (string) config('plugged-host-storage.mirror_public_key', ''),
@@ -86,6 +92,15 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
         $hasSecret = filled(config('plugged-host-storage.agent_secret'));
 
         return [
+            Section::make(trans('plugged-host-storage::strings.settings.setup_section'))
+                ->description(trans('plugged-host-storage::strings.settings.setup_section_hint'))
+                ->schema([
+                    TextInput::make('setup_command')
+                        ->label(trans('plugged-host-storage::strings.settings.setup_command'))
+                        ->readOnly()
+                        ->dehydrated(false)
+                        ->copyable(),
+                ]),
             Section::make(trans('plugged-host-storage::strings.settings.section_agent'))
                 ->description(trans('plugged-host-storage::strings.settings.section_agent_hint'))
                 ->schema([

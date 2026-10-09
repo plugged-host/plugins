@@ -26,8 +26,8 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 | Config | Env | Meaning |
 |---|---|---|
 | `agent_secret` | `STORAGE_AGENT_SECRET` | Shared HMAC with the agent (== `PH_AGENT_SECRET` on the box) |
-| `agent_url` | `STORAGE_AGENT_URL` | Agent inbound listener, e.g. `https://storage.<domain>` |
-| `mirror_public_key` | `STORAGE_MIRROR_PUBLIC_KEY` | The box's `ph-mirror` key, served to nodes by `/plugged-host/storage/node/install.sh` |
+| `agent_url` | `STORAGE_AGENT_URL` | Agent inbound listener, e.g. `https://storage.<domain>` (the installer sets it) |
+| `mirror_public_key` | `STORAGE_MIRROR_PUBLIC_KEY` | The box's `ph-mirror` key (the installer sets it), served to nodes by `/plugged-host/storage/node/install.sh` |
 | `failover_mode` | `STORAGE_FAILOVER_MODE` (`auto`) | `off` \| `notify` \| `auto` |
 | `failover_after_failures` | `STORAGE_FAILOVER_AFTER_FAILURES` (`5`) | Consecutive minute-probe failures before acting |
 | `min_free_percent` / `mirror_snapshots` | `STORAGE_*` | Agent free-space floor + snapshot retention |
@@ -38,27 +38,32 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 
 ## Setting up the storage box (from zero)
 
-`agent/agent.mjs` (+ `install.sh`, `package.json`, systemd unit). Node 20+, no npm deps.
+The agent (`agent/agent.mjs`, no npm dependencies) runs on Node.js 26; the installer brings it.
 
 1. Give the box a separate disk mounted at `/mnt/storage` (`nofail` in fstab). If the box is also
    a Wings node, keep Wings' data on that disk too and bind-mount it back to `/var/lib/pelican`.
-2. Copy `agent/` to the box and run, as root:
+2. Copy the setup command from the panel, Admin › Plugins › plugged.host Storage › **Setup
+   command** (or run `php artisan plugged-host:storage-setup` on the panel), and run it on the
+   storage box:
 
    ```bash
-   sudo PH_PANEL_URL=https://<panel> PH_AGENT_SECRET=<random 64 hex> \
-        PH_SSH_PORTS="node1.example.com=22 *.example.com=2222" bash install.sh
+   curl -fsSL https://<panel>/plugged-host/storage/agent/install.sh?code=<one-time code> | sudo bash
    ```
 
-   It installs Node (if needed), rsync and pigz, the agent under `/opt/plugged-host-storage`,
-   `/etc/plugged-host-storage.env`, the systemd unit with a `RequiresMountsFor` drop-in, the
-   `ph-mirror` SSH key (printed at the end) and, with `PH_SSH_PORTS`, the nodes' SSH ports.
-3. Put the agent's port 8687 behind HTTPS (e.g. nginx at `https://storage.<domain>`).
-4. Panel, Admin › Plugins › plugged.host Storage: agent URL, the same secret, and the printed
-   mirror public key.
-5. On every Wings node: `curl -fsSL https://<panel>/plugged-host/storage/node/install.sh | sudo bash`
-   (authorizes the mirror key; prints the node's SSH port).
-6. `systemctl restart plugged-host-storage-agent`, then `php artisan plugged-host:doctor
-   plugged-host-storage` on the panel.
+   It asks where the storage disk is, the nodes' SSH port (and any node on another one), and the
+   address the agent answers on, and offers to put nginx with a Let's Encrypt certificate in front
+   of it. It gets the rest from the panel with the code (agent secret, node list, the agent
+   itself, checked against the panel's signed manifest), installs Node.js 26, rsync and pigz, the
+   agent and its systemd service, creates the `ph-mirror` key, and sends the key and the address
+   back to the panel. Nothing to copy by hand. The code works once, for an hour.
+3. On every Wings node: `curl -fsSL https://<panel>/plugged-host/storage/node/install.sh | sudo bash`
+   (authorizes the mirror key). The installer can then test SSH to every node.
+4. `php artisan plugged-host:doctor plugged-host-storage` on the panel.
+
+Run the setup command again to upgrade the agent or change an answer: the previous answers are
+the defaults. Unattended: `… | sudo bash -s -- --yes` plus flags for anything without a default
+(`--agent-url`, `--ssh-port`, `--ssh-port-for host=port`, `--nginx --email …`; all listed at
+the top of `agent/install.sh`).
 
 ## Extension points it offers / consumes
 
@@ -69,5 +74,5 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 
 ## Requirements
 
-A storage box with its own disk and Node.js (the installer brings it), SSH from it to every
+A storage box with its own disk (the installer brings Node.js 26), SSH from it to every
 node (the mirror key), and `plugged-host-core`.

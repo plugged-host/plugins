@@ -20,6 +20,7 @@ use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Storage\Services\FailoverService;
 use PluggedHost\Storage\Services\StorageService;
+use PluggedHost\Storage\Services\StorageSetup;
 use Throwable;
 
 /**
@@ -155,7 +156,7 @@ class StoragePluginProvider extends ServiceProvider
 
             return $missing === []
                 ? Doctor::ok((string) config('plugged-host-storage.agent_url'))
-                : Doctor::fail('not set: ' . implode(', ', $missing) . ' (see the storage box\'s install.sh output)');
+                : Doctor::fail('not set: ' . implode(', ', $missing) . '. Set the storage box up with: php artisan plugged-host:storage-setup');
         });
 
         Doctor::check('plugged-host-storage', 'Mirror passes', function (): array {
@@ -215,6 +216,48 @@ class StoragePluginProvider extends ServiceProvider
                 Route::get('/bundle.tar.gz', function () {
                     return $this->agentBundle();
                 })->name('plugged-host.storage.agent.bundle');
+
+                // The installer, with this panel's address and the setup code from the URL filled
+                // in (StorageSetup). Public: it holds no secret; the code is checked by /setup.
+                Route::get('/install.sh', function (Request $request) {
+                    $code = (string) $request->query('code', '');
+                    $code = preg_match(StorageSetup::CODE_PATTERN, $code) === 1 ? $code : '';
+                    $script = (string) @file_get_contents(plugin_path('plugged-host-storage', 'agent/install.sh'));
+
+                    return response(str_replace(
+                        ['__PANEL_URL__', '__SETUP_CODE__'],
+                        [rtrim((string) config('app.url'), '/'), $code],
+                        $script,
+                    ), 200, [
+                        'Content-Type' => 'text/x-shellscript; charset=utf-8',
+                        'Cache-Control' => 'no-store',
+                    ]);
+                })->name('plugged-host.storage.agent.installer');
+
+                // Setup code -> what the installer needs (incl. the agent secret).
+                Route::post('/setup', function (Request $request) {
+                    $setup = app(StorageSetup::class);
+
+                    if (!$setup->valid((string) $request->input('code', ''))) {
+                        return response()->json(['error' => 'This setup code is unknown or expired. Copy a new command from the panel.'], 403);
+                    }
+
+                    return response()->json($setup->bootstrap(), 200, ['Cache-Control' => 'no-store']);
+                })->middleware('throttle:10,1')->name('plugged-host.storage.agent.setup');
+
+                // The box reports its mirror key and address; the code is used up.
+                Route::post('/setup/complete', function (Request $request) {
+                    $setup = app(StorageSetup::class);
+                    $code = (string) $request->input('code', '');
+
+                    if (!$setup->valid($code)) {
+                        return response()->json(['error' => 'This setup code is unknown or expired.'], 403);
+                    }
+
+                    $rejected = $setup->complete($code, (string) $request->input('mirror_public_key', ''), (string) $request->input('agent_url', ''));
+
+                    return response()->json(['ok' => $rejected === [], 'rejected' => $rejected]);
+                })->middleware('throttle:10,1')->name('plugged-host.storage.agent.setup.complete');
             });
     }
 

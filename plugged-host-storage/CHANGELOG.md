@@ -2,11 +2,18 @@
 
 ## Unreleased (2.2)
 
-- **Setting up a storage box from git**: `agent/install.sh` now also installs rsync and pigz,
-  creates the `ph-mirror` key, writes `PH_RSYNC_USER`/`PH_RSYNC_SSH_KEY`, adds the
-  `RequiresMountsFor` drop-in and (with `PH_SSH_PORTS`) the nodes' SSH ports. Nodes authorize the
-  key with `curl -fsSL https://<panel>/plugged-host/storage/node/install.sh | sudo bash`, which
-  the panel serves with `STORAGE_MIRROR_PUBLIC_KEY` (new setting) filled in.
+- **One command sets a storage box up**: the storage settings (or
+  `php artisan plugged-host:storage-setup`) show `curl … /plugged-host/storage/agent/install.sh?code=…
+  | sudo bash` with a one-time code (an hour). The installer is guided: it asks where the disk is,
+  the nodes' SSH ports and the agent's address (offering nginx + Let's Encrypt), gets the agent
+  secret, node list and the agent (verified against the signed manifest) from the panel
+  (`/plugged-host/storage/agent/setup`), installs Node.js 26, rsync, pigz, the service with a
+  `RequiresMountsFor` drop-in and the `ph-mirror` key, and reports the key and address back
+  (`/setup/complete`). Re-running upgrades with the previous answers as defaults; flags and
+  `--yes` for unattended runs. Nodes authorize the key with
+  `curl -fsSL https://<panel>/plugged-host/storage/node/install.sh | sudo bash`
+  (`STORAGE_MIRROR_PUBLIC_KEY`, new setting).
+- The agent now targets Node.js 26 (`engines`).
 - Failover reads core's node telemetry instead of the status plugin.
 - `plugged-host:doctor` checks the agent settings and the last mirror pass.
 - README no longer claims a daily S3 backup: it was never scheduled.
