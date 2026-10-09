@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0
+
+- **One version for plugged.host**: `v<major major>.<major>.<patch>.<commit>` (now v2.1.0.<commit>),
+  from the plugins repo's `VERSION` file plus the checkout's commit (`Support\Release`). Shown at
+  the foot of every panel page, on error pages, the backups portal, in the status export
+  (`release`, for the sites' footers) and to neo. Every plugged.host plugin reports that same
+  version, commit included.
+
 ## Unreleased (2.1)
 
 - **The welcome tour shows the real panel** (`Livewire\PanelTourOverlay`, steps in

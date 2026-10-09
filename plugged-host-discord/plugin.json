@@ -2,7 +2,7 @@
     "id": "plugged-host-discord",
     "name": "plugged.host Discord",
     "author": "plugged.host",
-    "version": "1.2.1",
+    "version": "2.1.0",
     "description": "Discord server membership verification for accounts linked on noprofit.space, credit rewards for tracked invites and server boosts with a rewards tab on the profile page, and a self-supervising, self-installing gateway daemon",
     "category": "plugin",
     "url": null,

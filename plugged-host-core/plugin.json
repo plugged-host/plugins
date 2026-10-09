@@ -2,7 +2,7 @@
     "id": "plugged-host-core",
     "name": "plugged.host Core",
     "author": "plugged.host",
-    "version": "1.3.0",
+    "version": "2.1.0",
     "description": "Core features for plugged.host: sign-in through noprofit.space, the welcome tour, sidebar visibility, node capacity, user-created servers, allocation enforcement, and abuse protection",
     "category": "plugin",
     "url": null,

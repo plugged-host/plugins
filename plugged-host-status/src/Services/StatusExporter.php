@@ -144,6 +144,8 @@ class StatusExporter
         return [
             'schema_version' => 1,
             'generated_at' => now()->toIso8601String(),
+            // The release the panel runs (v2.1.0.6aa70c6), for the sites' footers.
+            'release' => \PluggedHost\Core\Support\Release::full(),
             'overall' => [
                 'status' => $overallStatus,
                 'label' => $this->label($overallStatus),

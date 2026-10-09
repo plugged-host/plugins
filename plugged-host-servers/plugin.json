@@ -2,7 +2,7 @@
     "id": "plugged-host-servers",
     "name": "plugged.host Servers",
     "author": "plugged.host",
-    "version": "1.2.1",
+    "version": "2.1.0",
     "description": "User server provisioning: the create/configure pages, resource plans, locations with flags and latency, node capacity, server limits per role, and the allocation-safe network-ports action.",
     "category": "plugin",
     "url": null,

@@ -2,7 +2,7 @@
     "id": "plugged-host-ai",
     "name": "plugged.host AI",
     "author": "plugged.host",
-    "version": "1.5.0",
+    "version": "2.1.0",
     "description": "plugged.host's AI: neo, the agentic assistant in the panel (tasks on servers and accounts with the user's own permissions, mclo.gs log fixing) and on Discord (account support for anyone, linked or not), and rux, the Discord moderation and giveaway bot. neo's usage limits are metered by noprofit.space.",
     "category": "plugin",
     "url": null,

@@ -37,6 +37,11 @@
         .ph-error > * {
             width: 100%;
         }
+        .ph-error-release {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--phv2-text-faint, #71717a);
+        }
     </style>
 </head>
 <body>
@@ -58,6 +63,12 @@
         </div>
 
         @yield('ph-error-after')
+
+        {{-- Which release answered, for anyone reporting the error. Guarded: an error page must not fail. --}}
+        @php($release = rescue(fn () => \PluggedHost\Core\Support\Release::label(), '', false))
+        @if ($release !== '')
+            <p class="ph-error-release">{{ $release }}</p>
+        @endif
     </main>
 
     @yield('ph-error-scripts')
