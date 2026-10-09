@@ -5,11 +5,11 @@ namespace PluggedHost\Economy\Providers;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use PluggedHost\Core\Http\Middleware\VerifyNoprofitSignature;
 use PluggedHost\Economy\Http\Controllers\NoprofitCreditsController;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\NoprofitCreditSync;
+use PluggedHost\Noprofit\Http\Middleware\VerifyNoprofitSignature;
 
 /**
  * Wires NoprofitCreditSync up: the model events that catch every panel credit change, the

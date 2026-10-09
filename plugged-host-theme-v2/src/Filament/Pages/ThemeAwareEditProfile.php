@@ -7,14 +7,16 @@ use Filament\Facades\Filament;
 use Filament\Forms\Components\Field;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs\Tab;
+use PluggedHost\Core\Contracts\AccountPortal;
 
 /**
  * The panel profile page, registered as the panels' profile() page and as two Livewire
  * component aliases in PluggedHostThemeV2ServiceProvider.
  *
- * Sign-in details live on noprofit.space: username, email, password, avatar, Discord,
- * passkeys, authenticator codes and deleting the account are all managed there (the
- * "Manage on noprofit.space" header action links to it). So only the panel's own tabs stay:
+ * When accounts are managed elsewhere (AccountPortal::external(): noprofit.space with
+ * plugged-host-noprofit), sign-in details live there: username, email, password, avatar,
+ * Discord, passkeys, authenticator codes and deleting the account (the "Manage on
+ * noprofit.space" header action links to it). Then only the panel's own tabs stay:
  * API keys, SSH keys, activity and customization, with language and time zone moved out of
  * the removed Account tab into Customization.
  *
@@ -41,6 +43,11 @@ class ThemeAwareEditProfile extends EditProfile
     /** @return Tab[] */
     protected function getDefaultTabs(): array
     {
+        // Standalone, the panel is the account system and upstream's tabs all stay.
+        if (!app(AccountPortal::class)->external()) {
+            return parent::getDefaultTabs();
+        }
+
         $tabs = [];
         $moved = [];
 

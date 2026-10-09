@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\NeoBot;
 
 use Illuminate\Support\Facades\Schema;
 use PluggedHost\Ai\Services\NeoGateway;
+use PluggedHost\Core\Contracts\AccountPortal;
 use Throwable;
 
 /**
@@ -114,12 +115,11 @@ final class NeoBotConfig
     }
 
     /**
-     * Where someone links Discord to their noprofit.space account.
+     * Where someone links Discord to their account (AccountPortal: noprofit.space with
+     * plugged-host-noprofit, the panel's Discord OAuth without it).
      */
     public static function linkUrl(): string
     {
-        $base = rtrim((string) config('plugged-host-core.noprofit.accounts_url', ''), '/');
-
-        return ($base !== '' ? $base : 'https://accounts.noprofit.space') . '/settings';
+        return app(AccountPortal::class)->discordLinkUrl() ?? rtrim((string) config('app.url'), '/');
     }
 }

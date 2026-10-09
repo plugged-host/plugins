@@ -4,7 +4,7 @@
     ramp) so it reads as the same design: full-width rows, the number on the right, the action
     under its text on a phone.
 
-    At most one filled button: "Link Discord on noprofit.space" while there is no link, "Join
+    At most one filled button: "Link Discord" while there is no link, "Join
     the Discord server" while linked but not in it. Every other action is gray.
 --}}
 <div class="flex flex-col gap-6">
@@ -20,7 +20,9 @@
             <div class="flex flex-wrap gap-3">
                 @if ($linkUrl)
                     <x-filament::button :href="$linkUrl" tag="a">
-                        {{ trans('plugged-host-discord::strings.rewards.link_on_noprofit') }}
+                        {{ $linkElsewhere
+                            ? trans('plugged-host-discord::strings.rewards.link_discord_on', ['portal' => $linkElsewhere])
+                            : trans('plugged-host-discord::strings.rewards.link_discord') }}
                     </x-filament::button>
                 @endif
 

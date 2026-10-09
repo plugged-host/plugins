@@ -262,7 +262,9 @@
                     </div>
                     @if(!$settings['linked'])
                         <div class="neo-set-hint">{{ $s('profile.unlinked') }}</div>
-                        <a class="neo-btn neo-btn-primary" href="{{ route('plugged-host.sso.link') }}">{{ $s('profile.link') }}</a>
+                        @if(\Illuminate\Support\Facades\Route::has('plugged-host.sso.link'))
+                            <a class="neo-btn neo-btn-primary" href="{{ route('plugged-host.sso.link') }}">{{ $s('profile.link') }}</a>
+                        @endif
                     @elseif(!is_array($settings['limits']))
                         <div class="neo-set-hint">{{ $s('profile.unavailable') }}</div>
                     @else
@@ -393,7 +395,9 @@
                                     <div class="neo-notice-body">
                                         <span>{{ $message->content }}</span>
                                         @if($kind === 'unlinked')
-                                            <a class="neo-btn" href="{{ route('plugged-host.sso.link') }}">{{ $s('chat.activate') }}</a>
+                                            @if(\Illuminate\Support\Facades\Route::has('plugged-host.sso.link'))
+                                                <a class="neo-btn" href="{{ route('plugged-host.sso.link') }}">{{ $s('chat.activate') }}</a>
+                                            @endif
                                         @elseif(in_array($kind, ['error', 'limited'], true) && $loop->last)
                                             <button type="button" class="neo-btn" x-on:click="run(() => $wire.retry())">{{ $s('chat.retry') }}</button>
                                         @endif

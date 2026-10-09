@@ -4,7 +4,7 @@ namespace PluggedHost\Ai\Rux\Noprofit;
 
 use Illuminate\Http\Client\Response;
 use InvalidArgumentException;
-use PluggedHost\Core\Services\NoprofitClient;
+use PluggedHost\Noprofit\Services\NoprofitClient;
 use Throwable;
 
 /**
@@ -185,6 +185,6 @@ class RuxNoprofit
 
     private function secret(): string
     {
-        return (string) config('plugged-host-core.noprofit.sync_secret', '');
+        return (string) config('plugged-host-noprofit.sync_secret', '');
     }
 }

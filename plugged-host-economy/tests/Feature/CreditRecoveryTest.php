@@ -2,10 +2,10 @@
 
 use App\Tests\Integration\IntegrationTestCase;
 use Illuminate\Support\Facades\Cache;
-use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\CreditRecoveryService;
+use PluggedHost\Noprofit\Support\NoprofitLink;
 
 require_once __DIR__ . '/../../../plugged-host-core/tests/Support/load-plugin.php';
 

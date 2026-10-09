@@ -4,8 +4,9 @@ namespace PluggedHost\Ai\Rux\Support;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
-use PluggedHost\Core\Services\NoprofitClient;
 use PluggedHost\Ai\Rux\Agent\Ai\RuxAi;
+use PluggedHost\Core\Contracts\AccountPortal;
+use PluggedHost\Noprofit\Services\NoprofitClient;
 use Throwable;
 
 /**
@@ -94,7 +95,7 @@ final class RuxConfig
 
         $client = app(NoprofitClient::class);
 
-        if (!$client->configured((string) config('plugged-host-core.noprofit.sync_secret', ''))) {
+        if (!$client->configured((string) config('plugged-host-noprofit.sync_secret', ''))) {
             $blockers[] = 'noprofit.space is not configured (NOPROFIT_SYNC_SECRET): rux cannot tell who is an admin.';
         }
 
@@ -149,12 +150,11 @@ final class RuxConfig
     }
 
     /**
-     * Where someone links Discord to their noprofit.space account.
+     * Where someone links Discord to their account (AccountPortal: noprofit.space with
+     * plugged-host-noprofit, the panel's Discord OAuth without it).
      */
     public static function linkUrl(): string
     {
-        $base = rtrim((string) config('plugged-host-core.noprofit.accounts_url', ''), '/');
-
-        return ($base !== '' ? $base : 'https://accounts.noprofit.space') . '/settings';
+        return app(AccountPortal::class)->discordLinkUrl() ?? rtrim((string) config('app.url'), '/');
     }
 }

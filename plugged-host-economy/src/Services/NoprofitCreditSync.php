@@ -7,12 +7,12 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Services\AccountSummary;
-use PluggedHost\Core\Services\NoprofitClient;
-use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Models\CreditTransaction;
 use PluggedHost\Economy\Models\NoprofitCreditOutbox;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Noprofit\Services\NoprofitClient;
+use PluggedHost\Noprofit\Support\NoprofitLink;
 use PluggedHost\Servers\Support\AccountAllowance;
 use RuntimeException;
 use Throwable;
@@ -631,6 +631,6 @@ final class NoprofitCreditSync
 
     private static function secret(): string
     {
-        return (string) config('plugged-host-core.noprofit.sync_secret', '');
+        return (string) config('plugged-host-noprofit.sync_secret', '');
     }
 }

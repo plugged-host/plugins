@@ -18,8 +18,9 @@ return [
     'rewards' => [
         'tab' => 'Discord-Belohnungen',
         'heading' => 'Credits auf Discord verdienen',
-        'unlinked_body' => 'Lade Freunde auf den plugged.host-Discord-Server ein und booste ihn, um Credits zu verdienen: :credits für jeden Freund, der bleibt. Verknüpfe dein Discord-Konto auf noprofit.space, um loszulegen.',
-        'link_on_noprofit' => 'Discord auf noprofit.space verknüpfen',
+        'unlinked_body' => 'Lade Freunde auf den plugged.host-Discord-Server ein und booste ihn, um Credits zu verdienen: :credits für jeden Freund, der bleibt. Verknüpfe dein Discord-Konto, um loszulegen.',
+        'link_discord' => 'Discord verknüpfen',
+        'link_discord_on' => 'Discord auf :portal verknüpfen',
         'join_server' => 'Dem Discord-Server beitreten',
         'open_server' => 'Discord-Server öffnen',
         'earned' => 'Auf Discord verdiente Credits',

@@ -22,7 +22,7 @@ use PluggedHost\Ai\Tools\Tool;
 use PluggedHost\Ai\Tools\ToolContext;
 use PluggedHost\Ai\Tools\ToolResult;
 use PluggedHost\Ai\Tools\ToolRisk;
-use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**

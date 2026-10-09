@@ -2,6 +2,10 @@
 
 ## Unreleased (2.2)
 
+- **noprofit.space moved out to plugged-host-noprofit** (sign-in, account link and sync,
+  `/migrate`, identity lock, SFTP check, `/api/noprofit/*`). Without it the panel uses
+  Pelican's own sign-in again. New `AccountPortal` contract: where people manage their account
+  and link Discord (the panel itself by default, noprofit.space with that plugin).
 - **Abuse protection is its own plugin now** (`plugged-host-abuse`): same tables, routes,
   `ABUSE_*` settings and agent. Core keeps suspension itself (the suspend toggle on the admin
   server list, now `SuspendActionPluginProvider`, and the suspended-server page, which other

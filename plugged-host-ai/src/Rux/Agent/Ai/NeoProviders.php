@@ -5,8 +5,8 @@ namespace PluggedHost\Ai\Rux\Agent\Ai;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
-use PluggedHost\Core\Services\NoprofitClient;
 use PluggedHost\Ai\Rux\Support\RuxSupervisor;
+use PluggedHost\Noprofit\Services\NoprofitClient;
 use Throwable;
 
 /**

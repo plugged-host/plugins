@@ -10,7 +10,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
-use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Ai\Agent\NeoAgent;
 use PluggedHost\Ai\Agent\ServerGuard;
 use PluggedHost\Ai\Agent\StepResult;
@@ -21,6 +20,7 @@ use PluggedHost\Ai\Support\MclogsHandoff;
 use PluggedHost\Ai\Support\NeoAccess;
 use PluggedHost\Ai\Support\NeoPreferences;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**

@@ -6,14 +6,14 @@ use App\Models\User;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
-use PluggedHost\Core\Services\NoprofitClient;
-use PluggedHost\Core\Support\NoprofitLink;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Noprofit\Services\NoprofitClient;
+use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**

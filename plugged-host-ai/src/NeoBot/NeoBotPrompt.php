@@ -4,7 +4,7 @@ namespace PluggedHost\Ai\NeoBot;
 
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Contracts\AccountPortal;
 use Throwable;
 
 /**
@@ -29,7 +29,7 @@ final class NeoBotPrompt
             'direct' => $direct,
             'tools' => $tools,
             'panelUrl' => rtrim((string) config('app.url'), '/'),
-            'accountsUrl' => NoprofitLink::accountsUrl(),
+            'accountsUrl' => app(AccountPortal::class)->manageUrl() ?? rtrim((string) config('app.url'), '/'),
             'linkUrl' => NeoBotConfig::linkUrl(),
             'supportUrl' => (string) (config('plugged-host-discord.invite_url') ?: config('plugged-host-ai.support_url')),
             'resets' => static function (string $iso): string {

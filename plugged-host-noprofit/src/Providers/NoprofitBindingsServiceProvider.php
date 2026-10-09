@@ -1,0 +1,25 @@
+<?php
+
+namespace PluggedHost\Noprofit\Providers;
+
+use App\Services\Subusers\SubuserCreationService;
+use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Contracts\AccountPortal;
+use PluggedHost\Noprofit\Identity\NoprofitAccountPortal;
+use PluggedHost\Noprofit\Services\GuardedSubuserCreationService;
+
+/**
+ * Where noprofit.space takes over from the other plugins' standalone defaults. They bind theirs
+ * with singletonIf(); this binds with singleton(), so which provider registers first does not
+ * matter, and with this plugin disabled nothing here runs and the defaults stand.
+ */
+class NoprofitBindingsServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(AccountPortal::class, NoprofitAccountPortal::class);
+
+        // Subuser invites only reach existing accounts: identities are noprofit.space's.
+        $this->app->bind(SubuserCreationService::class, GuardedSubuserCreationService::class);
+    }
+}

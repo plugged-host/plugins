@@ -7,7 +7,6 @@ use App\Filament\Server\Pages\Console;
 use App\Services\Servers\BuildModificationService;
 use App\Services\Servers\ServerDeletionService;
 use App\Services\Servers\TransferServerService;
-use App\Services\Subusers\SubuserCreationService;
 use Closure;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
@@ -18,16 +17,15 @@ use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
-use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
-use PluggedHost\Servers\Filament\Server\Pages\ServerSettings;
+use PluggedHost\Core\Livewire\PanelTourOverlay;
 use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Core\Services\AllocationInvariant;
 use PluggedHost\Core\Services\GuardedBuildModificationService;
 use PluggedHost\Core\Services\GuardedServerDeletionService;
-use PluggedHost\Core\Services\GuardedSubuserCreationService;
 use PluggedHost\Core\Services\GuardedTransferServerService;
-use PluggedHost\Core\Livewire\PanelTourOverlay;
 use PluggedHost\Core\Support\PanelTour;
+use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
+use PluggedHost\Servers\Filament\Server\Pages\ServerSettings;
 use Throwable;
 
 class CoreRuntimeServiceProvider extends ServiceProvider
@@ -39,7 +37,6 @@ class CoreRuntimeServiceProvider extends ServiceProvider
         $this->app->bind(ServerDeletionService::class, GuardedServerDeletionService::class);
         $this->app->bind(TransferServerService::class, GuardedTransferServerService::class);
         $this->app->bind(BuildModificationService::class, GuardedBuildModificationService::class);
-        $this->app->bind(SubuserCreationService::class, GuardedSubuserCreationService::class);
 
         // scoped(), not singleton(): the memo inside is per-request by design, and a singleton
         // would hand a queue worker one user's balances for the life of the process.

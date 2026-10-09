@@ -5,13 +5,6 @@ namespace PluggedHost\Core;
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Enums\TablerIcon;
 use App\Traits\EnvironmentWriterTrait;
-use PluggedHost\Core\Filament\App\Pages\WelcomeTourPage;
-use PluggedHost\Core\Filament\HiddenNavigationManager;
-use PluggedHost\Core\Filament\ServerNavigation;
-use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
-use PluggedHost\Core\Http\Middleware\RequireNoprofitLink;
-use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
-use PluggedHost\Core\Http\Middleware\RequirePanelTour;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\CreateAction;
@@ -27,6 +20,12 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
+use PluggedHost\Core\Filament\App\Pages\WelcomeTourPage;
+use PluggedHost\Core\Filament\HiddenNavigationManager;
+use PluggedHost\Core\Filament\ServerNavigation;
+use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
+use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
+use PluggedHost\Core\Http\Middleware\RequirePanelTour;
 use Throwable;
 
 class PluggedHostCorePlugin implements HasPluginSettings, Plugin
@@ -49,16 +48,10 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
         $panel->discoverWidgets(plugin_path($this->getId(), "src/Filament/$id/Widgets"), "PluggedHost\\Core\\Filament\\$id\\Widgets");
         $panel->discoverClusters(plugin_path($this->getId(), "src/Filament/$id/Clusters"), "PluggedHost\\Core\\Filament\\$id\\Clusters");
 
-        // Signing in and signing up happen on noprofit.space: MigrationEndpointServiceProvider
-        // points every panel's login and /register at it. No ->registration() here, so the
-        // panel serves no sign-up form of its own (/admin/register and /server/register
-        // used to, which created panel accounts around noprofit.space).
-
-        // RequireNoprofitLink: a panel session of an account that is not linked to
-        // noprofit.space yet (from before the move) goes through noprofit.space once.
+        // Sign-in itself is upstream's, or noprofit.space's when plugged-host-noprofit is enabled
+        // (it replaces the login routes and adds its own link check to this middleware list).
         $panel->authMiddleware([
             EnsureRememberMeCookie::class,
-            RequireNoprofitLink::class,
         ]);
 
         if ($panel->getId() === 'server') {

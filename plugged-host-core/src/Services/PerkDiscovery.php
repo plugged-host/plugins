@@ -3,7 +3,7 @@
 namespace PluggedHost\Core\Services;
 
 use App\Models\User;
-use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
@@ -56,7 +56,7 @@ class PerkDiscovery
     }
 
     /**
-     * "Join our Discord for +4 GB RAM" -- or, before linking, "link Discord" on noprofit.space.
+     * "Join our Discord for +4 GB RAM" -- or, before linking, "link Discord" (AccountPortal).
      *
      * Suppressed entirely once the user is in the server, while the tiers are not known, or
      * when the Discord tier would not improve on the default one.
@@ -87,6 +87,13 @@ class PerkDiscovery
             ];
         }
 
+        $portal = app(AccountPortal::class);
+        $linkUrl = $portal->discordLinkUrl();
+
+        if ($linkUrl === null) {
+            return null;
+        }
+
         return [
             'id' => 'discord-link',
             'icon' => 'tabler-brand-discord',
@@ -94,8 +101,8 @@ class PerkDiscovery
             'title' => trans('plugged-host-core::strings.perks.discord_link_title', ['gain' => $gain]),
             'body' => trans('plugged-host-core::strings.perks.discord_link_body'),
             'cta' => trans('plugged-host-core::strings.perks.discord_link_cta'),
-            'url' => NoprofitLink::accountsUrl('/settings'),
-            'external' => true,
+            'url' => $linkUrl,
+            'external' => $portal->external(),
         ];
     }
 

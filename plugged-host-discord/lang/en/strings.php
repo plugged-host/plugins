@@ -18,8 +18,9 @@ return [
     'rewards' => [
         'tab' => 'Discord rewards',
         'heading' => 'Earn credits on Discord',
-        'unlinked_body' => 'Invite friends to the plugged.host Discord server and boost it to earn credits: :credits for every friend who stays. Link your Discord account on noprofit.space to start.',
-        'link_on_noprofit' => 'Link Discord on noprofit.space',
+        'unlinked_body' => 'Invite friends to the plugged.host Discord server and boost it to earn credits: :credits for every friend who stays. Link your Discord account to start.',
+        'link_discord' => 'Link Discord',
+        'link_discord_on' => 'Link Discord on :portal',
         'join_server' => 'Join the Discord server',
         'open_server' => 'Open the Discord server',
         'earned' => 'Credits earned on Discord',

@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
-use PluggedHost\Core\Support\NoprofitLink;
+use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordInvitedMember;
 use PluggedHost\Discord\Models\DiscordLink;
@@ -22,7 +22,8 @@ use Throwable;
  * The "Discord rewards" tab on the profile page: what inviting friends and boosting the
  * plugged.host Discord server has earned, what is still on its way, and the rules.
  *
- * Linking the Discord account is not here: that lives on noprofit.space, which mirrors the
+ * Linking the Discord account is not here: that is the account portal's (AccountPortal: the
+ * panel's Discord OAuth, or noprofit.space with plugged-host-noprofit), which mirrors the
  * link to the panel. Without a link the tab explains that and points there.
  *
  * Everything shown is read from the panel's own reward tables, the same numbers the gateway
@@ -113,7 +114,8 @@ class DiscordRewards extends Component
             'username' => $link?->discord_username,
             'inGuild' => (bool) $link?->is_in_guild,
             'inviteUrl' => (string) config('plugged-host-discord.invite_url'),
-            'linkUrl' => class_exists(NoprofitLink::class) ? NoprofitLink::accountsUrl('/settings') : null,
+            'linkUrl' => app(AccountPortal::class)->discordLinkUrl(),
+            'linkElsewhere' => app(AccountPortal::class)->external() ? app(AccountPortal::class)->name() : null,
             'perInvite' => $perInvite,
             'maturityHours' => $discord->getInviteMaturityHours(),
             'minAgeDays' => $discord->getMinAccountAgeDays(),
