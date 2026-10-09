@@ -2,7 +2,8 @@
 
 namespace PluggedHost\Economy\Support;
 
-use PluggedHost\Economy\Services\NoprofitCreditSync;
+use PluggedHost\Economy\Contracts\ComputePlans;
+
 
 /**
  * What CPU, memory and disk cost in the Resource Store. A copy of noprofit.space's
@@ -53,12 +54,13 @@ final class ComputePricing
     public function __construct(private readonly array $pricing) {}
 
     /**
-     * The prices noprofit.space last sent, fetched again when older than $maxAge seconds, or
-     * null while none are known: then nothing is for sale.
+     * The current prices (ComputePlans: this panel's settings, or what noprofit.space last sent,
+     * fetched again when older than $maxAge seconds), or null while none are known: then
+     * nothing is for sale.
      */
-    public static function current(int $maxAge = NoprofitCreditSync::PRICING_MAX_AGE): ?self
+    public static function current(int $maxAge = ComputePlans::PRICING_MAX_AGE): ?self
     {
-        $pricing = NoprofitCreditSync::pricing($maxAge);
+        $pricing = app(ComputePlans::class)->pricing($maxAge);
 
         return $pricing === null ? null : new self($pricing);
     }

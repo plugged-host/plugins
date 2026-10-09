@@ -14,7 +14,7 @@ use App\Services\Deployment\FindViableNodesService;
 use App\Services\Servers\ServerCreationService;
 use Illuminate\Database\Eloquent\Collection;
 use PluggedHost\Core\Support\Plugins;
-use PluggedHost\Economy\Services\NoprofitCreditSync;
+use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\NodeBalancer;
 use PluggedHost\Servers\Services\NodeCapacity;
@@ -24,9 +24,9 @@ use PluggedHost\Servers\Support\PremiumAccess;
  * What an account may use across all its servers, and the one way a user's server is created
  * within it (createServer + the allocation helpers).
  *
- * The allowance is the account's plan on noprofit.space: the base tier (default, or the Discord
- * tier while its Discord account is in the server) plus resources bought there, capped. It
- * arrives with the credit sync (NoprofitCreditSync::plan). There are no panel-side limits on
+ * The allowance is the account's plan (economy's ComputePlans: set on this panel, or on
+ * noprofit.space with plugged-host-noprofit): the base tier (default, or the Discord tier while
+ * its Discord account is in the server) plus resources bought in the store. There are no panel-side limits on
  * top: no role limits, no server count -- how many servers fit is decided by the plan alone.
  * Without a plan (not linked, or not synced yet -- the SSO sign-in pulls it) the user has no
  * allowance, and the create pages say so.
@@ -98,7 +98,7 @@ final class AccountAllowance
             return self::$forUserMemo[$id];
         }
 
-        $plan = class_exists(NoprofitCreditSync::class) ? NoprofitCreditSync::plan($user) : null;
+        $plan = Plugins::enabled('plugged-host-economy') ? app(ComputePlans::class)->plan($user) : null;
         if ($plan === null) {
             return self::$forUserMemo[$id] = null;
         }

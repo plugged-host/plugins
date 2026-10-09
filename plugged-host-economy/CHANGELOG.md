@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- **Works without noprofit.space.** Plans, tiers, limits and store prices come from
+  `ComputePlans`: set in this plugin's settings (Plans & store prices, `COMPUTE_*`,
+  `CREDITS_STARTING_BALANCE`) by default, or from noprofit.space when plugged-host-noprofit is
+  enabled. The credit sync with noprofit.space moved to that plugin.
+- The `user_credits`/`credit_transactions` migration moved here from core (same filename).
+
 ## Unreleased (2.1)
 
 - **plugged.host Plus and PlusPlus** replace the queue's priority passes and the one-time

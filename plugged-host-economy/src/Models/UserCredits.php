@@ -94,7 +94,8 @@ class UserCredits extends Model
         return self::$userMemo[$id] = self::firstOrCreate(
             ['user_id' => $id],
             [
-                // Starting credits are granted on noprofit.space and arrive with the sync.
+                // Starting credits: ComputePlans::startingCredits(), granted when the user is
+                // created (ComputePlansServiceProvider), or by noprofit.space via the sync.
                 'credits' => 0,
                 'extra_cpu' => 0,
                 'extra_memory' => 0,

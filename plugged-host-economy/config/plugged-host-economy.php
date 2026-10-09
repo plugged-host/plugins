@@ -92,4 +92,43 @@ return [
         'plus_ai_percent' => (int) env('PLUS_AI_PERCENT', 125),
         'plusplus_ai_percent' => (int) env('PLUSPLUS_AI_PERCENT', 125),
     ],
+
+    /*
+     * Plans, when this panel sets them (without plugged-host-noprofit; with it noprofit.space
+     * does and these are not used). See Services\LocalComputePlans and Support\ComputePricing.
+     *
+     * tiers: what an account starts with, the Discord tier while its linked Discord account is
+     * in the server. max_*: the limit where a store step costs its full price (no ceiling: past
+     * it prices climb along the curve). CPU in %, memory and disk in MB.
+     */
+    'compute' => [
+        'tiers' => [
+            'default' => [
+                'cpu' => (int) env('COMPUTE_DEFAULT_CPU', 400),
+                'memory' => (int) env('COMPUTE_DEFAULT_MEMORY', 12288),
+                'disk' => (int) env('COMPUTE_DEFAULT_DISK', 51200),
+            ],
+            'discord' => [
+                'cpu' => (int) env('COMPUTE_DISCORD_CPU', 400),
+                'memory' => (int) env('COMPUTE_DISCORD_MEMORY', 16384),
+                'disk' => (int) env('COMPUTE_DISCORD_DISK', 51200),
+            ],
+        ],
+        'max_cpu' => (int) env('COMPUTE_MAX_CPU', 600),
+        'max_memory' => (int) env('COMPUTE_MAX_MEMORY', 24576),
+        'max_disk' => (int) env('COMPUTE_MAX_DISK', 102400),
+        'pricing' => [
+            'cpu_unit_percent' => (int) env('COMPUTE_CPU_STEP', 50),
+            'cpu_price_credits' => (int) env('COMPUTE_CPU_PRICE', 100),
+            'memory_unit_mb' => (int) env('COMPUTE_MEMORY_STEP', 1024),
+            'memory_price_credits' => (int) env('COMPUTE_MEMORY_PRICE', 150),
+            'storage_unit_mb' => (int) env('COMPUTE_DISK_STEP', 5120),
+            'storage_price_credits' => (int) env('COMPUTE_DISK_PRICE', 75),
+            'curve_floor_percent' => 50,
+            'soft_limit_percent' => 125,
+            'soft_limit_multiplier' => 4,
+            'doubling_percent' => 5,
+        ],
+        'starting_credits' => (int) env('CREDITS_STARTING_BALANCE', 0),
+    ],
 ];

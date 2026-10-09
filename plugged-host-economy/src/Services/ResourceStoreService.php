@@ -4,6 +4,7 @@ namespace PluggedHost\Economy\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Support\ComputePricing;
 
@@ -33,10 +34,10 @@ class ResourceStoreService
 
     public function sellsComputeTo(User $user): bool
     {
-        return NoprofitCreditSync::plan($user) !== null && $this->pricing() !== null;
+        return app(ComputePlans::class)->plan($user) !== null && $this->pricing() !== null;
     }
 
-    public function pricing(int $maxAge = NoprofitCreditSync::PRICING_MAX_AGE): ?ComputePricing
+    public function pricing(int $maxAge = ComputePlans::PRICING_MAX_AGE): ?ComputePricing
     {
         return ComputePricing::current($maxAge);
     }
@@ -55,7 +56,7 @@ class ResourceStoreService
      */
     public function limit(User $user, string $resource): int
     {
-        return max(0, (int) (NoprofitCreditSync::plan($user)["max_{$resource}"] ?? 0));
+        return max(0, (int) (app(ComputePlans::class)->plan($user)["max_{$resource}"] ?? 0));
     }
 
     public function softLimit(User $user, string $resource): int
@@ -69,7 +70,7 @@ class ResourceStoreService
      */
     public function current(User $user, string $resource, ?UserCredits $credits = null): int
     {
-        $plan = NoprofitCreditSync::plan($user);
+        $plan = app(ComputePlans::class)->plan($user);
 
         if ($plan === null) {
             return 0;
@@ -90,7 +91,7 @@ class ResourceStoreService
      */
     public function price(User $user, string $resource, int $amount): int
     {
-        if (NoprofitCreditSync::plan($user) === null) {
+        if (app(ComputePlans::class)->plan($user) === null) {
             return 0;
         }
 
@@ -103,7 +104,7 @@ class ResourceStoreService
      */
     public function value(User $user, string $resource, int $amount, ?UserCredits $credits = null): int
     {
-        if (NoprofitCreditSync::plan($user) === null) {
+        if (app(ComputePlans::class)->plan($user) === null) {
             return 0;
         }
 
@@ -155,7 +156,7 @@ class ResourceStoreService
         $pricing = $this->pricing(self::PURCHASE_PRICING_MAX_AGE);
         $step = $pricing?->step($resource) ?? 0;
 
-        if ($pricing === null || $step <= 0 || NoprofitCreditSync::plan($user) === null) {
+        if ($pricing === null || $step <= 0 || app(ComputePlans::class)->plan($user) === null) {
             return ['success' => false, 'message' => trans('plugged-host-economy::strings.credits.store_unavailable')];
         }
 

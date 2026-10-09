@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Economy\Models;
+namespace PluggedHost\Noprofit\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;

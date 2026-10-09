@@ -5,6 +5,8 @@ namespace PluggedHost\Noprofit\Providers;
 use App\Services\Subusers\SubuserCreationService;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Contracts\AccountPortal;
+use PluggedHost\Economy\Contracts\ComputePlans;
+use PluggedHost\Noprofit\Credits\NoprofitComputePlans;
 use PluggedHost\Noprofit\Identity\NoprofitAccountPortal;
 use PluggedHost\Noprofit\Services\GuardedSubuserCreationService;
 
@@ -18,6 +20,7 @@ class NoprofitBindingsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(AccountPortal::class, NoprofitAccountPortal::class);
+        $this->app->singleton(ComputePlans::class, NoprofitComputePlans::class);
 
         // Subuser invites only reach existing accounts: identities are noprofit.space's.
         $this->app->bind(SubuserCreationService::class, GuardedSubuserCreationService::class);

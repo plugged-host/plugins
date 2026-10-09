@@ -5,11 +5,11 @@
     $label = fn ($p) => is_string($p['label'] ?? null) && str_contains($p['label'], '::') ? trans($p['label']) : ($p['label'] ?? $p['id']);
     $gb = fn ($mb) => rtrim(rtrim(number_format(((int) $mb) / 1024, 1), '0'), '.') . ' GB';
     $subCosts = (array) $cfg('subdomains.token_costs', []);
-    // The allowance, limits and store prices are decided on noprofit.space and arrive with the credit sync.
-    $noprofit = class_exists(\PluggedHost\Economy\Services\NoprofitCreditSync::class);
-    $tiers = $noprofit ? \PluggedHost\Economy\Services\NoprofitCreditSync::tiers() : null;
-    $pricing = $noprofit ? \PluggedHost\Economy\Services\NoprofitCreditSync::pricing() : null;
-    $plan = $noprofit && isset($user) ? \PluggedHost\Economy\Services\NoprofitCreditSync::plan($user) : null;
+    // The allowance, limits and store prices: economy's ComputePlans (this panel's settings, or noprofit.space's).
+    $computePlans = \PluggedHost\Core\Support\Plugins::enabled('plugged-host-economy') ? app(\PluggedHost\Economy\Contracts\ComputePlans::class) : null;
+    $tiers = $computePlans?->tiers();
+    $pricing = $computePlans?->pricing();
+    $plan = $computePlans && isset($user) ? $computePlans->plan($user) : null;
 @endphp
 What plugged.host is and how it works (answer from this; if something is not covered, say you are not sure and point to support):
 

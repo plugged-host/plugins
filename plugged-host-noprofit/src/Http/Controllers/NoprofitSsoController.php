@@ -10,8 +10,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use PluggedHost\Economy\Services\NoprofitCreditSync;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Noprofit\Services\NoprofitAccountSync;
+use PluggedHost\Noprofit\Services\NoprofitCreditSync;
 use PluggedHost\Noprofit\Support\NoprofitLink;
 use PluggedHost\Noprofit\Support\NoprofitMigrationToken;
 use PluggedHost\Noprofit\Support\NoprofitToken;
@@ -311,7 +312,7 @@ final class NoprofitSsoController
         $accountId = NoprofitLink::accountId($user);
 
         if ($accountId === null
-            || !class_exists(NoprofitCreditSync::class)
+            || !Plugins::enabled('plugged-host-economy')
             || !NoprofitCreditSync::enabled()
             || NoprofitCreditSync::plan($user) !== null) {
             return;

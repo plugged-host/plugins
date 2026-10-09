@@ -6,9 +6,9 @@ use App\Models\User;
 use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
+use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Models\UserCredits;
-use PluggedHost\Economy\Services\NoprofitCreditSync;
 use PluggedHost\Economy\Services\ResourceStoreService;
 use PluggedHost\Servers\Support\AccountAllowance;
 
@@ -107,12 +107,12 @@ class PerkDiscovery
     }
 
     /**
-     * What noprofit.space's Discord tier adds to the default tier ("+4 GB RAM"), or null when
+     * What the Discord tier (ComputePlans) adds to the default tier ("+4 GB RAM"), or null when
      * the user is already in the Discord server, the tiers are unknown, or it adds nothing.
      */
     public function discordTierGain(User $user): ?string
     {
-        if (!class_exists(DiscordLink::class) || !class_exists(NoprofitCreditSync::class)) {
+        if (!Plugins::available(DiscordLink::class) || !Plugins::enabled('plugged-host-economy')) {
             return null;
         }
 
@@ -120,7 +120,7 @@ class PerkDiscovery
             return null;
         }
 
-        $tiers = NoprofitCreditSync::tiers();
+        $tiers = app(ComputePlans::class)->tiers();
 
         if ($tiers === null) {
             return null;

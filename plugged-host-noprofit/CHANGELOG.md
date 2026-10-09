@@ -8,3 +8,6 @@
   filename (`011_add_noprofit_account_id_to_users`), so noprofit.space sees no change. Config
   moved from `plugged-host-core.noprofit.*` to `plugged-host-noprofit.*`.
 - Binds `AccountPortal` to noprofit.space.
+- **Credits**: the credit sync (outbox, `/api/noprofit/credits/sync`, `noprofit:credits-sync`,
+  migrations 012/013) moved here from plugged-host-economy unchanged; `NoprofitComputePlans`
+  gives economy noprofit.space's plans, tiers and prices.

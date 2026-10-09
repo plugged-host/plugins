@@ -1,10 +1,10 @@
 <?php
 
-namespace PluggedHost\Economy\Http\Controllers;
+namespace PluggedHost\Noprofit\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use PluggedHost\Economy\Services\NoprofitCreditSync;
+use PluggedHost\Noprofit\Services\NoprofitCreditSync;
 
 /**
  * noprofit.space pushes each account's state here after changing it (signed with the sync

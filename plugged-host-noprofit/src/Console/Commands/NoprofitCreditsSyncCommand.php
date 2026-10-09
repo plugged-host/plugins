@@ -1,9 +1,9 @@
 <?php
 
-namespace PluggedHost\Economy\Console\Commands;
+namespace PluggedHost\Noprofit\Console\Commands;
 
 use Illuminate\Console\Command;
-use PluggedHost\Economy\Services\NoprofitCreditSync;
+use PluggedHost\Noprofit\Services\NoprofitCreditSync;
 use Throwable;
 
 /**

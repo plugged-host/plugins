@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Economy\Services;
+namespace PluggedHost\Noprofit\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Services\AccountSummary;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Models\CreditTransaction;
-use PluggedHost\Economy\Models\NoprofitCreditOutbox;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Noprofit\Models\NoprofitCreditOutbox;
 use PluggedHost\Noprofit\Services\NoprofitClient;
 use PluggedHost\Noprofit\Support\NoprofitLink;
 use PluggedHost\Servers\Support\AccountAllowance;
