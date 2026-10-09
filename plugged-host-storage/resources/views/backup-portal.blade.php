@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Server Backups &bull; plugged.host</title>
-    <link rel="icon" type="image/png" href="https://panel.plugged.host/plugged.host_nobg.png">
+    <link rel="icon" type="image/png" href="{{ config('app.favicon', '/plugged.host_nobg.png') }}">
     <meta name="description" content="Download dedicated off-site backups for your plugged.host game servers.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -476,7 +476,7 @@
     <header class="topbar">
         <div class="container topbar-inner">
             <a href="{{ $panelUrl }}" class="brand" title="plugged.host Panel">
-                <img src="https://panel.plugged.host/plugged.host_nobg.png" alt="plugged.host" class="brand-logo">
+                <img src="{{ config('app.logo', '/plugged.host_nobg.png') }}" alt="plugged.host" class="brand-logo">
                 <span class="brand-text">plugged.host</span>
             </a>
 
