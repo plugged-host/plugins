@@ -39,12 +39,12 @@ final class Plugins
     }
 
     /**
-     * class_exists() for another plugin's class: the class exists and the plugin that ships it
-     * is enabled. A class no plugin ships (the panel's, a vendor's) only has to exist.
+     * class_exists() for another plugin's class, interface or trait: it exists and the plugin
+     * that ships it is enabled. One no plugin ships (the panel's, a vendor's) only has to exist.
      */
     public static function available(string $class): bool
     {
-        if (!class_exists($class)) {
+        if (!class_exists($class) && !interface_exists($class) && !trait_exists($class)) {
             return false;
         }
 
