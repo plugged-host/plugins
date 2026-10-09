@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Agent\Ai;
+namespace PluggedHost\Ai\Chat;
 
 /**
  * Not configured, refused (bad key), or broken in a way waiting will not fix soon.

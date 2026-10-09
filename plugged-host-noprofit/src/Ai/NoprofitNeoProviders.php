@@ -1,10 +1,12 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Agent\Ai;
+namespace PluggedHost\Noprofit\Ai;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Ai\Chat\AiUnavailableException;
+use PluggedHost\Ai\Contracts\ProviderSource;
 use PluggedHost\Ai\Rux\Support\RuxSupervisor;
 use PluggedHost\Noprofit\Services\NoprofitClient;
 use Throwable;
@@ -12,13 +14,14 @@ use Throwable;
 /**
  * neo's AI providers, fetched from noprofit.space (GET /api/v1/internal/neo/providers, signed
  * with neo's gateway secret) so rux always runs the chain neo runs: whatever is changed in neo's
- * settings reaches rux within a minute, with nothing to copy.
+ * settings reaches rux within a minute, with nothing to copy. (plugged-host-ai's NeoProviders
+ * until 2.2; same file, same cache keys.)
  *
- * A fetch is reused for `refresh_seconds` by every rux process. The last good one is kept,
- * encrypted with the app key, next to the supervisor's files, so a noprofit.space outage (or
+ * A fetch is reused for `neo_providers_refresh` seconds by every rux process. The last good one is
+ * kept, encrypted with the app key, next to the supervisor's files, so a noprofit.space outage (or
  * optimize:clear) leaves rux on the chain it last saw instead of without one.
  */
-class NeoProviders
+class NoprofitNeoProviders implements ProviderSource
 {
     private const PATH = '/api/v1/internal/neo/providers';
 
@@ -87,7 +90,7 @@ class NeoProviders
      */
     private function current(): ?array
     {
-        $fresh = time() - (int) config('plugged-host-ai.rux.ai.refresh_seconds', 60);
+        $fresh = time() - (int) config('plugged-host-noprofit.neo_providers_refresh', 60);
 
         if ($this->loaded !== null && $this->loaded['fetched_at'] > $fresh) {
             return $this->loaded;
@@ -194,6 +197,6 @@ class NeoProviders
 
     private function secret(): string
     {
-        return (string) config('plugged-host-ai.rux.ai.gateway_secret', '');
+        return (string) config('plugged-host-noprofit.neo_gateway_secret', '');
     }
 }

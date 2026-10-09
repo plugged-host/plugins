@@ -4,10 +4,12 @@ namespace PluggedHost\Noprofit\Providers;
 
 use App\Services\Subusers\SubuserCreationService;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Ai\Contracts\ProviderSource;
 use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Discord\Contracts\DiscordAccounts;
 use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
 use PluggedHost\Economy\Contracts\ComputePlans;
+use PluggedHost\Noprofit\Ai\NoprofitNeoProviders;
 use PluggedHost\Noprofit\Credits\NoprofitComputePlans;
 use PluggedHost\Noprofit\Discord\NoprofitRuxClient;
 use PluggedHost\Noprofit\Identity\NoprofitAccountPortal;
@@ -27,6 +29,9 @@ class NoprofitBindingsServiceProvider extends ServiceProvider
         $this->app->singleton(NoprofitRuxClient::class);
         $this->app->singleton(DiscordAccounts::class, fn ($app) => $app->make(NoprofitRuxClient::class));
         $this->app->singleton(DiscordCreditPayouts::class, fn ($app) => $app->make(NoprofitRuxClient::class));
+
+        // neo's providers, as noprofit.space runs them (rux calls the same ones).
+        $this->app->singleton(ProviderSource::class, NoprofitNeoProviders::class);
 
         // Subuser invites only reach existing accounts: identities are noprofit.space's.
         $this->app->bind(SubuserCreationService::class, GuardedSubuserCreationService::class);

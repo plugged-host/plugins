@@ -126,7 +126,7 @@ final class RuxSettings
                     TextInput::make('warn_ban')->label('Ban length')->required()->regex('/^(\d+[smhdw])+$/i')->helperText('Like 24h; rux lifts the ban afterwards.'),
                 ]),
             Section::make('AI')
-                ->description('neo\'s providers, 1:1, tried in this order with neo\'s failover: ' . self::aiChain() . '. rux fetches them from noprofit.space, so a change in neo\'s settings reaches rux within a minute. It calls them directly, so no neo limits apply.')
+                ->description('neo\'s providers, 1:1, tried in this order with neo\'s failover: ' . self::aiChain() . '. A change in neo\'s settings reaches rux within a minute. It calls them directly, so no neo limits apply.')
                 ->schema([
                     Toggle::make('watch_guidelines')
                         ->label('Watched channels also enforce the basic guidelines')

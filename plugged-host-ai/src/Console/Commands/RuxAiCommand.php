@@ -3,13 +3,14 @@
 namespace PluggedHost\Ai\Console\Commands;
 
 use Illuminate\Console\Command;
-use PluggedHost\Ai\Rux\Agent\Ai\AiUnavailableException;
-use PluggedHost\Ai\Rux\Agent\Ai\NeoProviders;
+use PluggedHost\Ai\Chat\AiUnavailableException;
+use PluggedHost\Ai\Contracts\ProviderSource;
 use PluggedHost\Ai\Rux\Support\RuxSupervisor;
 
 /**
- * Show the AI providers rux has from neo. rux fetches them by itself (NeoProviders); this
- * fetches them now and shows what came back.
+ * Show the AI providers rux has from neo: this panel's own, or the ones fetched from
+ * noprofit.space with plugged-host-noprofit (rux fetches those by itself; this fetches them now
+ * and shows what came back).
  */
 class RuxAiCommand extends Command
 {
@@ -17,7 +18,7 @@ class RuxAiCommand extends Command
 
     protected $description = 'Fetch neo\'s AI providers for rux now and show them';
 
-    public function handle(RuxSupervisor $supervisor, NeoProviders $neo): int
+    public function handle(RuxSupervisor $supervisor, ProviderSource $neo): int
     {
         if (($relaunched = $supervisor->relaunchAsWebUser($this)) !== null) {
             return $relaunched;
@@ -25,7 +26,7 @@ class RuxAiCommand extends Command
 
         try {
             $neo->refresh();
-            $this->info('Fetched neo\'s providers from noprofit.space just now.');
+            $this->info($neo->fetchedAt() !== null ? 'Fetched neo\'s providers just now.' : 'neo\'s providers, as set on this panel:');
         } catch (AiUnavailableException $e) {
             $fetchedAt = $neo->fetchedAt();
             $this->error("Could not fetch neo's providers ({$e->getMessage()}).");

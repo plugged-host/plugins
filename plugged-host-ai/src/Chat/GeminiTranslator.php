@@ -1,13 +1,13 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Agent\Ai;
+namespace PluggedHost\Ai\Chat;
 
 use stdClass;
 
 /**
- * Translation between rux's chat shape (OpenAI style) and the Gemini API's generateContent
- * (Google AI Studio: Gemini and Gemma models). Copied from noprofit.space's neo driver
- * (App\Services\Neo\Drivers\GeminiTranslator).
+ * Translation between the chat shape rux and neo work in (OpenAI style) and the Gemini API's
+ * generateContent (Google AI Studio: Gemini and Gemma models). Copied from noprofit.space's neo
+ * driver (App\Services\Neo\Drivers\GeminiTranslator).
  *
  * Gemini rules this has to satisfy: the system prompt is a top-level systemInstruction; the
  * assistant role is "model"; every functionCall is answered by a functionResponse (which needs

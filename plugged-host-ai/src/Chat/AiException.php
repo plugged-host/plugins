@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Agent\Ai;
+namespace PluggedHost\Ai\Chat;
 
 use RuntimeException;
 

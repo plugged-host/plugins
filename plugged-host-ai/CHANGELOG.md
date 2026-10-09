@@ -8,6 +8,15 @@
   plugged-host-noprofit as `NoprofitRuxClient`. rux's and neo-on-Discord's copy names the
   account portal (`:portal`) instead of noprofit.space.
 - neo's chat only links `/sso/link` where that route exists.
+- **One provider chain for rux and neo**: rux's copy of noprofit.space's chain (`RuxAi` and its
+  translators, `PromptedTools`, the `Ai*Exception`s) moved to `PluggedHost\Ai\Chat`
+  (`ProviderChain`), scoped per caller (`for('rux')` keeps rux's cache keys and logs exactly).
+  It calls the providers of the bound `Contracts\ProviderSource`: this panel's own
+  (`Chat\ConfiguredProviders`, new `local` config block with noprofit.space's env names
+  `NEO_P{1..3}_*`, `NEO_DEFAULT_COOLDOWN`, `NEO_CHAIN_DEADLINE`), or noprofit.space's with
+  plugged-host-noprofit (`NeoProviders` moved there). `RuxAi` is now a thin wrapper; rux's
+  blocker asks whether there are providers instead of checking `NEO_GATEWAY_SECRET`.
+  `plugged-host-ai.rux.ai.*` is gone.
 
 ## Unreleased (2.1)
 

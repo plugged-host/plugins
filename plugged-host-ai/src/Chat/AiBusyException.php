@@ -1,6 +1,6 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Agent\Ai;
+namespace PluggedHost\Ai\Chat;
 
 /**
  * Transient: rate limited or overloaded; worth trying again after retryAfter.

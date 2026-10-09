@@ -1,13 +1,13 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Agent\Ai;
+namespace PluggedHost\Ai\Chat;
 
 use stdClass;
 
 /**
  * OpenAI-compatible chat.completions (Groq). Copied from noprofit.space's neo driver
- * (App\Services\Neo\Drivers\OpenAiChatDriver): rux's chat shape is already this one, so it
- * mostly cleans up provider quirks on the way back (Qwen <think> leaks, Hermes-style inline
+ * (App\Services\Neo\Drivers\OpenAiChatDriver): the chat shape rux and neo work in is this one,
+ * so it mostly cleans up provider quirks on the way back (Qwen <think> leaks, Hermes-style inline
  * <tool_call> text).
  */
 final class OpenAiTranslator

@@ -1,11 +1,11 @@
 <?php
 
-namespace PluggedHost\Ai\Rux\Agent\Ai;
+namespace PluggedHost\Ai\Chat;
 
 use stdClass;
 
 /**
- * Translation between the chat shape rux works in (OpenAI style: system/user/assistant/tool
+ * Translation between the chat shape rux and neo work in (OpenAI style: system/user/assistant/tool
  * messages, tool_calls with JSON-string arguments) and the Anthropic Messages API that
  * justwoker speaks. Copied from noprofit.space's neo driver (App\Services\Neo\Drivers\
  * AnthropicTranslator), which is known to work against justwoker.
@@ -107,7 +107,7 @@ final class AnthropicTranslator
     }
 
     /**
-     * The answer in rux's chat shape: ['message' => [content, tool_calls], 'finish_reason',
+     * The answer in the chat shape: ['message' => [content, tool_calls], 'finish_reason',
      * 'usage' => [prompt_tokens, completion_tokens]], or null when it is not a Messages answer.
      *
      * @return array<string, mixed>|null

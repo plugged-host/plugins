@@ -113,7 +113,7 @@ final class RuxConfig
         }
 
         if (!app(RuxAi::class)->configured()) {
-            $blockers[] = 'rux cannot fetch neo\'s AI providers (NEO_GATEWAY_SECRET): rux cannot think.';
+            $blockers[] = 'rux has no AI providers (neo\'s: set one up in neo\'s settings, or with plugged-host-noprofit set NEO_GATEWAY_SECRET): rux cannot think.';
         }
 
         if (!self::tablesExist()) {

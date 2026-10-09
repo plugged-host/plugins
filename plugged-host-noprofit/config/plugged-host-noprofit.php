@@ -25,4 +25,14 @@ return [
     'migration_ttl' => 900,
     'resolve_ip' => env('NOPROFIT_RESOLVE_IP'),
     'ca_bundle' => env('NOPROFIT_CA_BUNDLE'),
+
+    /*
+     * neo's AI gateway (plugged-host-ai): noprofit.space runs neo's model calls and meters its
+     * limits, and hands rux neo's providers. Signs every call to /api/v1/internal/neo/* (same
+     * value as NEO_GATEWAY_SECRET in noprofit.space's .env). Was plugged-host-ai.gateway_secret.
+     */
+    'neo_gateway_secret' => (string) env('NEO_GATEWAY_SECRET', ''),
+    'neo_gateway_timeout' => (int) env('NEO_GATEWAY_TIMEOUT', 90),
+    // rux fetches neo's providers again once its copy is this old (seconds).
+    'neo_providers_refresh' => 60,
 ];

@@ -4,9 +4,9 @@
  * plugged.host AI: neo, the agentic assistant (the panel chat, and neo on Discord), and rux,
  * the Discord moderation bot.
  *
- * Only panel-side settings live here. Provider keys, the failover chain and the 5-hour /
- * weekly usage limits belong to noprofit.space and are edited through this plugin's
- * settings form, which reads and writes them over the signed internal API.
+ * neo's AI providers and usage limits are set on this panel (the `local` block below) unless
+ * plugged-host-noprofit is enabled: then noprofit.space holds them and this plugin's settings
+ * form edits them there. Either way they are edited in the form.
  */
 return [
     // neo's master switch. Ships dark: nothing renders and every entry point refuses until on.
@@ -38,6 +38,96 @@ return [
     'retention_days' => (int) env('NEO_RETENTION_DAYS', 30),
 
     'support_url' => (string) env('NEO_SUPPORT_URL', 'https://discord.gg/plugged-host-1502647500295635085'),
+
+    /*
+     * neo's AI on this panel, used without plugged-host-noprofit (with it, noprofit.space holds
+     * all of this and these are ignored). The env names and defaults are noprofit.space's own
+     * (accounts config/noprofit.php, `ai`), so a chain moves between the two by copying lines;
+     * here they go in the panel's .env, and the settings form writes them.
+     *
+     * Providers are tried in slot order (Chat\ProviderChain), rux uses the same ones. JSON values
+     * (extra headers and request fields) are base64-encoded JSON, because the .env writer's
+     * quoting mangles raw JSON; an unset one falls back to the slot default.
+     */
+    'local' => [
+        'failover' => [
+            'default_cooldown' => (int) env('NEO_DEFAULT_COOLDOWN', 60),
+            'auth_cooldown' => 600,
+            'max_cooldown' => 900,
+            'deadline' => (int) env('NEO_CHAIN_DEADLINE', 80),
+        ],
+
+        'providers' => (static function (): array {
+            $slot = static function (int $slot, array $defaults): array {
+                $json = static function (string $key, array $fallback): array {
+                    $raw = env($key);
+
+                    if ($raw === null) {
+                        return $fallback;
+                    }
+
+                    $decoded = json_decode((string) base64_decode((string) $raw, true), true);
+
+                    return is_array($decoded) ? $decoded : [];
+                };
+
+                $prefix = "NEO_P{$slot}_";
+
+                return [
+                    'enabled' => (bool) env($prefix . 'ENABLED', $defaults['enabled']),
+                    'label' => (string) env($prefix . 'LABEL', $defaults['label']),
+                    'driver' => (string) env($prefix . 'DRIVER', $defaults['driver']),
+                    'endpoint' => (string) env($prefix . 'ENDPOINT', $defaults['endpoint']),
+                    'api_key' => (string) env($prefix . 'API_KEY', ''),
+                    'model' => (string) env($prefix . 'MODEL', $defaults['model']),
+                    'max_tokens' => (int) env($prefix . 'MAX_TOKENS', $defaults['max_tokens']),
+                    'timeout' => (int) env($prefix . 'TIMEOUT', $defaults['timeout']),
+                    'daily_token_cap' => (int) env($prefix . 'DAILY_TOKEN_CAP', $defaults['daily_token_cap']),
+                    'extra_headers' => $json($prefix . 'EXTRA_HEADERS_B64', $defaults['extra_headers']),
+                    'extra_body' => $json($prefix . 'EXTRA_BODY_B64', $defaults['extra_body']),
+                ];
+            };
+
+            return [
+                1 => $slot(1, [
+                    'enabled' => true,
+                    'label' => 'Groq Qwen',
+                    'driver' => 'openai',
+                    'endpoint' => 'https://api.groq.com/openai/v1/chat/completions',
+                    'model' => 'qwen/qwen3.8-27b',
+                    'max_tokens' => 4096,
+                    'timeout' => 20,
+                    'daily_token_cap' => 0,
+                    'extra_headers' => [],
+                    'extra_body' => ['reasoning_format' => 'hidden'],
+                ]),
+                2 => $slot(2, [
+                    'enabled' => true,
+                    'label' => 'Groq gpt-oss',
+                    'driver' => 'openai',
+                    'endpoint' => 'https://api.groq.com/openai/v1/chat/completions',
+                    'model' => 'openai/gpt-oss-120b',
+                    'max_tokens' => 4096,
+                    'timeout' => 20,
+                    'daily_token_cap' => 0,
+                    'extra_headers' => [],
+                    'extra_body' => ['reasoning_effort' => 'medium'],
+                ]),
+                3 => $slot(3, [
+                    'enabled' => true,
+                    'label' => 'justwoker Opus',
+                    'driver' => 'anthropic',
+                    'endpoint' => 'https://api.justwoker.icu/v1/messages',
+                    'model' => 'claude-opus-4-8',
+                    'max_tokens' => 4096,
+                    'timeout' => 50,
+                    'daily_token_cap' => 3000000,
+                    'extra_headers' => [],
+                    'extra_body' => [],
+                ]),
+            ];
+        })(),
+    ],
 
     /*
      * neo on Discord: account support for anyone on the plugged.host Discord server, by DM,
@@ -89,9 +179,10 @@ return [
      * panel stays dark even with a token in its .env (two gateways on one token would answer every
      * message twice).
      *
-     * Who may command rux, who is linked, and paying giveaway winners all belong to noprofit.space
-     * (signed with NOPROFIT_SYNC_SECRET). rux's AI is neo's provider chain, 1:1, fetched from
-     * noprofit.space and called directly: the model calls go nowhere near neo, no neo limits apply.
+     * Who may command rux, who is linked, and paying giveaway winners go through
+     * plugged-host-discord (DiscordAccounts, DiscordCreditPayouts: the panel's own, or
+     * noprofit.space's with plugged-host-noprofit). rux's AI is neo's provider chain, 1:1 (this
+     * panel's, or fetched from noprofit.space), called directly: no neo limits apply.
      */
     'rux' => [
         // Master switch. Ships dark.
@@ -113,15 +204,6 @@ return [
 
         // Language of what rux posts on Discord (lang/<locale>/strings.php, the rux group).
         'locale' => (string) env('RUX_LOCALE', 'en'),
-
-        // The AI: neo's providers, 1:1, with neo's failover. rux fetches them from noprofit.space
-        // (signed with neo's gateway secret) and fetches again once a fetch is this old, so a
-        // change in neo's settings reaches rux within that time. rux calls the providers
-        // directly, so no neo limits apply. `php artisan plugged-host:rux-ai` shows what rux has.
-        'ai' => [
-            'gateway_secret' => (string) env('NEO_GATEWAY_SECRET', ''),
-            'refresh_seconds' => 60,
-        ],
 
         // Sanity limits on what one sentence can give away.
         'giveaway' => [

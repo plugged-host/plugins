@@ -15,3 +15,8 @@
   `RuxNoprofit`) implements plugged-host-discord's `DiscordAccounts` and `DiscordCreditPayouts`.
   The legacy giveaway export command moved here; migration 017 marks the legacy pending
   recipients it exported, so the panel's own payouts never pay them again.
+- **AI**: rux's fetch of neo's providers (`NoprofitNeoProviders`, was plugged-host-ai's
+  `NeoProviders`) implements plugged-host-ai's `ProviderSource`; same endpoint, cached file
+  (`rux/neo-providers.enc`) and cache keys. Config `plugged-host-noprofit.neo_gateway_secret`
+  (`NEO_GATEWAY_SECRET`, was `plugged-host-ai.rux.ai.gateway_secret`), `neo_gateway_timeout`
+  (`NEO_GATEWAY_TIMEOUT`) and `neo_providers_refresh`.
