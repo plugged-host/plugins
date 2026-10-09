@@ -4,11 +4,11 @@ namespace PluggedHost\Core\Filament\Server\Pages;
 
 use App\Filament\Server\Pages\Console;
 use App\Models\Server;
+use Carbon\CarbonImmutable;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
-use PluggedHost\Core\Services\Abuse\AbusePurge;
-use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Core\Support\SuspensionReason;
 use Throwable;
 
@@ -25,18 +25,44 @@ class SuspendedServerPage extends Page
 
     protected string $view = 'plugged-host-core::filament.pages.suspended';
 
-    /** Suspended by us or an admin, not parked by limbo (hibernation has its own page). */
+    /** @var list<Closure(Server): bool> */
+    private static array $claims = [];
+
+    /** @var null|Closure(Server): ?CarbonImmutable */
+    private static ?Closure $deletionTime = null;
+
+    /**
+     * Another plugin shows this kind of suspension on a page of its own: plugged-host-limbo
+     * claims a hibernated server. Registered from that plugin's provider.
+     *
+     * @param  Closure(Server): bool  $claims
+     */
+    public static function claimedWhen(Closure $claims): void
+    {
+        self::$claims[] = $claims;
+    }
+
+    /**
+     * When a suspended server will be deleted, for the notice on this page:
+     * plugged-host-abuse's purge registers it.
+     *
+     * @param  Closure(Server): ?CarbonImmutable  $resolver
+     */
+    public static function deletionTimeUsing(Closure $resolver): void
+    {
+        self::$deletionTime = $resolver;
+    }
+
+    /** Suspended by us or an admin, and no other plugin shows it on its own page. */
     public static function appliesTo(Server $server): bool
     {
         if (!$server->isSuspended()) {
             return false;
         }
 
-        $limbo = 'PluggedHost\\Limbo\\Services\\LimboService';
-
-        if (Plugins::available($limbo)) {
+        foreach (self::$claims as $claims) {
             try {
-                if (in_array(app($limbo)->state($server)?->state, ['hibernating', 'limbo', 'restoring'], true)) {
+                if ($claims($server)) {
                     return false;
                 }
             } catch (Throwable) {
@@ -69,12 +95,20 @@ class SuspendedServerPage extends Page
         return $server instanceof Server ? SuspensionReason::latest($server) : null;
     }
 
-    /** When AbusePurge deletes this server, or null when it will not. */
-    public function deletesAt(): ?\Carbon\CarbonImmutable
+    /** When this server will be deleted (see deletionTimeUsing()), or null when it will not. */
+    public function deletesAt(): ?CarbonImmutable
     {
         $server = Filament::getTenant();
 
-        return $server instanceof Server ? AbusePurge::deletesAt($server) : null;
+        if (!$server instanceof Server || self::$deletionTime === null) {
+            return null;
+        }
+
+        try {
+            return (self::$deletionTime)($server);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     public function supportUrl(): string

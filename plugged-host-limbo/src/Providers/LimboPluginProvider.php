@@ -2,9 +2,11 @@
 
 namespace PluggedHost\Limbo\Providers;
 
+use App\Models\Server;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Filament\Server\Pages\SuspendedServerPage;
 use PluggedHost\Core\Power\StartChain;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Limbo\Console\Commands\LimboSweepCommand;
@@ -34,6 +36,14 @@ class LimboPluginProvider extends ServiceProvider
     public function boot(): void
     {
         app(StartChain::class)->register('plugged-host-limbo', 10, LimboService::class);
+
+        // A hibernated server is suspended while it is parked; its page is the restore page,
+        // not core's suspension notice.
+        SuspendedServerPage::claimedWhen(fn (Server $server): bool => in_array(
+            app(LimboService::class)->state($server)?->state,
+            ['hibernating', 'limbo', 'restoring'],
+            true,
+        ));
 
         $this->injectActivityDescriptions();
         $this->registerInterstitial();

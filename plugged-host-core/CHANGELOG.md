@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- **Abuse protection is its own plugin now** (`plugged-host-abuse`): same tables, routes,
+  `ABUSE_*` settings and agent. Core keeps suspension itself (the suspend toggle on the admin
+  server list, now `SuspendActionPluginProvider`, and the suspended-server page, which other
+  plugins hook with `claimedWhen()` (limbo) and `deletionTimeUsing()` (abuse)).
+- **Plugin dependencies are declared and checked**: `plugged_host.requires/optional` in each
+  plugin.json, `Plugins::enabled()` / `Plugins::available()` instead of `class_exists()`, and
+  `php artisan plugged-host:doctor` with heartbeats for the scheduler and the queue worker.
+- **The start chain is core's** (`StartChain`, `StartGate`): one Livewire hook in front of every
+  server start; limbo, the start queue and the ad room register as gates. Lived in ads before.
+- **Node telemetry is core's** (`NodeTelemetry`, `plugged-host:sample-nodes`): every node probed
+  once a minute; servers, storage and status read it instead of the status plugin's tables.
+- The console widget swap moved to servers, the credit tables' migration to economy.
+
 ## Unreleased (2.1)
 
 - **The welcome tour shows the real panel** (`Livewire\PanelTourOverlay`, steps in

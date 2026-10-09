@@ -35,7 +35,7 @@ final class AdminNavigation
             \App\Filament\Admin\Resources\Nodes\NodeResource::class,
             \App\Filament\Admin\Resources\Eggs\EggResource::class,
             'PluggedHost\\Servers\\Filament\\Admin\\Pages\\AvailableResources',
-            \PluggedHost\Core\Filament\Admin\Clusters\Abuse::class,
+            \PluggedHost\Abuse\Filament\Admin\Clusters\Abuse::class,
         ],
         'users' => [
             \App\Filament\Admin\Resources\Users\UserResource::class,

@@ -4,5 +4,4 @@
 return [
     'activity.server.suspension.suspend' => 'hat :server gesperrt',
     'activity.server.suspension.unsuspend' => 'hat die Sperre von :server aufgehoben',
-    'activity.server.abuse.deleted' => 'hat den Server :name wegen Missbrauchs gelöscht',
 ];
