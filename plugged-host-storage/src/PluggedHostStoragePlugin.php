@@ -10,6 +10,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
+use PluggedHost\Storage\Providers\StoragePluginProvider;
 
 /**
  * Filament registration for the storage plugin. The panel-side wiring (agent routes, failover
@@ -54,6 +55,7 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
         return [
             // Agent connection.
             'agent_url' => (string) config('plugged-host-storage.agent_url', ''),
+            'mirror_public_key' => (string) config('plugged-host-storage.mirror_public_key', ''),
             // Secret: never surface the stored value. Empty means "unchanged" on save.
             'agent_secret' => '',
             'signed_ttl' => (int) config('plugged-host-storage.signed_ttl', 900),
@@ -99,6 +101,11 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                         ->autocomplete(false)
                         ->placeholder($hasSecret ? '•••••••• ' . trans('plugged-host-storage::strings.settings.secret_unchanged') : trans('plugged-host-storage::strings.settings.secret_unset'))
                         ->helperText(trans('plugged-host-storage::strings.settings.' . ($hasSecret ? 'secret_set_help' : 'secret_unset_help'))),
+                    TextInput::make('mirror_public_key')
+                        ->label(trans('plugged-host-storage::strings.settings.mirror_public_key'))
+                        ->helperText(fn () => trans('plugged-host-storage::strings.settings.mirror_public_key_hint', ['url' => url('/plugged-host/storage/node/install.sh')]))
+                        ->rules(['nullable', 'regex:' . StoragePluginProvider::PUBLIC_KEY_PATTERN])
+                        ->maxLength(1024),
                     TextInput::make('signed_ttl')
                         ->label(trans('plugged-host-storage::strings.settings.signed_ttl'))
                         ->helperText(trans('plugged-host-storage::strings.settings.signed_ttl_hint'))
@@ -202,6 +209,7 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
         $values = [
             // Agent connection.
             'STORAGE_AGENT_URL' => (string) ($data['agent_url'] ?? ''),
+            'STORAGE_MIRROR_PUBLIC_KEY' => trim((string) ($data['mirror_public_key'] ?? '')),
             'STORAGE_SIGNED_TTL' => (string) max(60, min(86400, (int) ($data['signed_ttl'] ?? 900))),
             'STORAGE_AGENT_VERSION' => (string) ($data['agent_version'] ?? '1.2.0'),
 

@@ -7,6 +7,8 @@ return [
         'section_agent_hint' => 'Connection to the Node.js storage agent that pulls mirrors and serves signed archives.',
         'agent_url' => 'Agent URL',
         'agent_url_hint' => 'Base URL the agent inbound listener is reachable at, e.g. http://10.0.0.9:8687. Used for signed archive URLs and reachability probes.',
+        'mirror_public_key' => 'Mirror SSH public key',
+        'mirror_public_key_hint' => 'The storage box\'s ph-mirror key, printed by its install.sh. Every Wings node authorizes it with: curl -fsSL :url | sudo bash',
         'agent_secret' => 'Agent Secret (HMAC)',
         'signed_ttl' => 'Signed URL TTL (seconds)',
         'signed_ttl_hint' => 'Lifetime of signed archive-fetch and probe URLs, in seconds.',

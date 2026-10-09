@@ -11,9 +11,13 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Storage\Services\FailoverService;
 use PluggedHost\Storage\Services\StorageService;
 use Throwable;
@@ -25,6 +29,9 @@ use Throwable;
  */
 class StoragePluginProvider extends ServiceProvider
 {
+    /** An OpenSSH public key on one line, nothing a shell would treat specially. */
+    public const PUBLIC_KEY_PATTERN = '/^ssh-(ed25519|rsa) [A-Za-z0-9+\/=]+( [A-Za-z0-9@._-]+)?$/';
+
     public function register(): void
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
@@ -43,6 +50,8 @@ class StoragePluginProvider extends ServiceProvider
     {
         $this->loadViewsFrom(plugin_path('plugged-host-storage', 'resources/views'), 'plugged-host-storage');
         $this->registerAgentRoutes();
+        $this->registerNodeInstaller();
+        $this->registerDoctorChecks();
         $this->registerClientApi();
         $this->registerBackupPortalRoutes();
         $this->registerPanelIntegration();
@@ -113,6 +122,60 @@ class StoragePluginProvider extends ServiceProvider
                         })->name('api:client:storage.replica');
                     });
             });
+    }
+
+    /**
+     * The script every Wings node runs once so the storage agent may pull its server files:
+     * agent/node-install.sh with the mirror key filled in. Public like the abuse agent's
+     * installer: a public key is no secret, and the key is checked against PUBLIC_KEY_PATTERN
+     * before it goes into a script nodes pipe into a root shell.
+     */
+    private function registerNodeInstaller(): void
+    {
+        Route::get('/plugged-host/storage/node/install.sh', function () {
+            $key = trim((string) config('plugged-host-storage.mirror_public_key', ''));
+            $key = preg_match(self::PUBLIC_KEY_PATTERN, $key) === 1 ? $key : '';
+            $script = (string) @file_get_contents(plugin_path('plugged-host-storage', 'agent/node-install.sh'));
+
+            return response(str_replace('__MIRROR_PUBLIC_KEY__', $key, $script), 200, [
+                'Content-Type' => 'text/x-shellscript; charset=utf-8',
+                'Cache-Control' => 'no-store',
+            ]);
+        })->name('plugged-host.storage.node.installer');
+    }
+
+    private function registerDoctorChecks(): void
+    {
+        Doctor::check('plugged-host-storage', 'Storage agent configured', function (): array {
+            $missing = array_keys(array_filter([
+                'STORAGE_AGENT_URL' => blank(config('plugged-host-storage.agent_url')),
+                'STORAGE_AGENT_SECRET' => blank(config('plugged-host-storage.agent_secret')),
+                'STORAGE_MIRROR_PUBLIC_KEY' => blank(config('plugged-host-storage.mirror_public_key')),
+            ]));
+
+            return $missing === []
+                ? Doctor::ok((string) config('plugged-host-storage.agent_url'))
+                : Doctor::fail('not set: ' . implode(', ', $missing) . ' (see the storage box\'s install.sh output)');
+        });
+
+        Doctor::check('plugged-host-storage', 'Mirror passes', function (): array {
+            if (!Schema::hasTable('server_replicas')) {
+                return Doctor::fail('server_replicas missing: php artisan migrate');
+            }
+
+            $last = DB::table('server_replicas')->max('last_replicated_at');
+            $interval = max(1, (int) config('plugged-host-storage.mirror_interval_min', 30));
+
+            if ($last === null) {
+                return Doctor::warn('no server mirrored yet');
+            }
+
+            $at = Carbon::parse($last);
+
+            return $at->gt(now()->subMinutes($interval * 3))
+                ? Doctor::ok('last copy ' . Doctor::ago($at->getTimestamp()))
+                : Doctor::warn('last copy ' . Doctor::ago($at->getTimestamp()) . ': is the agent running and reaching the nodes?');
+        });
     }
 
     private function registerAgentRoutes(): void

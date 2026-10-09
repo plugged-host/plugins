@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- **Setting up a storage box from git**: `agent/install.sh` now also installs rsync and pigz,
+  creates the `ph-mirror` key, writes `PH_RSYNC_USER`/`PH_RSYNC_SSH_KEY`, adds the
+  `RequiresMountsFor` drop-in and (with `PH_SSH_PORTS`) the nodes' SSH ports. Nodes authorize the
+  key with `curl -fsSL https://<panel>/plugged-host/storage/node/install.sh | sudo bash`, which
+  the panel serves with `STORAGE_MIRROR_PUBLIC_KEY` (new setting) filled in.
+- Failover reads core's node telemetry instead of the status plugin.
+- `plugged-host:doctor` checks the agent settings and the last mirror pass.
+- README no longer claims a daily S3 backup: it was never scheduled.
+
 ## 1.2.2
 
 - `StorageService::excludePatterns()`: the agent's `EXCLUDES` list, read from `agent/agent.mjs`, so

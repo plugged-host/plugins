@@ -28,6 +28,10 @@ return [
     // Used for signed archive URLs (wings pulls from here) and reachability probes.
     'agent_url' => env('STORAGE_AGENT_URL', ''),
 
+    // The storage box's ph-mirror public key (its install.sh prints it). Wings nodes authorize it
+    // with /plugged-host/storage/node/install.sh, so the agent can pull server files over SSH.
+    'mirror_public_key' => (string) env('STORAGE_MIRROR_PUBLIC_KEY', ''),
+
     // Signed-URL lifetime (seconds) for archive fetch / reachability probes.
     'signed_ttl' => (int) env('STORAGE_SIGNED_TTL', 900),
 
