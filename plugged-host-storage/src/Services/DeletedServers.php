@@ -24,7 +24,7 @@ use Throwable;
  * it holds; sweep() answers with the ones whose server is gone and whose hold is over, and the
  * agent removes exactly those. A folder the panel has no record of (deleted before this existed,
  * or missed) is kept for the hold counted from its last copy, and at least a day from when it
- * was first reported.
+ * was first reported; one with no completed copy only that day.
  */
 class DeletedServers
 {
@@ -53,9 +53,10 @@ class DeletedServers
     /** Unix time of the agent's last folder report, or null. */
     public function lastReportAt(): ?int
     {
+        // Redis hands numbers back as strings.
         $at = Cache::get(self::LAST_REPORT);
 
-        return is_int($at) ? $at : null;
+        return is_numeric($at) ? (int) $at : null;
     }
 
     public function holdDays(): int
@@ -182,11 +183,15 @@ class DeletedServers
         ];
     }
 
-    /** A copy the panel has no record of: kept for the hold from its last copy, at least a day from now. */
+    /**
+     * A copy the panel has no record of: kept for the hold from its last copy, at least a day
+     * from now. One with no completed copy (a first copy that never finished) holds nothing the
+     * agent would serve or restore from: just the day.
+     */
     private function orphan(string $uuid, ?CarbonImmutable $lastCopy, CarbonImmutable $now): DeletedServer
     {
         $deletedAt = $lastCopy !== null && $lastCopy->lt($now) ? $lastCopy : $now;
-        $keepUntil = $deletedAt->addDays($this->holdDays());
+        $keepUntil = $lastCopy !== null ? $deletedAt->addDays($this->holdDays()) : $now;
 
         return DeletedServer::query()->create([
             'uuid' => $uuid,
