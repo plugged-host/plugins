@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Storage;
 
+use PluggedHost\Storage\Support\AgentRelease;
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Traits\EnvironmentWriterTrait;
 use Filament\Contracts\Plugin;
@@ -65,7 +66,7 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             // Secret: never surface the stored value. Empty means "unchanged" on save.
             'agent_secret' => '',
             'signed_ttl' => (int) config('plugged-host-storage.signed_ttl', 900),
-            'agent_version' => (string) config('plugged-host-storage.agent_version', '1.2.0'),
+            'agent_version' => (string) (config('plugged-host-storage.agent_version') ?: AgentRelease::version()),
 
             // Replication.
             'mirror_interval_min' => (int) config('plugged-host-storage.mirror_interval_min', 30),
@@ -131,8 +132,8 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                     TextInput::make('agent_version')
                         ->label(trans('plugged-host-storage::strings.settings.agent_version'))
                         ->helperText(trans('plugged-host-storage::strings.settings.agent_version_hint'))
-                        ->maxLength(32)
-                        ->required(),
+                        ->disabled()
+                        ->dehydrated(false),
                 ]),
 
             Section::make(trans('plugged-host-storage::strings.settings.section_replication'))
@@ -226,7 +227,6 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'STORAGE_AGENT_URL' => (string) ($data['agent_url'] ?? ''),
             'STORAGE_MIRROR_PUBLIC_KEY' => trim((string) ($data['mirror_public_key'] ?? '')),
             'STORAGE_SIGNED_TTL' => (string) max(60, min(86400, (int) ($data['signed_ttl'] ?? 900))),
-            'STORAGE_AGENT_VERSION' => (string) ($data['agent_version'] ?? '1.2.0'),
 
             // Replication.
             'STORAGE_MIRROR_INTERVAL_MIN' => (string) max(1, min(1440, (int) ($data['mirror_interval_min'] ?? 30))),

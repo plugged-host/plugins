@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Storage\Providers;
 
+use PluggedHost\Storage\Support\AgentRelease;
 use App\Enums\HeaderActionPosition;
 use App\Filament\Server\Resources\Backups\Pages\ListBackups;
 use App\Models\Server;
@@ -360,7 +361,7 @@ class StoragePluginProvider extends ServiceProvider
         }
 
         $body = json_encode([
-            'version' => (string) config('plugged-host-storage.agent_version', '1.4.0'),
+            'version' => (string) (config('plugged-host-storage.agent_version') ?: AgentRelease::version()),
             'sha256' => hash_file('sha256', $path),
             'size' => filesize($path),
         ], JSON_UNESCAPED_SLASHES);

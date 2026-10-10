@@ -30,7 +30,14 @@ import time
 import urllib.error
 import urllib.request
 
-VERSION = "1.0.0"
+# The plugins release (the VERSION file; bump them together) and the start of this file's sha256,
+# e.g. 2.2.0.1a2b3c4: the same shape as the panel's v2.2.0.<commit>.
+RELEASE = "2.2.0"
+try:
+    with open(os.path.abspath(__file__), "rb") as _fh:
+        VERSION = RELEASE + "." + hashlib.sha256(_fh.read()).hexdigest()[:7]
+except OSError:
+    VERSION = RELEASE
 
 INTERVAL = max(30, int(os.environ.get("PH_ABUSE_INTERVAL", "60")))
 DOCKER_ROOT = os.environ.get("PH_DOCKER_ROOT", "/var/lib/docker")

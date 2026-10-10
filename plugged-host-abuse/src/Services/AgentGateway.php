@@ -35,13 +35,18 @@ final class AgentGateway
         private readonly AbuseEnforcer $enforcer,
     ) {}
 
-    /** The agent version the panel ships, read from the agent file. */
+    /**
+     * The agent version the panel ships: the file's RELEASE (the plugins VERSION) and the start of
+     * the file's sha256, as the agent computes its own.
+     */
     public static function latestVersion(): string
     {
-        return Cache::remember('ph-abuse:agent-version', 600, function (): string {
-            $source = @file_get_contents(self::agentPath()) ?: '';
+        $path = self::agentPath();
 
-            return preg_match('/^VERSION = "([^"]+)"/m', $source, $m) ? $m[1] : '0';
+        return Cache::remember('ph-abuse:agent-version:' . @filemtime($path), 600, function () use ($path): string {
+            $source = @file_get_contents($path) ?: '';
+
+            return preg_match('/^RELEASE = "([^"]+)"/m', $source, $m) ? $m[1] . '.' . substr(hash('sha256', $source), 0, 7) : '0';
         });
     }
 
