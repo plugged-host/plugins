@@ -6,6 +6,11 @@
 // built, complete with a size for wings restores, cached until the next mirror pass), answers node-reachability probes for the panel, reports mirror size and
 // freshness back, and self-updates from a signed bundle the panel serves.
 //
+// Nothing is kept twice on the storage drive: a server that lives on this box (the limbo node)
+// gets a mirror of hardlinks to its wings volume, not a second copy, and once an hour the agent
+// asks the panel which folders belong to servers that are gone and removes those (see
+// housekeepingTick; the panel keeps an admin-deleted server's copy 7 days).
+//
 // Uses only Node built-ins — no npm dependencies to install on the box.
 //
 // Config comes from the environment (see install.sh / the systemd unit):
@@ -15,7 +20,7 @@
 //   PH_ARCHIVE_SOURCE      default download (source directory for downloads; can be 'mirror' or 'download')
 //   PH_LISTEN_PORT         default 8687  (inbound: archives + reachability + health)
 //   PH_MIN_FREE_PERCENT    default 10    (refuse a pass below this)
-//   PH_SNAPSHOTS           default 3     (rotating --link-dest snapshots kept)
+//   PH_SNAPSHOTS           default 3     (rotating --link-dest snapshots kept; the panel's setting wins)
 //   PH_MIRROR_INTERVAL_MIN default 30
 //   PH_UPDATE_INTERVAL_MIN default 15
 //   PH_MAX_ARCHIVE_JOBS    default 3     (tar builds at once; more answer 503 + Retry-After)
@@ -43,7 +48,7 @@ function runningVersion() {
     const dir = path.dirname(fs.realpathSync(fileURLToPath(import.meta.url)));
     if (path.basename(path.dirname(dir)) === 'releases') return path.basename(dir);
   } catch { /* fall back */ }
-  return process.env.PH_VERSION || '1.3.4';
+  return process.env.PH_VERSION || '1.4.0';
 }
 
 const CFG = {
@@ -215,6 +220,17 @@ async function ensureDirs() {
   for (const name of await fsp.readdir(DIRS.archives).catch(() => [])) {
     if (name.endsWith('.tmp.tar.gz')) await fsp.rm(path.join(DIRS.archives, name), { force: true }).catch(() => {});
   }
+  // Half-built or replaced trees of a local link pass (linkLocalServer); in the background, as a
+  // big one takes a while to delete.
+  for (const name of await fsp.readdir(DIRS.mirror).catch(() => [])) {
+    if (/^\..+\.(link|old)$/.test(name)) removeTree(path.join(DIRS.mirror, name));
+  }
+}
+
+// rm -rf at the lowest CPU priority. Deleting a server's tree is one unlink per file, on a disk
+// replication already keeps busy.
+function removeTree(dir) {
+  return run('nice', ['-n', '19', 'rm', '-rf', dir]).catch((e) => log('error', 'remove failed', { dir, err: e.message }));
 }
 
 // Percent free on the storage filesystem, via `df`.
@@ -341,6 +357,11 @@ async function mirrorServer(entry) {
   const uuid = entry.uuid;
   if (!uuid || !entry.host || !entry.path) return;
 
+  if (entry.local) {
+    const linked = await linkLocalServer(entry);
+    if (linked !== 'copy') return linked;
+  }
+
   const source = CFG.rsyncTemplate
     .replace(/%USER%/g, CFG.rsyncUser)
     .replace(/%HOST%/g, entry.host)
@@ -408,13 +429,29 @@ async function mirrorServer(entry) {
     log('error', 'snapshot failed (non-fatal)', { uuid, err: e.message });
   }
 
-  // Rotate: keep the newest N snapshots.
-  const snaps = (await fsp.readdir(snapBase).catch(() => [])).sort();
-  while (snaps.length > CFG.snapshots) {
-    const victim = snaps.shift();
-    await run('rm', ['-rf', path.join(snapBase, victim)]).catch(() => {});
-  }
+  await pruneSnapshots(uuid, keepSnapshots());
+  await passComplete(entry, dest);
+}
 
+// Only the newest snapshot is ever read (archives, /info, restores); older ones keep the
+// previous versions of every file that changed since, so the panel's setting decides how many.
+function keepSnapshots() {
+  return Number.isInteger(planSnapshots) && planSnapshots >= 1 ? planSnapshots : Math.max(1, CFG.snapshots);
+}
+
+// Keep the newest `keep` snapshots of a server. One an archive is being built from stays until a
+// later pass: tar would lose files under it.
+async function pruneSnapshots(uuid, keep) {
+  const snapBase = path.join(DIRS.snapshots, uuid);
+  const snaps = (await fsp.readdir(snapBase).catch(() => [])).sort();
+  for (const name of snaps.slice(0, Math.max(0, snaps.length - keep))) {
+    const dir = path.join(snapBase, name);
+    if (!busySources.has(dir)) await removeTree(dir);
+  }
+}
+
+async function passComplete(entry, dest) {
+  const uuid = entry.uuid;
   const bytes = await dirSizeBytes(dest);
   sizeCache.set(uuid, { bytes, at: Date.now() });
   // The mirror changed, so the cached archive is out of date (freshCachedArchive would say so
@@ -423,7 +460,122 @@ async function mirrorServer(entry) {
   lastPassAt.set(uuid, Date.now());
   if (!cacheWriters.has(uuid)) await dropCachedArchive(uuid);
   await report(entry, { state: 'ok', bytes, last_replicated_at: new Date().toISOString(), mirror_path: dest });
-  log('info', 'mirror pass complete', { uuid, bytes });
+  log('info', 'mirror pass complete', { uuid, bytes, ...(entry.local ? { linked: true } : {}) });
+}
+
+// ---- servers that live on this box ------------------------------------------
+//
+// A server on the storage box's own wings node (the limbo node) already has its files on this
+// drive, in its volume, so a second copy next to it protects against nothing. Its mirror is made
+// of hardlinks to the volume instead: no extra space, and the copy it had from its old node goes.
+// Wings does not touch a parked (suspended) server's files, and when it moves the server away it
+// deletes the volume, which leaves the mirror as the only link, ready for the next pass from the
+// new node. The panel leaves a local server out of the plan while it is being moved.
+
+// Where `p` is on its filesystem's main mount. Wings' data here is a bind mount (/mnt/storage/
+// pelican at /var/lib/pelican), and link() refuses to cross mount points even within one
+// filesystem, so the volume has to be named by its /mnt/storage path.
+function unbindPath(p) {
+  let rows;
+  try {
+    rows = fs.readFileSync('/proc/self/mountinfo', 'utf8').trim().split('\n').map((line) => line.split(' '));
+  } catch {
+    return p;
+  }
+  const unescape = (s) => String(s).replace(/\\([0-7]{3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)));
+  const inside = (dir) => dir === '/' || p === dir || p.startsWith(dir + '/');
+  // mountinfo fields: id, parent, major:minor, root (inside the filesystem), mount point. The
+  // deepest mount point holding p wins, the later of two at the same point (mounted on top).
+  let mount = null;
+  for (const row of rows) {
+    if (inside(unescape(row[4])) && (!mount || unescape(row[4]).length >= unescape(mount[4]).length)) mount = row;
+  }
+  if (!mount || unescape(mount[3]) === '/') return p;
+  const main = rows.find((row) => row[2] === mount[2] && unescape(row[3]) === '/');
+  if (!main) return p;
+  return path.join(unescape(main[4]), unescape(mount[3]), path.relative(unescape(mount[4]), p));
+}
+
+// Whether the mirror is already the volume's files: a sample of the volume's files (breadth
+// first) all present in the mirror as the same inode. A parked server's files do not change, so
+// once linked a pass costs these few stats.
+async function linkedTo(volume, mirror) {
+  const queue = [''];
+  let checked = 0;
+  let dirs = 0;
+  while (queue.length && checked < 50 && dirs < 200) {
+    const rel = queue.shift();
+    dirs++;
+    const entries = await fsp.readdir(path.join(volume, rel), { withFileTypes: true }).catch(() => null);
+    if (!entries) return false;
+    for (const entry of entries) {
+      const child = path.join(rel, entry.name);
+      if (entry.isDirectory()) { queue.push(child); continue; }
+      if (!entry.isFile()) continue;
+      const [a, b] = await Promise.all([
+        fsp.stat(path.join(volume, child)).catch(() => null),
+        fsp.stat(path.join(mirror, child)).catch(() => null),
+      ]);
+      if (!a || !b || a.ino !== b.ino || a.dev !== b.dev) return false;
+      if (++checked >= 50) break;
+    }
+  }
+  // An empty volume: linked when the mirror is empty too.
+  return checked > 0 || (await fsp.readdir(mirror).catch(() => ['?'])).length === 0;
+}
+
+// Returns undefined when the mirror is (now) linked, 'failed', or 'copy' when hardlinking is not
+// possible here, so the caller copies as for any other node.
+async function linkLocalServer(entry) {
+  const uuid = entry.uuid;
+  const volume = unbindPath(entry.path);
+  const dest = path.join(DIRS.mirror, uuid);
+
+  const st = await fsp.stat(volume).catch(() => null);
+  if (!st || !st.isDirectory()) {
+    await report(entry, { state: 'error', last_error: `volume ${volume} not found on the storage box` });
+    log('error', 'local volume not found', { uuid, volume });
+    return 'failed';
+  }
+  const mirrorDev = (await fsp.stat(DIRS.mirror).catch(() => null))?.dev;
+  if (st.dev !== mirrorDev) {
+    log('error', 'local volume is on another filesystem than the mirror; copying it instead', { uuid, volume });
+    return 'copy';
+  }
+
+  // Unchanged since the last link pass: nothing to do, and no new snapshot.
+  if ((await linkedTo(volume, dest)) && (await latestSnapshotDir(uuid)) !== null) return undefined;
+
+  await report(entry, { state: 'replicating' });
+  const tmp = path.join(DIRS.mirror, `.${uuid}.link`);
+  const old = path.join(DIRS.mirror, `.${uuid}.old`);
+  await removeTree(tmp);
+  try {
+    await run('cp', ['-al', volume, tmp]);
+  } catch (e) {
+    await removeTree(tmp);
+    log('error', 'linking the local volume failed; copying it instead', { uuid, err: e.message });
+    return 'copy';
+  }
+
+  // Swap the new tree in, then drop the old one: its files are the copy from the old node.
+  await removeTree(old);
+  await fsp.rename(dest, old).catch(() => {});
+  await fsp.rename(tmp, dest);
+
+  const snapBase = path.join(DIRS.snapshots, uuid);
+  await fsp.mkdir(snapBase, { recursive: true });
+  try {
+    await run('cp', ['-al', dest, path.join(snapBase, new Date().toISOString().replace(/[:.]/g, '-'))]);
+  } catch (e) {
+    log('error', 'snapshot failed (non-fatal)', { uuid, err: e.message });
+  }
+  // Every older snapshot holds the old copy too.
+  await pruneSnapshots(uuid, 1);
+  await removeTree(old);
+
+  await passComplete(entry, dest);
+  return undefined;
 }
 
 async function report(entry, fields) {
@@ -457,6 +609,13 @@ const NODE_BACKOFF_MS = 5 * 60 * 1000;
 const lastAttemptAt = new Map(); // uuid -> ms
 const nodeDownUntil = new Map(); // host -> ms
 
+// What the last plan said (the cleanup never removes anything in it).
+let planUuids = null;      // Set of uuids
+let planLocal = new Set(); // uuids of servers on this box
+let planAt = 0;
+let planSnapshots = null;  // the panel's retention setting
+let localVolumes = null;   // this box's wings volume folder, when it is also a node
+
 let mirroring = false;
 async function replicationTick() {
   if (mirroring) return;
@@ -464,6 +623,11 @@ async function replicationTick() {
   try {
     const plan = await panelRequest('GET', '/plugged-host/storage/agent/plan');
     const servers = (Array.isArray(plan.servers) ? plan.servers : []).filter((e) => e && e.uuid);
+    planUuids = new Set(servers.map((e) => String(e.uuid)));
+    planLocal = new Set(servers.filter((e) => e.local).map((e) => String(e.uuid)));
+    planAt = Date.now();
+    planSnapshots = Number.isInteger(plan.snapshots) ? plan.snapshots : null;
+    localVolumes = typeof plan.local_volumes === 'string' && plan.local_volumes.startsWith('/') ? plan.local_volumes : null;
     const intervalMs = Math.max(1, CFG.mirrorIntervalMin) * 60 * 1000;
     const now = Date.now();
 
@@ -542,9 +706,19 @@ async function dropCachedArchive(uuid) {
 }
 
 let archiveJobs = 0;
+const busySources = new Map();    // folder -> tar builds reading it (snapshot pruning skips these)
 const cacheWriters = new Set();   // uuids whose cached archive is being written right now
 const completeBuilds = new Map(); // uuid -> Promise of a complete build (restores share one)
 const streamingNow = new Set();   // uuids with a streaming download (one tar per server at a time)
+
+function holdSource(dir) {
+  busySources.set(dir, (busySources.get(dir) || 0) + 1);
+}
+
+function releaseSource(dir) {
+  const n = (busySources.get(dir) || 0) - 1;
+  if (n > 0) busySources.set(dir, n); else busySources.delete(dir);
+}
 
 function tarArgs(srcDir) {
   const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
@@ -565,6 +739,7 @@ function buildCompleteArchive(uuid, srcDir) {
     const startedAt = new Date();
     const tmpOut = path.join(DIRS.archives, `${uuid}.${Date.now()}.tmp.tar.gz`);
     archiveJobs++;
+    holdSource(srcDir);
     cacheWriters.add(uuid);
     await fsp.rm(cacheMetaPath(uuid), { force: true }).catch(() => {});
     try {
@@ -590,6 +765,7 @@ function buildCompleteArchive(uuid, srcDir) {
       throw e;
     } finally {
       archiveJobs--;
+      releaseSource(srcDir);
       cacheWriters.delete(uuid);
       completeBuilds.delete(uuid);
     }
@@ -610,6 +786,7 @@ function streamArchive(res, uuid, srcDir, headers) {
   let file = null;
 
   archiveJobs++;
+  holdSource(srcDir);
   streamingNow.add(uuid);
   if (writesCache) {
     cacheWriters.add(uuid);
@@ -645,6 +822,7 @@ function streamArchive(res, uuid, srcDir, headers) {
   child.on('error', () => res.destroy());
   child.on('close', async (code) => {
     archiveJobs--;
+    releaseSource(srcDir);
     streamingNow.delete(uuid);
     clearInterval(stallCheck);
     const ok = tarOk(code);
@@ -846,6 +1024,115 @@ function startServer() {
   server.listen(CFG.port, () => log('info', 'agent listening', { port: CFG.port }));
 }
 
+// ---- housekeeping: copies of servers that are gone ---------------------------
+//
+// The agent never decides on its own what to delete. Once an hour it reports the server folders
+// it holds (mirror, snapshots, cached archive, and this box's own wings volumes) to the panel,
+// which answers with the ones whose server is gone and whose hold is over: 7 days after an admin
+// deleted the server, at once when its owner did; a folder the panel has no record of, 7 days
+// after its last copy and at least a day after it was first reported. Only those are removed,
+// and never one in the current plan.
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const HOUSEKEEPING_INTERVAL_MS = 60 * 60 * 1000;
+// A cached archive is reused only until the next pass, so one older than this belongs to a
+// server no longer mirrored (gone, or its node down) and is a whole extra copy.
+const ARCHIVE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+// Snapshot folder name (2026-10-10T07-03-25-200Z) -> ISO time.
+function snapshotTime(name) {
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/.exec(name);
+  return m ? `${m[1]}T${m[2]}:${m[3]}:${m[4]}.${m[5]}Z` : null;
+}
+
+// Every server with a folder here, with the time of its newest snapshot (its last copy).
+async function inventory() {
+  const uuids = new Set();
+  for (const base of [DIRS.mirror, DIRS.snapshots]) {
+    for (const name of await fsp.readdir(base).catch(() => [])) if (UUID_RE.test(name)) uuids.add(name);
+  }
+  for (const name of await fsp.readdir(DIRS.archives).catch(() => [])) {
+    const m = /^(.+)\.(tar\.gz|json)$/.exec(name);
+    if (m && UUID_RE.test(m[1])) uuids.add(m[1]);
+  }
+  const copies = [];
+  for (const uuid of uuids) {
+    const snaps = (await fsp.readdir(path.join(DIRS.snapshots, uuid)).catch(() => [])).sort();
+    copies.push({ uuid, last_copy: snaps.length ? snapshotTime(snaps[snaps.length - 1]) : null });
+  }
+  return copies;
+}
+
+function copyInUse(uuid) {
+  if (cacheWriters.has(uuid) || streamingNow.has(uuid) || completeBuilds.has(uuid)) return true;
+  const snapBase = path.join(DIRS.snapshots, uuid) + '/';
+  for (const dir of busySources.keys()) if (dir.startsWith(snapBase) || dir === path.join(DIRS.mirror, uuid)) return true;
+  return false;
+}
+
+async function purgeCopy(uuid) {
+  await removeTree(path.join(DIRS.mirror, uuid));
+  await removeTree(path.join(DIRS.snapshots, uuid));
+  await dropCachedArchive(uuid);
+  sizeCache.delete(uuid);
+  lastPassAt.delete(uuid);
+  log('info', 'removed the copy of a deleted server', { uuid });
+}
+
+async function dropStaleArchives() {
+  for (const name of await fsp.readdir(DIRS.archives).catch(() => [])) {
+    const m = /^(.+)\.tar\.gz$/.exec(name);
+    if (!m || name.endsWith('.tmp.tar.gz') || cacheWriters.has(m[1])) continue;
+    const st = await fsp.stat(path.join(DIRS.archives, name)).catch(() => null);
+    // An open download keeps reading the file it has open.
+    if (st && Date.now() - st.mtimeMs > ARCHIVE_MAX_AGE_MS) {
+      await dropCachedArchive(m[1]);
+      log('info', 'dropped a stale cached archive', { uuid: m[1], bytes: st.size });
+    }
+  }
+}
+
+let housekeeping = false;
+async function housekeepingTick() {
+  if (housekeeping) return;
+  housekeeping = true;
+  try {
+    await dropStaleArchives();
+
+    // Without a plan from the last couple of hours there is no telling what is live: wait.
+    if (!planUuids || Date.now() - planAt > 2 * HOUSEKEEPING_INTERVAL_MS) return;
+
+    const copies = await inventory();
+    const volumeBase = localVolumes;
+    const volumes = volumeBase
+      ? (await fsp.readdir(volumeBase).catch(() => [])).filter((name) => UUID_RE.test(name))
+      : [];
+
+    const answer = await panelRequest('POST', '/plugged-host/storage/agent/inventory', { copies, volumes });
+    const purge = (Array.isArray(answer.purge) ? answer.purge : []).filter((u) => typeof u === 'string' && UUID_RE.test(u));
+    const purgeVolumes = (Array.isArray(answer.purge_volumes) ? answer.purge_volumes : []).filter((u) => typeof u === 'string' && UUID_RE.test(u));
+    if (purge.length || purgeVolumes.length) {
+      log('info', 'housekeeping', { folders: copies.length, volumes: volumes.length, purge: purge.length, purge_volumes: purgeVolumes.length });
+    }
+
+    for (const uuid of purge) {
+      // The plan is re-read every minute while this runs; anything in it stays.
+      if (planUuids.has(uuid) || copyInUse(uuid)) continue;
+      await purgeCopy(uuid);
+    }
+    // Volumes of servers that are gone, or that wings left behind when a server moved away.
+    for (const uuid of purgeVolumes) {
+      if (!volumes.includes(uuid) || planLocal.has(uuid) || localVolumes !== volumeBase) continue;
+      await removeTree(path.join(volumeBase, uuid));
+      log('info', 'removed a leftover wings volume', { uuid });
+    }
+  } catch (e) {
+    log('error', 'housekeeping failed', { err: e.message });
+  } finally {
+    housekeeping = false;
+  }
+}
+
 // ---- self-update (pull, verify signature + digest, swap symlink) ------------
 
 async function fetchSigned(apiPath) {
@@ -912,8 +1199,11 @@ async function main() {
   const everyMinute = 60 * 1000;
   setInterval(() => replicationTick(), everyMinute);
   setInterval(() => updateTick(), CFG.updateIntervalMin * everyMinute);
+  setInterval(() => housekeepingTick(), HOUSEKEEPING_INTERVAL_MS);
   replicationTick();
   updateTick();
+  // Once the first plan is in.
+  setTimeout(() => housekeepingTick(), 5 * everyMinute);
 
   log('info', 'plugged.host storage agent started', {
     version: CFG.version,

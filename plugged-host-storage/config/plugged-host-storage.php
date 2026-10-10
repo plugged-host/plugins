@@ -43,12 +43,18 @@ return [
     'daily_backup_enabled' => (bool) env('STORAGE_DAILY_BACKUP', true),
     'daily_backup_hour' => (int) env('STORAGE_DAILY_BACKUP_HOUR', 4),
 
+    // A server deleted by an admin (or by the panel itself) keeps its copy on the storage box
+    // this many days, listed for its owner on the backups portal. Owners' own deletions: none.
+    'deleted_hold_days' => (int) env('STORAGE_DELETED_HOLD_DAYS', 7),
+    // Kill switch for the agent's cleanup of copies whose server is gone (holds are still recorded).
+    'purge_deleted' => (bool) env('STORAGE_PURGE_DELETED', true),
+
     // Failover.
     'failover_mode' => env('STORAGE_FAILOVER_MODE', 'auto'),          // off | notify | auto
     'failover_after_failures' => (int) env('STORAGE_FAILOVER_AFTER_FAILURES', 5),
     'failover_max_per_run' => (int) env('STORAGE_FAILOVER_MAX_PER_RUN', 5),
 
     // Agent auto-update bundle version currently served by the panel.
-    'agent_version' => env('STORAGE_AGENT_VERSION', '1.3.4'),
+    'agent_version' => env('STORAGE_AGENT_VERSION', '1.4.0'),
 ];
 
