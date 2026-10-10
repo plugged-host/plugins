@@ -4,6 +4,7 @@ namespace PluggedHost\Storage\Providers;
 
 use App\Enums\HeaderActionPosition;
 use App\Filament\Server\Resources\Backups\Pages\ListBackups;
+use App\Models\Server;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
@@ -18,6 +19,8 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Doctor\Doctor;
+use PluggedHost\Storage\Models\DeletedServer;
+use PluggedHost\Storage\Services\DeletedServers;
 use PluggedHost\Storage\Services\FailoverService;
 use PluggedHost\Storage\Services\StorageService;
 use PluggedHost\Storage\Services\StorageSetup;
@@ -50,12 +53,29 @@ class StoragePluginProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadViewsFrom(plugin_path('plugged-host-storage', 'resources/views'), 'plugged-host-storage');
+        $this->rememberDeletedServers();
         $this->registerAgentRoutes();
         $this->registerNodeInstaller();
         $this->registerDoctorChecks();
         $this->registerClientApi();
         $this->registerBackupPortalRoutes();
         $this->registerPanelIntegration();
+    }
+
+    /**
+     * Record every server deletion, whichever path it takes (admin panel, API, owner, abuse
+     * purge, account deletion), so its copy on the storage box is kept or removed by the rule in
+     * DeletedServers. Runs inside the deletion's transaction; never blocks a deletion.
+     */
+    private function rememberDeletedServers(): void
+    {
+        Server::deleting(function (Server $server): void {
+            try {
+                app(DeletedServers::class)->remember($server);
+            } catch (Throwable $e) {
+                report($e);
+            }
+        });
     }
 
     private function registerPanelIntegration(): void
@@ -177,6 +197,25 @@ class StoragePluginProvider extends ServiceProvider
                 ? Doctor::ok('last copy ' . Doctor::ago($at->getTimestamp()))
                 : Doctor::warn('last copy ' . Doctor::ago($at->getTimestamp()) . ': is the agent running and reaching the nodes?');
         });
+
+        Doctor::check('plugged-host-storage', 'Deleted-server copies', function (): array {
+            $deleted = app(DeletedServers::class);
+
+            if (!$deleted->ready()) {
+                return Doctor::fail('storage_deleted_servers missing: php artisan migrate');
+            }
+
+            $held = DeletedServer::query()->held()->whereIn('reason', ['admin', 'system'])->count();
+            $at = $deleted->lastReportAt();
+
+            if ($at === null) {
+                return Doctor::warn("{$held} kept; the agent has not reported its folders yet (agent 1.4.0+, hourly)");
+            }
+
+            return time() - $at <= 3 * 3600
+                ? Doctor::ok("{$held} kept for {$deleted->holdDays()} days; cleanup report " . Doctor::ago($at))
+                : Doctor::warn('cleanup report ' . Doctor::ago($at) . ': copies of deleted servers are not being removed');
+        });
     }
 
     private function registerAgentRoutes(): void
@@ -207,6 +246,18 @@ class StoragePluginProvider extends ServiceProvider
 
                     return response()->json(['ok' => true]);
                 })->name('plugged-host.storage.agent.report');
+
+                // Agent-signed: the folders on the storage box, answered with what to remove.
+                Route::post('/inventory', function (Request $request) {
+                    if (!$this->verifyAgent($request, 'POST', '/plugged-host/storage/agent/inventory')) {
+                        abort(403);
+                    }
+
+                    return response()->json(app(DeletedServers::class)->sweep(
+                        (array) $request->input('copies', []),
+                        (array) $request->input('volumes', []),
+                    ));
+                })->name('plugged-host.storage.agent.inventory');
 
                 // Panel-signed self-update: manifest (version, sha256, size) + bundle.
                 Route::get('/manifest.json', function () {
@@ -309,7 +360,7 @@ class StoragePluginProvider extends ServiceProvider
         }
 
         $body = json_encode([
-            'version' => (string) config('plugged-host-storage.agent_version', '1.2.1'),
+            'version' => (string) config('plugged-host-storage.agent_version', '1.4.0'),
             'sha256' => hash_file('sha256', $path),
             'size' => filesize($path),
         ], JSON_UNESCAPED_SLASHES);

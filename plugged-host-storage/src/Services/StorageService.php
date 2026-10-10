@@ -54,6 +54,22 @@ class StorageService
     }
 
     /**
+     * The wings node that is the storage box itself (its fqdn is the agent's host), or null.
+     * Servers there already have their files on the storage drive: the agent links their mirror
+     * to the volume instead of copying it a second time.
+     */
+    public function localNode(): ?Node
+    {
+        $host = strtolower((string) parse_url($this->agentUrl(), PHP_URL_HOST));
+
+        if ($host === '') {
+            return null;
+        }
+
+        return Node::query()->get()->first(fn (Node $node) => strtolower(trim((string) $node->fqdn)) === $host);
+    }
+
+    /**
      * The folder/file exemptions the agent leaves out of mirrors and archives, read from the
      * `EXCLUDES` list in agent/agent.mjs itself so there is one list and it cannot drift. Limbo
      * applies the same list before a server is moved to the limbo node.
@@ -254,19 +270,28 @@ class StorageService
      * gives only the node address, the volume path and the uuid; the agent builds the rsync
      * source from its own per-node pull credential (PH_RSYNC_TEMPLATE).
      *
-     * @return array{servers: array<int, array<string, mixed>>}
+     * `local` marks a server on the storage box's own node (limbo): the agent links its mirror
+     * to the volume. One of those is left out while it is being moved, as its volume is what
+     * wings is sending or receiving. `snapshots` is the retention set in the plugin settings,
+     * and `local_volumes` the box's wings volume folder, for the agent's cleanup.
+     *
+     * @return array{servers: array<int, array<string, mixed>>, snapshots: int, local_volumes: ?string}
      */
     public function plan(): array
     {
         $base = rtrim((string) config('plugged-host-storage.daemon_base', '/var/lib/pelican/volumes'), '/');
+        $local = $this->localNode();
+        $localId = $local !== null ? (int) $local->id : null;
+        $isLocal = fn (Server $s) => $localId !== null && (int) $s->node_id === $localId;
 
         $servers = Server::query()
-            ->with('node')
+            ->with(['node', 'transfer'])
             ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'installing'))
             ->get()
             ->filter(fn (Server $s) => (int) $s->disk !== 0)          // unbounded volumes are unbudgetable
             ->filter(fn (Server $s) => $s->node !== null)
-            ->map(function (Server $s) use ($base) {
+            ->reject(fn (Server $s) => $isLocal($s) && $s->transfer !== null)
+            ->map(function (Server $s) use ($base, $isLocal) {
                 $nodeBase = rtrim((string) ($s->node->daemon_base ?? $base), '/');
 
                 return [
@@ -275,12 +300,17 @@ class StorageService
                     'node_id' => $s->node->id,
                     'host' => $s->node->fqdn,
                     'path' => "$nodeBase/{$s->uuid}",
+                    'local' => $isLocal($s),
                 ];
             })
             ->values()
             ->all();
 
-        return ['servers' => $servers];
+        return [
+            'servers' => $servers,
+            'snapshots' => max(1, (int) config('plugged-host-storage.mirror_snapshots', 3)),
+            'local_volumes' => $local ? rtrim((string) ($local->daemon_base ?? $base), '/') : null,
+        ];
     }
 
     /**
@@ -290,7 +320,8 @@ class StorageService
      */
     public function recordReport(int $serverId, array $fields): void
     {
-        if ($serverId <= 0) {
+        // A pass that was running when its server was deleted still reports (foreign key).
+        if ($serverId <= 0 || !Server::query()->whereKey($serverId)->exists()) {
             return;
         }
 

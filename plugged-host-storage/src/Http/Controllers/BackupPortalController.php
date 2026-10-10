@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordLink;
+use PluggedHost\Storage\Models\DeletedServer;
+use PluggedHost\Storage\Services\DeletedServers;
 use PluggedHost\Storage\Services\StorageService;
 
 class BackupPortalController extends Controller
@@ -79,6 +81,7 @@ class BackupPortalController extends Controller
 
         $discordLink = null;
         $userServers = collect();
+        $deletedServers = collect();
 
         if ($user) {
             if (Plugins::available(DiscordLink::class)) {
@@ -91,8 +94,12 @@ class BackupPortalController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+            // Deleted by an admin (or by the panel) in the last days: still downloadable, in case
+            // that was a mistake.
+            $deleted = app(DeletedServers::class)->forOwner((int) $user->id);
+
             // One concurrent round to the storage agent for every server, not one after another.
-            $infos = $this->storageService->backupInfoMany($servers->pluck('uuid')->all());
+            $infos = $this->storageService->backupInfoMany([...$servers->pluck('uuid')->all(), ...$deleted->pluck('uuid')->all()]);
 
             $userServers = $servers->map(function (Server $server) use ($panelUrl, $infos) {
                 $info = $infos[$server->uuid] ?? null;
@@ -128,12 +135,41 @@ class BackupPortalController extends Controller
                     'backups_url' => "{$panelUrl}/server/{$server->uuid_short}/backups",
                 ];
             });
+
+            $deletedServers = $deleted
+                // Only where a copy is left: a server that never got one has nothing to offer.
+                ->filter(fn (DeletedServer $row) => ($infos[$row->uuid]['exists'] ?? null) !== false)
+                ->map(function (DeletedServer $row) use ($infos) {
+                    $info = $infos[$row->uuid] ?? null;
+                    $hasBackup = (bool) ($info['exists'] ?? false);
+                    $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', (string) $row->name);
+                    $filename = "backup-{$cleanName}-{$row->uuidShort()}.tar.gz";
+
+                    return [
+                        'name' => $row->name ?: '#' . $row->uuidShort(),
+                        'uuid_short' => $row->uuidShort(),
+                        'egg' => $row->egg ?? 'Game Server',
+                        'node' => $row->node ?? 'Node',
+                        'has_backup' => $hasBackup,
+                        'unreachable' => $info === null,
+                        'bytes' => $info['bytes'] ?? null,
+                        'archive_bytes' => $info['archive_bytes'] ?? null,
+                        'mtime' => $info['mtime'] ?? null,
+                        'deleted_at' => $row->deleted_at,
+                        'keep_until' => $row->keep_until,
+                        'download_url' => $hasBackup
+                            ? $this->storageService->archiveUrlForIdentifier($row->uuid, $filename) . '&stream=1'
+                            : null,
+                    ];
+                })
+                ->values();
         }
 
         return view('plugged-host-storage::backup-portal', [
             'user' => $user,
             'discordLink' => $discordLink,
             'userServers' => $userServers,
+            'deletedServers' => $deletedServers,
             'panelUrl' => $panelUrl,
             'portalUrl' => $portalUrl,
             'initialServerId' => $initialServerId,

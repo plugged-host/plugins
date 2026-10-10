@@ -325,6 +325,19 @@
             margin-bottom: 1rem;
         }
 
+        .section-deleted {
+            margin-top: 1.5rem;
+        }
+
+        .section-deleted .section-title {
+            margin-bottom: 0.25rem;
+        }
+
+        .section-text {
+            margin-bottom: 1rem;
+            color: var(--phv2-text-muted);
+        }
+
         /* ---- Server rows: one full-width bar per server ---- */
         .server-list {
             display: flex;
@@ -595,6 +608,60 @@
                     <div class="card empty">No active servers found on this account.</div>
                 @endif
             </section>
+
+            @if ($deletedServers->isNotEmpty())
+                {{-- Deleted by an admin or by plugged.host itself: the last copy stays for a few days. --}}
+                <section class="section-deleted">
+                    <h2 class="section-title">Deleted servers</h2>
+                    <p class="section-text">These servers were deleted by plugged.host. Their last off-site copy is kept until the date shown, in case that was a mistake, and then removed.</p>
+
+                    <div class="server-list">
+                        @foreach ($deletedServers as $srv)
+                            <div class="server-row" id="server-card-{{ $srv['uuid_short'] }}">
+                                <div class="server-main">
+                                    <div class="server-name" title="{{ $srv['name'] }}">{{ $srv['name'] }}</div>
+
+                                    <div class="server-meta">
+                                        <span>{{ $srv['egg'] }}</span>
+                                        <span class="sep" aria-hidden="true">&middot;</span>
+                                        <span>{{ $srv['node'] }}</span>
+                                        <span class="sep" aria-hidden="true">&middot;</span>
+                                        <button type="button" class="server-id" onclick="copyId('{{ $srv['uuid_short'] }}')" title="Copy server ID">#{{ $srv['uuid_short'] }}</button>
+                                    </div>
+
+                                    <div class="server-status">
+                                        @if ($srv['has_backup'])
+                                            <span class="dot dot-ok" aria-hidden="true"></span>
+                                            <span>Deleted {{ $srv['deleted_at']?->diffForHumans() }}</span>
+                                            <span class="sep" aria-hidden="true">&middot;</span>
+                                            <span>Kept until {{ $srv['keep_until']?->format('j M') }}</span>
+                                            @php
+                                                $size = $srv['archive_bytes'] ?: $srv['bytes'];
+                                                $sizeText = $size >= 1073741824
+                                                    ? number_format($size / 1073741824, 1) . ' GB'
+                                                    : number_format($size / 1048576, $size >= 104857600 ? 0 : 1) . ' MB';
+                                            @endphp
+                                            @if ($size)
+                                                <span class="sep" aria-hidden="true">&middot;</span>
+                                                <span>{{ $srv['archive_bytes'] ? $sizeText : 'about ' . $sizeText }}</span>
+                                            @endif
+                                        @else
+                                            <span class="dot" aria-hidden="true"></span>
+                                            <span>Backup storage is unreachable right now, try again in a few minutes</span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                @if ($srv['has_backup'])
+                                    <div class="server-actions">
+                                        <a href="{{ $srv['download_url'] }}" class="btn btn-secondary btn-sm" data-download>Download</a>
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
         @endif
     </main>
 

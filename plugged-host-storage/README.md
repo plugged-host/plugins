@@ -16,6 +16,19 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 - **Failover**: when a node is unreachable, the server is fenced, reassigned to a live node,
   recreated, and restored from the mirror archive (fact 16/17 — it's not a transfer). **Operator
   override in effect:** fully automatic after ~5 minutes offline (`STORAGE_FAILOVER_MODE=auto`).
+- **Deleted servers**: a server deleted by an admin, or by the panel itself (abuse purge, an
+  account deleted through noprofit, ...), keeps its copy on the storage box for
+  `STORAGE_DELETED_HOLD_DAYS` (7) days and stays listed, under its ID, for its owner on the backups
+  portal, in case it was deleted by mistake. A server its owner deletes loses its copy within the
+  hour. Admins: `php artisan plugged-host:deleted-servers` (list; `--url=<uuid>` signed download
+  link; `--extend=<uuid> --days=N` keep longer).
+- **No copy kept twice**: once an hour the agent reports the folders it holds and removes the ones
+  the panel names (servers gone, hold over; never one in the plan). A folder the panel has no
+  record of is kept 7 days after its last copy and at least a day after it was first reported.
+  Cached archives older than a day go too. A server on the storage box's own wings node (limbo)
+  gets a mirror of hardlinks to its volume instead of a second copy, and the agent removes wings
+  volumes there that belong to no server on that node (a move away that left them behind).
+  Snapshots kept per server follow the panel's `STORAGE_MIRROR_SNAPSHOTS`.
 - **The agent** (`agent/`): also serves an on-demand tar behind an HMAC-signed URL (wings pulls
   from it during recovery), answers a node-reachability probe, reports mirror size/freshness back,
   and self-updates from a signed bundle the panel serves. Code lives on `/opt` (OS disk), data on
@@ -30,11 +43,14 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 | `mirror_public_key` | `STORAGE_MIRROR_PUBLIC_KEY` | The box's `ph-mirror` key (the installer sets it), served to nodes by `/plugged-host/storage/node/install.sh` |
 | `failover_mode` | `STORAGE_FAILOVER_MODE` (`auto`) | `off` \| `notify` \| `auto` |
 | `failover_after_failures` | `STORAGE_FAILOVER_AFTER_FAILURES` (`5`) | Consecutive minute-probe failures before acting |
-| `min_free_percent` / `mirror_snapshots` | `STORAGE_*` | Agent free-space floor + snapshot retention |
+| `min_free_percent` / `mirror_snapshots` | `STORAGE_*` | Agent free-space floor + snapshot retention (sent to the agent in the plan) |
+| `deleted_hold_days` | `STORAGE_DELETED_HOLD_DAYS` (`7`) | Days an admin-deleted server's copy is kept |
+| `purge_deleted` | `STORAGE_PURGE_DELETED` (`true`) | Kill switch for the agent's cleanup (holds are still recorded) |
 
 ## Migrations
 
-- `001_create_server_replicas_table.php`, `002_create_node_failovers_table.php` (operator-run).
+- `001_create_server_replicas_table.php`, `002_create_node_failovers_table.php`,
+  `003_create_storage_deleted_servers_table.php` (operator-run).
 
 ## Setting up the storage box (from zero)
 
