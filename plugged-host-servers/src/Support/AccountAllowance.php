@@ -15,6 +15,8 @@ use App\Services\Allocations\AssignmentService;
 use App\Services\Deployment\FindViableNodesService;
 use App\Services\Servers\ServerCreationService;
 use App\Services\Servers\ServerDeletionService;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
@@ -316,23 +318,19 @@ final class AccountAllowance
         $location = is_string($location) && $location !== '' ? strtolower(trim($location)) : null;
 
         if ($isCfx) {
-            [$primaryAllocation, $secondaryAllocation] = $this->findOrCreateAllocationsForCfx(
+            [$primaryAllocation, $secondaryAllocation] = $this->reserveFirst(fn (): array => $this->findOrCreateAllocationsForCfx(
                 (int) $data['memory'],
                 (int) $data['disk'],
                 (int) $data['cpu'],
                 $location
-            );
-
-            $primaryAllocation->update(['is_locked' => true]);
-            $secondaryAllocation->update(['is_locked' => true]);
+            ));
 
             $data['node_id'] = $primaryAllocation->node_id;
             $data['allocation_id'] = $primaryAllocation->id;
             $data['allocation_additional'] = [$secondaryAllocation->id];
             $data['environment']['TXHOST_TXA_PORT'] = (string) $secondaryAllocation->port;
         } else {
-            $allocation = $this->findOrCreateAllocation((int) $data['memory'], (int) $data['disk'], (int) $data['cpu'], $location);
-            $allocation->update(['is_locked' => true]);
+            [$allocation] = $this->reserveFirst(fn (): array => [$this->findOrCreateAllocation((int) $data['memory'], (int) $data['disk'], (int) $data['cpu'], $location)]);
             $data['node_id'] = $allocation->node_id;
             $data['allocation_id'] = $allocation->id;
         }
@@ -356,6 +354,11 @@ final class AccountAllowance
      * and the server still counts against their allowance (3e6fcbb5 on nl2, 2026-10-10: wings
      * answered 500). Ask wings once more, and if it still refuses remove the row so the caller
      * reports a failed create instead.
+     *
+     * No retry when the primary allocation never got linked to the server: another claim took
+     * the row between our pick and ServerCreationService linking it (it only links rows that
+     * are still free), so wings is sent no ports, rejects the config ("expected { character for
+     * map value") and would reject it again. That is what happened to 3e6fcbb5.
      */
     private function recoverRejectedCreate(int $allocationId, bool $startOnCompletion, RequestException $failure): Server
     {
@@ -369,19 +372,72 @@ final class AccountAllowance
             throw $failure;
         }
 
-        try {
-            app(DaemonServerRepository::class)->setServer($server)->create($startOnCompletion);
+        if ($server->allocations()->whereKey($allocationId)->exists()) {
+            try {
+                app(DaemonServerRepository::class)->setServer($server)->create($startOnCompletion);
 
-            Log::warning('[plugged-host-servers] wings rejected a server create, the retry went through', ['server' => $server->uuid, 'error' => $failure->getMessage()]);
+                Log::warning('[plugged-host-servers] wings rejected a server create, the retry went through', ['server' => $server->uuid, 'error' => $failure->getMessage()]);
 
-            return $server;
-        } catch (Throwable $retry) {
-            Log::error('[plugged-host-servers] wings rejected a server create twice, removing it', ['server' => $server->uuid, 'error' => $retry->getMessage()]);
+                return $server;
+            } catch (Throwable $retry) {
+                Log::error('[plugged-host-servers] wings rejected a server create twice, removing it', ['server' => $server->uuid, 'error' => $retry->getMessage()]);
+            }
+        } else {
+            Log::error('[plugged-host-servers] a new server lost its primary allocation before wings saw it, removing it', ['server' => $server->uuid, 'allocation' => $allocationId]);
         }
 
         app(ServerDeletionService::class)->withForce()->handle($server);
 
         throw $failure;
+    }
+
+    /**
+     * How long a free allocation stays reserved for the create that picked it. A create links
+     * its allocation within seconds; a reservation older than this is a leftover (a failed
+     * create, or a server delete, which frees rows without clearing is_locked) and free again.
+     */
+    public const RESERVATION_MINUTES = 10;
+
+    /**
+     * Pick allocations with $find and reserve them for this create, picking again when another
+     * claim got there first.
+     *
+     * The reservation is `is_locked` on a row that is still free, written with a conditional
+     * query: Allocation's own updating hook resets is_locked on every model save of a free row,
+     * so the old `$allocation->update(['is_locked' => true])` never held. Every claimer skips
+     * reserved rows (see notReserved(); GeyserService does the same), which closes the gap in
+     * which Geyser's Bedrock claim took 3e6fcbb5's primary port (2026-10-10).
+     *
+     * @param  Closure(): array<int, Allocation>  $find
+     * @return array<int, Allocation>
+     */
+    private function reserveFirst(Closure $find): array
+    {
+        for ($attempt = 1; ; $attempt++) {
+            $allocations = $find();
+            $ids = array_map(fn (Allocation $allocation) => $allocation->getKey(), $allocations);
+
+            $reserved = Allocation::withoutGlobalScopes()
+                ->whereIn('id', $ids)
+                ->whereNull('server_id')
+                ->where(fn (Builder $query) => self::notReserved($query))
+                ->update(['is_locked' => true]);
+
+            if ($reserved === count($ids)) {
+                return $allocations;
+            }
+
+            throw_if($attempt >= 3, new NoViableAllocationException(trans('exceptions.deployment.no_viable_allocations')));
+        }
+    }
+
+    /**
+     * Constrain a free-allocation query to rows no create has reserved in the last few minutes.
+     */
+    public static function notReserved(Builder $query): Builder
+    {
+        return $query->where('is_locked', false)
+            ->orWhere('updated_at', '<', now()->subMinutes(self::RESERVATION_MINUTES));
     }
 
     /**
@@ -474,6 +530,7 @@ final class AccountAllowance
 
             $available = Allocation::withoutGlobalScopes()
                 ->whereNull('server_id')
+                ->where(fn (Builder $query) => self::notReserved($query))
                 ->where('node_id', $node->id)
                 ->where('ip', $ip)
                 ->where(function ($query) use ($ranges) {
@@ -727,6 +784,7 @@ final class AccountAllowance
     {
         return Allocation::withoutGlobalScopes()
             ->whereNull('server_id')
+            ->where(fn (Builder $query) => self::notReserved($query))
             ->where('node_id', $node->id)
             ->where('ip', $ip)
             ->where(function ($query) use ($ranges) {
