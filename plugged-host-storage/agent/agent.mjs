@@ -690,14 +690,14 @@ async function freshCachedArchive(uuid, srcDir) {
     fsp.stat(cachedArchivePath(uuid)).catch(() => null),
     fsp.readFile(cacheMetaPath(uuid), 'utf8').then(JSON.parse).catch(() => null),
   ]);
-  if (!archive || !archive.size || !meta || meta.source !== srcDir) return null;
+  if (!archive || !archive.size || !meta || meta.source !== srcDir || meta.format !== ARCHIVE_FORMAT) return null;
   // Built from the live mirror (no snapshot) while a pass ran: out of date.
   if ((lastPassAt.get(uuid) || 0) > Number(meta.started_at || 0)) return null;
   return { path: cachedArchivePath(uuid), size: archive.size };
 }
 
 async function writeCacheMeta(uuid, srcDir, startedAt) {
-  await fsp.writeFile(cacheMetaPath(uuid), JSON.stringify({ source: srcDir, started_at: startedAt.getTime() })).catch(() => {});
+  await fsp.writeFile(cacheMetaPath(uuid), JSON.stringify({ source: srcDir, started_at: startedAt.getTime(), format: ARCHIVE_FORMAT })).catch(() => {});
 }
 
 async function dropCachedArchive(uuid) {
@@ -720,9 +720,21 @@ function releaseSource(dir) {
   if (n > 0) busySources.set(dir, n); else busySources.delete(dir);
 }
 
-function tarArgs(srcDir) {
+// Archives list regular files only, no directory entries: wings restores (failover) write every
+// entry as a file and abort on the first directory ("./"), exactly as its own backups, which
+// never contain one. Extracting still recreates every folder that holds a file.
+const ARCHIVE_FORMAT = 2;
+
+function spawnTar(srcDir) {
   const excludeArgs = EXCLUDES.flatMap((pat) => ['--exclude', pat]);
-  return ['-c', '-f', '-', '-I', COMPRESSOR, ...excludeArgs, '-C', srcDir, '.'];
+  const list = spawn('find', ['.', '-type', 'f', '-printf', '%P\\0'], { cwd: srcDir, stdio: ['ignore', 'pipe', 'ignore'] });
+  const child = spawn('tar', ['-c', '-f', '-', '-I', COMPRESSOR, '--null', '--no-recursion', ...excludeArgs, '-C', srcDir, '-T', '-'], {
+    stdio: ['pipe', 'pipe', 'ignore'],
+  });
+  list.stdout.pipe(child.stdin);
+  list.on('error', () => child.stdin.destroy());
+  child.on('close', () => list.kill('SIGTERM'));
+  return child;
 }
 
 // tar exits 1 when a file changed while it was read; the archive is still whole.
@@ -744,7 +756,7 @@ function buildCompleteArchive(uuid, srcDir) {
     await fsp.rm(cacheMetaPath(uuid), { force: true }).catch(() => {});
     try {
       const code = await new Promise((resolve, reject) => {
-        const child = spawn('tar', tarArgs(srcDir), { stdio: ['ignore', 'pipe', 'ignore'] });
+        const child = spawnTar(srcDir);
         const file = fs.createWriteStream(tmpOut);
         child.on('error', reject);
         file.on('error', reject);
@@ -782,7 +794,7 @@ function streamArchive(res, uuid, srcDir, headers) {
   const writesCache = !cacheWriters.has(uuid);
   const startedAt = new Date();
   const tmpOut = path.join(DIRS.archives, `${uuid}.${Date.now()}.tmp.tar.gz`);
-  const child = spawn('tar', tarArgs(srcDir), { stdio: ['ignore', 'pipe', 'ignore'] });
+  const child = spawnTar(srcDir);
   let file = null;
 
   archiveJobs++;
@@ -972,8 +984,10 @@ function startServer() {
           ? q.get('filename').replace(/[^a-zA-Z0-9_.-]/g, '_')
           : `backup-${resolved.uuid.slice(0, 8)}.tar.gz`;
 
+        // Wings only restores from a download typed as gzip (failover); browsers keep getting a
+        // plain download, so nothing unpacks the .tar.gz on the way.
         const headers = {
-          'Content-Type': 'application/octet-stream',
+          'Content-Type': /^Mozilla\//.test(String(req.headers['user-agent'] || '')) ? 'application/octet-stream' : 'application/gzip',
           'Content-Disposition': `attachment; filename="${customFilename}"`,
           'Cache-Control': 'no-store, no-cache, must-revalidate',
           'Pragma': 'no-cache',
