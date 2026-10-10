@@ -11,7 +11,7 @@ return [
         'signed_ttl' => 'Signed URL TTL (seconds)',
         'signed_ttl_hint' => 'Lifetime of signed archive-fetch and probe URLs, in seconds.',
         'agent_version' => 'Agent Bundle Version',
-        'agent_version_hint' => 'Auto-update bundle version currently served to agents by the panel.',
+        'agent_version_hint' => 'The plugins release and the start of the agent code\'s hash, served to the agents, which update themselves when it changes.',
 
         // Secret handling (shared strings).
         'secret_unchanged' => 'leave blank to keep current',

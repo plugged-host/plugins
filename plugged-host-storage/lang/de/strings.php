@@ -11,7 +11,7 @@ return [
         'signed_ttl' => 'Gültigkeit signierter URLs (Sekunden)',
         'signed_ttl_hint' => 'Lebensdauer signierter URLs für Archivabruf und Prüfungen, in Sekunden.',
         'agent_version' => 'Agent-Bundle-Version',
-        'agent_version_hint' => 'Aktuell vom Panel bereitgestellte Auto-Update-Bundle-Version der Agenten.',
+        'agent_version_hint' => 'Plugins-Release und der Anfang des Hashes des Agenten-Codes; die Agenten aktualisieren sich, sobald er sich ändert.',
 
         // Secret-Handhabung (gemeinsame Texte).
         'secret_unchanged' => 'leer lassen, um beizubehalten',
