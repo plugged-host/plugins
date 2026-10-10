@@ -16,6 +16,16 @@ return [
      */
     'accounts_url' => rtrim((string) env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space'), '/'),
     'sso_secret' => (string) env('NOPROFIT_SSO_SECRET', ''),
+    /*
+     * Which noprofit.space sign-in client this panel is. The production panel is `plugged-host`
+     * (its tokens may name the panel user an account is linked to). A dev or staging panel is a
+     * client of its own, e.g. `plugged-host-dev` with audience `plugged-host-dev:sso`: its
+     * tokens carry only the account, it matches users by account or email (sso_link_by_email)
+     * and never reports links back, so it cannot touch production's links.
+     */
+    'sso_client' => (string) env('NOPROFIT_SSO_CLIENT', 'plugged-host'),
+    'sso_audience' => (string) env('NOPROFIT_SSO_AUDIENCE', 'plugged-host:sso'),
+    'sso_link_by_email' => (bool) env('NOPROFIT_SSO_LINK_BY_EMAIL', false),
     'migration_secret' => (string) env('NOPROFIT_MIGRATION_SECRET', ''),
     // Credit balances and Discord links, both directions. Separate from the migration
     // secret so a leak can move balances but never sign anyone in or delete an account.

@@ -87,7 +87,7 @@ final class NoprofitSsoController
         }
 
         try {
-            $claims = NoprofitToken::decode($token, (string) config('plugged-host-noprofit.sso_secret'), NoprofitToken::AUDIENCE_SSO);
+            $claims = NoprofitToken::decode($token, (string) config('plugged-host-noprofit.sso_secret'), (string) config('plugged-host-noprofit.sso_audience', NoprofitToken::AUDIENCE_SSO));
         } catch (InvalidArgumentException) {
             abort(403, 'This sign-in link is invalid or has expired.');
         }
@@ -259,8 +259,9 @@ final class NoprofitSsoController
         }
 
         // noprofit.space vouches for this link: it is only ever created by a migration the user
-        // proved with their plugged.host password.
-        $pelicanUserId = (int) ($claims['pelican_user_id'] ?? 0);
+        // proved with their plugged.host password. Only the production client's tokens name a
+        // panel user; on any other panel that id would be somebody else.
+        $pelicanUserId = $this->isProductionClient() ? (int) ($claims['pelican_user_id'] ?? 0) : 0;
         if ($pelicanUserId > 0 && ($user = User::query()->find($pelicanUserId)) !== null) {
             NoprofitLink::remember($user, $accountId);
 
@@ -268,7 +269,15 @@ final class NoprofitSsoController
         }
 
         $email = Str::lower(trim((string) $claims['email']));
-        if (User::query()->where('email', $email)->exists()) {
+        $existing = User::query()->where('email', $email)->first();
+        if ($existing !== null) {
+            // A dev panel trusts noprofit.space's (verified) email to find its own copy of the user.
+            if (!$this->isProductionClient() && config('plugged-host-noprofit.sso_link_by_email')) {
+                NoprofitLink::remember($existing, $accountId);
+
+                return $existing;
+            }
+
             return null;
         }
 
@@ -283,9 +292,18 @@ final class NoprofitSsoController
         // noprofit.space learns right away which panel user the account now has (it had none,
         // or one that no longer exists).
         NoprofitLink::remember($user, $accountId);
-        NoprofitAccountSync::reportLink($accountId, (int) $user->getKey());
+
+        if ($this->isProductionClient()) {
+            NoprofitAccountSync::reportLink($accountId, (int) $user->getKey());
+        }
 
         return $user;
+    }
+
+    /** Whether this panel signs in as plugged.host itself (not a dev or staging client). */
+    private function isProductionClient(): bool
+    {
+        return config('plugged-host-noprofit.sso_client', 'plugged-host') === 'plugged-host';
     }
 
     /**
@@ -330,10 +348,11 @@ final class NoprofitSsoController
         $state = Str::random(40);
         session()->put(self::SSO_STATE, $state);
 
-        return redirect()->away($this->accountsUrl() . '/sso?' . http_build_query([
+        return redirect()->away($this->accountsUrl() . '/sso?' . http_build_query(array_filter([
+            'client' => $this->isProductionClient() ? null : (string) config('plugged-host-noprofit.sso_client'),
             'return_to' => route('plugged-host.sso.callback'),
             'state' => $state,
-        ]));
+        ])));
     }
 
     private function accountsUrl(): string
