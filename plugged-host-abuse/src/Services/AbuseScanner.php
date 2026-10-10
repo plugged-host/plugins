@@ -24,7 +24,9 @@ final class AbuseScanner
      */
     public function scan(Server $server, bool $enforce, bool $record = true, bool $sweep = true): array
     {
-        $server->loadMissing(['egg', 'node', 'user', 'variables']);
+        // Not `variables`: eager-loading it drops each one's server_value (Pelican's relation
+        // selects it per server), so the startup checks would never see a value.
+        $server->loadMissing(['egg', 'node', 'user']);
 
         $findings = $this->startup->inspect($server);
         $files = $this->files->inspect($server);

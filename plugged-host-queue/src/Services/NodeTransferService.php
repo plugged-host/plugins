@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Queue\Services;
 
+use App\Exceptions\Http\Server\NodeNotViableException;
 use App\Exceptions\Http\Server\ServerStateConflictException;
 use App\Models\Allocation;
 use App\Models\Node;
@@ -348,12 +349,16 @@ class NodeTransferService
         $primary = (int) array_shift($allocations);
 
         try {
-            $moved = (bool) app(TransferServerService::class)->handle(
+            app(TransferServerService::class)->handle(
                 $server,
                 (int) $node->getKey(),
                 $primary,
                 $allocations,
             );
+        } catch (NodeNotViableException) {
+            // The node stopped being viable between `candidates()` and now. Not an
+            // error, just a race the user should be told about plainly.
+            return self::RESULT_NO_NODE;
         } catch (ServerStateConflictException $e) {
             // The server changed under us — installing, restoring, or another transfer
             // already running.
@@ -364,12 +369,6 @@ class NodeTransferService
             $this->log('transfer refused', $e);
 
             return self::RESULT_FAILED;
-        }
-
-        if (!$moved) {
-            // The node stopped being viable between `candidates()` and now. Not an
-            // error, just a race the user should be told about plainly.
-            return self::RESULT_NO_NODE;
         }
 
         Log::info('[plugged-host-queue] server transfer started from the start queue', [

@@ -53,7 +53,7 @@ class ThemeV2ServerEntry extends ServerEntry
             'color' => $loading ? 'gray' : ($server->condition->getColor() ?: 'gray'),
             'status' => $loading ? trans('server/dashboard.loading') : $this->status($resources),
             'description' => filled($server->description) ? Str::limit((string) $server->description, 80, preserveWords: true) : null,
-            'address' => $server->allocation?->address,
+            'address' => $server->allocation?->display_address, // honours the allocation's "show port" setting
             'actions' => $loading ? null : ListServers::getPowerActionGroup()->record($server),
             'meters' => [
                 $this->meter('cpu', (int) round((float) ($resources['cpu_absolute'] ?? 0)), (int) $server->cpu, 'percent'),

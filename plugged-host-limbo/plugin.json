@@ -11,6 +11,7 @@
     "class": "PluggedHostLimboPlugin",
     "panels": ["server"],
     "panel_version": null,
+    "api_version": 1,
     "composer_packages": null,
     "plugged_host": {
         "requires": ["plugged-host-core", "plugged-host-servers"],

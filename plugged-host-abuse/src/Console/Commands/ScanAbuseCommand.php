@@ -53,7 +53,7 @@ class ScanAbuseCommand extends Command
             return self::SUCCESS;
         }
 
-        $query = Server::query()->with(['egg', 'node', 'user', 'variables'])->orderBy('id');
+        $query = Server::query()->with(['egg', 'node', 'user'])->orderBy('id'); // not `variables`, see AbuseScanner
 
         if ($ids = array_filter((array) $this->option('server'))) {
             $query->where(fn ($q) => $q->whereIn('id', array_filter($ids, 'ctype_digit'))->orWhereIn('uuid', $ids)->orWhereIn('uuid_short', $ids));

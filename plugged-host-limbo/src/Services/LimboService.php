@@ -3,6 +3,7 @@
 namespace PluggedHost\Limbo\Services;
 
 use App\Enums\ServerState;
+use App\Exceptions\Http\Server\NodeNotViableException;
 use App\Facades\Activity;
 use App\Models\Allocation;
 use App\Models\Node;
@@ -708,9 +709,11 @@ class LimboService implements StartGate
     private function transfer(Server $server, Node $node, int $primary, array $additional): bool
     {
         try {
-            if (app(TransferServerService::class)->handle($server, (int) $node->getKey(), $primary, $additional)) {
-                return true;
-            }
+            app(TransferServerService::class)->handle($server, (int) $node->getKey(), $primary, $additional);
+
+            return true;
+        } catch (NodeNotViableException) {
+            return false;
         } catch (Throwable $e) {
             report($e);
         }

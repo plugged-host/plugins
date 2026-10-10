@@ -893,18 +893,19 @@ class ServerSettings extends ServerFormPage
                     ->label(trans('server/setting.notifications.backup_manual.label'))
                     ->helperText(trans('server/setting.notifications.backup_manual.helper'))
                     ->live()
-                    ->afterStateUpdated(fn ($state, Server $server) => $this->updateNotificationSetting(ServerUserSettingKey::ManualBackupNotifications, (bool) $state, $server)),
+                    ->afterStateUpdated(fn ($state) => $this->updateNotificationSetting(ServerUserSettingKey::ManualBackupNotifications, (bool) $state)),
                 Toggle::make(ServerUserSettingKey::ScheduledBackupNotifications->value)
                     ->label(trans('server/setting.notifications.backup_scheduled.label'))
                     ->helperText(trans('server/setting.notifications.backup_scheduled.helper'))
                     ->live()
-                    ->afterStateUpdated(fn ($state, Server $server) => $this->updateNotificationSetting(ServerUserSettingKey::ScheduledBackupNotifications, (bool) $state, $server)),
+                    ->afterStateUpdated(fn ($state) => $this->updateNotificationSetting(ServerUserSettingKey::ScheduledBackupNotifications, (bool) $state)),
             ]);
     }
 
-    public function updateNotificationSetting(ServerUserSettingKey $key, bool $state, Server $server): void
+    /** Always the open server: a server passed in from the browser could be anyone's (upstream #2596). */
+    public function updateNotificationSetting(ServerUserSettingKey $key, bool $state): void
     {
-        user()?->updateServerSetting($server, $key, $state);
+        user()?->updateServerSetting(Filament::getTenant(), $key, $state);
 
         Notification::make()
             ->title(trans('server/setting.notifications.saved'))
