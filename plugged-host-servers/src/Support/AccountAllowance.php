@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Servers\Support;
 
+use App\Enums\ServerState;
 use App\Exceptions\Service\Deployment\NoViableAllocationException;
 use App\Exceptions\Service\Deployment\NoViableNodeException;
 use App\Models\Allocation;
@@ -9,10 +10,15 @@ use App\Models\Egg;
 use App\Models\Node;
 use App\Models\Server;
 use App\Models\User;
+use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Allocations\AssignmentService;
 use App\Services\Deployment\FindViableNodesService;
 use App\Services\Servers\ServerCreationService;
+use App\Services\Servers\ServerDeletionService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 use PluggedHost\Economy\Services\NoprofitCreditSync;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\NodeBalancer;
@@ -334,7 +340,48 @@ final class AccountAllowance
         /** @var ServerCreationService $service */
         $service = app(ServerCreationService::class);
 
-        return $service->handle($data);
+        try {
+            return $service->handle($data);
+        } catch (RequestException $e) {
+            return $this->recoverRejectedCreate((int) $data['allocation_id'], (bool) $data['start_on_completion'], $e);
+        }
+    }
+
+    /**
+     * Wings answered the create with an error after the server row was already committed.
+     *
+     * ServerCreationService only cleans up when wings is unreachable (ConnectionException). An
+     * error response leaves the row behind as `installing` on a node that never heard of it:
+     * nothing will ever report the install, so the owner waits on the installing page forever
+     * and the server still counts against their allowance (3e6fcbb5 on nl2, 2026-10-10: wings
+     * answered 500). Ask wings once more, and if it still refuses remove the row so the caller
+     * reports a failed create instead.
+     */
+    private function recoverRejectedCreate(int $allocationId, bool $startOnCompletion, RequestException $failure): Server
+    {
+        $server = Server::query()
+            ->where('allocation_id', $allocationId)
+            ->where('status', ServerState::Installing)
+            ->latest('id')
+            ->first();
+
+        if (!$server instanceof Server) {
+            throw $failure;
+        }
+
+        try {
+            app(DaemonServerRepository::class)->setServer($server)->create($startOnCompletion);
+
+            Log::warning('[plugged-host-servers] wings rejected a server create, the retry went through', ['server' => $server->uuid, 'error' => $failure->getMessage()]);
+
+            return $server;
+        } catch (Throwable $retry) {
+            Log::error('[plugged-host-servers] wings rejected a server create twice, removing it', ['server' => $server->uuid, 'error' => $retry->getMessage()]);
+        }
+
+        app(ServerDeletionService::class)->withForce()->handle($server);
+
+        throw $failure;
     }
 
     /**
