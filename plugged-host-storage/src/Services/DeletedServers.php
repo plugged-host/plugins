@@ -6,6 +6,7 @@ use App\Models\Server;
 use App\Models\ServerTransfer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use PluggedHost\Storage\Models\DeletedServer;
@@ -29,6 +30,8 @@ class DeletedServers
 {
     private const UUID = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/';
 
+    private const LAST_REPORT = 'plugged-host-storage:last-inventory';
+
     private static ?bool $ready = null;
 
     public function __construct(private StorageService $storage) {}
@@ -45,6 +48,14 @@ class DeletedServers
         }
 
         return self::$ready;
+    }
+
+    /** Unix time of the agent's last folder report, or null. */
+    public function lastReportAt(): ?int
+    {
+        $at = Cache::get(self::LAST_REPORT);
+
+        return is_int($at) ? $at : null;
     }
 
     public function holdDays(): int
@@ -117,6 +128,8 @@ class DeletedServers
         if (!$this->ready()) {
             return $none;
         }
+
+        Cache::put(self::LAST_REPORT, time(), now()->addDays(7));
 
         $lastCopy = [];
         foreach ($copies as $copy) {

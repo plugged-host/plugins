@@ -82,6 +82,11 @@ class DeletedServersCommand extends Command
 
         $this->line(sprintf('%d deleted server(s). Hold: %d days after an admin or the panel deleted one.', $rows->count(), $deleted->holdDays()));
 
+        $at = $deleted->lastReportAt();
+        $this->line($at === null
+            ? 'The storage agent has not reported its folders yet (agent 1.4.0+, hourly): nothing is being removed.'
+            : 'Last cleanup report from the storage agent: ' . now()->setTimestamp($at)->diffForHumans() . '.');
+
         return self::SUCCESS;
     }
 
