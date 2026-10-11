@@ -69,6 +69,9 @@
                    class="phsf-item">
                     {{ trans('server/setting.server_info.sftp.title') }}
                 </a>
+            @endif
+
+            @if ($this->hasDevbox())
                 <a href="#vscode" @click="active = 'vscode'"
                    :class="active === 'vscode' ? 'is-active' : ''"
                    class="phsf-item">

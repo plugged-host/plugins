@@ -39,9 +39,6 @@ use Filament\Support\Enums\Alignment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use phpseclib4\Crypt\EC;
-use phpseclib4\Crypt\PublicKeyLoader;
-use phpseclib4\Crypt\RSA;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Contracts\SoftwareSwitcher;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
@@ -50,7 +47,6 @@ use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
 use PluggedHost\Servers\Services\ServerResizer;
 use PluggedHost\Servers\Support\AccountAllowance;
-use Throwable;
 
 /**
  * Modern, unified single-page server settings.
@@ -216,107 +212,36 @@ class ServerSettings extends ServerFormPage
 
     // -- 2b. VS Code Section ------------------------------------------------------
 
-    /**
-     * Big paths nobody edits, left out of "SFTP: Download Project": Minecraft worlds, libraries
-     * and server jars, FiveM's FXServer runtime, caches and logs. Gitignore syntax, so a leading
-     * slash means the server root only.
-     */
-    private const VSCODE_IGNORE = [
-        '.vscode', '.git', 'cache', 'logs', 'crash-reports',
-        '/alpine', '/libraries', '/versions', '/world', '/world_nether', '/world_the_end', '/*.jar',
-    ];
+    private const DEVBOX_CARD = 'PluggedHost\\Devbox\\Livewire\\OpenInVsCode';
 
     /**
-     * VS Code over the node's own SFTP (Wings, untouched): a ready-made .vscode/sftp.json for
-     * the "SFTP" extension (satiromarra.code-sftp, the maintained fork of Natizyskunk.sftp, whose
-     * last release breaks downloads on current VS Code: "isDate is not a function"). Nothing runs
-     * on the node, extensions run locally.
+     * Whether the VS Code section shows: the devbox plugin is on and the person may use a devbox
+     * here (owner, or a subuser with its "VS Code" permission).
+     */
+    public function hasDevbox(): bool
+    {
+        return Plugins::available(self::DEVBOX_CARD)
+            && (bool) user()?->can('devbox.connect', $this->getRecord());
+    }
+
+    /**
+     * VS Code on the server (plugged-host-devbox, Plus): a private Linux box next to this server
+     * with its files at /server, which VS Code's Remote-SSH connects to.
      */
     protected function vscodeSection(): Section
     {
+        $record = $this->getRecord();
+
         return Section::make(trans('plugged-host-servers::strings.server_settings.vscode.title'))
             ->id('vscode')
             ->description(trans('plugged-host-servers::strings.server_settings.vscode.description'))
             ->columnSpanFull()
-            ->visible(fn () => $this->hasSftpAccess())
+            ->visible(fn () => $this->hasDevbox())
             ->extraAttributes(['class' => 'scroll-mt-24'])
-            ->schema([
-                ...$this->devboxComponents(),
-                View::make('plugged-host-servers::filament.pages.settings.vscode-card')
-                    ->viewData(fn (Server $server) => $this->vscodeData($server)),
-            ]);
-    }
-
-    /**
-     * VS Code on the server (plugged-host-devbox, Plus) above the SFTP config, which is VS Code on
-     * your own PC. Nothing when that plugin is off.
-     *
-     * @return array<int, LivewireComponent>
-     */
-    private function devboxComponents(): array
-    {
-        $component = 'PluggedHost\\Devbox\\Livewire\\OpenInVsCode';
-        if (!Plugins::available($component)) {
-            return [];
-        }
-
-        $record = $this->getRecord();
-
-        return [
-            LivewireComponent::make($component, ['serverId' => (int) $record->getKey()])
-                ->key('devbox-' . $record->getKey()),
-        ];
-    }
-
-    /**
-     * Without a password in the config the extension asks for one on connect (the account
-     * password, verified like any SFTP login). With an SSH key on the account it points at
-     * the usual file for that key type instead.
-     *
-     * @return array{config: string, keyPath: ?string, sshKeysUrl: ?string}
-     */
-    protected function vscodeData(Server $server): array
-    {
-        $user = user();
-        $keyPath = $this->vscodeKeyPath();
-
-        $config = [
-            'name' => $server->name,
-            'host' => $server->node->daemon_sftp_alias ?? $server->node->fqdn,
-            'protocol' => 'sftp',
-            'port' => (int) ($server->node->daemon_sftp ?? 2022),
-            'username' => ($user?->username ?? 'user') . '.' . $server->uuid_short,
-            ...($keyPath !== null ? ['privateKeyPath' => $keyPath] : []),
-            'remotePath' => '/',
-            'uploadOnSave' => true,
-            'ignore' => self::VSCODE_IGNORE,
-        ];
-
-        return [
-            'config' => (string) json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-            'keyPath' => $keyPath,
-            'sshKeysUrl' => Filament::getPanel('app')->getProfileUrl(['tab' => 'ssh-keys::data::tab']),
-        ];
-    }
-
-    private function vscodeKeyPath(): ?string
-    {
-        $key = user()?->sshKeys()->latest()->first();
-        if ($key === null) {
-            return null;
-        }
-
-        try {
-            $loaded = PublicKeyLoader::loadPublicKey($key->public_key);
-        } catch (Throwable) {
-            return '~/.ssh/id_ed25519';
-        }
-
-        return match (true) {
-            $loaded instanceof RSA => '~/.ssh/id_rsa',
-            $loaded instanceof EC && $loaded->getCurve() !== 'Ed25519' => '~/.ssh/id_ecdsa',
-            default => '~/.ssh/id_ed25519',
-        };
+            ->schema(fn () => $this->hasDevbox() ? [
+                LivewireComponent::make(self::DEVBOX_CARD, ['serverId' => (int) $record->getKey()])
+                    ->key('devbox-' . $record->getKey()),
+            ] : []);
     }
 
     // -- 3. Resources / Plan ------------------------------------------------------
