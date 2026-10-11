@@ -43,6 +43,7 @@ return [
         'shared_disable' => 'Nicht mehr teilen',
         'shared_enable_confirm' => 'Eine Devbox mit deinen Subusern teilen? Persönliche Devboxen auf diesem Server werden gelöscht, und alle in der geteilten sehen gegenseitig ihre Dateien und Logins.',
         'shared_disable_confirm' => 'Nicht mehr teilen? Die geteilte Devbox und alles in ihrem Home-Ordner werden gelöscht.',
+        'start' => 'Devbox starten',
         'open' => 'In VS Code öffnen',
         'open_browser' => 'Im Browser öffnen',
         'needs_remote_ssh' => 'Braucht die Erweiterung Remote - SSH.',

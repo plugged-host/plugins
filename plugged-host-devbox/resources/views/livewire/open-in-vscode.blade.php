@@ -122,7 +122,7 @@
                             <x-filament::button color="gray" wire:click="openInBrowser">{{ $t('open_browser') }}</x-filament::button>
                         @endif
                     @elseif (in_array($state, ['none', 'stopped', 'failed'], true))
-                        <x-filament::button wire:click="open" wire:loading.attr="disabled" wire:target="open">{{ $t('open') }}</x-filament::button>
+                        <x-filament::button wire:click="open" wire:loading.attr="disabled" wire:target="open">{{ $t('start') }}</x-filament::button>
                     @endif
                     <span class="phdb-hint">
                         {{ $t('needs_remote_ssh') }}

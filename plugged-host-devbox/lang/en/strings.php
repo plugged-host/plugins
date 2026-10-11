@@ -43,6 +43,7 @@ return [
         'shared_disable' => 'Stop sharing',
         'shared_enable_confirm' => 'Share one devbox with your subusers? Personal devboxes on this server are deleted, and everyone in the shared one can see each other\'s files and logins.',
         'shared_disable_confirm' => 'Stop sharing? The shared devbox and everything in its home folder are deleted.',
+        'start' => 'Start devbox',
         'open' => 'Open in VS Code',
         'open_browser' => 'Open in browser',
         'needs_remote_ssh' => 'Needs the Remote - SSH extension.',
