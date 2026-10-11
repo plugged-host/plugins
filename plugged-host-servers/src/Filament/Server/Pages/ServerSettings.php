@@ -226,7 +226,9 @@ class ServerSettings extends ServerFormPage
 
     /**
      * VS Code over the node's own SFTP (Wings, untouched): a ready-made .vscode/sftp.json for
-     * the "SFTP" extension (Natizyskunk.sftp). Nothing runs on the node, extensions run locally.
+     * the "SFTP" extension (satiromarra.code-sftp, the maintained fork of Natizyskunk.sftp, whose
+     * last release breaks downloads on current VS Code: "isDate is not a function"). Nothing runs
+     * on the node, extensions run locally.
      */
     protected function vscodeSection(): Section
     {

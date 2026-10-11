@@ -4,7 +4,7 @@
     the theme tokens, the same rules as the sibling settings cards.
 --}}
 @php
-    $extensionUrl = 'vscode:extension/Natizyskunk.sftp';
+    $extensionUrl = 'vscode:extension/satiromarra.code-sftp';
 @endphp
 
 <style>
