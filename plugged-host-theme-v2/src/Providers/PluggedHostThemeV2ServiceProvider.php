@@ -56,6 +56,12 @@ class PluggedHostThemeV2ServiceProvider extends ServiceProvider
             },
         );
 
+        // The accent colour from the settings, after theme.css so its :root:root block wins.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::STYLES_AFTER,
+            fn (): Htmlable => $this->renderAccent(),
+        );
+
         // The big notification button, immediately under the logo and above the nav tree.
         FilamentView::registerRenderHook(
             PanelsRenderHook::SIDEBAR_NAV_START,
@@ -75,6 +81,16 @@ class PluggedHostThemeV2ServiceProvider extends ServiceProvider
             PanelsRenderHook::SIDEBAR_FOOTER,
             fn (): Htmlable => $this->renderSidebarBalance(),
         );
+    }
+
+    /** The accent override, or nothing for the default blue and on any failure. */
+    private function renderAccent(): Htmlable
+    {
+        try {
+            return new HtmlString((string) view('plugged-host-theme-v2::accent')->render());
+        } catch (Throwable) {
+            return new HtmlString('');
+        }
     }
 
     /**

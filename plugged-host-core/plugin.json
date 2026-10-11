@@ -15,7 +15,7 @@
     "composer_packages": null,
     "plugged_host": {
         "requires": [],
-        "optional": []
+        "optional": ["plugged-host-theme-v2"]
     },
     "meta": {
         "status": "enabled",

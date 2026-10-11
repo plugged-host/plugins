@@ -484,6 +484,8 @@
             z-index: 100;
         }
     </style>
+    {{-- The accent from the Theme v2 settings, over the blue tokens above. --}}
+    @includeWhen(\PluggedHost\Core\Support\Plugins::enabled('plugged-host-theme-v2'), 'plugged-host-theme-v2::accent')
 </head>
 <body>
     <header class="topbar">

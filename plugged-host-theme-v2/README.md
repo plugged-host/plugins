@@ -23,7 +23,12 @@ every panel/user gets Theme v2.
 
 ## Config keys / env
 
-None. The former `THEME_V2_MODE` rollout switch was removed — there is nothing left to configure.
+`THEME_V2_ACCENT` (Admin › Plugins › Theme v2 › Settings): the accent colour, a Tailwind preset
+name (`blue`, the default, `indigo` … `sky`) or a `#rrggbb` colour. `Support\Accent` maps it onto
+every property theme.css sets from the accent (`--phv2-accent*`, `--primary-*`) and prints a
+`:root:root` block at `STYLES_AFTER`; blue prints nothing. The standalone pages that declare the
+tokens themselves (core's auth/error partial, storage's backup portal) include
+`plugged-host-theme-v2::accent` after their own block. No rebuild needed.
 
 ## Assets / build
 

@@ -2,17 +2,30 @@
 
 namespace PluggedHost\ThemeV2;
 
+use App\Contracts\Plugins\HasPluginSettings;
+use App\Traits\EnvironmentWriterTrait;
 use Filament\Actions\Action;
 use Filament\Contracts\Plugin;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\Select;
 use Filament\Panel;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Assets\Theme;
 use Illuminate\Foundation\Vite;
 use PluggedHost\ThemeV2\Filament\Pages\ThemeAwareEditProfile;
+use PluggedHost\ThemeV2\Support\Accent;
 use PluggedHost\ThemeV2\Support\ThemeV2Navigation;
 
-class PluggedHostThemeV2Plugin implements Plugin
+/**
+ * Settings tab: the accent colour (Support\Accent), a Tailwind preset or a custom colour,
+ * round-tripped through .env as THEME_V2_ACCENT like every plugged.host plugin setting.
+ */
+class PluggedHostThemeV2Plugin implements HasPluginSettings, Plugin
 {
+    use EnvironmentWriterTrait;
+
     public function getId(): string
     {
         return 'plugged-host-theme-v2';
@@ -78,4 +91,82 @@ class PluggedHostThemeV2Plugin implements Plugin
     }
 
     public function boot(Panel $panel): void {}
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getSettingsFormData(): array
+    {
+        $accent = Accent::current();
+
+        return [
+            'accent' => Accent::isCustom($accent) ? 'custom' : $accent,
+            'accent_custom' => Accent::isCustom($accent) ? $accent : null,
+        ];
+    }
+
+    /**
+     * @return \Filament\Schemas\Components\Component[]
+     */
+    public function getSettingsForm(): array
+    {
+        return [
+            Section::make(trans('plugged-host-theme-v2::strings.settings.section_accent'))
+                ->description(trans('plugged-host-theme-v2::strings.settings.section_accent_hint'))
+                ->schema([
+                    Select::make('accent')
+                        ->label(trans('plugged-host-theme-v2::strings.settings.accent'))
+                        ->options(fn (): array => $this->accentOptions())
+                        ->allowHtml()
+                        ->native(false)
+                        ->required()
+                        ->live(),
+                    ColorPicker::make('accent_custom')
+                        ->label(trans('plugged-host-theme-v2::strings.settings.accent_custom'))
+                        ->helperText(trans('plugged-host-theme-v2::strings.settings.accent_custom_hint'))
+                        ->hex()
+                        ->regex('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/')
+                        ->visible(fn (Get $get): bool => $get('accent') === 'custom')
+                        ->required(fn (Get $get): bool => $get('accent') === 'custom'),
+                ]),
+        ];
+    }
+
+    /**
+     * @param  array<mixed, mixed>  $data
+     */
+    public function saveSettings(array $data): void
+    {
+        $accent = ($data['accent'] ?? null) === 'custom' ? $data['accent_custom'] ?? '' : $data['accent'] ?? '';
+
+        $this->writeToEnvironment([
+            'THEME_V2_ACCENT' => Accent::normalize((string) $accent),
+        ]);
+    }
+
+    /**
+     * Each preset with a swatch of the fill it gives buttons, the default first, custom last.
+     *
+     * @return array<string, string>
+     */
+    private function accentOptions(): array
+    {
+        $options = [];
+
+        foreach (Accent::PRESETS as $preset) {
+            $label = trans("plugged-host-theme-v2::strings.settings.presets.{$preset}");
+
+            if ($preset === Accent::DEFAULT) {
+                $label = trans('plugged-host-theme-v2::strings.settings.default', ['name' => $label]);
+            }
+
+            $options[$preset] = '<span style="display: inline-flex; align-items: center; gap: 0.5rem">'
+                . '<span style="width: 0.75rem; height: 0.75rem; flex: none; border-radius: 9999px; background: ' . Accent::swatch($preset) . '"></span>'
+                . e($label) . '</span>';
+        }
+
+        $options['custom'] = e(trans('plugged-host-theme-v2::strings.settings.custom'));
+
+        return $options;
+    }
 }

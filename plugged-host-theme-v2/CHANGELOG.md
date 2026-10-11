@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (2.2)
+
+- Settings tab: the accent colour, one of Tailwind's palettes or a custom colour
+  (`THEME_V2_ACCENT`). Fills stay readable with white text and accent text with the sidebar
+  behind it (4.5:1); light custom colours are darkened. Also applies to the standalone auth,
+  error and backup portal pages.
+
 ## Unreleased (2.1)
 
 - Sidebar: Resource Store, plugged.host Plus, Tokens (the Token Store row is gone); the token
