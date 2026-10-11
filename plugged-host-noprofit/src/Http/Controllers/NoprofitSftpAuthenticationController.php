@@ -23,6 +23,11 @@ use Throwable;
  *
  * Bound over upstream's controller in NoprofitAccountPluginProvider, so the route, its daemon
  * authentication and the throttling (ThrottlesLogins, per username and IP) stay upstream's.
+ *
+ * A dev panel (any sign-in client other than plugged-host) links nothing on noprofit.space, so
+ * it asks by account alone on noprofit's dev route, signed with password_check_secret, which
+ * can do nothing else. Production asks by account and panel user, signed with the migration
+ * secret.
  */
 class NoprofitSftpAuthenticationController extends SftpAuthenticationController
 {
@@ -78,18 +83,24 @@ class NoprofitSftpAuthenticationController extends SftpAuthenticationController
         }
 
         $client = app(NoprofitClient::class);
-        $secret = (string) config('plugged-host-noprofit.migration_secret');
+        $production = config('plugged-host-noprofit.sso_client', 'plugged-host') === 'plugged-host';
+        $secret = (string) config($production ? 'plugged-host-noprofit.migration_secret' : 'plugged-host-noprofit.password_check_secret');
 
         if (!$client->configured($secret)) {
             return null;
         }
 
         try {
-            $response = $client->send('POST', '/api/v1/internal/plugged-host/verify-password', [
-                'account_id' => NoprofitLink::accountId($user),
-                'pelican_user_id' => (int) $user->getKey(),
-                'password' => $password,
-            ], $secret, 8);
+            $response = $production
+                ? $client->send('POST', '/api/v1/internal/plugged-host/verify-password', [
+                    'account_id' => NoprofitLink::accountId($user),
+                    'pelican_user_id' => (int) $user->getKey(),
+                    'password' => $password,
+                ], $secret, 8)
+                : $client->send('POST', '/api/v1/internal/plugged-host-dev/verify-password', [
+                    'account_id' => NoprofitLink::accountId($user),
+                    'password' => $password,
+                ], $secret, 8);
         } catch (Throwable $e) {
             report($e);
 

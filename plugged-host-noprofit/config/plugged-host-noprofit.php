@@ -30,6 +30,10 @@ return [
     // Credit balances and Discord links, both directions. Separate from the migration
     // secret so a leak can move balances but never sign anyone in or delete an account.
     'sync_secret' => (string) env('NOPROFIT_SYNC_SECRET', ''),
+    // A dev panel's SFTP password checks (NoprofitSftpAuthenticationController), the only thing
+    // it can sign: production checks with the migration secret, which a dev panel never has.
+    // Same value as NOPROFIT_DEV_PANEL_SECRET in noprofit.space's .env.
+    'password_check_secret' => (string) env('NOPROFIT_PASSWORD_CHECK_SECRET', ''),
     'migration_callback' => (string) (env('NOPROFIT_MIGRATION_CALLBACK')
         ?: rtrim((string) env('NOPROFIT_ACCOUNTS_URL', 'https://accounts.noprofit.space'), '/').'/auth/plugged-host/callback'),
     'migration_ttl' => 900,
