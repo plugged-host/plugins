@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use PluggedHost\Abuse\Jobs\ScanServersForAbuseJob;
 use PluggedHost\Abuse\Models\AbuseFinding;
 use PluggedHost\Core\Support\SuspensionReason;
+use PluggedHost\Core\Support\SystemServers;
 use Throwable;
 
 /**
@@ -181,12 +182,14 @@ final class AbuseEnforcer
     private function sweepOwner(Server $server, bool $enforce): void
     {
         try {
-            if (!Cache::add("ph-abuse:sweep:{$server->owner_id}", 1, 3600)) {
+            // A devbox belongs to the system user: sweep the person it was made for instead.
+            $person = SystemServers::personId($server);
+            if ($person === null || !Cache::add("ph-abuse:sweep:{$person}", 1, 3600)) {
                 return;
             }
 
             $ids = Server::query()
-                ->where('owner_id', $server->owner_id)
+                ->where('owner_id', $person)
                 ->whereKeyNot($server->id)
                 ->pluck('id')
                 ->all();

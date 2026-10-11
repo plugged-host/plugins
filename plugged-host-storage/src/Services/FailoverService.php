@@ -14,6 +14,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Nodes\NodeTelemetry;
+use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Storage\Models\NodeFailover;
 use Throwable;
 
@@ -79,7 +80,8 @@ class FailoverService
                 continue;
             }
 
-            $servers = Server::query()->where('node_id', $node->getKey())->get();
+            // System servers (devboxes) have no backup to restore; their plugin removes them.
+            $servers = SystemServers::exclude(Server::query())->where('node_id', $node->getKey())->get();
 
             foreach ($servers as $server) {
                 if ($acted >= $cap) {

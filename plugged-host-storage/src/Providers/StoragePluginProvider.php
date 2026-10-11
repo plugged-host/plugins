@@ -72,6 +72,10 @@ class StoragePluginProvider extends ServiceProvider
     private function rememberDeletedServers(): void
     {
         Server::deleting(function (Server $server): void {
+            if (\PluggedHost\Core\Support\SystemServers::is($server)) {
+                return; // never mirrored, nothing to keep
+            }
+
             try {
                 app(DeletedServers::class)->remember($server);
             } catch (Throwable $e) {

@@ -36,6 +36,9 @@ final class SystemServers
     /** @var array<int, Closure(Server): ?array{kind: string, user_id: ?int, server_id: ?int}> */
     private static array $describers = [];
 
+    /** @var array<int, Closure(Server): bool> */
+    private static array $holds = [];
+
     private static int $systemWrites = 0;
 
     public static function is(?Server $server): bool
@@ -120,6 +123,46 @@ final class SystemServers
         }
 
         return null;
+    }
+
+    /**
+     * The owning plugin says "a system server is working on this (customer) server right now":
+     * load balancing leaves it where it is instead of moving it from under someone.
+     *
+     * @param  Closure(Server): bool  $hold
+     */
+    public static function holdUsing(Closure $hold): void
+    {
+        self::$holds[] = $hold;
+    }
+
+    public static function held(Server $server): bool
+    {
+        foreach (self::$holds as $hold) {
+            try {
+                if ($hold($server)) {
+                    return true;
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The id of the person a server really belongs to: its owner, or for a system server the
+     * person it was made for (a devbox's user, or for a shared one the game server's owner).
+     */
+    public static function personId(Server $server): ?int
+    {
+        $described = self::describe($server);
+        if ($described !== null) {
+            return $described['user_id'] ?? null;
+        }
+
+        return $server->owner_id !== null ? (int) $server->owner_id : null;
     }
 
     /**

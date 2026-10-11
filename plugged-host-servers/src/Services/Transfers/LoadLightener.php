@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Servers\Exceptions\TransferException;
 use PluggedHost\Servers\Models\ServerRelocation;
 use PluggedHost\Servers\Services\NodeBalancer;
@@ -99,7 +100,7 @@ class LoadLightener
             return null;
         }
 
-        $servers = Server::query()
+        $servers = SystemServers::exclude(Server::query())
             ->where('node_id', $node->getKey())
             ->whereNull('status')
             ->whereNotNull('allocation_id')
@@ -115,7 +116,8 @@ class LoadLightener
         )));
 
         $rows = $servers
-            ->reject(fn (Server $server) => isset($busy[(int) $server->getKey()]) || !isset($live[$server->uuid]))
+            // Held: someone is working in a devbox on it right now (SystemServers::held).
+            ->reject(fn (Server $server) => isset($busy[(int) $server->getKey()]) || !isset($live[$server->uuid]) || SystemServers::held($server))
             ->map(fn (Server $server) => [
                 'id' => (int) $server->getKey(),
                 'name' => (string) $server->name,

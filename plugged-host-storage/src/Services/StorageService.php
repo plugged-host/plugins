@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Storage\Models\ServerReplica;
 use PluggedHost\Storage\Support\StorageBox;
 use Throwable;
@@ -383,7 +384,9 @@ class StorageService
         $localId = $local !== null ? (int) $local->id : null;
         $isLocal = fn (Server $s) => $localId !== null && (int) $s->node_id === $localId;
 
-        $servers = Server::query()
+        // System servers (devboxes) are rebuilt from scratch, never mirrored: their homes hold
+        // people's logins and tokens, which have no business on the storage box.
+        $servers = SystemServers::exclude(Server::query())
             ->with(['node', 'transfer'])
             ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'installing'))
             ->get()

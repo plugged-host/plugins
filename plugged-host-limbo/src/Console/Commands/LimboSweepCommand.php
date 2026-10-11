@@ -4,6 +4,7 @@ namespace PluggedHost\Limbo\Console\Commands;
 
 use App\Models\Server;
 use Illuminate\Console\Command;
+use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Limbo\Models\ServerLimboState;
 use PluggedHost\Limbo\Services\LimboService;
 use Throwable;
@@ -123,7 +124,8 @@ class LimboSweepCommand extends Command
      */
     private function candidates(): iterable
     {
-        return Server::query()
+        // System servers (devboxes) stop themselves when idle and are never hibernated.
+        return SystemServers::exclude(Server::query())
             ->with('node')
             ->get()
             ->reject(function (Server $server): bool {

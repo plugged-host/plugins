@@ -4,10 +4,12 @@ namespace PluggedHost\Abuse\Services;
 
 use App\Models\Node;
 use App\Models\Server;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use PluggedHost\Abuse\Filament\Admin\Resources\AbuseFindings\AbuseFindingResource;
 use PluggedHost\Abuse\Models\AbuseFinding;
+use PluggedHost\Core\Support\SystemServers;
 use Throwable;
 
 /**
@@ -33,7 +35,7 @@ final class AbuseAlerts
             'description' => mb_strimwidth(implode("\n", array_map(fn (string $reason) => '• ' . $reason, array_slice($reasons, 0, 10))) ?: 'Suspended by the abuse checks.', 0, 3900, '…'),
             'color' => self::RED,
             'fields' => [
-                ['name' => 'Owner', 'value' => (string) ($server->user?->username ?? '?'), 'inline' => true],
+                ['name' => 'Owner', 'value' => self::owner($server), 'inline' => true],
                 ['name' => 'Node', 'value' => (string) ($server->node?->name ?? '?'), 'inline' => true],
             ],
             'timestamp' => now()->toIso8601String(),
@@ -68,7 +70,7 @@ final class AbuseAlerts
             $lines = array_map(fn (AbuseFinding $row) => '• ' . $row->summary, array_slice($rows, 0, 10));
 
             $fields = array_values(array_filter([
-                $server ? ['name' => 'Owner', 'value' => (string) ($server->user?->username ?? '?'), 'inline' => true] : null,
+                $server ? ['name' => 'Owner', 'value' => self::owner($server), 'inline' => true] : null,
                 ['name' => 'Node', 'value' => (string) ($server?->node?->name ?? $node?->name ?? '?'), 'inline' => true],
                 $server ? ['name' => 'Egg', 'value' => (string) ($server->egg?->name ?? '?'), 'inline' => true] : null,
             ]));
@@ -104,5 +106,22 @@ final class AbuseAlerts
         } catch (Throwable) {
             // An alert is never worth failing a scan or a purge over.
         }
+    }
+
+    /**
+     * The server's owner, or for a system server (a devbox, owned by the system user) the person
+     * it was made for and the game server it belongs to.
+     */
+    private static function owner(Server $server): string
+    {
+        $system = SystemServers::describe($server);
+        if ($system === null) {
+            return (string) ($server->user?->username ?? '?');
+        }
+
+        $person = $system['user_id'] !== null ? User::query()->find($system['user_id']) : null;
+        $game = $system['server_id'] !== null ? Server::query()->find($system['server_id']) : null;
+
+        return ($person?->username ?? '?') . " ({$system['kind']} of " . ($game?->uuid_short ?? '?') . ')';
     }
 }

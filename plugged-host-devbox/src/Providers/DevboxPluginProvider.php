@@ -4,6 +4,7 @@ namespace PluggedHost\Devbox\Providers;
 
 use App\Enums\TablerIcon;
 use App\Models\Server;
+use App\Models\ServerTransfer;
 use App\Models\Subuser;
 use App\Models\User;
 use Illuminate\Console\Scheduling\Schedule;
@@ -70,6 +71,10 @@ class DevboxPluginProvider extends ServiceProvider
             ];
         });
 
+        // A running devbox holds its game server: load balancing doesn't move it from under someone.
+        SystemServers::holdUsing(fn (Server $game): bool => DevboxAccess::ready()
+            && Devbox::query()->where('game_server_id', $game->id)->whereNotNull('token_hash')->exists());
+
         $this->registerAgentRoutes();
         $this->registerCleanup();
         $this->registerDoctorChecks();
@@ -131,6 +136,18 @@ class DevboxPluginProvider extends ServiceProvider
 
         Subuser::deleted($revoke);
         Subuser::updated($revoke);
+
+        // A game server that starts moving (any path: owner, admin, load balancing, limbo) loses
+        // its devboxes' sessions now; they are rebuilt on the new node the next time they open.
+        ServerTransfer::created(function (ServerTransfer $transfer): void {
+            if (!DevboxAccess::ready()) {
+                return;
+            }
+
+            foreach (Devbox::query()->where('game_server_id', $transfer->server_id)->whereNotNull('token_hash')->get() as $devbox) {
+                $this->quietly(fn () => app(DevboxPower::class)->stop($devbox));
+            }
+        });
     }
 
     private function registerDoctorChecks(): void
