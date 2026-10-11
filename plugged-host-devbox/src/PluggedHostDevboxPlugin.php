@@ -10,6 +10,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
+use PluggedHost\Core\Support\Plugins;
 
 /**
  * Devboxes: VS Code on the server for Plus (see Providers\DevboxPluginProvider). Its UI is the
@@ -48,6 +49,10 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
         $data = [
             'enabled' => (bool) config('plugged-host-devbox.enabled', true),
             'image' => (string) config('plugged-host-devbox.image'),
+            'web_domain' => (string) config('plugged-host-devbox.web_domain'),
+            'web_origin_ip' => (string) config('plugged-host-devbox.web_origin_ip'),
+            // Not round-tripped: a secret; empty keeps the current one.
+            'cloudflare_token' => '',
         ];
 
         foreach (self::NUMBERS as $field => [, $key]) {
@@ -96,6 +101,30 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
                     $number('plusplus_memory', 'Memory', 'MiB'),
                     $number('plusplus_disk', 'Disk', 'MiB'),
                 ]),
+            Section::make('In the browser')
+                ->description('VS Code in the browser at https://<devbox>.<domain>, through the edge (nginx on the panel box, docs/templates/nginx/devbox-web.conf). Never a plugged.host domain: the panels\' session cookie covers all of it. After changing it, run php artisan plugged-host:devbox-web-setup.')
+                ->columns(2)
+                ->schema([
+                    TextInput::make('web_domain')
+                        ->label('Domain')
+                        ->placeholder('devbox.onplugged.host')
+                        ->helperText('Empty switches the browser version off.')
+                        ->rules(['nullable', 'regex:/^([a-z0-9-]+\\.)+[a-z]{2,}$/i', 'not_regex:/(^|\\.)plugged\\.host$/i']),
+                    TextInput::make('web_origin_ip')
+                        ->label('Edge IPv4')
+                        ->helperText('Public address of the panel box; the wildcard DNS record points here.')
+                        ->rules(['nullable', 'ipv4']),
+                    TextInput::make('cloudflare_token')
+                        ->label('Cloudflare API token')
+                        ->helperText(filled(config('plugged-host-devbox.cloudflare_token'))
+                            ? 'Set. Leave empty to keep it. Zone DNS edit on the domain\'s zone.'
+                            : 'Zone DNS edit on the domain\'s zone, for the wildcard record. Needed because the subdomains plugin (whose token is used otherwise) isn\'t installed.')
+                        ->password()
+                        ->revealable()
+                        ->autocomplete(false)
+                        ->visible(fn (): bool => !Plugins::enabled('subdomains'))
+                        ->required(fn (callable $get): bool => filled($get('web_domain')) && blank(config('plugged-host-devbox.cloudflare_token'))),
+                ]),
             Section::make('Lifecycle')
                 ->columns(2)
                 ->schema([
@@ -116,6 +145,19 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
         $image = trim((string) ($data['image'] ?? ''));
         if ($image !== '' && preg_match('/^~?[A-Za-z0-9._\/:@-]+$/', $image)) {
             $environment['DEVBOX_IMAGE'] = $image;
+        }
+
+        $domain = strtolower(trim((string) ($data['web_domain'] ?? ''), '. '));
+        if ($domain === '' || (preg_match('/^([a-z0-9-]+\.)+[a-z]{2,}$/', $domain) && $domain !== 'plugged.host' && !str_ends_with($domain, '.plugged.host'))) {
+            $environment['DEVBOX_WEB_DOMAIN'] = $domain;
+        }
+        $ip = trim((string) ($data['web_origin_ip'] ?? ''));
+        if ($ip === '' || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $environment['DEVBOX_WEB_ORIGIN_IP'] = $ip;
+        }
+        $token = trim((string) ($data['cloudflare_token'] ?? ''));
+        if ($token !== '') {
+            $environment['DEVBOX_CLOUDFLARE_TOKEN'] = $token;
         }
 
         foreach (self::NUMBERS as $field => [$env, $key, $min, $max]) {

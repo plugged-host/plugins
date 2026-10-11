@@ -118,6 +118,9 @@
                 <div class="phdb-open">
                     @if ($state === 'ready')
                         <x-filament::button tag="a" :href="$vscodeUrl">{{ $t('open') }}</x-filament::button>
+                        @if ($web ?? false)
+                            <x-filament::button color="gray" wire:click="openInBrowser">{{ $t('open_browser') }}</x-filament::button>
+                        @endif
                     @elseif (in_array($state, ['none', 'stopped', 'failed'], true))
                         <x-filament::button wire:click="open" wire:loading.attr="disabled" wire:target="open">{{ $t('open') }}</x-filament::button>
                     @endif

@@ -43,6 +43,8 @@ type devbox struct {
 	unauthed  atomic.Int64
 	connected atomic.Int64
 
+	web *webSide // nil when the panel has no web version
+
 	connsMu sync.Mutex
 	conns   map[*guardedConn]struct{}
 }
@@ -147,6 +149,21 @@ func serve(args []string) error {
 		return err
 	}
 
+	web, err := newWebSide(d)
+	if err != nil {
+		log.Printf("warning: VS Code in the browser is off: %v", err)
+		web = nil
+	}
+	d.web = web
+	split := newSplitListener(ln, web != nil)
+	if web != nil {
+		go func() {
+			if err := web.serve(split.web); err != nil {
+				log.Printf("web: %v", err)
+			}
+		}()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -165,15 +182,29 @@ func serve(args []string) error {
 		cancel()
 		sctx, scancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer scancel()
+		if d.web != nil {
+			d.web.stop()
+		}
 		_ = srv.Shutdown(sctx)
 		_ = srv.Close()
 	}()
 
-	if err := srv.Serve(ln); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
+	if err := srv.Serve(split.ssh); err != nil && !errors.Is(err, ssh.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 		return err
 	}
 
 	return nil
+}
+
+// connections is what keeps the devbox from being stopped as idle: SSH sessions (VS Code,
+// terminals) and open browser connections (VS Code in a tab holds a websocket).
+func (d *devbox) connections() int64 {
+	n := d.connected.Load()
+	if d.web != nil {
+		n += d.web.active.Load()
+	}
+
+	return n
 }
 
 // accept caps connections that are still signing in and gives each a sign-in deadline.
@@ -350,7 +381,7 @@ func (d *devbox) report(ctx context.Context, mount, detail string) {
 		}
 
 		var a access
-		err := d.panel.post(ctx, "heartbeat", map[string]int64{"connections": d.connected.Load()}, &a)
+		err := d.panel.post(ctx, "heartbeat", map[string]int64{"connections": d.connections()}, &a)
 		if err != nil {
 			log.Printf("heartbeat failed: %v", err)
 

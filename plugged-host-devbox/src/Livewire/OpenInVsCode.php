@@ -8,12 +8,14 @@ use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use PluggedHost\Devbox\Http\WebController;
 use PluggedHost\Devbox\Models\Devbox;
 use PluggedHost\Devbox\Services\ConnectCodes;
 use PluggedHost\Devbox\Services\DevboxException;
 use PluggedHost\Devbox\Services\DevboxPower;
 use PluggedHost\Devbox\Services\DevboxProvisioner;
 use PluggedHost\Devbox\Support\DevboxAccess;
+use PluggedHost\Devbox\Support\DevboxWeb;
 use Throwable;
 
 /**
@@ -92,6 +94,21 @@ class OpenInVsCode extends Component
             $this->pendingStart = null;
             $this->error = 'failed';
         }
+    }
+
+    /**
+     * VS Code in the browser: a one-time ticket for this person and devbox, then off to the
+     * devbox's own address (the edge turns the ticket into a cookie for that host).
+     */
+    public function openInBrowser(): void
+    {
+        [$user, $game] = $this->context();
+        $devbox = $user && $game ? $this->current($user, $game) : null;
+        if ($devbox === null || $devbox->token_hash === null || !DevboxWeb::enabled()) {
+            return;
+        }
+
+        $this->redirect(DevboxWeb::url($devbox, '/_ph/login?ticket=' . WebController::ticket($devbox, $user)));
     }
 
     public function stop(): void
@@ -231,6 +248,7 @@ class OpenInVsCode extends Component
             'vscodeUrl' => "vscode://vscode-remote/ssh-remote+{$authority}/server",
             'connections' => $devbox->connections,
             'canStop' => !$devbox->isShared() || $isOwner,
+            'web' => DevboxWeb::enabled(),
         ];
     }
 }

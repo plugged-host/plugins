@@ -45,6 +45,23 @@ RUN set -eux; \
         node --version; npm --version; \
     fi
 
+# code-server (Coder, MIT): VS Code in the browser, behind ph's web side. Pinned and checked
+# against the release asset's sha256 from GitHub.
+ARG CODE_SERVER_VERSION=4.139.1
+ARG CODE_SERVER_SHA256=53029be6c5781b7bca49b815fcc9a2a3fc111813ad8c9965b2c0f0d2985a0674
+RUN set -eux; \
+    if [ "$FULL" = 1 ]; then \
+        cd /tmp; \
+        file="code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz"; \
+        curl -fsSLO "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/${file}"; \
+        echo "${CODE_SERVER_SHA256}  ${file}" | sha256sum -c -; \
+        mkdir -p /opt/code-server; \
+        tar -xzf "$file" -C /opt/code-server --strip-components=1 --no-same-owner; \
+        rm "$file"; \
+        ln -s /opt/code-server/bin/code-server /usr/local/bin/code-server; \
+        code-server --version | head -1; \
+    fi
+
 COPY --from=ph /out/ph /usr/local/bin/ph
 COPY image/profile.sh /etc/profile.d/devbox.sh
 RUN mkdir -p /server /home/container && chmod 0755 /server /home/container

@@ -7,6 +7,7 @@ use App\Models\ServerVariable;
 use App\Repositories\Daemon\DaemonServerRepository;
 use Illuminate\Support\Str;
 use PluggedHost\Devbox\Models\Devbox;
+use PluggedHost\Devbox\Support\DevboxWeb;
 use Throwable;
 
 /**
@@ -25,6 +26,13 @@ final class DevboxPower
         $this->setVariable($server, 'DEVBOX_TOKEN', $token);
         $this->setVariable($server, 'DEVBOX_PANEL_URL', (string) config('plugged-host-devbox.panel_url'));
         ConnectCodes::forgetAll($devbox);
+
+        // VS Code in the browser: a fresh certificate for <slug>.<web_domain> every start, and the
+        // CA the edge's client certificate comes from. Empty switches ph's web side off.
+        $web = DevboxWeb::enabled() ? app(DevboxPki::class)->issue(DevboxWeb::host($devbox)) : null;
+        $this->setVariable($server, 'DEVBOX_TLS_CERT', $web ? base64_encode($web['cert']) : '', optional: true);
+        $this->setVariable($server, 'DEVBOX_TLS_KEY', $web ? base64_encode($web['key']) : '', optional: true);
+        $this->setVariable($server, 'DEVBOX_EDGE_CA', $web ? base64_encode($web['ca']) : '', optional: true);
 
         $devbox->forceFill([
             'token_hash' => Devbox::hashToken($token),
@@ -72,10 +80,14 @@ final class DevboxPower
         }
     }
 
-    private function setVariable(Server $server, string $env, string $value): void
+    private function setVariable(Server $server, string $env, string $value, bool $optional = false): void
     {
         $variable = $server->egg?->variables()->where('env_variable', $env)->first();
         if ($variable === null) {
+            if ($optional && $value === '') {
+                return; // an egg from before the web version; nothing to switch off
+            }
+
             throw new DevboxException('not_set_up');
         }
 

@@ -19,6 +19,7 @@ use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Devbox\Console\Commands\DevboxReconcileCommand;
 use PluggedHost\Devbox\Http\AgentController;
 use PluggedHost\Devbox\Http\GameController;
+use PluggedHost\Devbox\Http\WebController;
 use PluggedHost\Devbox\Livewire\OpenInVsCode;
 use PluggedHost\Devbox\Models\Devbox;
 use PluggedHost\Devbox\Services\DevboxPower;
@@ -88,6 +89,7 @@ class DevboxPluginProvider extends ServiceProvider
         });
 
         $this->registerAgentRoutes();
+        $this->registerWebRoutes();
         $this->registerCleanup();
         $this->registerDoctorChecks();
     }
@@ -108,7 +110,20 @@ class DevboxPluginProvider extends ServiceProvider
                 Route::post('/game/status', [GameController::class, 'status'])->name('plugged-host.devbox.game.status');
                 Route::post('/game/power', [GameController::class, 'power'])->name('plugged-host.devbox.game.power');
                 Route::post('/game/websocket', [GameController::class, 'websocket'])->name('plugged-host.devbox.game.websocket');
+
+                // VS Code in the browser: what the edge (nginx) asks, without the panel session.
+                Route::get('/web/login', [WebController::class, 'login'])->name('plugged-host.devbox.web.login');
+                Route::get('/web/authorize', [WebController::class, 'authorize'])->name('plugged-host.devbox.web.authorize');
             });
+    }
+
+    /**
+     * Where the edge sends a browser without a devbox cookie: the panel session decides.
+     */
+    private function registerWebRoutes(): void
+    {
+        Route::middleware('web')->get('/plugged-host/devbox/web/open', [WebController::class, 'reopen'])
+            ->name('plugged-host.devbox.web.open');
     }
 
     /**

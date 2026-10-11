@@ -63,6 +63,48 @@
                 "string",
                 "max:255"
             ]
+        },
+        {
+            "sort": 3,
+            "name": "Web certificate",
+            "description": "The devbox's TLS certificate for VS Code in the browser (base64 PEM, issued per start).",
+            "env_variable": "DEVBOX_TLS_CERT",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": [
+                "nullable",
+                "string",
+                "max:16384"
+            ]
+        },
+        {
+            "sort": 4,
+            "name": "Web key",
+            "description": "Its private key (base64 PEM, issued per start).",
+            "env_variable": "DEVBOX_TLS_KEY",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": [
+                "nullable",
+                "string",
+                "max:16384"
+            ]
+        },
+        {
+            "sort": 5,
+            "name": "Edge CA",
+            "description": "The CA that signs the edge's client certificate (base64 PEM).",
+            "env_variable": "DEVBOX_EDGE_CA",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": [
+                "nullable",
+                "string",
+                "max:16384"
+            ]
         }
     ]
 }

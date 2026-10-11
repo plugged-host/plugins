@@ -43,4 +43,22 @@ return [
 
     // A devbox nobody used for this long is deleted with its home (days).
     'cleanup_days' => (int) env('DEVBOX_CLEANUP_DAYS', 14),
+
+    /*
+     * VS Code in the browser. Each devbox answers at https://<slug>.<web_domain> through the edge
+     * (nginx on the panel box, docs/templates/nginx/devbox-web.conf), which asks this panel who
+     * may in. Empty switches the web version off. Keep it off plugged.host: the panels' session
+     * cookie is shared with every *.plugged.host host.
+     */
+    'web_domain' => strtolower(trim((string) env('DEVBOX_WEB_DOMAIN', ''), '. ')),
+
+    // Public IPv4 of the edge; the wildcard DNS record (*.<web_domain>, proxied) points there.
+    'web_origin_ip' => (string) env('DEVBOX_WEB_ORIGIN_IP', ''),
+
+    // Cloudflare API token for that record (Zone DNS edit): the subdomains plugin's token when that
+    // plugin is installed, otherwise this one.
+    'cloudflare_token' => (string) env('DEVBOX_CLOUDFLARE_TOKEN', ''),
+
+    // The devbox CA and the edge's client certificate (nginx reads edge.crt/edge.key/ca.crt here).
+    'pki_path' => (string) env('DEVBOX_PKI_PATH', storage_path('app/private/plugged-host-devbox')),
 ];
