@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Devbox\Models\Devbox;
 use PluggedHost\Devbox\Support\DevboxAccess;
+use PluggedHost\Devbox\Support\DevboxWeb;
 use PluggedHost\Servers\Support\AccountAllowance;
 use Ramsey\Uuid\Uuid;
 use Throwable;
@@ -104,6 +105,13 @@ final class DevboxProvisioner
     public function destroy(Devbox $devbox): void
     {
         self::outsideTenant(function () use ($devbox): void {
+            if (DevboxWeb::domain() !== '') {
+                try {
+                    app(DevboxDns::class)->remove($devbox);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            }
             $this->removeServer($devbox);
             ConnectCodes::forgetAll($devbox);
             $devbox->delete();

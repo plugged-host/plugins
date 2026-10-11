@@ -107,18 +107,18 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
                 ->schema([
                     TextInput::make('web_domain')
                         ->label('Domain')
-                        ->placeholder('devbox.onplugged.host')
+                        ->placeholder('onplugged.host')
                         ->helperText('Empty switches the browser version off.')
                         ->rules(['nullable', 'regex:/^([a-z0-9-]+\\.)+[a-z]{2,}$/i', 'not_regex:/(^|\\.)plugged\\.host$/i']),
                     TextInput::make('web_origin_ip')
                         ->label('Edge IPv4')
-                        ->helperText('Public address of the panel box; the wildcard DNS record points here.')
+                        ->helperText('Public address of the panel box; each devbox\'s DNS record points here.')
                         ->rules(['nullable', 'ipv4']),
                     TextInput::make('cloudflare_token')
                         ->label('Cloudflare API token')
                         ->helperText(filled(config('plugged-host-devbox.cloudflare_token'))
                             ? 'Set. Leave empty to keep it. Zone DNS edit on the domain\'s zone.'
-                            : 'Zone DNS edit on the domain\'s zone, for the wildcard record. Needed because the subdomains plugin (whose token is used otherwise) isn\'t installed.')
+                            : 'Zone DNS edit on the domain\'s zone, for the devbox DNS records. Needed because the subdomains plugin (whose token is used otherwise) isn\'t installed.')
                         ->password()
                         ->revealable()
                         ->autocomplete(false)

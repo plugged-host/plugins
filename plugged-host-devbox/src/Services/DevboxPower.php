@@ -33,6 +33,13 @@ final class DevboxPower
         $this->setVariable($server, 'DEVBOX_TLS_CERT', $web ? base64_encode($web['cert']) : '', optional: true);
         $this->setVariable($server, 'DEVBOX_TLS_KEY', $web ? base64_encode($web['key']) : '', optional: true);
         $this->setVariable($server, 'DEVBOX_EDGE_CA', $web ? base64_encode($web['ca']) : '', optional: true);
+        if ($web !== null) {
+            try {
+                app(DevboxDns::class)->ensure($devbox);
+            } catch (Throwable $exception) {
+                report($exception); // SSH works without it; "Open in browser" waits for the record
+            }
+        }
 
         $devbox->forceFill([
             'token_hash' => Devbox::hashToken($token),

@@ -52,11 +52,12 @@ return [
      */
     'web_domain' => strtolower(trim((string) env('DEVBOX_WEB_DOMAIN', ''), '. ')),
 
-    // Public IPv4 of the edge; the wildcard DNS record (*.<web_domain>, proxied) points there.
+    // Public IPv4 of the edge; each devbox's DNS record (<slug>.<web_domain>, proxied) points there.
+    // One level under the domain: Cloudflare's free edge certificate covers *.<domain> only.
     'web_origin_ip' => (string) env('DEVBOX_WEB_ORIGIN_IP', ''),
 
-    // Cloudflare API token for that record (Zone DNS edit): the subdomains plugin's token when that
-    // plugin is installed, otherwise this one.
+    // Cloudflare API token for those records (Zone DNS edit): the subdomains plugin's token when
+    // that plugin is installed, otherwise this one.
     'cloudflare_token' => (string) env('DEVBOX_CLOUDFLARE_TOKEN', ''),
 
     // The devbox CA and the edge's client certificate (nginx reads edge.crt/edge.key/ca.crt here).
