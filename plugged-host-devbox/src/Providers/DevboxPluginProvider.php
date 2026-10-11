@@ -8,7 +8,9 @@ use App\Models\ServerTransfer;
 use App\Models\Subuser;
 use App\Models\User;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
@@ -75,6 +77,15 @@ class DevboxPluginProvider extends ServiceProvider
         // A running devbox holds its game server: load balancing doesn't move it from under someone.
         SystemServers::holdUsing(fn (Server $game): bool => DevboxAccess::ready()
             && Devbox::query()->where('game_server_id', $game->id)->whereNotNull('token_hash')->exists());
+
+        // The system user owns every devbox server; it must not get "your server is installed"
+        // mail (its address doesn't exist). Returning false cancels the notification.
+        Event::listen(NotificationSending::class, function (NotificationSending $event): ?bool {
+            return $event->notifiable instanceof User
+                && $event->notifiable->username === (string) config('plugged-host-devbox.system_user', 'ph-devbox')
+                ? false
+                : null;
+        });
 
         $this->registerAgentRoutes();
         $this->registerCleanup();

@@ -8,6 +8,7 @@ use App\Models\Server;
 use App\Models\User;
 use App\Services\Servers\ServerCreationService;
 use App\Services\Servers\ServerDeletionService;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -102,9 +103,11 @@ final class DevboxProvisioner
      */
     public function destroy(Devbox $devbox): void
     {
-        $this->removeServer($devbox);
-        ConnectCodes::forgetAll($devbox);
-        $devbox->delete();
+        self::outsideTenant(function () use ($devbox): void {
+            $this->removeServer($devbox);
+            ConnectCodes::forgetAll($devbox);
+            $devbox->delete();
+        });
     }
 
     private function createServer(Devbox $devbox): void
@@ -204,7 +207,34 @@ final class DevboxProvisioner
     {
         $key = "plugged-host-devbox:ensure:{$game->id}:" . ($owner ?? 'shared');
 
-        return Cache::lock($key, 180)->block(90, $callback);
+        return Cache::lock($key, 180)->block(90, fn () => self::outsideTenant($callback));
+    }
+
+    /**
+     * Runs $callback with no Filament tenant. Clicked from a game server's page, the server panel's
+     * tenant is that game server, and Filament 4 then scopes every query of a tenant-owned model
+     * (allocations) to it and attaches every new one to it: the devbox's new port allocation went
+     * to the game server and upstream's ServerCreationService could not claim it.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    private static function outsideTenant(callable $callback): mixed
+    {
+        $tenant = Filament::getTenant();
+        if ($tenant === null) {
+            return $callback();
+        }
+
+        Filament::setTenant(null, isQuiet: true);
+
+        try {
+            return $callback();
+        } finally {
+            Filament::setTenant($tenant, isQuiet: true);
+        }
     }
 
     public static function egg(): ?Egg

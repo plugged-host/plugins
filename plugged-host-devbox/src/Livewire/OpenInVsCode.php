@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Devbox\Livewire;
 
+use App\Models\Allocation;
 use App\Models\Server;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -213,7 +214,9 @@ class OpenInVsCode extends Component
             return $data;
         }
 
-        $allocation = $server->allocation;
+        // Not $server->allocation: on a game server's page Filament scopes allocation queries to
+        // that game server (the tenant), which would hide the devbox's own.
+        $allocation = Allocation::withoutGlobalScopes()->find($server->allocation_id);
         $host = (string) ($allocation?->alias ?: $server->node?->fqdn);
         $port = (int) ($allocation?->port ?? 0);
         $authority = bin2hex((string) json_encode(['hostName' => $host, 'user' => $user->username, 'port' => $port], JSON_UNESCAPED_SLASHES));
