@@ -45,6 +45,10 @@ use PluggedHost\Servers\Services\GameCatalog;
 use PluggedHost\Servers\Services\PlanCatalog;
 use PluggedHost\Servers\Services\ServerResizer;
 use PluggedHost\Servers\Support\AccountAllowance;
+use phpseclib4\Crypt\EC;
+use phpseclib4\Crypt\PublicKeyLoader;
+use phpseclib4\Crypt\RSA;
+use Throwable;
 
 /**
  * Modern, unified single-page server settings.
@@ -77,6 +81,7 @@ class ServerSettings extends ServerFormPage
             ->components([
                 $this->generalSection(),
                 $this->sftpSection(),
+                $this->vscodeSection(),
                 ...$this->resourcesSections(),
                 ...$this->startupSections(),
                 ...$this->versionSections(),
@@ -205,6 +210,87 @@ class ServerSettings extends ServerFormPage
                         'server' => $server,
                     ]),
             ]);
+    }
+
+    // -- 2b. VS Code Section ------------------------------------------------------
+
+    /**
+     * Big paths nobody edits, left out of "SFTP: Download Project": Minecraft worlds, libraries
+     * and server jars, FiveM's FXServer runtime, caches and logs. Gitignore syntax, so a leading
+     * slash means the server root only.
+     */
+    private const VSCODE_IGNORE = [
+        '.vscode', '.git', 'cache', 'logs', 'crash-reports',
+        '/alpine', '/libraries', '/versions', '/world', '/world_nether', '/world_the_end', '/*.jar',
+    ];
+
+    /**
+     * VS Code over the node's own SFTP (Wings, untouched): a ready-made .vscode/sftp.json for
+     * the "SFTP" extension (Natizyskunk.sftp). Nothing runs on the node, extensions run locally.
+     */
+    protected function vscodeSection(): Section
+    {
+        return Section::make(trans('plugged-host-servers::strings.server_settings.vscode.title'))
+            ->id('vscode')
+            ->description(trans('plugged-host-servers::strings.server_settings.vscode.description'))
+            ->columnSpanFull()
+            ->visible(fn () => $this->hasSftpAccess())
+            ->extraAttributes(['class' => 'scroll-mt-24'])
+            ->schema([
+                View::make('plugged-host-servers::filament.pages.settings.vscode-card')
+                    ->viewData(fn (Server $server) => $this->vscodeData($server)),
+            ]);
+    }
+
+    /**
+     * Without a password in the config the extension asks for one on connect (the account
+     * password, verified like any SFTP login). With an SSH key on the account it points at
+     * the usual file for that key type instead.
+     *
+     * @return array{config: string, keyPath: ?string, sshKeysUrl: ?string}
+     */
+    protected function vscodeData(Server $server): array
+    {
+        $user = user();
+        $keyPath = $this->vscodeKeyPath();
+
+        $config = [
+            'name' => $server->name,
+            'host' => $server->node->daemon_sftp_alias ?? $server->node->fqdn,
+            'protocol' => 'sftp',
+            'port' => (int) ($server->node->daemon_sftp ?? 2022),
+            'username' => ($user?->username ?? 'user') . '.' . $server->uuid_short,
+            ...($keyPath !== null ? ['privateKeyPath' => $keyPath] : []),
+            'remotePath' => '/',
+            'uploadOnSave' => true,
+            'ignore' => self::VSCODE_IGNORE,
+        ];
+
+        return [
+            'config' => (string) json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'keyPath' => $keyPath,
+            'sshKeysUrl' => Filament::getPanel('app')->getProfileUrl(['tab' => 'ssh-keys::data::tab']),
+        ];
+    }
+
+    private function vscodeKeyPath(): ?string
+    {
+        $key = user()?->sshKeys()->latest()->first();
+        if ($key === null) {
+            return null;
+        }
+
+        try {
+            $loaded = PublicKeyLoader::loadPublicKey($key->public_key);
+        } catch (Throwable) {
+            return '~/.ssh/id_ed25519';
+        }
+
+        return match (true) {
+            $loaded instanceof RSA => '~/.ssh/id_rsa',
+            $loaded instanceof EC && $loaded->getCurve() !== 'Ed25519' => '~/.ssh/id_ecdsa',
+            default => '~/.ssh/id_ed25519',
+        };
     }
 
     // -- 3. Resources / Plan ------------------------------------------------------

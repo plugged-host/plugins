@@ -19,7 +19,7 @@
 
     <div x-data="{
             active: 'general',
-            sections: ['general', 'sftp', 'resources', 'startup', 'version', 'notifications', 'danger'],
+            sections: ['general', 'sftp', 'vscode', 'resources', 'startup', 'version', 'notifications', 'danger'],
             onScroll() {
                 const scrollY = window.scrollY || document.documentElement.scrollTop;
                 if (scrollY < 120) {
@@ -68,6 +68,11 @@
                    :class="active === 'sftp' ? 'is-active' : ''"
                    class="phsf-item">
                     {{ trans('server/setting.server_info.sftp.title') }}
+                </a>
+                <a href="#vscode" @click="active = 'vscode'"
+                   :class="active === 'vscode' ? 'is-active' : ''"
+                   class="phsf-item">
+                    {{ trans('plugged-host-servers::strings.server_settings.vscode.title') }}
                 </a>
             @endif
 
