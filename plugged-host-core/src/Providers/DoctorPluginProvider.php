@@ -2,12 +2,15 @@
 
 namespace PluggedHost\Core\Providers;
 
+use App\Models\Mount;
+use App\Models\Node;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Core\Doctor\QueueHeartbeat;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Core\Support\SystemServers;
 
 /**
  * `php artisan plugged-host:doctor`: the heartbeats it reads and core's own checks. Other
@@ -44,6 +47,40 @@ class DoctorPluginProvider extends ServiceProvider
                 array_keys($unmet),
                 $unmet,
             )));
+        });
+
+        Doctor::check('plugged-host-core', 'Volume mounts', function (): array {
+            $roots = Node::query()->distinct()->pluck('daemon_base')->filter()->all();
+            $problems = [];
+            $count = 0;
+
+            foreach (Mount::query()->with('servers')->get() as $mount) {
+                if (!SystemServers::isProtectedSource((string) $mount->source, $roots)) {
+                    continue;
+                }
+
+                $count++;
+
+                if ($mount->user_mountable) {
+                    $problems[] = "{$mount->name} is user-mountable";
+                }
+
+                if ($mount->eggs()->exists() || $mount->nodes()->exists()) {
+                    $problems[] = "{$mount->name} is attached to an egg or node";
+                }
+
+                foreach ($mount->servers as $server) {
+                    if (SystemServers::allowedVolumeSource($server) !== SystemServers::clean((string) $mount->source)) {
+                        $problems[] = "{$mount->name} on {$server->uuid_short} is not vouched for (Wings never gets it)";
+                    }
+                }
+            }
+
+            if ($problems !== []) {
+                return Doctor::warn(implode('; ', $problems));
+            }
+
+            return Doctor::ok($count === 0 ? 'no mounts into server volumes' : "{$count} devbox volume mount(s), all vouched for");
         });
 
         Doctor::check('plugged-host-core', 'Scheduler (cron schedule:run)', function (): array {

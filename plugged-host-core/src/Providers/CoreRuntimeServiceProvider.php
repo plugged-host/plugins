@@ -4,7 +4,10 @@ namespace PluggedHost\Core\Providers;
 
 use App\Filament\App\Resources\Servers\Pages\ListServers;
 use App\Filament\Server\Pages\Console;
+use App\Models\Mount;
+use App\Models\Node;
 use App\Services\Servers\BuildModificationService;
+use App\Services\Servers\ServerConfigurationStructureService;
 use App\Services\Servers\ServerDeletionService;
 use App\Services\Servers\TransferServerService;
 use Closure;
@@ -15,14 +18,17 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use PluggedHost\Core\Livewire\PanelTourOverlay;
 use PluggedHost\Core\Services\AllocationInvariant;
 use PluggedHost\Core\Services\GuardedBuildModificationService;
+use PluggedHost\Core\Services\GuardedServerConfigurationStructureService;
 use PluggedHost\Core\Services\GuardedServerDeletionService;
 use PluggedHost\Core\Services\GuardedTransferServerService;
 use PluggedHost\Core\Support\PanelTour;
+use PluggedHost\Core\Support\SystemServers;
 use Throwable;
 
 class CoreRuntimeServiceProvider extends ServiceProvider
@@ -34,6 +40,7 @@ class CoreRuntimeServiceProvider extends ServiceProvider
         $this->app->bind(ServerDeletionService::class, GuardedServerDeletionService::class);
         $this->app->bind(TransferServerService::class, GuardedTransferServerService::class);
         $this->app->bind(BuildModificationService::class, GuardedBuildModificationService::class);
+        $this->app->bind(ServerConfigurationStructureService::class, GuardedServerConfigurationStructureService::class);
 
 
         Livewire::listen('mount', function (object $component): void {
@@ -120,6 +127,30 @@ class CoreRuntimeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // In boot(), not register(): Eloquent only takes model listeners once the database
+        // provider has booted and set the event dispatcher; earlier ones are silently dropped.
+        //
+        // No mount into a volume directory (or /etc/pelican, the docker socket) can be saved
+        // from the admin area or the Application API: once a node lists the volumes under
+        // allowed_mounts (for devboxes) such a mount would hand one server another's files.
+        // Only a plugin's own provisioning, inside SystemServers::asSystem(), may write one,
+        // and never as user-mountable. The Wings configuration filter is the second line.
+        Mount::saving(function (Mount $mount): void {
+            $roots = Node::query()->distinct()->pluck('daemon_base')->filter()->all();
+
+            if (!SystemServers::isProtectedSource((string) $mount->source, $roots)) {
+                return;
+            }
+
+            if (!SystemServers::writingAsSystem()) {
+                throw ValidationException::withMessages([
+                    'source' => 'Mounts into server volumes, /var/lib/pelican or /etc/pelican are not allowed.',
+                ]);
+            }
+
+            $mount->user_mountable = false;
+        });
+
         // Mail templates echo values like the server name, which any server owner sets, into
         // Markdown: without this, "[Verify your account](https://...)" became a real link (or
         // image) in mail sent by plugged.host. Escapes [ < > in echoed values only.

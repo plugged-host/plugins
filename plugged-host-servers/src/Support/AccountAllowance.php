@@ -401,7 +401,7 @@ final class AccountAllowance
         $ranges = self::deploymentPortRanges();
         /** @var Node $node */
         foreach (app(NodeBalancer::class)->sortByLowestUsage($nodes) as $node) {
-            $ip = $this->nodeAllocationIp($node);
+            $ip = self::nodeAllocationIp($node);
             if ($ip === null) {
                 continue;
             }
@@ -581,21 +581,53 @@ final class AccountAllowance
         $ranges = self::deploymentPortRanges();
         /** @var Node $node */
         foreach (app(NodeBalancer::class)->sortByLowestUsage($nodes) as $node) {
-            $ip = $this->nodeAllocationIp($node);
+            $ip = self::nodeAllocationIp($node);
             if ($ip === null) {
                 continue;
             }
 
-            $allocation = $this->findAvailableAllocation($node, $ip, $ranges);
+            $allocation = self::findAvailableAllocation($node, $ip, $ranges);
             if ($allocation) {
                 return $allocation;
             }
 
-            $port = $this->findAvailablePort($node, $ip, $ranges);
+            $port = self::findAvailablePort($node, $ip, $ranges);
             if ($port === null) {
                 continue;
             }
 
+            $ids = app(AssignmentService::class)->handle($node, [
+                'allocation_ip' => $ip,
+                'allocation_ports' => [(string) $port],
+                'allocation_alias' => $node->fqdn,
+            ]);
+
+            if (!empty($ids)) {
+                return Allocation::withoutGlobalScopes()->findOrFail($ids[0]);
+            }
+        }
+
+        throw new NoViableAllocationException(trans('exceptions.deployment.no_viable_allocations'));
+    }
+
+    /**
+     * A free allocation on one given node, created in the deployment port ranges when none is
+     * free: the same rule as a new server's, for servers that must live on a known node (a
+     * devbox next to its game server). Not reserved: the caller assigns it, under a lock of
+     * its own if several requests may pick on the same node at once.
+     */
+    public static function allocationOn(Node $node): Allocation
+    {
+        $ip = self::nodeAllocationIp($node) ?? '0.0.0.0';
+        $ranges = self::deploymentPortRanges();
+
+        $allocation = self::findAvailableAllocation($node, $ip, $ranges);
+        if ($allocation) {
+            return $allocation;
+        }
+
+        $port = self::findAvailablePort($node, $ip, $ranges);
+        if ($port !== null) {
             $ids = app(AssignmentService::class)->handle($node, [
                 'allocation_ip' => $ip,
                 'allocation_ports' => [(string) $port],
@@ -657,7 +689,7 @@ final class AccountAllowance
     }
 
     /** @param array<int, array{int, int}> $ranges */
-    private function findAvailableAllocation(Node $node, string $ip, array $ranges): ?Allocation
+    private static function findAvailableAllocation(Node $node, string $ip, array $ranges): ?Allocation
     {
         return Allocation::withoutGlobalScopes()
             ->whereNull('server_id')
@@ -673,7 +705,7 @@ final class AccountAllowance
     }
 
     /** @param array<int, array{int, int}> $ranges */
-    private function findAvailablePort(Node $node, string $ip, array $ranges): ?int
+    private static function findAvailablePort(Node $node, string $ip, array $ranges): ?int
     {
         $used = Allocation::withoutGlobalScopes()
             ->where('node_id', $node->id)
@@ -710,7 +742,7 @@ final class AccountAllowance
      * Returned as a nullable string to keep the two callers' "skip this node" contract, but with a
      * constant it never actually returns null.
      */
-    private function nodeAllocationIp(Node $node): ?string
+    private static function nodeAllocationIp(Node $node): ?string
     {
         return '0.0.0.0';
     }
