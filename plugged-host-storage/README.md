@@ -1,8 +1,8 @@
 # plugged.host Storage
 
 The storage server: 30-minute delta-mirror replication of every live server and automatic
-node-failure recovery, driven by a signed Node.js agent that runs on the storage box, plus the
-backups portal (backups.<domain>). Requires `plugged-host-core` (its node telemetry is the
+node-failure recovery, driven by a signed Node.js agent that runs on the storage box (and,
+optionally, on a faster backup server), plus the backups portal (backups.<domain>). Requires `plugged-host-core` (its node telemetry is the
 failover witness); works with `plugged-host-discord` for the portal's sign-in.
 
 ## What it does
@@ -29,6 +29,15 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
   gets a mirror of hardlinks to its volume instead of a second copy, and the agent removes wings
   volumes there that belong to no server on that node (a move away that left them behind).
   Snapshots kept per server follow the panel's `STORAGE_MIRROR_SNAPSHOTS`.
+- **Backup server** (optional): a second box running the same agent with its own address, secret
+  and mirror key, e.g. a VM with many cores while the storage box is a stable one-thread box.
+  Both copy every server (each pulls from the nodes itself; up to `PH_MIRROR_JOBS` passes at once,
+  never two on one node). Archives (backups portal, the server's Backups banner, failover
+  restores, `deleted-servers --url`) come from the backup server while its copy is no more than
+  one mirror interval older than the storage box's, else from the storage box; a box that does
+  not answer is passed over for a minute. Failover counts a node as reachable when either box
+  reaches it. The panel tells the boxes apart by whose secret signs a request, and signs the
+  update manifest once per box (`X-PH-Signature`, `X-PH-Signature-Backup`).
 - **The agent** (`agent/`): also serves an on-demand tar behind an HMAC-signed URL (wings pulls
   from it during recovery), answers a node-reachability probe, reports mirror size/freshness back,
   and self-updates from a signed bundle the panel serves. Code lives on `/opt` (OS disk), data on
@@ -41,6 +50,7 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 | `agent_secret` | `STORAGE_AGENT_SECRET` | Shared HMAC with the agent (== `PH_AGENT_SECRET` on the box) |
 | `agent_url` | `STORAGE_AGENT_URL` | Agent inbound listener, e.g. `https://storage.<domain>` (the installer sets it) |
 | `mirror_public_key` | `STORAGE_MIRROR_PUBLIC_KEY` | The box's `ph-mirror` key (the installer sets it), served to nodes by `/plugged-host/storage/node/install.sh` |
+| `backup_agent_url` / `backup_agent_secret` / `backup_mirror_public_key` | `STORAGE_BACKUP_AGENT_URL` / `STORAGE_BACKUP_AGENT_SECRET` / `STORAGE_BACKUP_MIRROR_PUBLIC_KEY` | The same three for the backup server (optional; `plugged-host:storage-setup --backup` sets them) |
 | `failover_mode` | `STORAGE_FAILOVER_MODE` (`auto`) | `off` \| `notify` \| `auto` |
 | `failover_after_failures` | `STORAGE_FAILOVER_AFTER_FAILURES` (`5`) | Consecutive minute-probe failures before acting |
 | `min_free_percent` / `mirror_snapshots` | `STORAGE_*` | Agent free-space floor + snapshot retention (sent to the agent in the plan) |
@@ -50,7 +60,9 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 ## Migrations
 
 - `001_create_server_replicas_table.php`, `002_create_node_failovers_table.php`,
-  `003_create_storage_deleted_servers_table.php` (operator-run).
+  `003_create_storage_deleted_servers_table.php`, `004_add_box_to_server_replicas_table.php`
+  (a replica row per server and box; until it runs, the backup server's reports are dropped)
+  (operator-run).
 
 ## Setting up the storage box (from zero)
 
@@ -76,10 +88,15 @@ The agent (`agent/agent.mjs`, no npm dependencies) runs on Node.js 26; the insta
    (authorizes the mirror key). The installer can then test SSH to every node.
 4. `php artisan plugged-host:doctor plugged-host-storage` on the panel.
 
+**Backup server:** the same steps on the second box with the backup server's setup command
+(Admin › Plugins › plugged.host Storage › Backup server, or `php artisan plugged-host:storage-setup
+--backup`), then the node script again on every node (it adds the new key). It needs ports 80/443
+reaching it for its certificate, like the storage box.
+
 Run the setup command again to upgrade the agent or change an answer: the previous answers are
 the defaults. Unattended: `… | sudo bash -s -- --yes` plus flags for anything without a default
-(`--agent-url`, `--ssh-port`, `--ssh-port-for host=port`, `--nginx --email …`; all listed at
-the top of `agent/install.sh`).
+(`--agent-url`, `--ssh-port`, `--ssh-port-for host=port`, `--nginx [--email …]`; all listed at
+the top of `agent/install.sh`). It sets `PH_MIRROR_JOBS` to half the cores (1 to 4) unless set.
 
 ## Extension points it offers / consumes
 

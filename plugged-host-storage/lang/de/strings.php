@@ -18,6 +18,12 @@ return [
         'agent_version' => 'Agent-Bundle-Version',
         'agent_version_hint' => 'Plugins-Release und der Anfang des Hashes des Agenten-Codes; die Agenten aktualisieren sich, sobald er sich ändert.',
 
+        // Backup-Server.
+        'section_backup_server' => 'Backup-Server',
+        'section_backup_server_hint' => 'Optionale zweite Box mit demselben Agent: schneller als die Storage-Box, aber weniger stabil. Beide kopieren jeden Server; Downloads und Failover-Wiederherstellungen kommen vom Backup-Server, solange seine Kopie so aktuell ist wie die der Storage-Box. Führen Sie diesen Befehl dort als root aus und danach das Node-Skript erneut auf jeder Node, damit sie seinen Schlüssel annehmen.',
+        'backup_agent_url_hint' => 'Wo der Agent des Backup-Servers antwortet, z. B. https://backup.example.com. Sein Installer trägt das ein.',
+        'backup_secret_unset_help' => 'Noch kein Secret gespeichert. Der Setup-Befehl erzeugt eines.',
+
         // Secret-Handhabung (gemeinsame Texte).
         'secret_unchanged' => 'leer lassen, um beizubehalten',
         'secret_unset' => 'nicht gesetzt',

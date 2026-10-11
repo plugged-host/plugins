@@ -25,6 +25,7 @@ use PluggedHost\Storage\Services\DeletedServers;
 use PluggedHost\Storage\Services\FailoverService;
 use PluggedHost\Storage\Services\StorageService;
 use PluggedHost\Storage\Services\StorageSetup;
+use PluggedHost\Storage\Support\StorageBox;
 use Throwable;
 
 /**
@@ -135,9 +136,12 @@ class StoragePluginProvider extends ServiceProvider
                         \App\Http\Middleware\Api\Client\Server\ResourceBelongsToServer::class,
                     ])
                     ->group(function (): void {
+                        // The freshest copy, from whichever box holds it.
                         Route::get('/replica', function (\App\Models\Server $server) {
                             $replica = \PluggedHost\Storage\Models\ServerReplica::query()
                                 ->where('server_id', $server->id)
+                                ->orderByRaw('last_replicated_at is null')
+                                ->orderByDesc('last_replicated_at')
                                 ->first(['last_replicated_at', 'bytes', 'state']);
 
                             return response()->json(['data' => $replica]);
@@ -147,19 +151,24 @@ class StoragePluginProvider extends ServiceProvider
     }
 
     /**
-     * The script every Wings node runs once so the storage agent may pull its server files:
-     * agent/node-install.sh with the mirror key filled in. Public like the abuse agent's
-     * installer: a public key is no secret, and the key is checked against PUBLIC_KEY_PATTERN
-     * before it goes into a script nodes pipe into a root shell.
+     * The script every Wings node runs once so the storage agents may pull its server files:
+     * agent/node-install.sh with the mirror keys of the storage box and the backup server filled
+     * in. Public like the abuse agent's installer: a public key is no secret, and each key is
+     * checked against PUBLIC_KEY_PATTERN before it goes into a script nodes pipe into a root shell.
      */
     private function registerNodeInstaller(): void
     {
         Route::get('/plugged-host/storage/node/install.sh', function () {
-            $key = trim((string) config('plugged-host-storage.mirror_public_key', ''));
-            $key = preg_match(self::PUBLIC_KEY_PATTERN, $key) === 1 ? $key : '';
+            $keys = [];
+            foreach (StorageBox::names() as $name) {
+                $key = StorageBox::named($name)->mirrorKey();
+                if (preg_match(self::PUBLIC_KEY_PATTERN, $key) === 1) {
+                    $keys[] = $key;
+                }
+            }
             $script = (string) @file_get_contents(plugin_path('plugged-host-storage', 'agent/node-install.sh'));
 
-            return response(str_replace('__MIRROR_PUBLIC_KEY__', $key, $script), 200, [
+            return response(str_replace('__MIRROR_PUBLIC_KEYS__', implode("\n", array_unique($keys)), $script), 200, [
                 'Content-Type' => 'text/x-shellscript; charset=utf-8',
                 'Cache-Control' => 'no-store',
             ]);
@@ -180,43 +189,81 @@ class StoragePluginProvider extends ServiceProvider
                 : Doctor::fail('not set: ' . implode(', ', $missing) . '. Set the storage box up with: php artisan plugged-host:storage-setup');
         });
 
-        Doctor::check('plugged-host-storage', 'Mirror passes', function (): array {
-            if (!Schema::hasTable('server_replicas')) {
-                return Doctor::fail('server_replicas missing: php artisan migrate');
+        // Optional: without a backup server everything comes from the storage box.
+        Doctor::check('plugged-host-storage', 'Backup server', function (): array {
+            $box = StorageBox::named(StorageBox::BACKUP);
+
+            if ($box->url() === '' && $box->secret() === '') {
+                return Doctor::ok('none: archives come from the storage box (php artisan plugged-host:storage-setup --backup)');
             }
 
-            $last = DB::table('server_replicas')->max('last_replicated_at');
-            $interval = max(1, (int) config('plugged-host-storage.mirror_interval_min', 30));
+            $missing = array_keys(array_filter([
+                $box->urlEnv() => $box->url() === '',
+                $box->secretEnv() => $box->secret() === '',
+                $box->mirrorKeyEnv() => $box->mirrorKey() === '',
+            ]));
 
-            if ($last === null) {
-                return Doctor::warn('no server mirrored yet');
+            if ($missing !== []) {
+                return Doctor::fail('not set: ' . implode(', ', $missing) . '. Run: php artisan plugged-host:storage-setup --backup');
             }
 
-            $at = Carbon::parse($last);
-
-            return $at->gt(now()->subMinutes($interval * 3))
-                ? Doctor::ok('last copy ' . Doctor::ago($at->getTimestamp()))
-                : Doctor::warn('last copy ' . Doctor::ago($at->getTimestamp()) . ': is the agent running and reaching the nodes?');
+            return StorageService::replicasPerBox()
+                ? Doctor::ok($box->url())
+                : Doctor::warn($box->url() . ': its mirror reports are dropped until migration 004 runs (php artisan migrate)');
         });
 
-        Doctor::check('plugged-host-storage', 'Deleted-server copies', function (): array {
-            $deleted = app(DeletedServers::class);
+        foreach (StorageBox::names() as $name) {
+            $box = StorageBox::named($name);
+            $suffix = $name === StorageBox::STORAGE ? '' : " ({$box->label()})";
 
-            if (!$deleted->ready()) {
-                return Doctor::fail('storage_deleted_servers missing: php artisan migrate');
-            }
+            Doctor::check('plugged-host-storage', 'Mirror passes' . $suffix, function () use ($box): array {
+                if (!Schema::hasTable('server_replicas')) {
+                    return Doctor::fail('server_replicas missing: php artisan migrate');
+                }
 
-            $held = DeletedServer::query()->held()->whereIn('reason', ['admin', 'system'])->count();
-            $at = $deleted->lastReportAt();
+                if ($box->name !== StorageBox::STORAGE && !$box->configured()) {
+                    return Doctor::ok('not set up');
+                }
 
-            if ($at === null) {
-                return Doctor::warn("{$held} kept; the agent has not reported its folders yet (agent 1.4.0+, hourly)");
-            }
+                $last = DB::table('server_replicas')
+                    ->when(StorageService::replicasPerBox(), fn ($q) => $q->where('box', $box->name))
+                    ->max('last_replicated_at');
+                $interval = max(1, (int) config('plugged-host-storage.mirror_interval_min', 30));
 
-            return time() - $at <= 3 * 3600
-                ? Doctor::ok("{$held} kept for {$deleted->holdDays()} days; cleanup report " . Doctor::ago($at))
-                : Doctor::warn('cleanup report ' . Doctor::ago($at) . ': copies of deleted servers are not being removed');
-        });
+                if ($last === null) {
+                    return Doctor::warn('no server mirrored yet');
+                }
+
+                $at = Carbon::parse($last);
+
+                return $at->gt(now()->subMinutes($interval * 3))
+                    ? Doctor::ok('last copy ' . Doctor::ago($at->getTimestamp()))
+                    : Doctor::warn('last copy ' . Doctor::ago($at->getTimestamp()) . ": is the {$box->label()}'s agent running and reaching the nodes?");
+            });
+
+            Doctor::check('plugged-host-storage', 'Deleted-server copies' . $suffix, function () use ($box): array {
+                $deleted = app(DeletedServers::class);
+
+                if (!$deleted->ready()) {
+                    return Doctor::fail('storage_deleted_servers missing: php artisan migrate');
+                }
+
+                if ($box->name !== StorageBox::STORAGE && !$box->configured()) {
+                    return Doctor::ok('not set up');
+                }
+
+                $held = DeletedServer::query()->held()->whereIn('reason', ['admin', 'system'])->count();
+                $at = $deleted->lastReportAt($box->name);
+
+                if ($at === null) {
+                    return Doctor::warn("{$held} kept; the {$box->label()}'s agent has not reported its folders yet (hourly)");
+                }
+
+                return time() - $at <= 3 * 3600
+                    ? Doctor::ok("{$held} kept for {$deleted->holdDays()} days; cleanup report " . Doctor::ago($at))
+                    : Doctor::warn('cleanup report ' . Doctor::ago($at) . ": copies of deleted servers on the {$box->label()} are not being removed");
+            });
+        }
     }
 
     private function registerAgentRoutes(): void
@@ -228,35 +275,31 @@ class StoragePluginProvider extends ServiceProvider
             ])
             ->group(function (): void {
                 // Agent-signed: the mirror work-plan.
+                // Which box is asking is known from whose secret signed the request.
                 Route::get('/plan', function (Request $request) {
-                    if (!$this->verifyAgent($request, 'GET', '/plugged-host/storage/agent/plan')) {
-                        abort(403);
-                    }
+                    $box = $this->agentBox($request, 'GET', '/plugged-host/storage/agent/plan') ?? abort(403);
 
-                    return response()->json(app(StorageService::class)->plan());
+                    return response()->json(app(StorageService::class)->plan($box));
                 })->name('plugged-host.storage.agent.plan');
 
                 // Agent-signed: a per-server mirror report.
                 Route::post('/report', function (Request $request) {
-                    if (!$this->verifyAgent($request, 'POST', '/plugged-host/storage/agent/report')) {
-                        abort(403);
-                    }
+                    $box = $this->agentBox($request, 'POST', '/plugged-host/storage/agent/report') ?? abort(403);
 
                     $data = $request->all();
-                    app(StorageService::class)->recordReport((int) ($data['server_id'] ?? 0), $data);
+                    app(StorageService::class)->recordReport((int) ($data['server_id'] ?? 0), $data, $box->name);
 
                     return response()->json(['ok' => true]);
                 })->name('plugged-host.storage.agent.report');
 
-                // Agent-signed: the folders on the storage box, answered with what to remove.
+                // Agent-signed: the folders on the box, answered with what to remove.
                 Route::post('/inventory', function (Request $request) {
-                    if (!$this->verifyAgent($request, 'POST', '/plugged-host/storage/agent/inventory')) {
-                        abort(403);
-                    }
+                    $box = $this->agentBox($request, 'POST', '/plugged-host/storage/agent/inventory') ?? abort(403);
 
                     return response()->json(app(DeletedServers::class)->sweep(
                         (array) $request->input('copies', []),
                         (array) $request->input('volumes', []),
+                        $box,
                     ));
                 })->name('plugged-host.storage.agent.inventory');
 
@@ -286,15 +329,16 @@ class StoragePluginProvider extends ServiceProvider
                     ]);
                 })->name('plugged-host.storage.agent.installer');
 
-                // Setup code -> what the installer needs (incl. the agent secret).
+                // Setup code -> what the installer needs (incl. the agent secret of the code's box).
                 Route::post('/setup', function (Request $request) {
                     $setup = app(StorageSetup::class);
+                    $code = (string) $request->input('code', '');
 
-                    if (!$setup->valid((string) $request->input('code', ''))) {
+                    if (!$setup->valid($code)) {
                         return response()->json(['error' => 'This setup code is unknown or expired. Copy a new command from the panel.'], 403);
                     }
 
-                    return response()->json($setup->bootstrap(), 200, ['Cache-Control' => 'no-store']);
+                    return response()->json($setup->bootstrap($setup->boxFor($code)), 200, ['Cache-Control' => 'no-store']);
                 })->middleware('throttle:10,1')->name('plugged-host.storage.agent.setup');
 
                 // The box reports its mirror key and address; the code is used up.
@@ -313,9 +357,9 @@ class StoragePluginProvider extends ServiceProvider
             });
     }
 
-    private function verifyAgent(Request $request, string $method, string $path): bool
+    private function agentBox(Request $request, string $method, string $path): ?StorageBox
     {
-        return app(StorageService::class)->verifyAgentSignature(
+        return app(StorageService::class)->agentBox(
             (string) $request->header('X-PH-Timestamp', ''),
             (string) $request->header('X-PH-Signature', ''),
             $method,
@@ -351,12 +395,22 @@ class StoragePluginProvider extends ServiceProvider
         }
     }
 
+    /**
+     * Signed once per box with that box's secret: X-PH-Signature (the storage box, what agents
+     * before the backup server read) and X-PH-Signature-Backup. An agent accepts the manifest
+     * when one of them is its own.
+     */
     private function agentManifest()
     {
         $path = $this->bundlePath();
-        $secret = (string) config('plugged-host-storage.agent_secret', '');
+        $secrets = [];
+        foreach (StorageBox::names() as $name) {
+            if (($secret = StorageBox::named($name)->secret()) !== '') {
+                $secrets[$name] = $secret;
+            }
+        }
 
-        if ($path === null || $secret === '') {
+        if ($path === null || $secrets === []) {
             return response()->json(['error' => 'unavailable'], 503);
         }
 
@@ -366,11 +420,12 @@ class StoragePluginProvider extends ServiceProvider
             'size' => filesize($path),
         ], JSON_UNESCAPED_SLASHES);
 
-        return response($body, 200, [
-            'Content-Type' => 'application/json',
-            'X-PH-Signature' => hash_hmac('sha256', $body, $secret),
-            'Cache-Control' => 'no-store',
-        ]);
+        $headers = ['Content-Type' => 'application/json', 'Cache-Control' => 'no-store'];
+        foreach ($secrets as $name => $secret) {
+            $headers[$name === StorageBox::STORAGE ? 'X-PH-Signature' : 'X-PH-Signature-' . ucfirst($name)] = hash_hmac('sha256', $body, $secret);
+        }
+
+        return response($body, 200, $headers);
     }
 
     private function agentBundle()

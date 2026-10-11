@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# plugged.host storage agent: install it on the storage box, or upgrade it.
+# plugged.host storage agent: install it on the storage box or the backup server, or upgrade it.
 #
 # Copy the command from the panel (Admin > Plugins > plugged.host Storage > Setup command, or
-# `php artisan plugged-host:storage-setup`) and run it on the storage box:
+# `php artisan plugged-host:storage-setup`, with --backup for the backup server) and run it on
+# that box:
 #
 #   curl -fsSL https://<panel>/plugged-host/storage/agent/install.sh?code=<code> | sudo bash
 #
@@ -22,7 +23,7 @@
 #   --ssh-port-for H=P    a node on another SSH port (repeatable)
 #   --agent-url URL       the address Wings and the panel reach this agent at
 #   --nginx | --no-nginx  put nginx + a Let's Encrypt certificate in front of it
-#   --email ADDR          e-mail for Let's Encrypt
+#   --email ADDR          e-mail for Let's Encrypt (optional)
 #   --allow-unmounted     carry on when the storage root is not its own mount
 #   --yes                 take every default
 #
@@ -171,8 +172,11 @@ if [[ "$status" != 200 ]]; then
 fi
 SECRET="$(json_get "$WORK/setup.json" agent_secret)"
 [[ ${#SECRET} -ge 32 ]] || die "The panel sent no agent secret."
+BOX="$(json_get "$WORK/setup.json" box)"; BOX="${BOX:-storage}"
+[[ "$BOX" =~ ^[a-z]+$ ]] || die "The panel named no usable box."
+BOX_LABEL="$(json_get "$WORK/setup.json" box_label)"; BOX_LABEL="${BOX_LABEL:-storage box}"
 NODES="$("$NODE_BIN" -e 'const o=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));for(const n of o.nodes||[])if(n.fqdn)console.log(n.fqdn+"\t"+String(n.name).replace(/[\t\n]/g," "))' "$WORK/setup.json")"
-ok "Connected to $PANEL_URL ($(printf '%s\n' "$NODES" | grep -c . || true) nodes)"
+ok "Connected to $PANEL_URL ($(printf '%s\n' "$NODES" | grep -c . || true) nodes): setting up the $BOX_LABEL"
 
 # --- 3. storage disk -------------------------------------------------------------------------------
 step "Storage"
@@ -210,7 +214,10 @@ RSYNC_KEY="$(env_get PH_RSYNC_SSH_KEY || true)"; RSYNC_KEY="${RSYNC_KEY:-/root/.
 RSYNC_USER="$(env_get PH_RSYNC_USER || true)"; RSYNC_USER="${RSYNC_USER:-root}"
 mkdir -p "$(dirname "$RSYNC_KEY")" && chmod 700 "$(dirname "$RSYNC_KEY")"
 if [[ ! -f "$RSYNC_KEY" ]]; then
-  ssh-keygen -q -t ed25519 -f "$RSYNC_KEY" -N "" -C plugged-host-storage-agent
+  # Named after the box, so a node's authorized_keys tells the storage box's key from the backup server's.
+  key_comment=plugged-host-storage-agent
+  [[ "$BOX" == storage ]] || key_comment="plugged-host-$BOX-agent"
+  ssh-keygen -q -t ed25519 -f "$RSYNC_KEY" -N "" -C "$key_comment"
   ok "Created the mirror key $RSYNC_KEY"
 else
   ok "Mirror key $RSYNC_KEY"
@@ -264,8 +271,8 @@ if [[ "$AGENT_URL" == https://* && -z "$NGINX" ]]; then
     warn "Then make $AGENT_URL reach http://127.0.0.1:$LISTEN_PORT yourself."
   fi
 fi
-if [[ "$NGINX" == yes ]]; then
-  ask EMAIL "E-mail for Let's Encrypt (expiry notices)" ""
+if [[ "$NGINX" == yes && -z "$EMAIL" && -z "$ASSUME_YES" && -n "$TTY" ]]; then
+  read -r -u 3 -p "    E-mail for Let's Encrypt expiry notices (Enter for none): " EMAIL || true
 fi
 [[ "$AGENT_URL" == http://* ]] && warn "Plain http: archives and signed links would cross the internet unencrypted."
 
@@ -273,9 +280,10 @@ fi
 step "Installing the agent"
 curl -fsS --max-time 30 -D "$WORK/manifest.headers" -o "$WORK/manifest.json" "$PANEL_URL/plugged-host/storage/agent/manifest.json" \
   || die "Could not fetch the agent manifest from the panel."
-signature="$(sed -n 's/^[Xx]-[Pp][Hh]-[Ss]ignature: *//p' "$WORK/manifest.headers" | tr -d '\r')"
+# Signed once per box (X-PH-Signature: the storage box, X-PH-Signature-Backup: the backup server).
 expected="$(PH_SECRET="$SECRET" "$NODE_BIN" -e 'const c=require("crypto"),f=require("fs");process.stdout.write(c.createHmac("sha256",process.env.PH_SECRET).update(f.readFileSync(process.argv[1])).digest("hex"))' "$WORK/manifest.json")"
-[[ -n "$signature" && "$signature" == "$expected" ]] || die "The agent manifest's signature does not match the agent secret."
+sed -n 's/^[Xx]-[Pp][Hh]-[Ss]ignature\(-[A-Za-z]*\)\?: *//p' "$WORK/manifest.headers" | tr -d '\r' | grep -xF "$expected" >/dev/null \
+  || die "The agent manifest's signature does not match the agent secret."
 VERSION="$(json_get "$WORK/manifest.json" version)"
 [[ "$VERSION" =~ ^[0-9A-Za-z._-]+$ ]] || die "The manifest names no usable version."
 curl -fsS --max-time 120 -o "$WORK/bundle.tar.gz" "$PANEL_URL/plugged-host/storage/agent/bundle.tar.gz" || die "Could not download the agent."
@@ -304,6 +312,11 @@ env_set PH_RSYNC_USER "$RSYNC_USER"
 env_set PH_RSYNC_SSH_KEY "$RSYNC_KEY"
 env_set PH_VERSION "$VERSION"
 env_set PH_SSH_DEFAULT_PORT "$SSH_PORT"
+# Mirror passes at once: half the cores, 1 to 4 (one at a time on a single-core box).
+if [[ -z "$(env_get PH_MIRROR_JOBS)" ]]; then
+  jobs=$(( $(nproc 2>/dev/null || echo 1) / 2 )); (( jobs < 1 )) && jobs=1; (( jobs > 4 )) && jobs=4
+  env_set PH_MIRROR_JOBS "$jobs"
+fi
 env_set PH_SSH_PORT_OVERRIDES "${SSH_OVERRIDES[*]:-}"
 ok "Settings in $ENV_FILE"
 
@@ -372,7 +385,8 @@ EOF
   sed -i "s/__HOST__/$host/; s/__PORT__/$LISTEN_PORT/" "$NGINX_SITE"
   ln -sfn "$NGINX_SITE" /etc/nginx/sites-enabled/plugged-host-storage.conf
   nginx -t -q && systemctl reload nginx
-  certbot --nginx -d "$host" --non-interactive --agree-tos -m "$EMAIL" --redirect -q </dev/null \
+  if [[ -n "$EMAIL" ]]; then contact=(-m "$EMAIL"); else contact=(--register-unsafely-without-email); fi
+  certbot --nginx -d "$host" --non-interactive --agree-tos "${contact[@]}" --redirect -q </dev/null \
     || die "Let's Encrypt failed for $host: does its DNS point here (not proxied), and do ports 80/443 reach this box?"
   ok "$AGENT_URL (certificate renews itself)"
 fi
@@ -393,7 +407,7 @@ fi
 
 # --- 9. next ---------------------------------------------------------------------------------------------
 step "Last step: let the agent onto the nodes"
-info "On every node, as root:"
+info "On every node, as root (again on nodes that already ran it: it adds this box's key):"
 info "  ${B}curl -fsSL $PANEL_URL/plugged-host/storage/node/install.sh | sudo bash${N}"
 
 if [[ -n "$TTY" && -z "$ASSUME_YES" && -n "$NODES" ]] && confirm "Test SSH to every node now (do the step above first)?" n; then

@@ -2,6 +2,24 @@
 
 ## 2.2.0 (unreleased)
 
+- **Backup server**: an optional second box running the same agent, for a storage box that is
+  stable but slow (one thread: packing an archive takes ages). Both copy every server; archives
+  for the backups portal, the Backups banner, failover restores and `deleted-servers --url` come
+  from the backup server while its copy is no more than one mirror interval older than the storage
+  box's, else from the storage box (`StorageService::servingBox()`); a box that does not answer is
+  skipped for a minute. The failover second witness asks both. Set up with
+  `php artisan plugged-host:storage-setup --backup` (or Admin › Plugins › plugged.host Storage ›
+  Backup server), then the node script again on every node, which now authorizes every box's key.
+  New settings `STORAGE_BACKUP_AGENT_URL`, `STORAGE_BACKUP_AGENT_SECRET`,
+  `STORAGE_BACKUP_MIRROR_PUBLIC_KEY`; migration 004 gives `server_replicas` a row per server and
+  box (`box`). The panel knows which box calls by whose secret signs the request; the update
+  manifest is signed once per box (`X-PH-Signature`, `X-PH-Signature-Backup`), and the agent and
+  installer accept the one that is theirs. `plugged-host:doctor` checks the backup server, and the
+  mirror passes and cleanup reports per box.
+- The agent runs `PH_MIRROR_JOBS` mirror passes at once (default 1; the installer sets half the
+  cores, 1 to 4), never two on the same node. `/health` reports it.
+- The installer works without a Let's Encrypt e-mail, and names the mirror key after its box.
+
 - **One command sets a storage box up**: the storage settings (or
   `php artisan plugged-host:storage-setup`) show `curl … /plugged-host/storage/agent/install.sh?code=…
   | sudo bash` with a one-time code (an hour). The installer is guided: it asks where the disk is,

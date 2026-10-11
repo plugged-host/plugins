@@ -98,7 +98,7 @@ class BackupPortalController extends Controller
             // that was a mistake.
             $deleted = app(DeletedServers::class)->forOwner((int) $user->id);
 
-            // One concurrent round to the storage agent for every server, not one after another.
+            // One concurrent round to the storage agents for every server, not one after another.
             $infos = $this->storageService->backupInfoMany([...$servers->pluck('uuid')->all(), ...$deleted->pluck('uuid')->all()]);
 
             $userServers = $servers->map(function (Server $server) use ($panelUrl, $infos) {
@@ -128,8 +128,9 @@ class BackupPortalController extends Controller
                     // Signed, short-lived storage link; only ever built for the owner's own servers.
                     // stream=1: the agent sends the archive while it packs it, so the browser's
                     // download starts at once instead of after the whole archive is built.
+                    // From the box whose copy is shown (storage box or backup server).
                     'download_url' => $hasBackup
-                        ? $this->storageService->archiveUrlForIdentifier($server->uuid, $filename) . '&stream=1'
+                        ? $this->storageService->archiveUrlForIdentifier($server->uuid, $filename, $info['box'] ?? null) . '&stream=1'
                         : null,
                     'manage_url' => "{$panelUrl}/server/{$server->uuid_short}",
                     'backups_url' => "{$panelUrl}/server/{$server->uuid_short}/backups",
@@ -158,7 +159,7 @@ class BackupPortalController extends Controller
                         'deleted_at' => $row->deleted_at,
                         'keep_until' => $row->keep_until,
                         'download_url' => $hasBackup
-                            ? $this->storageService->archiveUrlForIdentifier($row->uuid, $filename) . '&stream=1'
+                            ? $this->storageService->archiveUrlForIdentifier($row->uuid, $filename, $info['box'] ?? null) . '&stream=1'
                             : null,
                     ];
                 })

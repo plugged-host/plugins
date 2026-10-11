@@ -13,6 +13,7 @@ use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use PluggedHost\Storage\Providers\StoragePluginProvider;
 use PluggedHost\Storage\Services\StorageSetup;
+use PluggedHost\Storage\Support\StorageBox;
 
 /**
  * Filament registration for the storage plugin. The panel-side wiring (agent routes, failover
@@ -21,7 +22,7 @@ use PluggedHost\Storage\Services\StorageSetup;
  * owns the topbar.
  *
  * Settings tab: the storage box's 13 env knobs (agent connection, replication cadence, daily S3
- * backup and failover) over the same EnvironmentWriterTrait every plugged.host plugin uses. The
+ * backup and failover), plus the optional backup server's connection over the same EnvironmentWriterTrait every plugged.host plugin uses. The
  * agent HMAC secret is handled by the "masked, save-if-changed" convention this plugin set uses
  * everywhere: its real value is NEVER loaded into the form (getSettingsFormData returns '' for
  * it), the field renders masked with helper text saying only whether one is set, and saveSettings
@@ -59,6 +60,12 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
         return [
             // A fresh one-time command each time the settings open (StorageSetup).
             'setup_command' => $setup->command($setup->issue()),
+            'backup_setup_command' => $setup->command($setup->issue(StorageBox::BACKUP)),
+
+            // Backup server (optional). Its secret, like the storage box's, is never loaded.
+            'backup_agent_url' => (string) config('plugged-host-storage.backup_agent_url', ''),
+            'backup_mirror_public_key' => (string) config('plugged-host-storage.backup_mirror_public_key', ''),
+            'backup_agent_secret' => '',
 
             // Agent connection.
             'agent_url' => (string) config('plugged-host-storage.agent_url', ''),
@@ -91,6 +98,7 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
     public function getSettingsForm(): array
     {
         $hasSecret = filled(config('plugged-host-storage.agent_secret'));
+        $hasBackupSecret = filled(config('plugged-host-storage.backup_agent_secret'));
 
         return [
             Section::make(trans('plugged-host-storage::strings.settings.setup_section'))
@@ -134,6 +142,33 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-storage::strings.settings.agent_version_hint'))
                         ->disabled()
                         ->dehydrated(false),
+                ]),
+
+            Section::make(trans('plugged-host-storage::strings.settings.section_backup_server'))
+                ->description(trans('plugged-host-storage::strings.settings.section_backup_server_hint'))
+                ->schema([
+                    TextInput::make('backup_setup_command')
+                        ->label(trans('plugged-host-storage::strings.settings.setup_command'))
+                        ->readOnly()
+                        ->dehydrated(false)
+                        ->copyable(),
+                    TextInput::make('backup_agent_url')
+                        ->label(trans('plugged-host-storage::strings.settings.agent_url'))
+                        ->helperText(trans('plugged-host-storage::strings.settings.backup_agent_url_hint'))
+                        ->url()
+                        ->maxLength(255),
+                    TextInput::make('backup_agent_secret')
+                        ->label(trans('plugged-host-storage::strings.settings.agent_secret'))
+                        ->password()
+                        ->revealable()
+                        ->autocomplete(false)
+                        ->placeholder($hasBackupSecret ? '•••••••• ' . trans('plugged-host-storage::strings.settings.secret_unchanged') : trans('plugged-host-storage::strings.settings.secret_unset'))
+                        ->helperText(trans('plugged-host-storage::strings.settings.' . ($hasBackupSecret ? 'secret_set_help' : 'backup_secret_unset_help'))),
+                    TextInput::make('backup_mirror_public_key')
+                        ->label(trans('plugged-host-storage::strings.settings.mirror_public_key'))
+                        ->helperText(fn () => trans('plugged-host-storage::strings.settings.mirror_public_key_hint', ['url' => url('/plugged-host/storage/node/install.sh')]))
+                        ->rules(['nullable', 'regex:' . StoragePluginProvider::PUBLIC_KEY_PATTERN])
+                        ->maxLength(1024),
                 ]),
 
             Section::make(trans('plugged-host-storage::strings.settings.section_replication'))
@@ -228,6 +263,10 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'STORAGE_MIRROR_PUBLIC_KEY' => trim((string) ($data['mirror_public_key'] ?? '')),
             'STORAGE_SIGNED_TTL' => (string) max(60, min(86400, (int) ($data['signed_ttl'] ?? 900))),
 
+            // Backup server.
+            'STORAGE_BACKUP_AGENT_URL' => rtrim((string) ($data['backup_agent_url'] ?? ''), '/'),
+            'STORAGE_BACKUP_MIRROR_PUBLIC_KEY' => trim((string) ($data['backup_mirror_public_key'] ?? '')),
+
             // Replication.
             'STORAGE_MIRROR_INTERVAL_MIN' => (string) max(1, min(1440, (int) ($data['mirror_interval_min'] ?? 30))),
             'STORAGE_MIRROR_SNAPSHOTS' => (string) max(1, min(100, (int) ($data['mirror_snapshots'] ?? 3))),
@@ -248,6 +287,10 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
         $secret = trim((string) ($data['agent_secret'] ?? ''));
         if ($secret !== '') {
             $values['STORAGE_AGENT_SECRET'] = $secret;
+        }
+        $backupSecret = trim((string) ($data['backup_agent_secret'] ?? ''));
+        if ($backupSecret !== '') {
+            $values['STORAGE_BACKUP_AGENT_SECRET'] = $backupSecret;
         }
 
         $this->writeToEnvironment($values);

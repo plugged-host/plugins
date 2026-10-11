@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // plugged.host storage agent (WP9).
 //
-// Runs on the storage box, NOT the panel host. It PULLS: it initiates each rsync from the nodes,
+// Runs on the storage box, NOT the panel host -- and, when there is one, on the backup server too:
+// the same agent, with its own secret (the panel tells the two apart by whose secret signs a
+// request). It PULLS: it initiates each rsync from the nodes,
 // serves a tar of a server's mirror behind an HMAC-signed URL (streamed to browsers as it is
 // built, complete with a size for wings restores, cached until the next mirror pass), answers node-reachability probes for the panel, reports mirror size and
 // freshness back, and self-updates from a signed bundle the panel serves.
@@ -24,6 +26,7 @@
 //   PH_MIRROR_INTERVAL_MIN default 30
 //   PH_UPDATE_INTERVAL_MIN default 15
 //   PH_MAX_ARCHIVE_JOBS    default 3     (tar builds at once; more answer 503 + Retry-After)
+//   PH_MIRROR_JOBS         default 1     (mirror passes at once, never two on one node)
 //   PH_STREAM_STALL_SEC    default 60    (drop a streaming download that stops reading for this long)
 //   PH_RELEASE_DIR         default /opt/plugged-host-storage   (for self-update symlink swap)
 //   PH_VERSION             fallback version string, used only when not run from releases/<version>/
@@ -64,6 +67,7 @@ const CFG = {
   releaseDir: process.env.PH_RELEASE_DIR || '/opt/plugged-host-storage',
   version: runningVersion(),
   maxArchiveJobs: Math.max(1, parseInt(process.env.PH_MAX_ARCHIVE_JOBS || '3', 10)),
+  mirrorJobs: Math.max(1, parseInt(process.env.PH_MIRROR_JOBS || '1', 10) || 1),
   streamStallMs: Math.max(10, parseInt(process.env.PH_STREAM_STALL_SEC || '60', 10)) * 1000,
   // How to turn a plan entry (host + path + uuid) into an rsync source. The pull credential
   // lives HERE, on the storage box, never on the panel. Placeholders: %HOST% %PATH% %UUID%.
@@ -637,19 +641,50 @@ async function replicationTick() {
       if (!lastAttemptAt.has(uuid)) lastAttemptAt.set(uuid, now - intervalMs + staggerOffsetMinutes(uuid) * 60 * 1000);
     }
 
-    const due = servers
+    const queue = servers
       .filter((e) => now - lastAttemptAt.get(String(e.uuid)) >= intervalMs)
       .sort((a, b) => lastAttemptAt.get(String(a.uuid)) - lastAttemptAt.get(String(b.uuid)));
 
-    for (const entry of due) {
-      if ((nodeDownUntil.get(entry.host) || 0) > Date.now()) continue;
-      lastAttemptAt.set(String(entry.uuid), Date.now());
-      const result = await mirrorServer(entry).catch((e) => log('error', 'mirrorServer threw', { err: e.message }));
-      if (result === 'node-down') {
-        nodeDownUntil.set(entry.host, Date.now() + NODE_BACKOFF_MS);
-        log('error', 'node unreachable, skipping its servers for a while', { host: entry.host });
+    // PH_MIRROR_JOBS passes at once (1: one after another), most overdue first, never two from
+    // the same node: each is an rsync over SSH that node serves, next to its game servers.
+    const busyHosts = new Set();
+    let waiters = [];
+    const take = () => {
+      for (let i = 0; i < queue.length; i++) {
+        const entry = queue[i];
+        if ((nodeDownUntil.get(entry.host) || 0) > Date.now()) { queue.splice(i--, 1); continue; }
+        if (busyHosts.has(entry.host)) continue;
+        queue.splice(i, 1);
+        return entry;
       }
-    }
+      return null;
+    };
+    const worker = async () => {
+      for (;;) {
+        const entry = take();
+        if (!entry) {
+          // What is left is on nodes another pass is using: wait for one to finish.
+          if (queue.length === 0 || busyHosts.size === 0) return;
+          await new Promise((resolve) => waiters.push(resolve));
+          continue;
+        }
+        busyHosts.add(entry.host);
+        lastAttemptAt.set(String(entry.uuid), Date.now());
+        try {
+          const result = await mirrorServer(entry).catch((e) => log('error', 'mirrorServer threw', { err: e.message }));
+          if (result === 'node-down') {
+            nodeDownUntil.set(entry.host, Date.now() + NODE_BACKOFF_MS);
+            log('error', 'node unreachable, skipping its servers for a while', { host: entry.host });
+          }
+        } finally {
+          busyHosts.delete(entry.host);
+          const wake = waiters;
+          waiters = [];
+          wake.forEach((resolve) => resolve());
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: CFG.mirrorJobs }, worker));
   } catch (e) {
     log('error', 'replication tick failed', { err: e.message });
   } finally {
@@ -923,6 +958,7 @@ function startServer() {
           version: CFG.version,
           archive_source: CFG.archiveSource,
           free_percent: free,
+          mirror_jobs: CFG.mirrorJobs,
         }));
       }
 
@@ -1151,7 +1187,11 @@ async function fetchSigned(apiPath) {
 async function updateTick() {
   try {
     const { buffer, headers } = await fetchSigned('/plugged-host/storage/agent/manifest.json');
-    if (!safeEqual(headers['x-ph-signature'] || '', hmac(buffer.toString()))) {
+    // Signed once per box (X-PH-Signature: the storage box, X-PH-Signature-Backup: the backup
+    // server); one of them has to be this agent's own.
+    const mine = hmac(buffer.toString());
+    const signatures = Object.entries(headers).filter(([name]) => /^x-ph-signature(-[a-z]+)?$/.test(name)).map(([, value]) => String(value));
+    if (!signatures.some((sig) => safeEqual(sig, mine))) {
       log('error', 'manifest signature mismatch, ignoring'); return;
     }
     const manifest = JSON.parse(buffer.toString());
@@ -1209,6 +1249,7 @@ async function main() {
     version: CFG.version,
     root: CFG.root,
     archiveSource: CFG.archiveSource,
+    mirrorJobs: CFG.mirrorJobs,
   });
 }
 

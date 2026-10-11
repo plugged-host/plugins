@@ -5,10 +5,11 @@
 | plugged-host-storage (WP9)
 |--------------------------------------------------------------------------
 |
-| The storage box: 30-minute delta-mirror replication, a daily panel-visible
-| S3 backup, and node-failure recovery. The Node.js agent (agent/) pulls the
-| mirrors and serves signed archives; the panel schedules failover detection
-| and serves the agent its work-plan, updates, and report sink.
+| The storage box (and optionally the backup server): 30-minute delta-mirror
+| replication, a daily panel-visible S3 backup, and node-failure recovery. The
+| Node.js agent (agent/) pulls the mirrors and serves signed archives; the panel
+| schedules failover detection and serves each agent its work-plan, updates,
+| and report sink.
 |
 | NOTE on failover mode: the operator asked for FULLY AUTOMATIC failover once a
 | node is unreachable for ~5 minutes ("node offline > 5 min => auto switch from
@@ -31,6 +32,14 @@ return [
     // The storage box's ph-mirror public key (its install.sh prints it). Wings nodes authorize it
     // with /plugged-host/storage/node/install.sh, so the agent can pull server files over SSH.
     'mirror_public_key' => (string) env('STORAGE_MIRROR_PUBLIC_KEY', ''),
+
+    // The backup server (optional): a second box running the same agent, faster than the storage
+    // box but less stable. Both copy every server; downloads and failover restores come from the
+    // backup server while its copy is as fresh as the storage box's (StorageService::servingBox).
+    // Set up with: php artisan plugged-host:storage-setup --backup
+    'backup_agent_url' => env('STORAGE_BACKUP_AGENT_URL', ''),
+    'backup_agent_secret' => env('STORAGE_BACKUP_AGENT_SECRET', ''),
+    'backup_mirror_public_key' => (string) env('STORAGE_BACKUP_MIRROR_PUBLIC_KEY', ''),
 
     // Signed-URL lifetime (seconds) for archive fetch / reachability probes.
     'signed_ttl' => (int) env('STORAGE_SIGNED_TTL', 900),

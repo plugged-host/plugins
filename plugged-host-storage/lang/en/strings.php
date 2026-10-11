@@ -18,6 +18,12 @@ return [
         'agent_version' => 'Agent Bundle Version',
         'agent_version_hint' => 'The plugins release and the start of the agent code\'s hash, served to the agents, which update themselves when it changes.',
 
+        // Backup server.
+        'section_backup_server' => 'Backup server',
+        'section_backup_server_hint' => 'Optional second box running the same agent: faster than the storage box, less stable. Both copy every server; downloads and failover restores come from the backup server while its copy is as fresh as the storage box\'s. Run this command on it as root, then run the node script again on every node so they accept its key.',
+        'backup_agent_url_hint' => 'Where the backup server\'s agent answers, e.g. https://backup.example.com. Its installer fills this in.',
+        'backup_secret_unset_help' => 'No secret is stored yet. The setup command creates one.',
+
         // Secret handling (shared strings).
         'secret_unchanged' => 'leave blank to keep current',
         'secret_unset' => 'not set',

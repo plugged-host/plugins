@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use PluggedHost\Storage\Models\DeletedServer;
+use PluggedHost\Storage\Support\StorageBox;
 use Throwable;
 
 /**
@@ -25,6 +26,9 @@ use Throwable;
  * agent removes exactly those. A folder the panel has no record of (deleted before this existed,
  * or missed) is kept for the hold counted from its last copy, and at least a day from when it
  * was first reported; one with no completed copy only that day.
+ *
+ * With a backup server, both boxes report and get the same answer for the folders they hold, so
+ * a copy goes from both within the hour.
  */
 class DeletedServers
 {
@@ -50,11 +54,11 @@ class DeletedServers
         return self::$ready;
     }
 
-    /** Unix time of the agent's last folder report, or null. */
-    public function lastReportAt(): ?int
+    /** Unix time of a box's last folder report (the storage box's by default), or null. */
+    public function lastReportAt(string $box = StorageBox::STORAGE): ?int
     {
         // Redis hands numbers back as strings.
-        $at = Cache::get(self::LAST_REPORT);
+        $at = Cache::get($this->lastReportKey($box));
 
         return is_numeric($at) ? (int) $at : null;
     }
@@ -114,23 +118,24 @@ class DeletedServers
     }
 
     /**
-     * The agent's hourly report: the server folders on the storage box (mirror, snapshots,
-     * cached archive) and, when the box is also a wings node, its volume folders. Answers with
-     * what may be removed now.
+     * An agent's hourly report: the server folders on its box (mirror, snapshots, cached
+     * archive) and, when the box is also a wings node, its volume folders. Answers with what may
+     * be removed now.
      *
      * @param  array<int, mixed>  $copies  [{uuid, last_copy (ISO time of the newest snapshot) | null}]
      * @param  array<int, mixed>  $volumes  volume folder names
      * @return array{purge: list<string>, purge_volumes: list<string>}
      */
-    public function sweep(array $copies, array $volumes): array
+    public function sweep(array $copies, array $volumes, ?StorageBox $box = null): array
     {
         $none = ['purge' => [], 'purge_volumes' => []];
+        $box ??= StorageBox::named(StorageBox::STORAGE);
 
         if (!$this->ready()) {
             return $none;
         }
 
-        Cache::put(self::LAST_REPORT, time(), now()->addDays(7));
+        Cache::put($this->lastReportKey($box->name), time(), now()->addDays(7));
 
         $lastCopy = [];
         foreach ($copies as $copy) {
@@ -179,7 +184,7 @@ class DeletedServers
 
         return [
             'purge' => array_values(array_filter(array_keys($lastCopy), fn (string $u) => isset($due[$u]))),
-            'purge_volumes' => array_values(array_filter($volumes, fn (string $u) => isset($due[$u]) || $this->leftoverVolume($servers->get($u)))),
+            'purge_volumes' => array_values(array_filter($volumes, fn (string $u) => isset($due[$u]) || $this->leftoverVolume($servers->get($u), $box))),
         ];
     }
 
@@ -202,13 +207,13 @@ class DeletedServers
     }
 
     /**
-     * A wings volume on the storage box whose server lives on another node: what a move away
-     * left behind. Never while the server has a transfer in flight, or one touched in the last
-     * hour (the volume is what wings is sending or receiving).
+     * A wings volume on the box whose server lives on another node: what a move away left
+     * behind. Never while the server has a transfer in flight, or one touched in the last hour
+     * (the volume is what wings is sending or receiving).
      */
-    private function leftoverVolume(?Server $server): bool
+    private function leftoverVolume(?Server $server, StorageBox $box): bool
     {
-        $local = $this->storage->localNode();
+        $local = $this->storage->localNode($box);
 
         if ($server === null || $local === null || (int) $server->node_id === (int) $local->id) {
             return false;
@@ -218,6 +223,12 @@ class DeletedServers
             ->where('server_id', $server->id)
             ->where(fn ($q) => $q->whereNull('successful')->orWhere('updated_at', '>', now()->subHour()))
             ->exists();
+    }
+
+    private function lastReportKey(string $box): string
+    {
+        // The storage box keeps the key it had before there was a backup server.
+        return $box === StorageBox::STORAGE ? self::LAST_REPORT : self::LAST_REPORT . ':' . $box;
     }
 
     private function time(mixed $value): ?CarbonImmutable

@@ -42,7 +42,7 @@
     $archiveFilename = "backup-{$cleanName}-{$server->uuid_short}.tar.gz";
     // The off-site copy holds every server file, so it needs the same permission as downloading a backup.
     $canDownload = (bool) user()?->can(\App\Enums\SubuserPermission::BackupDownload, $server);
-    $directDownloadUrl = $hasBackup && $canDownload ? $storageService->archiveUrlForIdentifier($server->uuid, $archiveFilename) : null;
+    $directDownloadUrl = $hasBackup && $canDownload ? $storageService->archiveUrlForIdentifier($server->uuid, $archiveFilename, $backupInfo['box'] ?? null) : null;
 @endphp
 
 {{--
