@@ -1,0 +1,68 @@
+{
+    "_comment": "plugged.host devbox egg, shipped with plugged-host-devbox and upserted by plugged-host:devbox-setup. Hidden from server creation (tag 'hidden').",
+    "meta": {
+        "version": "PLCN_v3",
+        "update_url": null
+    },
+    "exported_at": "2026-10-11T00:00:00+00:00",
+    "name": "plugged.host Devbox",
+    "author": "support@plugged.host",
+    "uuid": "21a6b972-a167-451f-b79b-70d2675b950c",
+    "description": "System egg: the Linux devbox Wings runs next to a game server for VS Code. Created and managed by the plugged-host-devbox plugin; never offered to users.",
+    "icon": null,
+    "tags": [
+        "hidden",
+        "plugged-host-devbox"
+    ],
+    "features": [],
+    "docker_images": {
+        "Devbox": "ghcr.io/plugged-host/devbox:2.2"
+    },
+    "file_denylist": [],
+    "startup_commands": {
+        "Default": "ph serve"
+    },
+    "config": {
+        "files": "{}",
+        "startup": "{\n    \"done\": \"devbox ready\"\n}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# Nothing to install: the devbox's tools are in its image and its home starts empty.\ntrue\n",
+            "container": "debian:trixie-slim",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "sort": 1,
+            "name": "Devbox token",
+            "description": "Bearer token the devbox uses to reach the panel. Rotated on every start by the plugin.",
+            "env_variable": "DEVBOX_TOKEN",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": [
+                "nullable",
+                "string",
+                "max:255"
+            ]
+        },
+        {
+            "sort": 2,
+            "name": "Panel URL",
+            "description": "Where the devbox reaches the panel.",
+            "env_variable": "DEVBOX_PANEL_URL",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": [
+                "nullable",
+                "string",
+                "max:255"
+            ]
+        }
+    ]
+}

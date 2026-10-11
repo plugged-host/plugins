@@ -29,6 +29,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Image;
+use Filament\Schemas\Components\Livewire as LivewireComponent;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -38,6 +39,7 @@ use Filament\Support\Enums\Alignment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Servers\Contracts\SoftwareSwitcher;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Filament\Components\Forms\CardSelect;
@@ -239,9 +241,31 @@ class ServerSettings extends ServerFormPage
             ->visible(fn () => $this->hasSftpAccess())
             ->extraAttributes(['class' => 'scroll-mt-24'])
             ->schema([
+                ...$this->devboxComponents(),
                 View::make('plugged-host-servers::filament.pages.settings.vscode-card')
                     ->viewData(fn (Server $server) => $this->vscodeData($server)),
             ]);
+    }
+
+    /**
+     * VS Code on the server (plugged-host-devbox, Plus) above the SFTP config, which is VS Code on
+     * your own PC. Nothing when that plugin is off.
+     *
+     * @return array<int, LivewireComponent>
+     */
+    private function devboxComponents(): array
+    {
+        $component = 'PluggedHost\\Devbox\\Livewire\\OpenInVsCode';
+        if (!Plugins::available($component)) {
+            return [];
+        }
+
+        $record = $this->getRecord();
+
+        return [
+            LivewireComponent::make($component, ['serverId' => (int) $record->getKey()])
+                ->key('devbox-' . $record->getKey()),
+        ];
     }
 
     /**
