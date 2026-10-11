@@ -31,10 +31,11 @@ final class DevboxAccess
 
     public static function ready(): bool
     {
-        if (!(bool) config('plugged-host-devbox.enabled', true)) {
-            return false;
-        }
+        return (bool) config('plugged-host-devbox.enabled', true) && self::tableExists();
+    }
 
+    public static function tableExists(): bool
+    {
         try {
             return self::$tableExists ??= Schema::hasTable('plugged_host_devboxes');
         } catch (Throwable) {

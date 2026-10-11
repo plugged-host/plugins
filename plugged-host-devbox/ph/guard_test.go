@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -63,5 +65,27 @@ func TestLoopbackOnly(t *testing.T) {
 		if got := loopback(host); got != want {
 			t.Errorf("loopback(%q) = %v, want %v", host, got, want)
 		}
+	}
+}
+
+func TestGuardedConnCounts(t *testing.T) {
+	var unauthed, connected atomic.Int64
+	a, b := net.Pipe()
+	defer b.Close()
+
+	unauthed.Add(1)
+	closed := 0
+	gc := &guardedConn{Conn: a, unauthed: &unauthed, connected: &connected, onClose: func(*guardedConn) { closed++ }}
+
+	gc.signedIn("alice")
+	gc.signedIn("bob") // only the first counts
+	if unauthed.Load() != 0 || connected.Load() != 1 || gc.username() != "alice" {
+		t.Fatalf("after sign-in: unauthed=%d connected=%d user=%q", unauthed.Load(), connected.Load(), gc.username())
+	}
+
+	_ = gc.Close()
+	_ = gc.Close()
+	if connected.Load() != 0 || closed != 2 {
+		t.Fatalf("after close: connected=%d onClose=%d", connected.Load(), closed)
 	}
 }

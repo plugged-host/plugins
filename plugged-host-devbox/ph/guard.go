@@ -87,11 +87,14 @@ type guardedConn struct {
 	net.Conn
 	unauthed, connected *atomic.Int64
 	state               atomic.Int32 // 0 signing in, 1 signed in, 2 closed
+	user                atomic.Value // string: who signed in
+	onClose             func(*guardedConn)
 }
 
 // signedIn lifts the sign-in deadline and moves the connection to the signed-in count.
-func (c *guardedConn) signedIn() {
+func (c *guardedConn) signedIn(user string) {
 	if c.state.CompareAndSwap(0, 1) {
+		c.user.Store(user)
 		c.unauthed.Add(-1)
 		c.connected.Add(1)
 		_ = c.Conn.SetDeadline(time.Time{})
@@ -105,8 +108,17 @@ func (c *guardedConn) Close() error {
 	case 1:
 		c.connected.Add(-1)
 	}
+	if c.onClose != nil {
+		c.onClose(c)
+	}
 
 	return c.Conn.Close()
+}
+
+func (c *guardedConn) username() string {
+	name, _ := c.user.Load().(string)
+
+	return name
 }
 
 func remoteIP(addr net.Addr) string {

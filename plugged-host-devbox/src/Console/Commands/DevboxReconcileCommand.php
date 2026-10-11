@@ -29,6 +29,14 @@ class DevboxReconcileCommand extends Command
     public function handle(DevboxPower $power, DevboxProvisioner $provisioner): int
     {
         if (!DevboxAccess::ready()) {
+            // Switched off in the settings: stop whatever still runs, change nothing else.
+            if (DevboxAccess::tableExists() && !$this->option('dry-run')) {
+                foreach (Devbox::query()->whereNotNull('token_hash')->get() as $devbox) {
+                    $this->line("devbox #{$devbox->id}: stop (devboxes are switched off)");
+                    $power->stop($devbox);
+                }
+            }
+
             return self::SUCCESS;
         }
 

@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -41,6 +42,9 @@ type devbox struct {
 
 	unauthed  atomic.Int64
 	connected atomic.Int64
+
+	connsMu sync.Mutex
+	conns   map[*guardedConn]struct{}
 }
 
 // serve runs the devbox: an SSH server on the devbox's allocation port that only the people the
@@ -80,6 +84,7 @@ func serve(args []string) error {
 	}
 
 	d := &devbox{
+		conns:  map[*guardedConn]struct{}{},
 		people: &people{},
 		codes:  newCodeCache(15 * time.Minute),
 		limit:  newLimiter(),
@@ -181,16 +186,44 @@ func (d *devbox) accept(ctx ssh.Context, conn net.Conn) net.Conn {
 	}
 
 	_ = conn.SetDeadline(time.Now().Add(loginGrace))
-	gc := &guardedConn{Conn: conn, unauthed: &d.unauthed, connected: &d.connected}
+	gc := &guardedConn{Conn: conn, unauthed: &d.unauthed, connected: &d.connected, onClose: d.forgetConn}
 	ctx.SetValue(connKey{}, gc)
 
+	d.connsMu.Lock()
+	d.conns[gc] = struct{}{}
+	d.connsMu.Unlock()
+
 	return gc
+}
+
+func (d *devbox) forgetConn(gc *guardedConn) {
+	d.connsMu.Lock()
+	delete(d.conns, gc)
+	d.connsMu.Unlock()
 }
 
 // settle marks a connection signed in once it opens its first channel (after authentication).
 func (d *devbox) settle(ctx ssh.Context) {
 	if gc, ok := ctx.Value(connKey{}).(*guardedConn); ok {
-		gc.signedIn()
+		gc.signedIn(ctx.User())
+	}
+}
+
+// dropRevoked closes the connections of people who are no longer on the access list: someone
+// removed from a shared devbox's server loses their open sessions, not only new sign-ins.
+func (d *devbox) dropRevoked() {
+	d.connsMu.Lock()
+	var gone []*guardedConn
+	for gc := range d.conns {
+		if name := gc.username(); name != "" && !d.people.known(name) {
+			gone = append(gone, gc)
+		}
+	}
+	d.connsMu.Unlock()
+
+	for _, gc := range gone {
+		log.Printf("closing %s's connection: no longer allowed in", gc.username())
+		_ = gc.Close()
 	}
 }
 
@@ -324,6 +357,7 @@ func (d *devbox) report(ctx context.Context, mount, detail string) {
 			continue
 		}
 		d.people.set(a)
+		d.dropRevoked()
 	}
 }
 

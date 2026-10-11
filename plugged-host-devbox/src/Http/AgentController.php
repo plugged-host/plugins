@@ -6,6 +6,7 @@ use App\Facades\Activity;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use phpseclib4\Crypt\PublicKeyLoader;
 use PluggedHost\Devbox\Http\Concerns\ResolvesDevbox;
 use PluggedHost\Devbox\Models\Devbox;
@@ -67,6 +68,22 @@ final class AgentController
             'last_seen_at' => now(),
             ...($connections > 0 ? ['last_used_at' => now()] : []),
         ])->save();
+
+        // Once an hour while someone works in it, an entry on the game server: its owner sees it,
+        // and limbo (which goes by the server's last activity) never hibernates it from under them.
+        if ($connections > 0 && Cache::add("plugged-host-devbox:active:{$devbox->id}", 1, 3600)) {
+            try {
+                if ($game = $devbox->game) {
+                    $log = Activity::event('server:devbox.active')->subject($game)->property('shared', $devbox->isShared());
+                    if ($actor = ($devbox->isShared() ? $game->user : $devbox->user)) {
+                        $log->actor($actor);
+                    }
+                    $log->log();
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
 
         return response()->json($this->access($devbox));
     }
