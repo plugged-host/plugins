@@ -100,7 +100,11 @@ func serve(args []string) error {
 			return errors.New("DEVBOX_PANEL_URL and DEVBOX_TOKEN are required")
 		}
 		d.panel = newPanelClient(panelURL, token)
+		if err := writeAgentFile(home, panelURL, token); err != nil {
+			log.Printf("warning: could not write %s: %v", agentPath(home), err)
+		}
 	}
+	seedHome(home)
 
 	signer, err := hostKey(filepath.Join(home, ".ph", "ssh_host_ed25519_key"))
 	if err != nil {

@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/creack/pty v1.1.24
 	github.com/gliderlabs/ssh v0.3.8
+	github.com/gorilla/websocket v1.5.3
 	github.com/pkg/sftp v1.13.9
 	golang.org/x/crypto v0.42.0
 )

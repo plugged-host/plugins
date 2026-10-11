@@ -6,8 +6,8 @@ use App\Facades\Activity;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use phpseclib4\Crypt\PublicKeyLoader;
+use PluggedHost\Devbox\Http\Concerns\ResolvesDevbox;
 use PluggedHost\Devbox\Models\Devbox;
 use PluggedHost\Devbox\Services\ConnectCodes;
 use PluggedHost\Devbox\Support\DevboxAccess;
@@ -20,6 +20,8 @@ use Throwable;
  */
 final class AgentController
 {
+    use ResolvesDevbox;
+
     public function boot(Request $request): JsonResponse
     {
         $devbox = $this->devbox($request);
@@ -109,27 +111,6 @@ final class AgentController
         }
 
         return response()->json(['ok' => true]);
-    }
-
-    private function devbox(Request $request): ?Devbox
-    {
-        $token = (string) $request->bearerToken();
-        if (strlen($token) < 32 || !DevboxAccess::ready()) {
-            return null;
-        }
-
-        return Devbox::query()->where('token_hash', Devbox::hashToken($token))->first();
-    }
-
-    private function allow(Devbox $devbox, string $action, int $perMinute): bool
-    {
-        $key = "plugged-host-devbox:agent:{$action}:{$devbox->id}";
-        if (RateLimiter::tooManyAttempts($key, $perMinute)) {
-            return false;
-        }
-        RateLimiter::hit($key, 60);
-
-        return true;
     }
 
     /**

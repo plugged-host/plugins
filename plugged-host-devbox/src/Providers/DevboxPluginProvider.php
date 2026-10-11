@@ -16,6 +16,7 @@ use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Devbox\Console\Commands\DevboxReconcileCommand;
 use PluggedHost\Devbox\Http\AgentController;
+use PluggedHost\Devbox\Http\GameController;
 use PluggedHost\Devbox\Livewire\OpenInVsCode;
 use PluggedHost\Devbox\Models\Devbox;
 use PluggedHost\Devbox\Services\DevboxPower;
@@ -91,6 +92,11 @@ class DevboxPluginProvider extends ServiceProvider
                 Route::post('/boot', [AgentController::class, 'boot'])->name('plugged-host.devbox.agent.boot');
                 Route::post('/heartbeat', [AgentController::class, 'heartbeat'])->name('plugged-host.devbox.agent.heartbeat');
                 Route::post('/auth', [AgentController::class, 'auth'])->name('plugged-host.devbox.agent.auth');
+
+                // `ph` inside the devbox, acting on its game server.
+                Route::post('/game/status', [GameController::class, 'status'])->name('plugged-host.devbox.game.status');
+                Route::post('/game/power', [GameController::class, 'power'])->name('plugged-host.devbox.game.power');
+                Route::post('/game/websocket', [GameController::class, 'websocket'])->name('plugged-host.devbox.game.websocket');
             });
     }
 
