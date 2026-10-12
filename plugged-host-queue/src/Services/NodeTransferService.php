@@ -186,7 +186,8 @@ class NodeTransferService
      * than from a hand-rolled sum. What this adds is the queue's own two rules: not
      * a node that is itself over the line, and not one whose disk is over core's
      * placement threshold — moving somebody from a busy node to a full one is not a
-     * fix, it is the next ticket.
+     * fix, it is the next ticket. Nor one servers' DeploymentPause has taken out of
+     * the pool (a small node's line is lower than the queue's).
      *
      * @return Collection<int, Node>
      */
@@ -211,6 +212,7 @@ class NodeTransferService
             ->reject(fn (Node $node) => $node->isUnderMaintenance())
             ->reject(fn (Node $node) => $this->pressure->storagePressured($node))
             ->reject(fn (Node $node) => $this->pressure->isUnderPressure($node))
+            ->reject(fn (Node $node) => $this->pressure->deploymentPaused($node))
             ->sortBy(fn (Node $node) => $this->pressure->worstPercent($node))
             ->values();
     }

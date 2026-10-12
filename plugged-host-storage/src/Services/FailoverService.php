@@ -340,7 +340,8 @@ class FailoverService
     /**
      * Same location as the old node first, then the same tier anywhere in the deployment pool:
      * a recovery never lands a server somewhere creation would not have put it. The limbo node
-     * and nodes that missed their last probe are left out.
+     * and nodes that missed their last probe are left out; overloaded ones only when nothing
+     * else has room.
      *
      * @return array{0: ?Node, 1: ?array{primary: int, additional: array<int, int>, ports: array<int, int>}}
      */
@@ -365,6 +366,13 @@ class FailoverService
                 $tiers[] = $usable($planner->destinations($server, $location));
             }
             $tiers[] = $usable($planner->destinations($server, null));
+
+            // Overloaded nodes take no new servers, but a recovery that finds nothing else
+            // still goes there rather than nowhere.
+            if ($location !== null) {
+                $tiers[] = $usable($planner->destinations($server, $location, [], null, true));
+            }
+            $tiers[] = $usable($planner->destinations($server, null, [], null, true));
         } catch (Throwable $e) {
             report($e);
 

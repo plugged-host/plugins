@@ -50,7 +50,7 @@ final class CreateOptionsTool extends AccountTool
         $plans = app(PlanCatalog::class)->forUser($user, $limits)->map(fn (array $plan): string => "- {$plan['label']} (plan id {$plan['id']}): {$plan['cpu']}% CPU, {$plan['memory']} MB RAM, {$plan['disk']} MB disk" . ($plan['available'] ? '' : ' [does not fit the remaining allowance]'));
         $locations = app(LocationCatalog::class)
             ->available((int) ($arguments['cpu'] ?? 0), (int) ($arguments['memory'] ?? 0), (int) ($arguments['disk'] ?? 0), $user)
-            ->map(fn (array $loc): string => "- {$loc['name']} (location code {$loc['code']}, {$loc['tier']}" . ($loc['tier'] !== LocationCatalog::FREE ? ($loc['unlocked'] ? ', unlocked' : ', locked: needs ' . (($loc['requires'] ?? '') === 'plusplus' ? 'plugged.host PlusPlus' : 'plugged.host Plus') . ' (/plus)') : '') . ($loc['latency'] !== null ? ", ~{$loc['latency']} ms" : '') . ($loc['available'] ? '' : ', no room right now') . ')');
+            ->map(fn (array $loc): string => "- {$loc['name']} (location code {$loc['code']}, {$loc['tier']}" . ($loc['tier'] !== LocationCatalog::FREE ? ($loc['unlocked'] ? ', unlocked' : ', locked: needs ' . (($loc['requires'] ?? '') === 'plusplus' ? 'plugged.host PlusPlus' : 'plugged.host Plus') . ' (/plus)') : '') . ($loc['latency'] !== null ? ", ~{$loc['latency']} ms" : '') . ($loc['available'] ? '' : (($loc['full'] ?? false) ? ', full right now (its nodes are busy)' : ', no room right now')) . ')');
 
         return ToolResult::ok(
             "Games:\n" . $games->implode("\n") . "\n\nPlans (sizes can also be custom within the allowance):\n" . $plans->implode("\n") . "\n\nLocations:\n" . $locations->implode("\n"),

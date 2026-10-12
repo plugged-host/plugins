@@ -24,6 +24,7 @@ use Throwable;
 use PluggedHost\Economy\Services\NoprofitCreditSync;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\NodeBalancer;
+use PluggedHost\Servers\Services\DeploymentPause;
 use PluggedHost\Servers\Services\NodeCapacity;
 use PluggedHost\Servers\Support\PremiumAccess;
 
@@ -516,6 +517,7 @@ final class AccountAllowance
         $tags = array_filter(explode(',', (string) config('plugged-host-servers.user-creatable-servers.deployment_tags')));
         $nodes = app(FindViableNodesService::class)->handle($memory, $disk, $cpu, $tags);
         $nodes = $this->filterNodesByLocation($nodes, $location);
+        $nodes = app(DeploymentPause::class)->withoutPaused($nodes);
         $nodes = $this->filterNodesByStorage($nodes);
 
         throw_if($nodes->isEmpty(), new NoViableNodeException(trans('exceptions.deployment.no_viable_nodes')));
@@ -697,6 +699,7 @@ final class AccountAllowance
         $tags = array_filter(explode(',', (string) config('plugged-host-servers.user-creatable-servers.deployment_tags')));
         $nodes = app(FindViableNodesService::class)->handle($memory, $disk, $cpu, $tags);
         $nodes = $this->filterNodesByLocation($nodes, $location);
+        $nodes = app(DeploymentPause::class)->withoutPaused($nodes);
         $nodes = $this->filterNodesByStorage($nodes);
 
         throw_if($nodes->isEmpty(), new NoViableNodeException(trans('exceptions.deployment.no_viable_nodes')));
