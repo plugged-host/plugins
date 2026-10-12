@@ -286,9 +286,11 @@ class CreateServerPage extends Page
                                     'tier' => $location['tier'],
                                     'locked' => !$location['unlocked'],
                                     'requires' => $location['requires'] ?? null,
-                                    'description' => $location['available']
-                                        ? null
-                                        : trans('plugged-host-servers::strings.location_unavailable'),
+                                    'description' => match (true) {
+                                        $location['available'] => null,
+                                        $location['full'] ?? false => trans('plugged-host-servers::strings.location_full'),
+                                        default => trans('plugged-host-servers::strings.location_unavailable'),
+                                    },
                                     // A paid-tier card must not be a plain disabled radio.
                                     'disabled' => !$location['available'] && $location['tier'] === LocationCatalog::FREE,
                                 ])

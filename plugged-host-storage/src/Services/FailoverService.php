@@ -14,6 +14,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Nodes\NodeTelemetry;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Storage\Models\NodeFailover;
 use Throwable;
@@ -41,6 +42,8 @@ use Throwable;
  */
 class FailoverService
 {
+    private const DEPLOYMENT_PAUSE = 'PluggedHost\\Servers\\Services\\DeploymentPause';
+
     public function __construct(private readonly StorageService $storage) {}
 
     public function mode(): string
@@ -231,6 +234,13 @@ class FailoverService
                 ->reject(fn (Node $n) => (int) $n->getKey() === (int) $deadNode->getKey());
         } catch (Throwable) {
             return [null, []];
+        }
+
+        // Overloaded nodes (servers' DeploymentPause) take no new servers; a recovery still
+        // lands on one when nothing else has room. sortBy is stable.
+        if (Plugins::available(self::DEPLOYMENT_PAUSE)) {
+            $pause = app(self::DEPLOYMENT_PAUSE);
+            $candidates = $candidates->sortBy(fn (Node $n) => $pause->isPaused($n) ? 1 : 0)->values();
         }
 
         foreach ($candidates as $node) {

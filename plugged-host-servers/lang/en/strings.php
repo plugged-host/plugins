@@ -91,6 +91,13 @@ return [
     'eula_description' => 'By creating this server, you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA). The EULA will be automatically accepted on your server so it starts immediately without pausing.',
     'left' => 'left',
     'location_unavailable' => 'No capacity for the selected resources',
+    'location_full' => 'Full',
+    'deploy_pause' => [
+        'paused' => 'Deployment paused: :what :percent% (line :limit%)',
+        'unreachable' => 'Deployment paused: not answering',
+        'memory' => 'RAM',
+        'cpu' => 'CPU',
+    ],
     'requires_plus' => 'Get Plus',
     'requires_plusplus' => 'Get PlusPlus',
     'free_tier_desc' => 'Included with all plans',

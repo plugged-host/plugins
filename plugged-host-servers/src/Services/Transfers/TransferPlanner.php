@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Countries;
 use PluggedHost\Servers\Support\AccountAllowance;
+use PluggedHost\Servers\Services\DeploymentPause;
 use PluggedHost\Servers\Services\LocationCatalog;
 use PluggedHost\Servers\Services\NodeBalancer;
 use PluggedHost\Servers\Services\NodeCapacity;
@@ -22,8 +23,8 @@ use Throwable;
  *
  * The rules are the ones server creation uses (AccountAllowance::findOrCreateAllocation):
  * the deployment tags, the location as an AND filter with the tiers kept apart, nodes with a
- * full disk left out unless that would empty the pool, and the coolest node by NodeBalancer
- * first. A move must never land a server somewhere creation would not have put it.
+ * full disk left out unless that would empty the pool, overloaded nodes (DeploymentPause) left
+ * out, and the coolest node by NodeBalancer first. A move must never land a server somewhere creation would not have put it.
  */
 class TransferPlanner
 {
@@ -97,9 +98,12 @@ class TransferPlanner
      *                                  better than giving up
      * @param  array<int, int>|null  $only  restrict to these nodes, in this order (the start
      *                                      queue's "quieter node" offer picks its own)
+     * @param  bool  $pausedLast  keep nodes DeploymentPause has paused, after every open one: for
+     *                            a server that must land somewhere (failover, waking from limbo).
+     *                            Otherwise an overloaded node is no destination at all.
      * @return Collection<int, Node>
      */
-    public function destinations(Server $server, ?string $location, array $avoid = [], ?array $only = null): Collection
+    public function destinations(Server $server, ?string $location, array $avoid = [], ?array $only = null, bool $pausedLast = false): Collection
     {
         try {
             $nodes = $only !== null
@@ -122,6 +126,12 @@ class TransferPlanner
 
         $nodes = $this->withRoom($nodes);
 
+        $pause = app(DeploymentPause::class);
+
+        if (!$pausedLast) {
+            $nodes = $pause->withoutPaused($nodes);
+        }
+
         $ordered = $only !== null
             ? $nodes->sortBy(fn (Node $node) => array_search((int) $node->getKey(), array_map(intval(...), $only), true))->values()
             : $this->balancer->sortByLowestUsage($nodes);
@@ -130,7 +140,7 @@ class TransferPlanner
 
         // usort is stable, so the balancer's order survives inside each group.
         return $ordered
-            ->sortBy(fn (Node $node) => in_array((int) $node->getKey(), $avoid, true) ? 1 : 0)
+            ->sortBy(fn (Node $node) => ($pausedLast && $pause->isPaused($node) ? 2 : 0) + (in_array((int) $node->getKey(), $avoid, true) ? 1 : 0))
             ->values();
     }
 

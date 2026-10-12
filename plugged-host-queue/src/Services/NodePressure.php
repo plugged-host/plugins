@@ -31,6 +31,8 @@ class NodePressure
 {
     protected const CAPACITY = 'PluggedHost\\Servers\\Services\\NodeCapacity';
 
+    protected const DEPLOYMENT_PAUSE = 'PluggedHost\\Servers\\Services\\DeploymentPause';
+
     /** @var array<int, string> */
     protected const DIMENSIONS = ['memory', 'cpu', 'disk'];
 
@@ -99,6 +101,23 @@ class NodePressure
 
         try {
             return (bool) $capacity->storagePressured($node);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Has plugged-host-servers' DeploymentPause taken this node out of the deployment pool?
+     * False without servers, or when the pause cannot be read.
+     */
+    public function deploymentPaused(?Node $node): bool
+    {
+        if (!$node instanceof Node || !Plugins::available(self::DEPLOYMENT_PAUSE)) {
+            return false;
+        }
+
+        try {
+            return (bool) app(self::DEPLOYMENT_PAUSE)->isPaused($node);
         } catch (Throwable) {
             return false;
         }

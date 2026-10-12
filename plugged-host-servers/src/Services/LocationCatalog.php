@@ -70,7 +70,7 @@ class LocationCatalog
      * PlusPlus, PremiumAccess) and what it requires. Without plugged-host-economy's memberships
      * paid locations are omitted entirely.
      *
-     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, tier: string, unlocked: bool, requires: ?string}>
+     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, full: bool, tier: string, unlocked: bool, requires: ?string}>
      */
     public function available(int $cpu = 0, int $memory = 0, int $disk = 0, ?User $user = null): Collection
     {
@@ -81,11 +81,17 @@ class LocationCatalog
             ? app(FindViableNodesService::class)->handle($memory, $disk, $cpu, $deploymentTags)
             : $allNodes;
 
+        // An overloaded node keeps its location on the list but takes nothing new; a location
+        // whose nodes are all paused shows as Full (DeploymentPause).
+        $pause = app(DeploymentPause::class);
+        $openNodes = $pause->withoutPaused($allNodes);
+        $viableNodes = $pause->withoutPaused($viableNodes);
+
         $latencyByNode = $this->latencyByNode(
             $allNodes->map(fn (Node $n) => (int) $n->getKey())->all(),
         );
 
-        $locations = $this->tier($allNodes, $viableNodes, $latencyByNode, self::FREE);
+        $locations = $this->tier($allNodes, $openNodes, $viableNodes, $latencyByNode, self::FREE);
 
         if (!PremiumAccess::supported()) {
             return $locations;
@@ -96,7 +102,7 @@ class LocationCatalog
             $requires = PremiumAccess::requires($tier);
 
             $locations = $locations->concat(
-                $this->tier($allNodes, $viableNodes, $latencyByNode, $tier)
+                $this->tier($allNodes, $openNodes, $viableNodes, $latencyByNode, $tier)
                     ->map(function (array $loc) use ($tier, $unlocked, $requires) {
                         $loc['code'] = $tier . ':' . $loc['code'];
                         $loc['unlocked'] = $unlocked;
@@ -112,13 +118,15 @@ class LocationCatalog
 
     /**
      * @param  Collection<int, Node>  $allNodes
+     * @param  Collection<int, Node>  $openNodes  the ones DeploymentPause has not paused
      * @param  Collection<int, Node>  $viableNodes
      * @param  array<int, ?int>  $latencyByNode
      * @return Collection<int, array<string, mixed>>
      */
-    private function tier(Collection $allNodes, Collection $viableNodes, array $latencyByNode, string $tier): Collection
+    private function tier(Collection $allNodes, Collection $openNodes, Collection $viableNodes, array $latencyByNode, string $tier): Collection
     {
         $nodeIds = $this->nodeIdsByCode($allNodes, $tier);
+        $openCodes = $this->nodeIdsByCode($openNodes, $tier);
         $viableCodes = $this->nodeIdsByCode($viableNodes, $tier);
 
         return $nodeIds->map(fn (Collection $ids, string $code) => [
@@ -128,6 +136,7 @@ class LocationCatalog
             'node_count' => $ids->count(),
             'latency' => $this->reduceLatency($ids, $latencyByNode),
             'available' => $viableCodes->has($code),
+            'full' => !$openCodes->has($code),
             'tier' => $tier,
             'unlocked' => true,
             'cost' => 0,

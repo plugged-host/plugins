@@ -16,7 +16,7 @@ beforeEach(function () {
     config()->set('plugged-host-servers.user-creatable-servers.deployment_tags', 'deploy');
 
     $pressure = Mockery::mock(NodePressure::class);
-    $pressure->shouldReceive('storagePressured', 'isUnderPressure')->andReturnFalse();
+    $pressure->shouldReceive('storagePressured', 'isUnderPressure', 'deploymentPaused')->andReturnFalse();
     $pressure->shouldReceive('worstPercent')->andReturn(0);
     app()->instance(NodePressure::class, $pressure);
 });
