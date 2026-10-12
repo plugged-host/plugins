@@ -18,7 +18,7 @@ use Throwable;
  * lower on a small node (under 34 GB of RAM or under 9 threads), where the same percentage
  * leaves far less room. Disk stays with the storage guard (NodeCapacity::storagePressured()).
  *
- * Evaluated once a minute (plugged-host-servers:deploy-pause), never on the request path, so a
+ * Evaluated once a minute (plugged-host:deploy-pause), never on the request path, so a
  * location does not flicker between open and full while a node hovers around its line:
  *
  *   - over the line → paused at once;
