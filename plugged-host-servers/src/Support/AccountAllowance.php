@@ -238,6 +238,32 @@ final class AccountAllowance
         return $limit === 0 || ($requested > 0 && $used + $requested <= $limit);
     }
 
+    /**
+     * Variables that hold a server's second port: txAdmin's web interface on FiveM/RedM, the
+     * HTTP server Multi Theft Auto sends resources from. The eggs' defaults (30001, 22005) are
+     * ports the container would not publish, so such a server is created on two consecutive
+     * ports and the second one is written into the variable.
+     */
+    private const SECOND_PORT_VARIABLES = ['TXHOST_TXA_PORT', 'SERVER_WEBPORT'];
+
+    /** The variable that takes this egg's second port, or null when one port is enough. */
+    public static function secondPortVariable(Egg $egg): ?string
+    {
+        if (self::isCfxEgg($egg)) {
+            return 'TXHOST_TXA_PORT';
+        }
+
+        $declared = $egg->variables->pluck('env_variable')->all();
+
+        foreach (self::SECOND_PORT_VARIABLES as $name) {
+            if (in_array($name, $declared, true)) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
     public static function isCfxEgg(Egg $egg): bool
     {
         $tags = is_array($egg->tags) ? $egg->tags : (is_string($egg->tags) ? json_decode($egg->tags, true) : []);
@@ -269,11 +295,11 @@ final class AccountAllowance
             $egg = Egg::findOrFail($egg);
         }
 
-        $isCfx = self::isCfxEgg($egg);
+        $secondPort = self::secondPortVariable($egg);
 
         $environment = [];
         foreach ($egg->variables as $variable) {
-            if ($variable->env_variable === 'TXHOST_TXA_PORT') {
+            if ($variable->env_variable === $secondPort) {
                 continue;
             }
 
@@ -299,7 +325,7 @@ final class AccountAllowance
             'database_limit' => config('plugged-host-servers.user-creatable-servers.database_limit', 0),
             'allocation_limit' => max(
                 (int) config('plugged-host-servers.user-creatable-servers.allocation_limit', 0),
-                $isCfx ? 2 : 1
+                $secondPort !== null ? 2 : 1
             ),
             'backup_limit' => config('plugged-host-servers.user-creatable-servers.backup_limit', 0),
         ];
@@ -318,8 +344,8 @@ final class AccountAllowance
 
         $location = is_string($location) && $location !== '' ? strtolower(trim($location)) : null;
 
-        if ($isCfx) {
-            [$primaryAllocation, $secondaryAllocation] = $this->reserveFirst(fn (): array => $this->findOrCreateAllocationsForCfx(
+        if ($secondPort !== null) {
+            [$primaryAllocation, $secondaryAllocation] = $this->reserveFirst(fn (): array => $this->findOrCreateAllocationPair(
                 (int) $data['memory'],
                 (int) $data['disk'],
                 (int) $data['cpu'],
@@ -329,7 +355,7 @@ final class AccountAllowance
             $data['node_id'] = $primaryAllocation->node_id;
             $data['allocation_id'] = $primaryAllocation->id;
             $data['allocation_additional'] = [$secondaryAllocation->id];
-            $data['environment']['TXHOST_TXA_PORT'] = (string) $secondaryAllocation->port;
+            $data['environment'][$secondPort] = (string) $secondaryAllocation->port;
         } else {
             [$allocation] = $this->reserveFirst(fn (): array => [$this->findOrCreateAllocation((int) $data['memory'], (int) $data['disk'], (int) $data['cpu'], $location)]);
             $data['node_id'] = $allocation->node_id;
@@ -512,7 +538,7 @@ final class AccountAllowance
     }
 
     /** @return array{Allocation, Allocation} */
-    private function findOrCreateAllocationsForCfx(int $memory, int $disk, int $cpu, ?string $location = null): array
+    private function findOrCreateAllocationPair(int $memory, int $disk, int $cpu, ?string $location = null): array
     {
         $tags = array_filter(explode(',', (string) config('plugged-host-servers.user-creatable-servers.deployment_tags')));
         $nodes = app(FindViableNodesService::class)->handle($memory, $disk, $cpu, $tags);

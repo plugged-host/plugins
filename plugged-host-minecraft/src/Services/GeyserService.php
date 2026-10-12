@@ -124,7 +124,7 @@ class GeyserService
                 $files->pull($floodgate['url'], '/' . $dir, ['filename' => $floodgate['filename']]);
             }
 
-            $this->writeConfig($files, $dir, $server, $floodgate !== null);
+            $this->writeConfig($files, $platform, $server, $floodgate !== null);
         } catch (Throwable $e) {
             report($e);
 
@@ -279,9 +279,9 @@ class GeyserService
      * A minimal-but-valid Geyser config pointing the Bedrock listener at a dedicated UDP port and
      * telling it to authenticate through Floodgate. Geyser fills the rest with its own defaults.
      */
-    private function writeConfig(DaemonFileRepository $files, string $dir, Server $server, bool $floodgate): void
+    private function writeConfig(DaemonFileRepository $files, string $platform, Server $server, bool $floodgate): void
     {
-        $configPath = $dir === 'plugins' ? 'plugins/Geyser-Spigot/config.yml' : 'config/Geyser-Fabric/config.yml';
+        $configPath = self::configPath($platform);
         $bedrockPort = $this->bedrockPort($server, $this->configuredBedrockPort($files, $configPath));
         $javaPort = (int) ($server->allocation?->port ?? 25565);
         $authType = $floodgate ? 'floodgate' : 'online';
@@ -366,6 +366,20 @@ class GeyserService
 
         return (clone $owned)->where('notes', self::BEDROCK_NOTE)->orderBy('port')->first()
             ?? ($configuredPort !== null ? (clone $owned)->where('port', $configuredPort)->first() : null);
+    }
+
+    /**
+     * Where Geyser reads its config on each platform: its data folder, which is
+     * plugins/Geyser-Spigot on the Spigot family and config/Geyser-<Platform> on mod loaders
+     * (GeyserFabricPlatform / GeyserNeoForgePlatform::configPath()).
+     */
+    private static function configPath(string $platform): string
+    {
+        return match ($platform) {
+            'fabric' => 'config/Geyser-Fabric/config.yml',
+            'neoforge' => 'config/Geyser-NeoForge/config.yml',
+            default => 'plugins/Geyser-Spigot/config.yml',
+        };
     }
 
     /**
