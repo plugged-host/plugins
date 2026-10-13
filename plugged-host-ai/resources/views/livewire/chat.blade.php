@@ -437,16 +437,64 @@
                 <div class="neo-foot">
                     <div class="neo-flash" x-show="flash" x-cloak>{!! $icon('tabler-alert-circle', 'neo-i-sm') !!}<span x-text="flash"></span></div>
 
-                    @if($usage)
-                        <div class="neo-meter">
-                            @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
-                                @php $percent = max(0, min(100, (int) ($usage[$window]['percent'] ?? 0))); @endphp
-                                <div class="neo-meter-item" title="{{ $s('chat.usage_title', ['window' => $windowLabel, 'percent' => $percent, 'time' => $resetsAt($usage[$window] ?? null, $format)]) }}">
-                                    <span>{{ $windowLabel }}</span>
-                                    <div class="neo-bar {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
-                                    <span>{{ $percent }}%</span>
+                    @if($models || $usage)
+                        <div class="neo-tools">
+                            @if($models)
+                                {{-- The model picker: only there while noprofit.space offers a premium model. --}}
+                                <div class="neo-model" x-data="{ menu: false }" x-on:click.outside="menu = false" x-on:keydown.escape="menu = false">
+                                    <button type="button" class="neo-model-btn" x-on:click="menu = !menu" x-bind:aria-expanded="menu ? 'true' : 'false'" x-bind:disabled="working"
+                                            aria-haspopup="menu" title="{{ $s('chat.model') }}">
+                                        <span>{{ $models['current'] === 'premium' ? $models['premium']['label'] : $s('chat.model_standard') }}</span>
+                                        {!! $icon('tabler-chevron-up', 'neo-i-sm') !!}
+                                    </button>
+                                    <div class="neo-menu" role="menu" aria-label="{{ $s('chat.model') }}" x-show="menu" x-cloak>
+                                        @if(!$models['allowed'] && $models['plus_url'])
+                                            {{-- Without PlusPlus the premium model leads to where PlusPlus is sold. --}}
+                                            <a class="neo-model-opt neo-model-locked" role="menuitem" href="{{ $models['plus_url'] }}">
+                                                <span class="neo-model-text">
+                                                    <span class="neo-model-name">{{ $models['premium']['label'] }}</span>
+                                                    <span class="neo-model-hint">{{ $s('chat.model_premium_hint', ['multiplier' => $models['premium']['multiplier']]) }}</span>
+                                                </span>
+                                            </a>
+                                        @else
+                                            <button type="button" class="neo-model-opt {{ $models['allowed'] ? '' : 'neo-model-locked' }}" role="menuitemradio"
+                                                    aria-checked="{{ $models['current'] === 'premium' ? 'true' : 'false' }}" @disabled(!$models['allowed'])
+                                                    x-on:click="menu = false; $wire.setModel('premium')">
+                                                <span class="neo-model-text">
+                                                    <span class="neo-model-name">{{ $models['premium']['label'] }}</span>
+                                                    <span class="neo-model-hint">{{ $s('chat.model_premium_hint', ['multiplier' => $models['premium']['multiplier']]) }}</span>
+                                                </span>
+                                                @if($models['current'] === 'premium')
+                                                    {!! $icon('tabler-check', 'neo-i-sm neo-model-check') !!}
+                                                @endif
+                                            </button>
+                                        @endif
+                                        <button type="button" class="neo-model-opt" role="menuitemradio" aria-checked="{{ $models['current'] === 'standard' ? 'true' : 'false' }}"
+                                                x-on:click="menu = false; $wire.setModel('standard')">
+                                            <span class="neo-model-text">
+                                                <span class="neo-model-name">{{ $s('chat.model_standard') }}</span>
+                                                <span class="neo-model-hint">{{ $s('chat.model_standard_hint') }}</span>
+                                            </span>
+                                            @if($models['current'] === 'standard')
+                                                {!! $icon('tabler-check', 'neo-i-sm neo-model-check') !!}
+                                            @endif
+                                        </button>
+                                    </div>
                                 </div>
-                            @endforeach
+                            @endif
+
+                            @if($usage)
+                                <div class="neo-meter">
+                                    @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
+                                        @php $percent = max(0, min(100, (int) ($usage[$window]['percent'] ?? 0))); @endphp
+                                        <div class="neo-meter-item" title="{{ $s('chat.usage_title', ['window' => $windowLabel, 'percent' => $percent, 'time' => $resetsAt($usage[$window] ?? null, $format)]) }}">
+                                            <span>{{ $windowLabel }}</span>
+                                            <div class="neo-bar {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
+                                            <span>{{ $percent }}%</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     @endif
 

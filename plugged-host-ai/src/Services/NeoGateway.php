@@ -13,6 +13,7 @@ use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
+use PluggedHost\Ai\Support\NeoPreferences;
 use Throwable;
 
 /**
@@ -22,6 +23,9 @@ use Throwable;
  *
  * The panel chat names its user's account; neo on Discord names a Discord account, which
  * noprofit.space meters as the account it is linked to, or on its own at a share of the limits.
+ *
+ * A chat turn names the model its user picked: 'premium' (noprofit.space's premium slot, counted
+ * at a multiple of its tokens) for PlusPlus accounts that picked it, 'standard' otherwise.
  */
 final class NeoGateway
 {
@@ -51,6 +55,7 @@ final class NeoGateway
         $response = $this->send('POST', '/turn', NoprofitLink::identity($user) + [
             'service' => 'plugged-host',
             'usage_percent' => self::usagePercent($user),
+            'model' => self::modelFor($user),
             'conversation' => $conversation->uuid,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
@@ -62,7 +67,7 @@ final class NeoGateway
 
         if ($response->successful()) {
             $this->rememberAccount($user, $data);
-            Cache::put($this->usageKey($user), ['linked' => true, 'limits' => $data['limits'] ?? null], 30);
+            Cache::put($this->usageKey($user), ['linked' => true, 'limits' => $data['limits'] ?? null, 'premium_model' => $data['premium_model'] ?? null], 30);
 
             return $data;
         }
@@ -136,10 +141,11 @@ final class NeoGateway
     }
 
     /**
-     * The account's current windows, cached briefly. Null when unknown (gateway down);
-     * ['linked' => false] when noprofit.space does not know the account.
+     * The account's current windows and the premium model on offer (label and multiplier, null
+     * while there is none), cached briefly. Null when unknown (gateway down); ['linked' => false]
+     * when noprofit.space does not know the account.
      *
-     * @return array{linked: bool, limits?: array<string, mixed>|null}|null
+     * @return array{linked: bool, limits?: array<string, mixed>|null, premium_model?: array{label: string, multiplier: int}|null}|null
      */
     public function usage(User $user): ?array
     {
@@ -155,7 +161,7 @@ final class NeoGateway
         }
 
         $result = match (true) {
-            $response->successful() => ['linked' => true, 'limits' => $response->json('limits')],
+            $response->successful() => ['linked' => true, 'limits' => $response->json('limits'), 'premium_model' => $response->json('premium_model')],
             $response->status() === 404 => ['linked' => false],
             default => null,
         };
@@ -292,6 +298,29 @@ final class NeoGateway
         } catch (Throwable) {
             return 100;
         }
+    }
+
+    /**
+     * Whether the account may use the premium model: plugged.host PlusPlus (plugged-host-economy).
+     */
+    public static function premiumAllowed(?User $user): bool
+    {
+        $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
+
+        try {
+            return $user !== null && class_exists($membership) && app($membership)->hasPlusPlus($user);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * The model this account's chat turns ask for: the one picked in the chat, while it may still
+     * use it (PlusPlus can run out after it was picked).
+     */
+    public static function modelFor(User $user): string
+    {
+        return NeoPreferences::model($user) === 'premium' && self::premiumAllowed($user) ? 'premium' : 'standard';
     }
 
     /**

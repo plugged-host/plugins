@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $user_id
  * @property bool $enabled
  * @property bool $auto_approve
+ * @property string $model
  * @property ?\Illuminate\Support\Carbon $acknowledged_at
  */
 class NeoUserSetting extends Model
@@ -22,6 +23,7 @@ class NeoUserSetting extends Model
         'user_id',
         'enabled',
         'auto_approve',
+        'model',
         'acknowledged_at',
     ];
 

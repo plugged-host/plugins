@@ -2,6 +2,12 @@
 
 ## Unreleased (2.1)
 
+- **Model picker in neo's chat**: "Other models" (1x usage) or noprofit.space's premium model
+  (named after its slot's label, e.g. Haiku 5.5; counted at `NEO_PREMIUM_MULTIPLIER`, 2x;
+  PlusPlus only, a locked option leads to the Plus page). The pick is per user
+  (`neo_user_settings.model`, migration 017) and sent as `model` on each turn; without PlusPlus
+  turns stay standard. Provider slots get a "Premium model" switch and the limits a multiplier;
+  rux skips premium slots.
 - neo sends `usage_percent` with every turn and usage call (Plus 125%, PlusPlus 156%; Discord
   turns look the account up through the Discord link), which noprofit.space applies to the limits.
 - neo knows there are no private tickets (human help in the Discord server's public channels)

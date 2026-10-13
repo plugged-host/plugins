@@ -107,7 +107,22 @@
     .neo-typing i:nth-child(2) { animation-delay: .15s; } .neo-typing i:nth-child(3) { animation-delay: .3s; }
 
     .neo-foot { border-top: 1px solid var(--neo-line); padding: .625rem .75rem .75rem; display: flex; flex-direction: column; gap: .5rem; }
-    .neo-meter { display: flex; gap: .75rem; padding: 0 .25rem; font-size: .6875rem; font-weight: 600; color: var(--neo-faint); font-variant-numeric: tabular-nums; }
+    .neo-tools { display: flex; align-items: center; gap: .5rem; }
+    .neo-meter { flex: 1; min-width: 0; display: flex; gap: .75rem; padding: 0 .25rem; font-size: .6875rem; font-weight: 600; color: var(--neo-faint); font-variant-numeric: tabular-nums; }
+    {{-- The model picker opens upwards like a dropdown menu (theme-v2's .fi-dropdown-panel elevation). --}}
+    .neo-model { position: relative; flex: none; }
+    .neo-model-btn { display: inline-flex; align-items: center; gap: .25rem; min-height: 1.75rem; padding: .125rem .5rem; border-radius: .5rem; font-size: .75rem; font-weight: 600; color: var(--neo-muted); transition: background-color .15s ease, color .15s ease; }
+    .neo-model-btn:hover, .neo-model-btn[aria-expanded="true"] { background: var(--neo-raise); color: var(--neo-text); }
+    .neo-model-btn:disabled { opacity: .45; pointer-events: none; }
+    .neo-menu { position: absolute; left: 0; bottom: calc(100% + .375rem); z-index: 3; width: 17rem; max-width: calc(100vw - 2rem); padding: .25rem; display: flex; flex-direction: column; border-radius: .75rem; border: 1px solid var(--neo-line); background: var(--neo-dropdown); box-shadow: 0 20px 25px -5px rgb(0 0 0 / .25), 0 8px 10px -6px rgb(0 0 0 / .25); }
+    .neo-model-opt { display: flex; align-items: center; gap: .5rem; width: 100%; padding: .5rem .625rem; border-radius: .5rem; text-align: left; color: inherit; text-decoration: none; transition: background-color .15s ease; }
+    .neo-model-opt:hover { background: var(--neo-raise); }
+    .neo-model-opt:disabled { pointer-events: none; }
+    .neo-model-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .0625rem; }
+    .neo-model-name { font-size: .8125rem; font-weight: 600; color: var(--neo-text); }
+    .neo-model-hint { font-size: .75rem; color: var(--neo-muted); }
+    .neo-model-locked .neo-model-name { color: var(--neo-muted); }
+    .neo-model-check { color: var(--neo-accent-text); }
     .neo-meter-item { flex: 1; min-width: 0; display: flex; align-items: center; gap: .5rem; }
     .neo-bar { flex: 1; height: .25rem; border-radius: 9999px; background: var(--neo-raise); overflow: hidden; }
     .neo-bar > i { display: block; height: 100%; min-width: .25rem; border-radius: inherit; background: var(--neo-accent-text); }
@@ -173,6 +188,8 @@
         .neo-send { width: 2.75rem; height: 2.75rem; }
         .neo-btn { min-height: 2.75rem; }
         .neo-chip { min-height: 2.75rem; padding: .5rem 1rem; }
+        .neo-model-btn { min-height: 2.25rem; }
+        .neo-model-opt { min-height: 2.75rem; }
         .neo-msg-user, .neo-msg-images { max-width: 90%; }
         .neo-attachment-remove { width: 1.75rem; height: 1.75rem; }
     }

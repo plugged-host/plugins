@@ -7,8 +7,8 @@ use PluggedHost\Ai\Models\NeoUserSetting;
 
 /**
  * The per-user switches in the chat's settings ("Enable neo", "Let neo make changes without
- * asking") and consent, in neo_user_settings. A missing row reads as the defaults: on, asks first,
- * not yet acknowledged.
+ * asking"), the model picked in the chat, and consent, in neo_user_settings. A missing row reads as
+ * the defaults: on, asks first, the standard model, not yet acknowledged.
  */
 final class NeoPreferences
 {
@@ -24,6 +24,7 @@ final class NeoPreferences
                 'user_id' => $user->id,
                 'enabled' => true,
                 'auto_approve' => false,
+                'model' => 'standard',
                 'acknowledged_at' => null,
             ]);
     }
@@ -38,13 +39,22 @@ final class NeoPreferences
         return (bool) self::for($user)->auto_approve;
     }
 
+    /**
+     * The model picked in the chat: 'premium' or 'standard'. Whether the account may still use the
+     * premium one is NeoGateway::modelFor()'s question.
+     */
+    public static function model(User $user): string
+    {
+        return self::for($user)->model === 'premium' ? 'premium' : 'standard';
+    }
+
     public static function acknowledged(User $user): bool
     {
         return self::for($user)->acknowledged_at !== null;
     }
 
     /**
-     * @param  array{enabled?: bool, auto_approve?: bool, acknowledged_at?: mixed}  $values
+     * @param  array{enabled?: bool, auto_approve?: bool, model?: string, acknowledged_at?: mixed}  $values
      */
     public static function set(User $user, array $values): NeoUserSetting
     {

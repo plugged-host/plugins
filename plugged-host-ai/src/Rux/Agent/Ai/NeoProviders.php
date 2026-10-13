@@ -39,13 +39,14 @@ class NeoProviders
     }
 
     /**
-     * Every provider slot, usable or not, in neo's order.
+     * Every provider slot, usable or not, in neo's order, except the premium ones: those answer
+     * only neo chats where a PlusPlus user picked the premium model.
      *
      * @return list<array<string, mixed>>
      */
     public function providers(): array
     {
-        return $this->current()['providers'] ?? [];
+        return array_values(array_filter($this->current()['providers'] ?? [], static fn (array $provider): bool => empty($provider['premium'])));
     }
 
     /**

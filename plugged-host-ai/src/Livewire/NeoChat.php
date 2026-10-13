@@ -331,6 +331,25 @@ class NeoChat extends Component
     }
 
     /**
+     * The model picker under the chat. The premium model needs PlusPlus; picking it without
+     * only says so.
+     */
+    public function setModel(string $model): void
+    {
+        abort_unless(in_array($model, ['standard', 'premium'], true), 422);
+
+        $user = $this->user();
+
+        if ($model === 'premium' && !NeoGateway::premiumAllowed($user)) {
+            Notification::make()->title(trans('plugged-host-ai::strings.chat.model_plusplus_only'))->warning()->send();
+
+            return;
+        }
+
+        NeoPreferences::set($user, ['model' => $model]);
+    }
+
+    /**
      * The two per-user switches, saved the moment they are flipped. Works while neo is off,
      * since this is how it is switched back on.
      */
@@ -389,13 +408,15 @@ class NeoChat extends Component
         $user = $this->user();
         $conversation = $this->conversation();
         $acknowledged = NeoPreferences::acknowledged($user);
+        $gateway = $acknowledged ? app(NeoGateway::class)->usage($user) : null;
 
         return view('plugged-host-ai::livewire.chat', [
             'conversation' => $conversation,
             'messages' => $conversation->messages()->reorder('seq', 'desc')->limit(60)->get()->reverse()->values(),
             'acknowledged' => $acknowledged,
             'autoApprove' => NeoPreferences::autoApprove($user),
-            'usage' => $acknowledged ? $this->usage($user) : null,
+            'usage' => is_array($gateway['limits'] ?? null) ? $gateway['limits'] : null,
+            'models' => $this->models($user, $gateway),
             'serverName' => $conversation->server?->name,
             'pending' => $conversation->messages()->where('role', NeoMessage::TOOL)->where('status', NeoMessage::PENDING_APPROVAL)->count(),
             'enabled' => true,
@@ -484,13 +505,39 @@ class NeoChat extends Component
     }
 
     /**
-     * @return array{short: array<string, mixed>, long: array<string, mixed>}|null
+     * The model picker, or null while noprofit.space offers no premium model (nothing to pick).
+     *
+     * @param  array<string, mixed>|null  $gateway  NeoGateway::usage()
+     * @return array{current: string, premium: array{label: string, multiplier: int}, allowed: bool, plus_url: ?string}|null
      */
-    private function usage(User $user): ?array
+    private function models(User $user, ?array $gateway): ?array
     {
-        $usage = app(NeoGateway::class)->usage($user);
+        $premium = $gateway['premium_model'] ?? null;
 
-        return is_array($usage['limits'] ?? null) ? $usage['limits'] : null;
+        if (!is_array($premium) || !is_string($premium['label'] ?? null) || $premium['label'] === '') {
+            return null;
+        }
+
+        return [
+            'current' => NeoGateway::modelFor($user),
+            'premium' => ['label' => $premium['label'], 'multiplier' => max(1, (int) ($premium['multiplier'] ?? 2))],
+            'allowed' => NeoGateway::premiumAllowed($user),
+            'plus_url' => self::plusUrl(),
+        ];
+    }
+
+    /**
+     * Where PlusPlus is sold (plugged-host-economy's Plus page), for the locked premium model.
+     */
+    private static function plusUrl(): ?string
+    {
+        $page = 'PluggedHost\\Economy\\Filament\\App\\Pages\\PlusPage';
+
+        try {
+            return class_exists($page) && $page::canAccess() ? $page::getUrl(panel: 'app') : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function conversation(): NeoConversation

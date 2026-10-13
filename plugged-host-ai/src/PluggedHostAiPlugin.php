@@ -97,6 +97,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'timeout' => (int) $provider['timeout'],
                 'daily_token_cap' => (int) $provider['daily_token_cap'],
                 'vision' => (bool) ($provider['vision'] ?? false),
+                'premium' => (bool) ($provider['premium'] ?? false),
                 'extra_headers' => self::prettyJson($provider['extra_headers'] ?? []),
                 'extra_body' => self::prettyJson($provider['extra_body'] ?? []),
             ];
@@ -186,6 +187,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                     TextInput::make('remote.limits.long_window_days')->label($t('long_window_days'))->numeric()->minValue(1)->maxValue(31)->required(),
                     TextInput::make('remote.limits.long_tokens')->label($t('long_tokens'))->numeric()->minValue(1000)->required(),
                     TextInput::make('remote.limits.discord_unlinked_percent')->label($t('discord_unlinked_percent'))->helperText($t('discord_unlinked_percent_hint'))->numeric()->minValue(0)->maxValue(100)->required(),
+                    TextInput::make('remote.limits.premium_multiplier')->label($t('premium_multiplier'))->helperText($t('premium_multiplier_hint'))->numeric()->minValue(1)->maxValue(10)->default(2)->required(),
                     TextInput::make('remote.failover.default_cooldown')->label($t('default_cooldown'))->numeric()->minValue(1)->maxValue(3600)->required(),
                     TextInput::make('remote.failover.deadline')->label($t('deadline'))->numeric()->minValue(10)->maxValue(95)->required(),
                     TextInput::make('remote.failover.max_concurrent')->label($t('max_concurrent'))->numeric()->minValue(1)->maxValue(50)->required(),
@@ -285,6 +287,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                     TextInput::make($prefix . 'timeout')->label($t('timeout'))->numeric()->minValue(5)->maxValue(90)->required(),
                     TextInput::make($prefix . 'daily_token_cap')->label($t('daily_token_cap'))->helperText($t('daily_token_cap_hint'))->numeric()->minValue(0)->required(),
                     Toggle::make($prefix . 'vision')->label($t('vision'))->helperText($t('vision_hint')),
+                    Toggle::make($prefix . 'premium')->label($t('premium'))->helperText($t('premium_hint')),
                     Textarea::make($prefix . 'extra_headers')->label($t('extra_headers'))->helperText($t('extra_headers_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
                     Textarea::make($prefix . 'extra_body')->label($t('extra_body'))->helperText($t('extra_body_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
                 ]),
@@ -355,6 +358,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'timeout' => (int) ($fields['timeout'] ?? 20),
                 'daily_token_cap' => (int) ($fields['daily_token_cap'] ?? 0),
                 'vision' => !empty($fields['vision']),
+                'premium' => !empty($fields['premium']),
                 'extra_headers' => self::decodeObject((string) ($fields['extra_headers'] ?? '{}')),
                 'extra_body' => self::decodeObject((string) ($fields['extra_body'] ?? '{}')),
             ];
