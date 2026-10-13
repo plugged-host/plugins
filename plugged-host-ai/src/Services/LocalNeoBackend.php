@@ -17,6 +17,7 @@ use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
+use PluggedHost\Ai\Support\NeoModel;
 use PluggedHost\Ai\Support\NeoSubject;
 use PluggedHost\Ai\Support\NeoUsagePercent;
 use PluggedHost\Core\Support\Plugins;
@@ -28,7 +29,9 @@ use Throwable;
  * (InternalNeoController) does, here. A turn takes the subject's turn lock and one of the
  * concurrency slots, checks its 5-hour and weekly windows (NeoUsageMeter), calls neo's providers
  * (ProviderChain, 'neo' scope) and charges the windows; the answers have the gateway's shapes and
- * its failures its exceptions.
+ * its failures its exceptions. A chat turn asks for the premium slots when its user picked the
+ * premium model and has PlusPlus (NeoModel); a turn a premium slot answered counts premium_multiplier
+ * times its tokens.
  *
  * The subject is the panel user. On Discord it is the panel user a Discord account is linked to
  * (plugged-host-discord's DiscordAccounts), or the Discord account on its own at a share of the
@@ -58,7 +61,7 @@ final class LocalNeoBackend implements NeoBackend
     {
         $subject = NeoSubject::account($user)->withUsagePercent(NeoUsagePercent::for($user));
 
-        return $this->run($subject, 'plugged-host', (string) $conversation->uuid, $messages, $tools, $toolChoice);
+        return $this->run($subject, 'plugged-host', (string) $conversation->uuid, $messages, $tools, $toolChoice, NeoModel::forTurn($user) === NeoModel::PREMIUM);
     }
 
     public function discordTurn(string $discordId, string $conversation, array $messages, array $tools, string $toolChoice): array
@@ -93,7 +96,11 @@ final class LocalNeoBackend implements NeoBackend
                 return null;
             }
 
-            return ['linked' => true, 'limits' => $this->meter->snapshot(NeoSubject::account($user)->withUsagePercent(NeoUsagePercent::for($user)))];
+            return [
+                'linked' => true,
+                'limits' => $this->meter->snapshot(NeoSubject::account($user)->withUsagePercent(NeoUsagePercent::for($user))),
+                'premium_model' => $this->premiumModel(),
+            ];
         } catch (Throwable $e) {
             report($e);
 
@@ -115,7 +122,7 @@ final class LocalNeoBackend implements NeoBackend
      *
      * @throws LimitReachedException|GatewayBusyException|GatewayUnavailableException
      */
-    private function run(NeoSubject $subject, string $service, string $conversation, array $messages, array $tools, string $toolChoice): array
+    private function run(NeoSubject $subject, string $service, string $conversation, array $messages, array $tools, string $toolChoice, bool $premium = false): array
     {
         if (!$this->enabled()) {
             throw new GatewayUnavailableException('gateway_disabled');
@@ -152,7 +159,7 @@ final class LocalNeoBackend implements NeoBackend
             ];
 
             try {
-                $result = $this->chain->turn($messages, $tools, $toolChoice);
+                $result = $this->chain->turn($messages, $tools, $toolChoice, $premium);
             } catch (AiException $e) {
                 $this->meter->recordFailure($subject, $event + ['attempts' => [['reason' => Str::limit($e->getMessage(), 200, ''), 'retry_after' => $e->retryAfter]]]);
 
@@ -170,10 +177,13 @@ final class LocalNeoBackend implements NeoBackend
             $prompt = max(0, (int) ($result['usage']['prompt_tokens'] ?? 0));
             $completion = max(0, (int) ($result['usage']['completion_tokens'] ?? 0));
             $total = $prompt + $completion;
+            $answeredPremium = !empty($result['provider']['premium']);
+            $multiplier = $answeredPremium ? $this->meter->premiumMultiplier() : 1;
+            $charged = $total * $multiplier;
             $provider = $this->provider((array) ($result['provider'] ?? []));
             $finishReason = Str::limit((string) ($result['finish_reason'] ?? 'stop'), 24, '');
 
-            $this->meter->charge($subject, $total, $event + [
+            $this->meter->charge($subject, $charged, $event + [
                 'provider_slot' => $provider['slot'],
                 'provider_label' => Str::limit((string) $provider['label'], 64, ''),
                 'driver' => Str::limit((string) $provider['driver'], 16, ''),
@@ -188,13 +198,16 @@ final class LocalNeoBackend implements NeoBackend
                 'message' => (array) ($result['message'] ?? []),
                 'finish_reason' => $finishReason,
                 'provider' => $provider,
+                'model' => $answeredPremium ? NeoModel::PREMIUM : NeoModel::STANDARD,
                 'usage' => [
                     'prompt_tokens' => $prompt,
                     'completion_tokens' => $completion,
                     'total_tokens' => $total,
-                    'charged_tokens' => $total,
+                    'multiplier' => $multiplier,
+                    'charged_tokens' => $charged,
                 ],
                 'limits' => $this->meter->snapshot($subject),
+                'premium_model' => $this->premiumModel(),
                 'account_id' => $subject->user?->id,
                 'linked' => !$subject->isUnlinkedDiscord(),
             ];
@@ -271,6 +284,22 @@ final class LocalNeoBackend implements NeoBackend
             'driver' => $driver,
             'model' => isset($used['model']) ? (string) $used['model'] : null,
         ];
+    }
+
+    /**
+     * The premium model a chat can pick, or null while no premium slot is ready to answer.
+     *
+     * @return array{label: string, multiplier: int}|null
+     */
+    private function premiumModel(): ?array
+    {
+        foreach ($this->providers->providers() as $provider) {
+            if (is_array($provider) && !empty($provider['premium']) && ProviderChain::usable($provider)) {
+                return ['label' => (string) $provider['label'], 'multiplier' => $this->meter->premiumMultiplier()];
+            }
+        }
+
+        return null;
     }
 
     /**

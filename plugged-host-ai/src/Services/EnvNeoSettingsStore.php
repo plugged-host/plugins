@@ -55,6 +55,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
         'limits.long_window_days' => ['NEO_LONG_WINDOW_DAYS', 'limits.long.days', 1, 31],
         'limits.long_tokens' => ['NEO_LONG_TOKENS', 'limits.long.tokens', 1000, 100_000_000_000],
         'limits.discord_unlinked_percent' => ['NEO_DISCORD_UNLINKED_PERCENT', 'limits.discord_unlinked_percent', 0, 100],
+        'limits.premium_multiplier' => ['NEO_PREMIUM_MULTIPLIER', 'limits.premium_multiplier', 1, 10],
         'failover.default_cooldown' => ['NEO_DEFAULT_COOLDOWN', 'failover.default_cooldown', 1, 3600],
         'failover.deadline' => ['NEO_CHAIN_DEADLINE', 'failover.deadline', 10, 95],
         'failover.max_concurrent' => ['NEO_MAX_CONCURRENT', 'failover.max_concurrent', 1, 50],
@@ -87,6 +88,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
                 'long_window_days' => (int) config(self::CONFIG . '.limits.long.days'),
                 'long_tokens' => (int) config(self::CONFIG . '.limits.long.tokens'),
                 'discord_unlinked_percent' => (int) config(self::CONFIG . '.limits.discord_unlinked_percent', 50),
+                'premium_multiplier' => (int) config(self::CONFIG . '.limits.premium_multiplier', 2),
             ],
             'failover' => [
                 'default_cooldown' => (int) config(self::CONFIG . '.failover.default_cooldown'),
@@ -253,6 +255,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
             'daily_token_cap' => (int) $provider['daily_token_cap'],
             'extra_headers' => (object) $this->maskHeaders((array) $provider['extra_headers']),
             'extra_body' => (object) $provider['extra_body'],
+            'premium' => !empty($provider['premium']),
             'usable' => ProviderChain::usable($provider),
             'cooldown_until' => $cooldownUntil === null ? null : gmdate('Y-m-d\TH:i:s\Z', $cooldownUntil),
             'last_error' => $this->chain->lastError($provider),
@@ -348,11 +351,15 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
             $config[$configPrefix . $field] = $configValue;
         };
 
-        if (array_key_exists('enabled', $fields)) {
-            $enabled = filter_var($fields['enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-            $enabled === null
-                ? $errors[$errorPrefix . 'enabled'] = 'must be a boolean'
-                : $set('enabled', $enabled ? 'true' : 'false', $enabled);
+        foreach (['enabled', 'premium'] as $flag) {
+            if (!array_key_exists($flag, $fields)) {
+                continue;
+            }
+
+            $value = filter_var($fields[$flag], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            $value === null
+                ? $errors[$errorPrefix . $flag] = 'must be a boolean'
+                : $set($flag, $value ? 'true' : 'false', $value);
         }
 
         if (array_key_exists('label', $fields)) {

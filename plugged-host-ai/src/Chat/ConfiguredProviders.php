@@ -78,6 +78,7 @@ final class ConfiguredProviders implements ProviderSource
             'daily_token_cap' => max(0, (int) ($config['daily_token_cap'] ?? 0)),
             'extra_headers' => array_map('strval', array_filter((array) ($config['extra_headers'] ?? []), 'is_scalar')),
             'extra_body' => (array) ($config['extra_body'] ?? []),
+            'premium' => (bool) filter_var($config['premium'] ?? false, FILTER_VALIDATE_BOOL),
         ];
     }
 }

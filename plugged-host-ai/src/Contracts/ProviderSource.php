@@ -11,7 +11,8 @@ use PluggedHost\Ai\Chat\AiUnavailableException;
  * noprofit.space, so rux runs the chain neo runs there.
  *
  * A provider is ['slot', 'enabled', 'label', 'driver' (openai, anthropic or gemini), 'endpoint',
- * 'api_key', 'model', 'max_tokens', 'timeout', 'daily_token_cap', 'extra_headers', 'extra_body'].
+ * 'api_key', 'model', 'max_tokens', 'timeout', 'daily_token_cap', 'extra_headers', 'extra_body',
+ * 'premium']. A premium slot answers only turns that ask for the premium model (ProviderChain::turn()).
  */
 interface ProviderSource
 {

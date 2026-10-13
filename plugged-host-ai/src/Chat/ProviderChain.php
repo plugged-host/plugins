@@ -24,6 +24,10 @@ use Throwable;
  * token cap is kept per day. When all fail, AiBusyException says how long until one is back,
  * unless none can be (AiUnavailableException).
  *
+ * Premium slots answer only turns that ask for the premium model (neo chats where a PlusPlus user
+ * picked it): those try the premium slots first and fall back to the others. Every other turn,
+ * rux's included, never reaches a premium slot.
+ *
  * Each caller uses its own scope (for('rux'), for('neo')): cooldowns, daily token counts, what a
  * provider does with tools, log lines and the prompted-tools wording are kept per scope, as they
  * were while neo's chain ran on noprofit.space and rux's here. rux's keys are what they always were.
@@ -129,9 +133,9 @@ class ProviderChain
      *
      * @throws AiBusyException|AiUnavailableException
      */
-    public function turn(array $messages, array $tools = [], string $toolChoice = 'auto'): array
+    public function turn(array $messages, array $tools = [], string $toolChoice = 'auto', bool $premium = false): array
     {
-        $providers = $this->providers();
+        $providers = $this->slotsFor($premium);
 
         if ($providers === []) {
             throw new AiUnavailableException('not_configured');
@@ -180,7 +184,7 @@ class ProviderChain
                 }
 
                 return $outcome + [
-                    'provider' => ['slot' => $provider['slot'], 'label' => $provider['label'], 'model' => $provider['model'], 'prompted_tools' => $prompted],
+                    'provider' => ['slot' => $provider['slot'], 'label' => $provider['label'], 'model' => $provider['model'], 'premium' => !empty($provider['premium']), 'prompted_tools' => $prompted],
                     'duration_ms' => (int) round((microtime(true) - $started) * 1000),
                 ];
             }
@@ -196,6 +200,24 @@ class ProviderChain
         }
 
         throw new AiUnavailableException('all_providers_failed');
+    }
+
+    /**
+     * The usable slots a turn may use, in failover order.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function slotsFor(bool $premium): array
+    {
+        $providers = $this->providers();
+
+        if (!$premium) {
+            return array_values(array_filter($providers, static fn (array $provider): bool => empty($provider['premium'])));
+        }
+
+        usort($providers, static fn (array $a, array $b): int => !empty($b['premium']) <=> !empty($a['premium']));
+
+        return $providers;
     }
 
     /**

@@ -2,6 +2,12 @@
 
 ## 2.2.0 (unreleased)
 
+- **Model picker in neo's chat**: "Other models" (1x usage) or the premium model (the premium
+  provider slot, named after its label, e.g. Haiku 5.5; counted at `NEO_PREMIUM_MULTIPLIER`, 2x;
+  PlusPlus only via `Support\NeoModel`, a locked option leads to the Plus page). The pick is per
+  user (`neo_user_settings.model`, migration 017). Both backends route and meter by it:
+  `ProviderChain::turn(..., $premium)` (premium slots first, other turns and rux never reach them)
+  and noprofit.space's gateway (`model` on `/turn`). Usage answers carry `premium_model`.
 - **rux works without noprofit.space**: who an order comes from, giveaway payouts and
   give_credits go through plugged-host-discord's `DiscordAccounts` / `DiscordCreditPayouts`
   (the panel's own, or noprofit.space's with plugged-host-noprofit). `RuxNoprofit` moved to

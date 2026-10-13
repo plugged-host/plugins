@@ -14,6 +14,7 @@ use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
+use PluggedHost\Ai\Support\NeoModel;
 use PluggedHost\Ai\Support\NeoUsagePercent;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Noprofit\Services\NoprofitClient;
@@ -28,6 +29,7 @@ use Throwable;
  *
  * The panel chat names its user's account; neo on Discord names a Discord account, which
  * noprofit.space meters as the account it is linked to, or on its own at a share of the limits.
+ * A chat turn names the model its user picked (NeoModel); noprofit.space routes and meters by it.
  */
 final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
 {
@@ -57,6 +59,7 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
         $response = $this->send('POST', '/turn', NoprofitLink::identity($user) + [
             'service' => 'plugged-host',
             'usage_percent' => NeoUsagePercent::for($user),
+            'model' => NeoModel::forTurn($user),
             'conversation' => $conversation->uuid,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
@@ -68,7 +71,7 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
 
         if ($response->successful()) {
             $this->rememberAccount($user, $data);
-            Cache::put($this->usageKey($user), ['linked' => true, 'limits' => $data['limits'] ?? null], 30);
+            Cache::put($this->usageKey($user), ['linked' => true, 'limits' => $data['limits'] ?? null, 'premium_model' => $data['premium_model'] ?? null], 30);
 
             return $data;
         }
@@ -143,10 +146,10 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
     }
 
     /**
-     * The account's current windows, cached briefly. Null when unknown (gateway down);
-     * ['linked' => false] when noprofit.space does not know the account.
+     * The account's current windows and the premium model on offer, cached briefly. Null when
+     * unknown (gateway down); ['linked' => false] when noprofit.space does not know the account.
      *
-     * @return array{linked: bool, limits?: array<string, mixed>|null}|null
+     * @return array{linked: bool, limits?: array<string, mixed>|null, premium_model?: array{label: string, multiplier: int}|null}|null
      */
     public function usage(User $user): ?array
     {
@@ -162,7 +165,7 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
         }
 
         $result = match (true) {
-            $response->successful() => ['linked' => true, 'limits' => $response->json('limits')],
+            $response->successful() => ['linked' => true, 'limits' => $response->json('limits'), 'premium_model' => $response->json('premium_model')],
             $response->status() === 404 => ['linked' => false],
             default => null,
         };

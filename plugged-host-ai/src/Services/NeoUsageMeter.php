@@ -13,8 +13,8 @@ use Throwable;
 
 /**
  * neo's two usage windows when this panel meters neo (a port of noprofit.space's
- * NeoUsageService, on neo_usage_windows / neo_usage_events). Every model is priced the same, so
- * usage is plain tokens.
+ * NeoUsageService, on neo_usage_windows / neo_usage_events). Usage is plain tokens, the same
+ * for every model, except that a turn a premium slot answered counts premium_multiplier times.
  *
  * Windows are anchored: a window opens at the first charged call when none is active and resets
  * at start + length. The limit is checked before a call and charged after it, so a single call may
@@ -142,6 +142,14 @@ final class NeoUsageMeter
         }
 
         return intdiv($limit * $subject->usagePercent, 100);
+    }
+
+    /**
+     * How many times its tokens a turn a premium slot answered counts (1 to 10).
+     */
+    public function premiumMultiplier(): int
+    {
+        return max(1, min(10, (int) config('plugged-host-ai.local.limits.premium_multiplier', 2)));
     }
 
     public function unlinkedDiscordPercent(): int

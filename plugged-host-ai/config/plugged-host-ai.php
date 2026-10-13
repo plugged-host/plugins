@@ -69,6 +69,8 @@ return [
                 'tokens' => (int) env('NEO_LONG_TOKENS', 15000000),
             ],
             'discord_unlinked_percent' => (int) env('NEO_DISCORD_UNLINKED_PERCENT', 50),
+            // A turn a premium slot answered counts this many times its tokens.
+            'premium_multiplier' => (int) env('NEO_PREMIUM_MULTIPLIER', 2),
         ],
 
         'failover' => [
@@ -111,6 +113,8 @@ return [
                     'daily_token_cap' => (int) env($prefix . 'DAILY_TOKEN_CAP', $defaults['daily_token_cap']),
                     'extra_headers' => $json($prefix . 'EXTRA_HEADERS_B64', $defaults['extra_headers']),
                     'extra_body' => $json($prefix . 'EXTRA_BODY_B64', $defaults['extra_body']),
+                    // Answers only turns that ask for the premium model (PlusPlus picked it in the chat).
+                    'premium' => (bool) env($prefix . 'PREMIUM', $defaults['premium'] ?? false),
                 ];
             };
 

@@ -17,11 +17,15 @@ use PluggedHost\Ai\Services\Gateway\NotLinkedException;
  * The subject is a panel user (the chat), or a Discord account (neo on Discord): the account it is
  * linked to, or on its own at a share of the limits when nobody linked it.
  *
+ * A chat turn asks for the model its user picked (Support\NeoModel): the premium slots, whose
+ * tokens count premium_multiplier times, or the others.
+ *
  * A turn answers ['message' => ['content', 'tool_calls'], 'finish_reason', 'provider' => ['slot',
- * 'label', 'driver', 'model'], 'usage' => ['prompt_tokens', 'completion_tokens', 'total_tokens',
- * 'charged_tokens'], 'limits', 'account_id', 'linked']. limits is ['short' => window, 'long' =>
- * window], a window ['used', 'limit', 'percent', 'active', 'started_at', 'resets_at',
- * 'window_seconds'].
+ * 'label', 'driver', 'model'], 'model' (premium or standard: which kind of slot answered), 'usage' =>
+ * ['prompt_tokens', 'completion_tokens', 'total_tokens', 'multiplier', 'charged_tokens'], 'limits',
+ * 'premium_model', 'account_id', 'linked']. limits is ['short' => window, 'long' => window], a window
+ * ['used', 'limit', 'percent', 'active', 'started_at', 'resets_at', 'window_seconds'].
+ * premium_model is ['label', 'multiplier'], or null while no premium slot is ready.
  */
 interface NeoBackend
 {
@@ -62,10 +66,10 @@ interface NeoBackend
     public function discordUsage(string $discordId): array;
 
     /**
-     * The user's current windows. Null when unknown (the backend is down); ['linked' => false]
-     * when the backend does not know the user's account.
+     * The user's current windows and the premium model on offer. Null when unknown (the backend
+     * is down); ['linked' => false] when the backend does not know the user's account.
      *
-     * @return array{linked: bool, limits?: array<string, mixed>|null}|null
+     * @return array{linked: bool, limits?: array<string, mixed>|null, premium_model?: array{label: string, multiplier: int}|null}|null
      */
     public function usage(User $user): ?array;
 
