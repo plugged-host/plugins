@@ -1,0 +1,25 @@
+{
+    "id": "plugged-host-fivem",
+    "name": "plugged.host FiveM",
+    "author": "plugged.host",
+    "version": "2.2.0",
+    "description": "FiveM server tools: server.cfg as a form, one-click frameworks from txAdmin's recipes, artifact updates with auto-update, FiveM for GTAV Enhanced and a live player list, on the plugged.host FiveM image.",
+    "category": "plugin",
+    "url": null,
+    "update_url": null,
+    "namespace": "PluggedHost\\FiveM",
+    "class": "PluggedHostFiveMPlugin",
+    "panels": ["server"],
+    "panel_version": null,
+    "api_version": 1,
+    "composer_packages": null,
+    "plugged_host": {
+        "requires": ["plugged-host-core"],
+        "optional": []
+    },
+    "meta": {
+        "status": "enabled",
+        "status_message": null,
+        "load_order": 10
+    }
+}

@@ -27,12 +27,17 @@ final class ServerNavigation
         'PluggedHost\\Minecraft\\Filament\\Server\\Pages\\ServerWorlds',
         'PluggedHost\\Minecraft\\Filament\\Server\\Pages\\ServerPlayersPage',
         'PluggedHost\\Minecraft\\Filament\\Server\\Pages\\GameConfigPage',
+        'PluggedHost\\FiveM\\Filament\\Server\\Pages\\FrameworksPage',
+        'PluggedHost\\FiveM\\Filament\\Server\\Pages\\PlayersPage',
+        'PluggedHost\\FiveM\\Filament\\Server\\Pages\\ServerConfigPage',
         'App\\Filament\\Server\\Resources\\Backups\\BackupResource',
         'PluggedHost\\Servers\\Filament\\Server\\Pages\\ServerSettings',
     ];
 
     /** Folded into "More", in this order. */
     public const MORE = [
+        'PluggedHost\\FiveM\\Filament\\Server\\Pages\\ArtifactsPage',
+        'PluggedHost\\FiveM\\Filament\\Server\\Pages\\EnhancedPage',
         'Boy132\\Subdomains\\Filament\\Server\\Resources\\Subdomains\\SubdomainResource',
         'App\\Filament\\Server\\Resources\\Allocations\\AllocationResource',
         'App\\Filament\\Server\\Resources\\Databases\\DatabaseResource',

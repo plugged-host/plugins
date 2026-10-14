@@ -1,0 +1,255 @@
+#!/bin/bash
+#
+# plugged.host FiveM runtime: keeps the FXServer artifact in a server's alpine/ folder on the
+# edition and build its egg variables ask for, then starts the server.
+#
+#   fivem-runtime install <dir>   lay the artifact down (the egg's install script, as root)
+#   fivem-runtime start           update when needed, then run the egg's startup (the entrypoint)
+#
+# The two egg variables:
+#
+#   FIVEM_VERSION   recommended | latest | <build number>
+#                   A channel follows Cfx: every start installs the channel's current build if it
+#                   changed. A number stays on that build, and a start then needs no network at all.
+#   FIVEM_EDITION   legacy | enhanced
+#                   "FiveM for GTAV Enhanced" is a different server (cfx-server, its own folder
+#                   layout and txAdmin). Cfx only publishes its current build, so it always
+#                   follows that one and FIVEM_VERSION does not apply.
+#
+# What is installed is recorded in alpine/.plugged-host.json ({edition, build, url,
+# installed_at}), which the panel's Artifacts and Enhanced pages read. It lives inside alpine/ so
+# it can never describe files that are not there.
+#
+# Failure is never worse than the old egg: when Cfx cannot be reached or a download is broken,
+# the installed build starts as it did before, and only a server with nothing installed fails.
+
+CHANGELOG_API=${FIVEM_CHANGELOG_API:-https://changelogs-live.fivem.net/api/changelog/versions/linux/server}
+DOWNLOADS_PAGE=${FIVEM_DOWNLOADS_PAGE:-https://docs.fivem.net/docs/server-download/?platform=legacy&os=linux}
+MARKER=alpine/.plugged-host.json
+WORK=.plugged-host-download
+
+log() {
+    printf '\033[1;34m[plugged.host]\033[0m %s\n' "$*"
+}
+
+binary_for() {
+    if [ "$1" = enhanced ]; then
+        echo alpine/opt/cfx-server/cfx-server
+    else
+        echo alpine/opt/cfx-server/FXServer
+    fi
+}
+
+installed() {
+    jq -r ".$1 // empty" "$MARKER" 2>/dev/null
+}
+
+# The download page's Next.js data: every Linux build Cfx currently offers, both editions.
+downloads_json() {
+    curl -fsSL --connect-timeout 10 --max-time 30 "$DOWNLOADS_PAGE" \
+        | grep -o '<script id="__NEXT_DATA__" type="application/json">[^<]*' \
+        | sed 's/^<script[^>]*>//'
+}
+
+# "<build> <url>" for an edition and version, or a failure when Cfx could not tell.
+resolve() {
+    local edition=$1 version=$2 json build url
+
+    if [ "$edition" = enhanced ]; then
+        json=$(downloads_json) || return 1
+        url=$(jq -r '.props.pageProps.enhanced.linux[0].downloadURL // empty' <<<"$json" 2>/dev/null)
+        build=$(jq -r '.props.pageProps.enhanced.linux[0].subtitle // empty' <<<"$json" 2>/dev/null | grep -oE '[0-9]+$')
+    else
+        case "$version" in
+            recommended|latest)
+                json=$(curl -fsSL --connect-timeout 10 --max-time 30 "$CHANGELOG_API") || return 1
+                url=$(jq -r --arg c "$version" '.[$c + "_download"] // empty' <<<"$json" 2>/dev/null)
+                build=$(jq -r --arg c "$version" '.[$c] // empty' <<<"$json" 2>/dev/null)
+                ;;
+            *)
+                json=$(downloads_json) || return 1
+                url=$(jq -r --arg b "build $version" \
+                    '[.props.pageProps.legacy[]?.linux[]? | select(.subtitle == $b) | .downloadURL][0] // empty' \
+                    <<<"$json" 2>/dev/null)
+                build=$version
+                ;;
+        esac
+    fi
+
+    # Only Cfx's own hosts: whatever the page says, nothing else gets downloaded and run.
+    case "$url" in
+        https://runtime.fivem.net/*|https://downloads.cfx-services.net/*) ;;
+        *) return 1 ;;
+    esac
+
+    [ -n "$build" ] || return 1
+    printf '%s %s\n' "$build" "$url"
+}
+
+# Download, check, and swap in an artifact. The current alpine/ is only replaced once the new
+# one is fully extracted and has the edition's binary in it.
+install_artifact() {
+    local edition=$1 build=$2 url=$3 binary
+
+    binary=$(binary_for "$edition")
+    rm -rf "$WORK"
+    mkdir -p "$WORK/new" || return 1
+
+    log "Downloading FiveM ${edition} build ${build}"
+    if ! curl -fsSL --retry 3 --connect-timeout 20 --max-time 1800 -o "$WORK/artifact.tar.xz" "$url"; then
+        log "The download failed"
+        rm -rf "$WORK"
+        return 1
+    fi
+
+    log "Installing FiveM ${edition} build ${build}"
+    if ! tar -xJf "$WORK/artifact.tar.xz" -C "$WORK/new" || [ ! -f "$WORK/new/$binary" ]; then
+        log "The download is not a FiveM ${edition} server, keeping the current files"
+        chmod -R u+rwX "$WORK" 2>/dev/null
+        rm -rf "$WORK"
+        return 1
+    fi
+    rm -f "$WORK/artifact.tar.xz"
+
+    # Artifacts ship read-only folders (alpine/proc); without this the next update cannot delete them.
+    chmod -R u+rwX "$WORK/new/alpine"
+    chmod u+x "$WORK/new/$binary" "$WORK/new"/alpine/lib/ld-musl-x86_64.so.1 \
+        "$WORK/new"/alpine/opt/cfx-server/ld-musl-x86_64.so.1 2>/dev/null
+
+    if [ -e alpine ]; then
+        chmod -R u+rwX alpine 2>/dev/null
+        mv alpine "$WORK/old" || { rm -rf "$WORK"; return 1; }
+    fi
+
+    if ! mv "$WORK/new/alpine" alpine; then
+        [ -e "$WORK/old" ] && mv "$WORK/old" alpine
+        rm -rf "$WORK"
+        return 1
+    fi
+
+    rm -rf "$WORK" run.sh
+    jq -n --arg e "$edition" --arg b "$build" --arg u "$url" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '{edition: $e, build: $b, url: $u, installed_at: $t}' > "$MARKER"
+
+    log "FiveM ${edition} build ${build} installed"
+}
+
+# Bring alpine/ to what the variables ask for. Fails only when nothing startable is left.
+ensure() {
+    local edition version binary target build url
+
+    edition=${FIVEM_EDITION:-legacy}
+    [ "$edition" = enhanced ] || edition=legacy
+
+    version=${FIVEM_VERSION:-recommended}
+    case "$version" in
+        recommended|latest) ;;
+        ''|*[!0-9]*) version=recommended ;;
+    esac
+
+    binary=$(binary_for "$edition")
+
+    # A pinned build that is already there: start without asking anyone.
+    if [ "$edition" = legacy ] && [ -f "$binary" ] && [ "$(installed edition)" = legacy ] && [ "$(installed build)" = "$version" ]; then
+        return 0
+    fi
+
+    if ! target=$(resolve "$edition" "$version"); then
+        if [ -f "$binary" ]; then
+            log "Could not ask Cfx for updates, starting the installed build"
+            return 0
+        fi
+
+        if [ "$edition" = legacy ] && [ "$version" != recommended ] && target=$(resolve legacy recommended); then
+            log "Build ${version} is no longer offered by Cfx, installing the recommended build instead"
+        else
+            log "Could not find a FiveM ${edition} server to download"
+            started_anyway
+            return $?
+        fi
+    fi
+
+    build=${target%% *}
+    url=${target#* }
+
+    if [ -f "$binary" ] && [ "$(installed edition)" = "$edition" ] && [ "$(installed url)" = "$url" ]; then
+        return 0
+    fi
+
+    install_artifact "$edition" "$build" "$url" && return 0
+
+    if [ -f "$binary" ]; then
+        log "Starting the installed build"
+        return 0
+    fi
+
+    started_anyway
+}
+
+# The requested edition could not be installed. If the other one is there, run that rather than
+# nothing, and say so: the panel shows the installed edition, so the owner sees the switch failed.
+started_anyway() {
+    local other=legacy
+    [ "${FIVEM_EDITION:-legacy}" = enhanced ] || other=enhanced
+
+    if [ -f "$(binary_for "$other")" ]; then
+        log "Starting FiveM ${other} instead, the switch did not complete"
+        return 0
+    fi
+
+    return 1
+}
+
+start() {
+    cd "${FIVEM_ROOT:-/home/container}" || exit 1
+
+    INTERNAL_IP=$(ip route get 1 2>/dev/null | awk '{print $(NF-2);exit}')
+    export INTERNAL_IP
+
+    mkdir -p txData logs
+
+    # FXServer segfaults while it tears down on SIGINT (the egg's stop signal). Harmless at that
+    # point, but the kernel's default core_pattern would leave a 250 MB core file in the server's
+    # folder on every stop.
+    ulimit -c 0
+
+    if ! ensure; then
+        log "There is no FiveM server to start. Check the network, then start the server again."
+        exit 1
+    fi
+
+    # The same substitution and eval as Pelican's yolks, so every existing startup line works.
+    # shellcheck disable=SC2086
+    MODIFIED_STARTUP=$(echo -e ${STARTUP:-} | sed -e 's/{{/${/g' -e 's/}}/}/g')
+
+    # Startup lines name the legacy layout. Enhanced has its loader in alpine/lib, no v8 library
+    # folder and a cfx-server binary; going by the files, not the variable, keeps a failed switch
+    # startable.
+    if [ -f alpine/opt/cfx-server/cfx-server ] && [ ! -f alpine/opt/cfx-server/FXServer ]; then
+        MODIFIED_STARTUP=$(sed \
+            -e 's#alpine/opt/cfx-server/ld-musl-x86_64\.so\.1#alpine/lib/ld-musl-x86_64.so.1#g' \
+            -e "s#[^ \"':]*alpine/usr/lib/v8/:##g" \
+            -e 's#alpine/opt/cfx-server/FXServer#alpine/opt/cfx-server/cfx-server#g' \
+            <<<"$MODIFIED_STARTUP")
+    fi
+
+    echo -e ":/home/container$ ${MODIFIED_STARTUP}"
+
+    # shellcheck disable=SC2086
+    eval ${MODIFIED_STARTUP}
+}
+
+case "${1:-start}" in
+    install)
+        cd "${2:-/mnt/server}" || exit 1
+        mkdir -p txData logs
+        ensure
+        ;;
+    start)
+        start
+        ;;
+    *)
+        echo "usage: fivem-runtime install <dir> | start" >&2
+        exit 2
+        ;;
+esac
