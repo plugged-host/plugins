@@ -22,7 +22,7 @@ class RuxWatchItem extends Model
 
     protected $table = 'rux_watch_queue';
 
-    protected $fillable = ['message_id', 'channel_id', 'author_id', 'author_name', 'roles', 'content'];
+    protected $fillable = ['message_id', 'channel_id', 'author_id', 'author_name', 'roles', 'content', 'replied_to'];
 
     protected $casts = ['roles' => 'array'];
 }

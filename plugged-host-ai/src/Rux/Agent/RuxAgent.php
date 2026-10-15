@@ -265,7 +265,8 @@ final class RuxAgent
     }
 
     /**
-     * One model turn, waiting out a busy or rate-limited AI until $busyUntil.
+     * One model turn, waiting out a busy or rate-limited AI until $busyUntil. Orders go to neo's
+     * premium model (Haiku 5.5) first while it answers, then to the other slots.
      *
      * @param  list<array<string, mixed>>  $messages
      * @param  list<array<string, mixed>>  $definitions
@@ -279,7 +280,7 @@ final class RuxAgent
             $this->discord->typing($order->channel_id);
 
             try {
-                return $this->ai->turn($messages, $definitions, $toolChoice);
+                return $this->ai->turn($messages, $definitions, $toolChoice, premium: true);
             } catch (AiBusyException $e) {
                 if (time() + 1 >= $busyUntil) {
                     throw new AiUnavailableException('busy_too_long: ' . $e->getMessage());

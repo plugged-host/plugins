@@ -33,6 +33,7 @@ class RuxRule extends Model
     protected $fillable = [
         'guild_id',
         'description',
+        'exceptions',
         'keywords',
         'action',
         'duration_seconds',

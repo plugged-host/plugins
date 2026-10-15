@@ -37,6 +37,7 @@ final class RuxSettings
             'warn_ban_at' => (int) config('plugged-host-ai.rux.warnings.ban_at', 5),
             'warn_ban' => (string) config('plugged-host-ai.rux.warnings.ban', '24h'),
             'watch_guidelines' => (bool) config('plugged-host-ai.rux.watch.guidelines', true),
+            'spam' => (bool) config('plugged-host-ai.rux.spam.enabled', true),
         ];
     }
 
@@ -126,11 +127,14 @@ final class RuxSettings
                     TextInput::make('warn_ban')->label('Ban length')->required()->regex('/^(\d+[smhdw])+$/i')->helperText('Like 24h; rux lifts the ban afterwards.'),
                 ]),
             Section::make('AI')
-                ->description('neo\'s providers, 1:1, tried in this order with neo\'s failover: ' . self::aiChain() . '. rux fetches them from noprofit.space, so a change in neo\'s settings reaches rux within a minute. It calls them directly, so no neo limits apply.')
+                ->description('neo\'s providers, 1:1, with neo\'s failover. Orders: ' . self::aiChain(true) . '. Message checks: ' . self::aiChain(false) . ' (never the premium model; when these cannot answer, messages are not checked). rux fetches them from noprofit.space, so a change in neo\'s settings reaches rux within a minute. It calls them directly, so no neo limits apply.')
                 ->schema([
                     Toggle::make('watch_guidelines')
                         ->label('Watched channels also enforce the basic guidelines')
-                        ->helperText('Scams, slurs, harassment, sexual content, spam and advertising: deleted and warned.'),
+                        ->helperText('Scams, slurs, harassment, sexual content and advertising: deleted and warned.'),
+                    Toggle::make('spam')
+                        ->label('Catch spam automatically, in every channel')
+                        ->helperText('Flooding, the same message again and again, mass mentions and emoji walls: deleted and warned, without AI.'),
                 ]),
         ];
     }
@@ -158,6 +162,7 @@ final class RuxSettings
             'RUX_WARN_BAN_AT' => (string) max(0, (int) ($data['warn_ban_at'] ?? 5)),
             'RUX_WARN_BAN' => strtolower(trim((string) ($data['warn_ban'] ?? '24h'))) ?: '24h',
             'RUX_WATCH_GUIDELINES' => !empty($data['watch_guidelines']) ? 'true' : 'false',
+            'RUX_SPAM' => !empty($data['spam']) ? 'true' : 'false',
         ];
 
         $token = trim((string) ($data['bot_token'] ?? ''));
@@ -168,9 +173,9 @@ final class RuxSettings
         return $values;
     }
 
-    private static function aiChain(): string
+    private static function aiChain(bool $orders): string
     {
-        $providers = app(RuxAi::class)->providers();
+        $providers = app(RuxAi::class)->providers($orders);
 
         return $providers === []
             ? 'none configured yet'

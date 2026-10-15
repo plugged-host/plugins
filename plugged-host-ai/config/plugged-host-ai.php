@@ -171,10 +171,25 @@ return [
 
         // Watched channels (#chat and #bot-commands to begin with; admins add and remove them by
         // telling rux): every member message is checked against the standing rules, and against
-        // the always-on guidelines (scams, slurs, harassment, sexual content, spam, advertising)
+        // the always-on guidelines (scams, slurs, harassment, sexual content, advertising)
         // unless this is off.
         'watch' => [
             'guidelines' => (bool) env('RUX_WATCH_GUIDELINES', true),
+        ],
+
+        // Spam is caught without AI, in every channel rux can read (SpamGuard): a member's
+        // message is spam from the flood_messages-th within flood_seconds, from the duplicates-th
+        // copy of the same text within duplicate_seconds, or with mentions or more people and
+        // roles pinged, or emoji or more emoji. The spam is deleted, and the member is warned
+        // once per rules.cooldown_seconds.
+        'spam' => [
+            'enabled' => (bool) env('RUX_SPAM', true),
+            'flood_messages' => (int) env('RUX_SPAM_FLOOD_MESSAGES', 7),
+            'flood_seconds' => (int) env('RUX_SPAM_FLOOD_SECONDS', 10),
+            'duplicates' => (int) env('RUX_SPAM_DUPLICATES', 3),
+            'duplicate_seconds' => (int) env('RUX_SPAM_DUPLICATE_SECONDS', 120),
+            'mentions' => (int) env('RUX_SPAM_MENTIONS', 6),
+            'emoji' => (int) env('RUX_SPAM_EMOJI', 25),
         ],
 
         // Orders per Discord user per minute that reach a worker at all.

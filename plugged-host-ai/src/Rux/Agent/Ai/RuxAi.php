@@ -68,14 +68,25 @@ class RuxAi
     ) {}
 
     /**
-     * @return list<array<string, mixed>> The usable providers, in failover order.
+     * The usable providers, in failover order. neo's premium slots (Haiku 5.5, the model PlusPlus
+     * users pick in neo) answer rux's orders first, before the others ($premium); everything else
+     * rux asks (the checks of watched channels and standing rules) never reaches them. Their
+     * quota is small, and the user would rather have no chat moderation than spend it there
+     * (2026-10-15), so a check that the other slots cannot answer is not made at all.
+     *
+     * @return list<array<string, mixed>>
      */
-    public function providers(): array
+    public function providers(bool $premium = false): array
     {
-        return array_values(array_filter(
+        $usable = array_values(array_filter(
             $this->neo->providers(),
             static fn ($p): bool => is_array($p) && ($p['enabled'] ?? false) && ($p['endpoint'] ?? '') !== '' && ($p['api_key'] ?? '') !== '' && ($p['model'] ?? '') !== '',
         ));
+        $others = array_values(array_filter($usable, static fn (array $p): bool => empty($p['premium'])));
+
+        return $premium
+            ? [...array_values(array_filter($usable, static fn (array $p): bool => !empty($p['premium']))), ...$others]
+            : $others;
     }
 
     /**
@@ -101,7 +112,8 @@ class RuxAi
     }
 
     /**
-     * One model turn on the first provider that answers.
+     * One model turn on the first provider that answers; premium slots first when $premium,
+     * never otherwise (providers()).
      *
      * @param  list<array<string, mixed>>  $messages
      * @param  list<array<string, mixed>>  $tools
@@ -109,9 +121,9 @@ class RuxAi
      *
      * @throws AiBusyException|AiUnavailableException
      */
-    public function turn(array $messages, array $tools = [], string $toolChoice = 'auto'): array
+    public function turn(array $messages, array $tools = [], string $toolChoice = 'auto', bool $premium = false): array
     {
-        $providers = $this->providers();
+        $providers = $this->providers($premium);
 
         if ($providers === []) {
             throw new AiUnavailableException('not_configured');
@@ -438,9 +450,11 @@ class RuxAi
      */
     private function coolingDownUntil(array $provider): ?int
     {
+        // Redis hands numbers back as strings: an is_int() check here never saw a cooldown, so a
+        // provider out of quota was asked again every few seconds (2026-10-15).
         $until = Cache::get($this->key($provider, 'cooldown'));
 
-        return is_int($until) && $until > time() ? $until : null;
+        return is_numeric($until) && (int) $until > time() ? (int) $until : null;
     }
 
     /**
