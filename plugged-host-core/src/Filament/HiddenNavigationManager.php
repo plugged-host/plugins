@@ -2,9 +2,11 @@
 
 namespace PluggedHost\Core\Filament;
 
+use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Navigation\NavigationManager;
+use PluggedHost\Core\Support\NodeBackups;
 
 /**
  * A NavigationManager that drops sidebar entries listed as hidden.
@@ -56,6 +58,14 @@ class HiddenNavigationManager extends NavigationManager
             parent::getNavigationItems(),
             fn (NavigationItem $item): bool => !in_array($item->getKey(), $hidden, true),
         ));
+
+        // No Backups page on a node with backups turned off (Support\NodeBackups).
+        if ($this->panel->getId() === 'server' && NodeBackups::disabledFor(Filament::getTenant())) {
+            $items = array_values(array_filter(
+                $items,
+                fn (NavigationItem $item): bool => $item->getKey() !== \App\Filament\Server\Resources\Backups\BackupResource::class,
+            ));
+        }
 
         // The server sidebar: everyday pages on top, the rest folded into "More". The admin
         // sidebar: regrouped by AdminNavigation.

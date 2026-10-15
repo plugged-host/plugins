@@ -8,12 +8,15 @@ use App\Traits\EnvironmentWriterTrait;
 use PluggedHost\Core\Filament\App\Pages\WelcomeTourPage;
 use PluggedHost\Core\Filament\HiddenNavigationManager;
 use PluggedHost\Core\Filament\ServerNavigation;
+use App\Models\Node;
 use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
+use PluggedHost\Core\Http\Middleware\RedirectFromDisabledBackups;
 use PluggedHost\Core\Http\Middleware\RequireNoprofitLink;
 use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
 use PluggedHost\Core\Services\Abuse\AbuseEnforcer;
 use PluggedHost\Core\Services\Abuse\AbusePurge;
+use PluggedHost\Core\Support\NodeBackups;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\CreateAction;
@@ -68,8 +71,10 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             $panel->navigationGroups([ServerNavigation::moreGroup()]);
 
             // A suspended server's pages show why it is suspended (SuspendedServerPage).
+            // A node with backups turned off (Support\NodeBackups) has no Backups page.
             $panel->tenantMiddleware([
                 RedirectToSuspendedPage::class,
+                RedirectFromDisabledBackups::class,
             ]);
         }
 
@@ -190,6 +195,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             'abuse_cpu_percent' => (int) config('plugged-host-core.abuse.cpu_percent', 90),
             'abuse_cpu_minutes' => (int) config('plugged-host-core.abuse.cpu_minutes', 20),
             'abuse_delete_after_hours' => AbusePurge::hours(),
+            'backups_disabled_nodes' => NodeBackups::disabledNodeIds(),
         ];
 
         // One Select per panel, because a navigation key is a class name and a class only
@@ -275,6 +281,17 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
                         ->suffix('hours')
                         ->required()
                         ->default(fn () => AbusePurge::hours()),
+                ]),
+            Section::make('Backups')
+                ->description('Panel backups are stored on the node\'s own disk. On these nodes servers get no Backups page and cannot make new backups; existing backups stay until deleted. The off-site mirror and failover are not affected.')
+                ->schema([
+                    Select::make('backups_disabled_nodes')
+                        ->label('Backups off on')
+                        ->options(fn () => Node::query()->orderBy('name')->pluck('name', 'id')->all())
+                        ->multiple()
+                        ->searchable()
+                        ->placeholder('No node')
+                        ->default(fn () => NodeBackups::disabledNodeIds()),
                 ]),
             Section::make('Sidebar visibility')
                 ->description('Hide navigation entries you do not want users to see. The pages stay reachable by URL — this only removes them from the sidebar.')
@@ -408,6 +425,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             'ABUSE_CPU_PERCENT' => (string) max(50, min(100, (int) ($data['abuse_cpu_percent'] ?? 90))),
             'ABUSE_CPU_MINUTES' => (string) max(5, min(1440, (int) ($data['abuse_cpu_minutes'] ?? 20))),
             'ABUSE_DELETE_AFTER_HOURS' => (string) max(0, min(8760, (int) ($data['abuse_delete_after_hours'] ?? 24))),
+            'BACKUPS_DISABLED_NODES' => implode(',', array_filter(array_map('intval', (array) ($data['backups_disabled_nodes'] ?? [])))),
         ];
 
         $webhook = trim((string) ($data['abuse_alert_webhook'] ?? ''));

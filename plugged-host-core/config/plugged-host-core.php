@@ -61,6 +61,16 @@ return [
     ],
 
     /*
+     * Nodes whose servers get no panel backups, as comma-joined node ids (Support\NodeBackups).
+     * Every panel backup is stored on the node's own disk, so this is for a node that cannot
+     * hold them: no Backups page, and new backups are refused everywhere (panel, client API,
+     * schedules, neo). Existing backups are not touched. Comma-joined like NAV_HIDDEN_ITEMS.
+     */
+    'backups' => [
+        'disabled_nodes' => (string) env('BACKUPS_DISABLED_NODES', ''),
+    ],
+
+    /*
      * noprofit.space integration: single sign-on, the account link and the signed internal
      * API client (PluggedHost\Core\Services\NoprofitClient).
      *
