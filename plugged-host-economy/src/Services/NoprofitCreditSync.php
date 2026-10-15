@@ -436,6 +436,48 @@ final class NoprofitCreditSync
     }
 
     /**
+     * The account's whole noprofit.space pool, for display: per resource the pool (base plus
+     * bought), what its other services (plugged.cloud) use of it, and this panel's share (the
+     * plan's cpu/memory/disk: the pool less that use, which is what is enforced here). Shown
+     * as "used of pool" with the other services' use counted in, as plugged.cloud shows it.
+     * From noprofit.space's total_* / elsewhere_*; a plan sent before those existed is worked
+     * out from base_* and the resources bought.
+     *
+     * @return array{cpu: array{total: int, elsewhere: int, share: int}, memory: array{total: int, elsewhere: int, share: int}, disk: array{total: int, elsewhere: int, share: int}}|null
+     */
+    public static function pool(?User $user): ?array
+    {
+        $plan = self::plan($user);
+
+        if ($plan === null) {
+            return null;
+        }
+
+        $credits = null;
+        $pool = [];
+
+        foreach (['cpu', 'memory', 'disk'] as $resource) {
+            $share = max(0, $plan[$resource]);
+
+            if (isset($plan["total_{$resource}"])) {
+                $total = max(0, $plan["total_{$resource}"]);
+                $elsewhere = max(0, $plan["elsewhere_{$resource}"] ?? $total - $share);
+            } elseif (isset($plan["base_{$resource}"])) {
+                $credits ??= UserCredits::forUser($user);
+                $total = max(0, $plan["base_{$resource}"] + (int) ($credits?->{"extra_{$resource}"} ?? 0));
+                $elsewhere = max(0, $total - $share);
+            } else {
+                $total = $share;
+                $elsewhere = 0;
+            }
+
+            $pool[$resource] = ['total' => $total, 'elsewhere' => $elsewhere, 'share' => $share];
+        }
+
+        return $pool;
+    }
+
+    /**
      * Store prices and the price curve set on noprofit.space ({cpu,memory,storage}_unit /
      * _price_credits and the curve_* keys, see ComputePricing), or null while none are known or
      * the last ones are older than PRICING_MAX_AGE: then the store does not sell CPU, memory or

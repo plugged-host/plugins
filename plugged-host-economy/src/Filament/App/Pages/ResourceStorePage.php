@@ -9,6 +9,7 @@ use Filament\Pages\Page;
 use PluggedHost\Core\Filament\App\Widgets\PerkDiscoveryWidget;
 use PluggedHost\Discord\Livewire\DiscordRewards;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\NoprofitCreditSync;
 use PluggedHost\Economy\Services\ResourceStoreService;
 use PluggedHost\Servers\Support\AccountAllowance;
 
@@ -145,6 +146,8 @@ class ResourceStorePage extends Page
     {
         $allowance = AccountAllowance::forUser($user);
         $usage = AccountAllowance::getUsage($user);
+        // The whole noprofit.space pool and every service's use of it, as in the sidebar.
+        $pool = NoprofitCreditSync::pool($user);
         $pricing = $store->pricing(60);
         $sells = $pricing !== null && $store->sellsComputeTo($user);
         $percent = fn (int $n): string => $n . '%';
@@ -159,6 +162,11 @@ class ResourceStorePage extends Page
         ] as $key => [$label, $format, $method]) {
             $limit = (int) ($allowance?->{$key} ?? 0);
             $used = (int) ($usage[$key] ?? 0);
+
+            if (($part = $pool[$key] ?? null) !== null && $allowance !== null) {
+                $used += $part['elsewhere'];
+                $limit = $part['total'] + max(0, $limit - $part['share']);
+            }
             $current = $store->current($user, $key);
             $priceLimit = $store->limit($user, $key);
             $soft = $pricing?->softLimit($priceLimit) ?? 0;

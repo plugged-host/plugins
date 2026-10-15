@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Economy\Services\NoprofitCreditSync;
 use PluggedHost\Economy\Services\TokenService;
 use Throwable;
 
@@ -126,17 +127,45 @@ class AccountSummary
             ->selectRaw('COALESCE(SUM(disk), 0) AS disk_used')
             ->first();
 
-        return [
+        $summary = [
             'tokens' => $this->tokens($user),
             'credits' => $this->credits($user),
-            'cpu_used' => (int) ($used->cpu_used ?? 0),
-            'cpu_limit' => (int) $limits->cpu,
-            'memory_used' => (int) ($used->memory_used ?? 0),
-            'memory_limit' => (int) $limits->memory,
-            'disk_used' => (int) ($used->disk_used ?? 0),
-            'disk_limit' => (int) $limits->disk,
             'servers_used' => (int) ($used->servers_used ?? 0),
         ];
+
+        // Shown like plugged.cloud shows it: the whole noprofit.space pool (base plus bought,
+        // plus what the allowance adds here, PlusPlus CPU) and what every service uses of it.
+        // What is left is the same as before (the allowance less these servers): only the
+        // enforced share is smaller than the pool by what the other services use.
+        $pool = $this->pool($user);
+
+        foreach (['cpu', 'memory', 'disk'] as $resource) {
+            $own = (int) ($used->{"{$resource}_used"} ?? 0);
+            $allowance = (int) $limits->{$resource};
+            $part = $pool[$resource] ?? null;
+
+            $summary["{$resource}_used"] = $part === null ? $own : $own + $part['elsewhere'];
+            $summary["{$resource}_limit"] = $part === null ? $allowance : $part['total'] + max(0, $allowance - $part['share']);
+            $summary["{$resource}_elsewhere"] = $part['elsewhere'] ?? 0;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @return array<string, array{total: int, elsewhere: int, share: int}>|null
+     */
+    private function pool(User $user): ?array
+    {
+        if (!class_exists(NoprofitCreditSync::class) || !method_exists(NoprofitCreditSync::class, 'pool')) {
+            return null;
+        }
+
+        try {
+            return NoprofitCreditSync::pool($user);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

@@ -45,7 +45,9 @@ final class AccountOverviewTool extends AccountTool
             return ToolResult::ok('This account has no server allowance, so it cannot create servers.', 'No allowance');
         }
 
-        $fmt = static fn (?int $used, ?int $limit, string $unit): string => ($used ?? 0) . $unit . ' used of ' . (($limit ?? 0) > 0 ? $limit . $unit : 'unlimited');
+        // The pool is shared with plugged.cloud: "used" counts its VPSes too.
+        $fmt = static fn (?int $used, ?int $limit, string $unit, int $elsewhere = 0): string => ($used ?? 0) . $unit . ' used of ' . (($limit ?? 0) > 0 ? $limit . $unit : 'unlimited')
+            . ($elsewhere > 0 ? " (of which {$elsewhere}{$unit} by plugged.cloud VPSes)" : '');
         $limits = AccountAllowance::forUser($user);
         $overage = $limits?->getOverage($user) ?? [];
 
@@ -54,9 +56,9 @@ final class AccountOverviewTool extends AccountTool
             'token balance: ' . (int) ($summary['tokens'] ?? 0),
             'credit balance: ' . (int) ($summary['credits'] ?? 0),
             'servers: ' . ($summary['servers_used'] ?? 0),
-            'cpu: ' . $fmt($summary['cpu_used'] ?? 0, $summary['cpu_limit'] ?? 0, '%'),
-            'memory: ' . $fmt($summary['memory_used'] ?? 0, $summary['memory_limit'] ?? 0, ' MB'),
-            'disk: ' . $fmt($summary['disk_used'] ?? 0, $summary['disk_limit'] ?? 0, ' MB'),
+            'cpu: ' . $fmt($summary['cpu_used'] ?? 0, $summary['cpu_limit'] ?? 0, '%', (int) ($summary['cpu_elsewhere'] ?? 0)),
+            'memory: ' . $fmt($summary['memory_used'] ?? 0, $summary['memory_limit'] ?? 0, ' MB', (int) ($summary['memory_elsewhere'] ?? 0)),
+            'disk: ' . $fmt($summary['disk_used'] ?? 0, $summary['disk_limit'] ?? 0, ' MB', (int) ($summary['disk_elsewhere'] ?? 0)),
             'plugged.host Plus: ' . (PremiumAccess::isUnlocked($user, LocationCatalog::PLUS) ? 'yes (Plus locations, queue priority, no in-game ads)' : 'no'),
             'plugged.host PlusPlus: ' . $this->plusPlus($user),
         ];
