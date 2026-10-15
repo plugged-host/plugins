@@ -40,7 +40,7 @@
     --phv2-accent-bright: #3b82f6; /* blue-500 — the accent as text or a ring on dark */
     --phv2-accent-glow: #60a5fa; /* blue-400 — the navigate progress bar */
     --phv2-accent-soft: rgb(29 78 216 / 0.1); /* bg-blue-700/10  — active nav fill */
-    --phv2-accent-tint: rgb(29 78 216 / 0.15); /* bg-blue-700/15 — callout fill */
+    --phv2-accent-tint: rgb(29 78 216 / 0.15); /* bg-blue-700/15 — badge fill */
     --phv2-accent-edge: rgb(29 78 216 / 0.2); /* border-blue-700/20 — active dashes */
     --phv2-accent-icon: rgb(59 130 246 / 0.5); /* text-blue-500/50  — active nav icon */
 
@@ -1846,33 +1846,36 @@ body {
 }
 
 /* =============================================================================
- * Callouts — "w-full border-l-4 bg-orange-600/15 border-orange-600 rounded-r-2xl"
- * with a p-6 body, heading "text-white/90 text-lg font-semibold" and body
- * "text-white/60 text-sm leading-5" (dashboard.ejs). Filament puts --color-* on
- * any .fi-color element, so one rule covers UIExample's orange/green/amber/blue.
+ * Callouts (alert banners: announcements, the console's websocket error, plugin
+ * notes) — the section card's shape, "rounded-2xl p-4", with one flat tint in the
+ * status colour instead of white/5. No ring and no side bar: Filament's ring-1
+ * plus UIExample's border-l-4 on a tinted fill read as three edges on one box.
+ * The status shows in the fill and the icon (color-400); the text stays on the
+ * theme's ramp. Filament puts --color-* on any .fi-color element and leaves gray
+ * callouts without one, so those get the plain card.
  * ============================================================================= */
 
 .fi-callout {
-    background-color: var(--phv2-accent-tint);
-    border-inline-start: 4px solid var(--phv2-accent);
-    border-radius: 0 1rem 1rem 0;
+    background-color: var(--phv2-raise);
+    border-radius: 1rem;
     box-shadow: none;
-    padding: 1.5rem;
+    gap: 0.75rem;
+    padding: 1rem;
 }
 
 .fi-callout.fi-color {
-    background-color: color-mix(in oklab, var(--color-600) 15%, transparent);
-    border-inline-start-color: var(--color-600);
+    background-color: color-mix(in oklab, var(--color-500) 10%, transparent);
 }
 
 .fi-callout .fi-callout-heading {
-    color: rgb(255 255 255 / 0.9);
-    font-size: 1.125rem; /* text-lg */
+    color: var(--phv2-text);
+    font-size: 0.875rem;
     font-weight: 600;
+    line-height: 1.25rem;
 }
 
 .fi-callout .fi-callout-description {
-    color: rgb(255 255 255 / 0.6);
+    color: var(--phv2-text-muted);
     font-size: 0.875rem;
     line-height: 1.25rem;
 }

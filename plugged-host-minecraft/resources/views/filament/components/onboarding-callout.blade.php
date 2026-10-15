@@ -11,8 +11,8 @@
     predates the wizard, or one an admin created, is not gated by RequireServerOnboarding, so the
     console is reachable and this is the only thing that mentions the guide at all.
 
-    Filament's own callout, which theme v2 draws as the accent-tinted bar with a 4px start border
-    — the panel's one callout look. No icon: the heading says it.
+    Filament's own callout, which theme v2 draws as a flat accent-tinted card — the panel's one
+    callout look. No icon: the heading says it.
 --}}
 <div class="mb-6">
     <x-filament::callout
