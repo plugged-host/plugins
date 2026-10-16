@@ -13,13 +13,15 @@ use PluggedHost\Discord\Services\NoprofitDiscordStatus;
 use Throwable;
 
 /**
- * The "Discord servers" tab on the profile page: the Discord servers to join for more memory
- * (plugged.host, plugged.cloud, noprofit.space), which ones the account is in and what each adds
- * to its noprofit.space pool. noprofit.space checks membership and decides the memory; this
+ * The "Discord servers" tab on the profile page: the Discord servers to join for more resources
+ * (plugged.host, plugged.cloud, noprofit.space, and partner servers), which ones the account is
+ * in, what each adds to its noprofit.space pool and the credits some pay once for joining.
+ * noprofit.space checks membership and decides all of it; this
  * shows its answer (NoprofitDiscordStatus), and "Check again" asks it to look right away (at
  * most once a minute).
  *
- * The servers are one list of rows, so other servers can be added to it later.
+ * Our own servers come first, then the partner servers noprofit.space lists in sold slots
+ * (Admin > Discord servers there).
  */
 class DiscordServers extends Component
 {
@@ -74,7 +76,9 @@ class DiscordServers extends Component
         }
 
         Notification::make()
-            ->title(trans('plugged-host-discord::strings.servers.checked', ['amount' => $this->gigabytes((int) $status['memory_bonus'])]))
+            ->title($status['paid'] > 0
+                ? trans('plugged-host-discord::strings.servers.checked_paid', ['credits' => number_format((int) $status['paid'])])
+                : trans('plugged-host-discord::strings.servers.checked'))
             ->success()
             ->send();
     }
@@ -83,24 +87,42 @@ class DiscordServers extends Component
     {
         $user = auth()->user();
         $status = $user instanceof User ? $noprofit->forUser($user) : null;
-        $servers = (array) ($status['servers'] ?? []);
+        $servers = array_map(fn (array $server): array => [
+            'name' => (string) $server['name'],
+            'joined' => (bool) $server['joined'],
+            'boosts' => (int) $server['boosts'],
+            'invite_url' => (string) $server['invite_url'],
+            'own' => (bool) ($server['own'] ?? true),
+            'gain' => $this->gains($server),
+            'credits' => (int) ($server['credits'] ?? 0),
+            'credits_paid' => (bool) ($server['credits_paid'] ?? false),
+        ], (array) ($status['servers'] ?? []));
 
         return view('plugged-host-discord::livewire.servers', [
             'status' => $status,
-            'linkUrl' => class_exists(NoprofitLink::class) ? NoprofitLink::accountsUrl('/settings') : null,
-            'servers' => array_map(fn (array $server): array => [
-                'name' => (string) $server['name'],
-                'joined' => (bool) $server['joined'],
-                'boosts' => (int) $server['boosts'],
-                'invite_url' => (string) $server['invite_url'],
-                'gain' => $this->gigabytes((int) ($status['memory_per_server'] ?? 0)),
-            ], $servers),
-            'joined' => count(array_filter($servers, fn (array $server): bool => (bool) $server['joined'])),
-            'bonus' => $this->gigabytes((int) ($status['memory_bonus'] ?? 0)),
-            'maxBonus' => $this->gigabytes((int) ($status['max_memory_bonus'] ?? 0)),
-            'perServer' => $this->gigabytes((int) ($status['memory_per_server'] ?? 0)),
+            'linkUrl' => class_exists(NoprofitLink::class) ? NoprofitLink::accountsUrl('/discord') : null,
+            'own' => array_values(array_filter($servers, fn (array $server): bool => $server['own'])),
+            'partners' => array_values(array_filter($servers, fn (array $server): bool => !$server['own'])),
+            'joined' => count(array_filter($servers, fn (array $server): bool => $server['joined'])),
+            'total' => count($servers),
+            'bonus' => $this->gains((array) ($status['bonus'] ?? ['memory' => $status['memory_bonus'] ?? 0])),
+            'maxBonus' => $this->gains((array) ($status['max_bonus'] ?? ['memory' => $status['max_memory_bonus'] ?? 0])),
             'allServers' => $this->gigabytes((int) ($status['memory_all_servers'] ?? 0)),
         ]);
+    }
+
+    /**
+     * What a server (or all of them) adds to the pool: "+1 GB RAM, +50% CPU". Empty for nothing.
+     *
+     * @param  array<string, mixed>  $resources
+     */
+    private function gains(array $resources): string
+    {
+        return implode(', ', array_filter([
+            ($resources['memory'] ?? 0) > 0 ? trans('plugged-host-discord::strings.servers.gain_memory', ['amount' => $this->gigabytes((int) $resources['memory'])]) : null,
+            ($resources['cpu'] ?? 0) > 0 ? trans('plugged-host-discord::strings.servers.gain_cpu', ['amount' => (int) $resources['cpu']]) : null,
+            ($resources['disk'] ?? 0) > 0 ? trans('plugged-host-discord::strings.servers.gain_disk', ['amount' => $this->gigabytes((int) $resources['disk'])]) : null,
+        ]));
     }
 
     private function gigabytes(int $mebibytes): string
