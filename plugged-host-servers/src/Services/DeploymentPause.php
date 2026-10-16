@@ -175,7 +175,7 @@ class DeploymentPause
         // Paused for load and now under the line: open again once it has stayed clearly under
         // it for a while.
         $worst = $this->worst($reading);
-        $calm = $worst === null || $worst <= $limit - $this->reopenMargin();
+        $calm = $worst === null || $worst <= $this->reopenLine($limit);
         $calmSince = $calm ? ($previous['calm_since'] ?? $now) : null;
 
         if ($calmSince !== null && $now - $calmSince >= $this->reopenMinutes() * 60) {
@@ -200,6 +200,24 @@ class DeploymentPause
         $queue = $queue > 0 && $queue <= 100 ? $queue : 85.0;
 
         return $small ? max(1.0, $queue - $this->smallOffset()) : $queue;
+    }
+
+    /** What a node paused for load has to stay at or under for `reopen_minutes` to open again. */
+    public function reopenLine(float $limit): float
+    {
+        return $limit - $this->reopenMargin();
+    }
+
+    /**
+     * When a paused node that is already calm opens again, or null while it is not calm yet.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    public function reopensAt(array $state): ?int
+    {
+        $calmSince = $state['calm_since'] ?? null;
+
+        return $calmSince === null ? null : (int) $calmSince + $this->reopenMinutes() * 60;
     }
 
     /** Under 34 GB of RAM or under 9 threads. Unknown sizes count as big. */
@@ -293,7 +311,7 @@ class DeploymentPause
         return max(0.0, (float) config('plugged-host-servers.deploy_pause.reopen_margin', 5));
     }
 
-    protected function reopenMinutes(): int
+    public function reopenMinutes(): int
     {
         return max(1, (int) config('plugged-host-servers.deploy_pause.reopen_minutes', 10));
     }
