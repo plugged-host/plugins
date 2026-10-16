@@ -22,8 +22,8 @@ use Throwable;
  * location does not flicker between open and full while a node hovers around its line:
  *
  *   - over the line → paused at once;
- *   - paused → open again only after `reopen_minutes` straight at least `reopen_margin`
- *     points under the line;
+ *   - paused → open again as soon as both the reading and the average of the last
+ *     `average_minutes` readings are under the line, so one spike does not keep it out;
  *   - no answer `unreachable_after` times in a row → paused, open again on the first answer
  *     under the line.
  *
@@ -73,7 +73,7 @@ class DeploymentPause
     /**
      * The last evaluation of a node, or null when there is none (never run, or lapsed).
      *
-     * @return null|array{paused: bool, reason: ?string, percent: ?float, limit: float, small: bool, memory: ?float, cpu: ?float, memory_total: ?int, threads: ?int, failures: int, since: ?int, calm_since: ?int, checked_at: int}
+     * @return null|array{paused: bool, reason: ?string, percent: ?float, averaged: bool, limit: float, small: bool, memory: ?float, cpu: ?float, average: array{memory: ?float, cpu: ?float}, samples: list<array{at: int, memory: ?float, cpu: ?float}>, memory_total: ?int, threads: ?int, failures: int, since: ?int, checked_at: int}
      */
     public function state(int $nodeId): ?array
     {
@@ -122,20 +122,23 @@ class DeploymentPause
         $threads = $reading['threads'] ?? ($previous['threads'] ?? null);
         $small = $this->isSmall($memoryTotal, $threads);
         $limit = $this->limit($small);
+        $samples = $this->samples($previous['samples'] ?? [], $reading, $now);
 
         $state = [
             'paused' => false,
             'reason' => null,
             'percent' => null,
+            'averaged' => false,
             'limit' => $limit,
             'small' => $small,
             'memory' => $reading['memory'] ?? null,
             'cpu' => $reading['cpu'] ?? null,
+            'average' => $this->average($samples),
+            'samples' => $samples,
             'memory_total' => $memoryTotal,
             'threads' => $threads,
             'failures' => 0,
             'since' => null,
-            'calm_since' => null,
             'checked_at' => $now,
         ];
 
@@ -172,21 +175,19 @@ class DeploymentPause
             return $this->store($node, $state);
         }
 
-        // Paused for load and now under the line: open again once it has stayed clearly under
-        // it for a while.
-        $worst = $this->worst($reading);
-        $calm = $worst === null || $worst <= $this->reopenLine($limit);
-        $calmSince = $calm ? ($previous['calm_since'] ?? $now) : null;
+        // Paused for load and now under the line: open again once the last few minutes'
+        // average is under it too.
+        $over = $this->over($state['average'], $limit);
 
-        if ($calmSince !== null && $now - $calmSince >= $this->reopenMinutes() * 60) {
+        if ($over === null) {
             return $this->store($node, $state);
         }
 
         $state['paused'] = true;
-        $state['reason'] = $previous['reason'];
-        $state['percent'] = $reading[$previous['reason']] ?? null;
+        $state['reason'] = $over;
+        $state['percent'] = $state['average'][$over];
+        $state['averaged'] = true;
         $state['since'] = $previous['since'] ?? $now;
-        $state['calm_since'] = $calmSince;
 
         return $this->store($node, $state);
     }
@@ -200,24 +201,6 @@ class DeploymentPause
         $queue = $queue > 0 && $queue <= 100 ? $queue : 85.0;
 
         return $small ? max(1.0, $queue - $this->smallOffset()) : $queue;
-    }
-
-    /** What a node paused for load has to stay at or under for `reopen_minutes` to open again. */
-    public function reopenLine(float $limit): float
-    {
-        return $limit - $this->reopenMargin();
-    }
-
-    /**
-     * When a paused node that is already calm opens again, or null while it is not calm yet.
-     *
-     * @param  array<string, mixed>  $state
-     */
-    public function reopensAt(array $state): ?int
-    {
-        $calmSince = $state['calm_since'] ?? null;
-
-        return $calmSince === null ? null : (int) $calmSince + $this->reopenMinutes() * 60;
     }
 
     /** Under 34 GB of RAM or under 9 threads. Unknown sizes count as big. */
@@ -283,11 +266,40 @@ class DeploymentPause
         return null;
     }
 
-    protected function worst(array $reading): ?float
+    /**
+     * The readings of the last `average_minutes` minutes, oldest first, this one included.
+     *
+     * @param  array<int, mixed>  $samples
+     * @param  null|array{memory: ?float, cpu: ?float}  $reading
+     * @return list<array{at: int, memory: ?float, cpu: ?float}>
+     */
+    protected function samples(array $samples, ?array $reading, int $now): array
     {
-        $values = array_filter([$reading[self::MEMORY] ?? null, $reading[self::CPU] ?? null], fn ($v) => $v !== null);
+        $minutes = $this->averageMinutes();
 
-        return $values === [] ? null : (float) max($values);
+        if ($reading !== null) {
+            $samples[] = ['at' => $now, 'memory' => $reading['memory'] ?? null, 'cpu' => $reading['cpu'] ?? null];
+        }
+
+        $samples = array_filter($samples, fn ($sample) => is_array($sample) && (int) ($sample['at'] ?? 0) > $now - $minutes * 60);
+
+        return array_values(array_slice($samples, -$minutes));
+    }
+
+    /**
+     * @param  list<array{at: int, memory: ?float, cpu: ?float}>  $samples
+     * @return array{memory: ?float, cpu: ?float}
+     */
+    protected function average(array $samples): array
+    {
+        $average = [];
+
+        foreach ([self::MEMORY, self::CPU] as $dimension) {
+            $values = array_filter(array_column($samples, $dimension), fn ($v) => $v !== null);
+            $average[$dimension] = $values === [] ? null : round(array_sum($values) / count($values), 2);
+        }
+
+        return $average;
     }
 
     /**
@@ -306,14 +318,9 @@ class DeploymentPause
         return max(0.0, (float) config('plugged-host-servers.deploy_pause.small_offset', 10));
     }
 
-    protected function reopenMargin(): float
+    public function averageMinutes(): int
     {
-        return max(0.0, (float) config('plugged-host-servers.deploy_pause.reopen_margin', 5));
-    }
-
-    public function reopenMinutes(): int
-    {
-        return max(1, (int) config('plugged-host-servers.deploy_pause.reopen_minutes', 10));
+        return max(1, (int) config('plugged-host-servers.deploy_pause.average_minutes', 5));
     }
 
     protected function unreachableAfter(): int

@@ -55,36 +55,16 @@ class DeploymentPauseProvider extends ServiceProvider
             return trans('plugged-host-servers::strings.deploy_pause.unreachable');
         }
 
-        $limit = (float) $state['limit'];
+        $limit = (int) round((float) $state['limit']);
+        // A whole number unless rounding would hide that it is over the line (85.4 → "85%").
+        $percent = round((float) $state['percent']) > $limit ? (int) round((float) $state['percent']) : round((float) $state['percent'], 1);
 
-        if ((float) $state['percent'] > $limit) {
-            return trans('plugged-host-servers::strings.deploy_pause.paused', [
-                'what' => trans('plugged-host-servers::strings.deploy_pause.' . $state['reason']),
-                'percent' => (int) round((float) $state['percent']),
-                'limit' => (int) round($limit),
-            ]);
-        }
-
-        // Back under the line but still cooling down: the higher of RAM and CPU decides when it
-        // opens again, so name that one and when, not the line it is already under.
-        [$what, $percent] = ($state['cpu'] ?? -1) > ($state['memory'] ?? -1)
-            ? [DeploymentPause::CPU, $state['cpu']]
-            : [DeploymentPause::MEMORY, $state['memory'] ?? $state['percent']];
-        $reopensAt = $pause->reopensAt($state);
-        $replace = [
-            'what' => trans('plugged-host-servers::strings.deploy_pause.' . $what),
-            'percent' => (int) round((float) $percent),
-        ];
-
-        if ($reopensAt !== null) {
-            return trans('plugged-host-servers::strings.deploy_pause.cooling', $replace + [
-                'minutes' => max(1, (int) ceil(($reopensAt - time()) / 60)),
-            ]);
-        }
-
-        return trans('plugged-host-servers::strings.deploy_pause.settling', $replace + [
-            'minutes' => $pause->reopenMinutes(),
-            'line' => (int) round($pause->reopenLine($limit)),
+        // Back under the line now, but its last minutes' average is not yet.
+        return trans('plugged-host-servers::strings.deploy_pause.' . (($state['averaged'] ?? false) ? 'averaged' : 'paused'), [
+            'what' => trans('plugged-host-servers::strings.deploy_pause.' . $state['reason']),
+            'percent' => $percent,
+            'limit' => $limit,
+            'minutes' => $pause->averageMinutes(),
         ]);
     }
 }
