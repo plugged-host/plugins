@@ -57,9 +57,33 @@ return [
         'level_first' => ':credits Credits',
         'level_more' => ':credits mehr, :total insgesamt',
         'received' => 'Erhalten',
+        'boosts_heading_any' => 'Unsere Server boosten',
+        'boosting_any' => '{1} Du boostest mit 1 Boost. Danke!|[2,*] Du boostest mit :count Boosts. Danke!',
+        'not_boosting_any' => 'Du boostest gerade keinen unserer Server.',
+        'boosts_any_rule' => 'Boosts auf :servers zählen alle zusammen.',
         'boosts_once' => 'Jede Stufe wird einmal ausgezahlt.',
         'history' => 'Belohnungsverlauf',
         'history_empty' => 'Noch keine Discord-Belohnungen.',
+    ],
+    // Der Tab „Discord-Server“ im Profil (Livewire\DiscordServers): die Server, die mehr RAM
+    // geben, entschieden auf noprofit.space.
+    'servers' => [
+        'tab' => 'Discord-Server',
+        'heading' => 'Tritt unseren Discord-Servern bei',
+        'unavailable' => 'Deine Discord-Server können gerade nicht angezeigt werden. Versuche es in einer Minute erneut.',
+        'unlinked_body' => 'Jeder unserer Discord-Server, auf dem du bist, gibt deinem Konto :per_server RAM, und wenn du auf allen bist, :all mehr. Verknüpfe dein Discord-Konto auf noprofit.space, um loszulegen.',
+        'bonus' => 'RAM von Discord',
+        'bonus_of' => 'Bis zu +:max · auf :joined von :total Servern',
+        'check' => 'Erneut prüfen',
+        'checked' => 'Geprüft. Discord gibt dir jetzt :amount RAM.',
+        'check_failed' => 'noprofit.space ist gerade nicht erreichbar. Versuche es in einer Minute erneut.',
+        'list_heading' => 'Server',
+        'rule' => 'Jeder Server, auf dem du bist, gibt dir :per_server RAM, und wenn du auf allen bist, :all mehr. Wenn du einen davon boostest, bekommst du die Boost-Belohnungen.',
+        'joined' => 'Beigetreten',
+        'not_joined' => 'Nicht beigetreten',
+        'boosting' => '{1} Boostet|[2,*] Boostet ×:count',
+        'join' => 'Beitreten',
+        'how' => 'Die Mitgliedschaften werden alle paar Minuten geprüft. Wenn du einen Server verlässt, verlierst du dessen RAM wieder.',
     ],
     // Beschriftungen des Admin-Einstellungsformulars für in v1.2.0 ergänzte Optionen.
     'settings' => [

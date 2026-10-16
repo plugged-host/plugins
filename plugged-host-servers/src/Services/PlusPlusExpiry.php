@@ -15,6 +15,7 @@ use PluggedHost\Servers\Services\Transfers\TransferPlanner;
 use PluggedHost\Servers\Services\Transfers\TransferService;
 use PluggedHost\Servers\Services\Transfers\TransferWatcher;
 use PluggedHost\Servers\Support\AccountAllowance;
+use PluggedHost\Servers\Support\EvenCuts;
 use PluggedHost\Servers\Support\PremiumAccess;
 use Throwable;
 
@@ -252,30 +253,7 @@ class PlusPlusExpiry
      */
     public function evenCuts(array $cpu, int $over): array
     {
-        $cuts = array_fill_keys(array_keys($cpu), 0);
-
-        while ($over > 0) {
-            $room = [];
-            foreach ($cpu as $id => $value) {
-                if (($left = $value - $cuts[$id] - self::MIN_CPU) > 0) {
-                    $room[$id] = $left;
-                }
-            }
-
-            if ($room === []) {
-                break;
-            }
-
-            $share = (int) ceil($over / count($room));
-
-            foreach ($room as $id => $left) {
-                $take = min($share, $left, $over);
-                $cuts[$id] += $take;
-                $over -= $take;
-            }
-        }
-
-        return array_filter($cuts);
+        return EvenCuts::split($cpu, $over, self::MIN_CPU);
     }
 
     /**

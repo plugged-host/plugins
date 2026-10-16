@@ -321,6 +321,8 @@ class DiscordBotService
         if ($user) {
             $syncResult = $this->verificationService->syncBoosts($user, $link);
             $creditsAwarded = (int) ($syncResult['credits_earned'] ?? 0);
+            // noprofit.space pays boost levels (boosts on any of its servers): ask it now.
+            $creditsAwarded += (int) (app(NoprofitDiscordStatus::class)->forUser($user, check: true)['paid'] ?? 0);
         }
 
         $mention = "<@{$targetUserId}>";

@@ -21,8 +21,10 @@ use Illuminate\Support\ServiceProvider;
 use Laravel\Socialite\Facades\Socialite;
 use Livewire\Livewire;
 use PluggedHost\Discord\Livewire\DiscordRewards;
+use PluggedHost\Discord\Livewire\DiscordServers;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\DiscordVerificationService;
+use PluggedHost\Discord\Services\NoprofitDiscordStatus;
 use PluggedHost\Discord\Services\PluggedHostOAuthService;
 use PluggedHost\Discord\Support\DiscordBotSupervisor;
 use PluggedHost\Discord\Support\PluggedHostDiscordSocialiteProvider;
@@ -72,10 +74,12 @@ class DiscordPluginServiceProvider extends ServiceProvider
             });
         }
 
-        // 1b. The Discord rewards tab, first on the profile page. Linking Discord itself stays on
-        // noprofit.space; this shows what invites and boosts earned. Labels are closures: boot()
-        // runs before the user's language is applied.
+        // 1b. The Discord rewards tab, first on the profile page, and the Discord servers tab
+        // after it. Linking Discord itself stays on noprofit.space; rewards shows what invites
+        // and boosts earned, servers the Discord servers to join for more memory (noprofit.space
+        // decides both). Labels are closures: boot() runs before the user's language is applied.
         Livewire::component('plugged-host-discord.rewards', DiscordRewards::class);
+        Livewire::component('plugged-host-discord.servers', DiscordServers::class);
 
         EditProfile::registerCustomTabs(
             TabPosition::Before,
@@ -85,6 +89,12 @@ class DiscordPluginServiceProvider extends ServiceProvider
                 ->label(fn (): string => trans('plugged-host-discord::strings.rewards.tab'))
                 ->visible(fn (): bool => app(DiscordVerificationService::class)->isConfigured())
                 ->schema([View::make('plugged-host-discord::profile.rewards-tab')]),
+            Tab::make()
+                ->key(DiscordServers::TAB_ID)
+                ->id(DiscordServers::TAB_ID)
+                ->label(fn (): string => trans('plugged-host-discord::strings.servers.tab'))
+                ->visible(fn (): bool => NoprofitDiscordStatus::available())
+                ->schema([View::make('plugged-host-discord::profile.servers-tab')]),
         );
 
         // 2. Resolve User relation to DiscordLink
