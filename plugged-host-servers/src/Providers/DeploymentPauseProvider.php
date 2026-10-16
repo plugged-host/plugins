@@ -83,10 +83,16 @@ class DeploymentPauseProvider extends ServiceProvider
             return trans('plugged-host-servers::strings.deploy_pause.unreachable');
         }
 
-        return trans('plugged-host-servers::strings.deploy_pause.paused', [
+        $limit = (int) round((float) $state['limit']);
+        // A whole number unless rounding would hide that it is over the line (85.4 → "85%").
+        $percent = round((float) $state['percent']) > $limit ? (int) round((float) $state['percent']) : round((float) $state['percent'], 1);
+
+        // Back under the line now, but its last minutes' average is not yet.
+        return trans('plugged-host-servers::strings.deploy_pause.' . (($state['averaged'] ?? false) ? 'averaged' : 'paused'), [
             'what' => trans('plugged-host-servers::strings.deploy_pause.' . $state['reason']),
-            'percent' => (int) round((float) $state['percent']),
-            'limit' => (int) round((float) $state['limit']),
+            'percent' => $percent,
+            'limit' => $limit,
+            'minutes' => $pause->averageMinutes(),
         ]);
     }
 }

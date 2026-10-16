@@ -163,14 +163,14 @@ return [
     |
     | PluggedHost\Servers\Services\DeploymentPause, evaluated every minute: a
     | node over the start queue's line (START_QUEUE_THRESHOLD_PERCENT) on
-    | memory or CPU takes no new servers, transfers or queue moves until it has
-    | calmed down. A location whose nodes are all paused shows as Full. Tags
+    | memory or CPU takes no new servers, transfers or queue moves until it is
+    | back under it. A location whose nodes are all paused shows as Full. Tags
     | and the node's `public` flag are never changed.
     |
     | small_memory_gb / small_threads — a node under either is small, and its
     |     line is small_offset points lower.
-    | reopen_margin / reopen_minutes — a paused node opens again after this
-    |     many minutes straight at least this many points under its line.
+    | average_minutes — a paused node opens again once its reading and its
+    |     average over this many minutes are both under its line.
     | unreachable_after — readings in a row without an answer before a node
     |     is paused for not answering.
     |
@@ -180,8 +180,7 @@ return [
         'small_memory_gb' => (float) env('NODES_DEPLOY_PAUSE_SMALL_MEMORY_GB', 34),
         'small_threads' => (int) env('NODES_DEPLOY_PAUSE_SMALL_THREADS', 9),
         'small_offset' => (float) env('NODES_DEPLOY_PAUSE_SMALL_OFFSET', 10),
-        'reopen_margin' => (float) env('NODES_DEPLOY_PAUSE_REOPEN_MARGIN', 5),
-        'reopen_minutes' => (int) env('NODES_DEPLOY_PAUSE_REOPEN_MINUTES', 10),
+        'average_minutes' => (int) env('NODES_DEPLOY_PAUSE_AVERAGE_MINUTES', 5),
         'unreachable_after' => (int) env('NODES_DEPLOY_PAUSE_UNREACHABLE_AFTER', 3),
     ],
 

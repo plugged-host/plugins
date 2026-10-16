@@ -94,6 +94,7 @@ return [
     'location_full' => 'Voll',
     'deploy_pause' => [
         'paused' => 'Deployment pausiert: :what :percent% (Grenze :limit%)',
+        'averaged' => 'Deployment pausiert: :what :percent% im :minutes-Min.-Schnitt (Grenze :limit%)',
         'unreachable' => 'Deployment pausiert: antwortet nicht',
         'memory' => 'RAM',
         'cpu' => 'CPU',

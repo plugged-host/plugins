@@ -94,6 +94,7 @@ return [
     'location_full' => 'Full',
     'deploy_pause' => [
         'paused' => 'Deployment paused: :what :percent% (line :limit%)',
+        'averaged' => 'Deployment paused: :what :minutes-min average :percent% (line :limit%)',
         'unreachable' => 'Deployment paused: not answering',
         'memory' => 'RAM',
         'cpu' => 'CPU',

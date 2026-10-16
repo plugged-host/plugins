@@ -41,7 +41,7 @@ class DeploymentPauseCommand extends Command
                 $percent($state['memory']),
                 $percent($state['cpu']),
                 $state['paused']
-                    ? 'paused: ' . $state['reason'] . ($state['calm_since'] ? ', calm for ' . (int) floor((time() - $state['calm_since']) / 60) . ' min' : '')
+                    ? 'paused: ' . $state['reason'] . (($state['averaged'] ?? false) ? ', ' . $pause->averageMinutes() . '-min average ' . $percent($state['percent']) : '')
                     : 'open',
             ])->values()->all(),
         );
