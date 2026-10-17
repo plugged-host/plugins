@@ -2,6 +2,11 @@
 
 ## 2.2.0 (unreleased)
 
+- **Two panel boxes**: prod's sessions, cache, queue and maintenance mode can live in the
+  (replicated) database, so either box can answer any request. Migration
+  `010_create_database_cache_tables` adds Laravel's `cache`/`cache_locks` tables and an index on
+  `sessions.last_activity`; `DatabaseCachePluginProvider` deletes expired cache rows and locks
+  hourly (in batches) while the default cache store is a database one.
 - **One version for plugged.host**: `v<major major>.<major>.<patch>.<commit>` (e.g. v2.2.0.9b53c14),
   from the plugins repo's `VERSION` file plus the checkout's commit (`Support\Release`). Shown at
   the foot of every panel page, on error pages, the backups portal, `plugged-host:doctor`, in the
