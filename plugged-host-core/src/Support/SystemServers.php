@@ -11,7 +11,9 @@ use Throwable;
  * Servers the platform runs for itself rather than for a customer (a devbox next to a game
  * server, see plugged-host-devbox). They are real Pelican servers so Wings runs them, but the
  * subsystems that look after customers' servers (storage mirrors, failover, limbo, load
- * balancing) skip them, and abuse findings are pinned on the person they belong to.
+ * balancing) skip them, the panel's server lists and global search leave them out (see
+ * plugged-host-devbox's ServerListsPluginProvider), and abuse findings are pinned on the person
+ * they belong to.
  *
  * Marked by an external_id starting with PREFIX, which is cheap to filter in SQL. The plugin
  * that owns them keeps its own table as the source of truth; the marker is only the filter.
@@ -58,6 +60,19 @@ final class SystemServers
             $query->whereNull($query->qualifyColumn('external_id'))
                 ->orWhere($query->qualifyColumn('external_id'), 'not like', self::PREFIX . '%');
         });
+    }
+
+    /**
+     * The complement of exclude(): system servers only.
+     *
+     * @template TBuilder of Builder
+     *
+     * @param  TBuilder  $query
+     * @return TBuilder
+     */
+    public static function only(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('external_id'), 'like', self::PREFIX . '%');
     }
 
     /**
