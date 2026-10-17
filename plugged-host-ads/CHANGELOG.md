@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.2.0 (unreleased)
+
+- **Sponsored banners**: banners the owner sells himself, uploaded in **Admin › Panel › Sponsored
+  banners** (PNG, JPG, WebP or GIF up to 4 MB on the public disk under `plugged-host-ads/banners/`;
+  link, advertiser, placement, optional start/end, active switch; the list shows status and clicks).
+  Placement **Adsterra slots**: the image must be an Adsterra size or twice it (`1456x180` is a
+  `728x90`, `AdBannerService::family()`), and a live one takes the place of the Adsterra unit of its
+  size wherever `AdsterraService` hands one out (page foot, the `300x250` slots, the server-tools
+  strip, the waiting rooms' leaderboard and extra zones), at most once per page, several taking
+  turns; Adsterra's zones are still taken, so every other placement is unchanged, and with none live
+  Adsterra is exactly as before. Placement **Top banner**: full width at `CONTENT_START`, above the
+  page heading on every app and server page, any size, rotating per page load. Both scale down to the
+  container and never past their size, carry a "Sponsored" caption (the waiting rooms keep their one
+  caption) and the alt text "Sponsored: advertiser", and link through `GET /ads/b/{id}`, which counts
+  the click (one atomic UPDATE, prefetches not counted) and redirects to the stored https link only.
+  Same audience as every ad (`AdDisplayService::showsAdsTo()`, split out of `shouldDisplay()`), so
+  PlusPlus and exempt roles see none; `hasUnit()` also counts a live slot banner, so the slots show
+  one without Adsterra configured. The live list is cached for 60 s and cleared on every save.
+  Migration `2026_10_17_000000_create_plugged_host_ad_banners_table`.
+
 ## Unreleased (2.1)
 
 - **Unfilled units fold away**: a sandboxed unit whose document has loaded but holds no ad after

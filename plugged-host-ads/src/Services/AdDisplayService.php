@@ -3,6 +3,7 @@
 namespace PluggedHost\Ads\Services;
 
 use App\Models\User;
+use PluggedHost\Ads\Models\AdBanner;
 use PluggedHost\Core\Support\Plugins;
 
 class AdDisplayService
@@ -56,7 +57,10 @@ class AdDisplayService
      */
     protected static array $exemptUserMemo = [];
 
-    public function __construct(protected AdsterraService $adsterra) {}
+    public function __construct(
+        protected AdsterraService $adsterra,
+        protected AdBannerService $sponsored,
+    ) {}
 
     /**
      * @param  callable(): bool  $check
@@ -193,14 +197,24 @@ class AdDisplayService
     }
 
     /**
-     * Is there anything at all to render? Adsterra is now the only network, so
-     * this is exactly "did an admin paste in at least one usable unit" — and it
-     * is what makes an unconfigured install render nothing rather than an empty
-     * bordered box.
+     * Is there anything at all to render in the ad slots? "Did an admin paste in at
+     * least one usable Adsterra unit", or is a sponsored banner for the slots live —
+     * which takes Adsterra's place there and so needs no Adsterra to show. It is what
+     * makes an unconfigured install render nothing rather than an empty bordered box.
+     *
+     * Adsterra is asked first: it is config, the banners are a cache read.
      */
     public function hasUnit(): bool
     {
-        return $this->adsterra->isConfigured();
+        if ($this->adsterra->isConfigured()) {
+            return true;
+        }
+
+        try {
+            return $this->sponsored->hasLive(AdBanner::PLACEMENT_SLOTS);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function shouldDisplay(?User $user = null, ?string $panelId = null, bool $isAuthPage = false): bool
@@ -210,6 +224,22 @@ class AdDisplayService
         }
 
         if (!$this->hasUnit()) {
+            return false;
+        }
+
+        return $this->showsAdsTo($user, $panelId, $isAuthPage);
+    }
+
+    /**
+     * The audience rule on its own: does this user, on this panel, see advertising at
+     * all? The master switch, signed-out pages, the per-panel switch and the exemptions
+     * (roles, and what other plugins registered: PlusPlus). `shouldDisplay()` is this
+     * plus "is there a unit to show"; the top banner asks it directly, because it is its
+     * own unit and needs no Adsterra.
+     */
+    public function showsAdsTo(?User $user = null, ?string $panelId = null, bool $isAuthPage = false): bool
+    {
+        if (!$this->isEnabled()) {
             return false;
         }
 

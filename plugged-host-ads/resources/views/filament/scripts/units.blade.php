@@ -20,7 +20,10 @@
 
      Sandboxed units only (iframe[srcdoc]): each is a self-contained document, so reloading it
      cannot touch the panel. Inline units write into the top document and the page-level
-     formats (Social Bar, Popunder) are not units at all; neither is refreshed. --}}
+     formats (Social Bar, Popunder) are not units at all; neither is refreshed.
+
+     Sponsored banners (data-ph-unit="direct", AdBannerService) are our own image and link, not
+     a frame: never folded, never refreshed, and they keep their slot showing. --}}
 <script data-plugged-host="ad-units" data-navigate-once>
 (() => {
     'use strict';

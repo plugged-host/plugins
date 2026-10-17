@@ -4,6 +4,7 @@ namespace PluggedHost\Ads\Services;
 
 use JsonException;
 use stdClass;
+use Throwable;
 
 /**
  * Turns the Adsterra settings into renderable units.
@@ -21,6 +22,10 @@ use stdClass;
  * Third, a zone is served at most once per page: every banner and the native unit
  * are handed out from a request-scoped pool (`take*()`), so two placements on one
  * page can never ask for the same zone, which splits its fill.
+ *
+ * Fourth, a sponsored banner the owner sold himself (AdBannerService, format `direct`)
+ * takes the place of the banner unit of its size wherever one is handed out here. With
+ * none live for that size, the unit is Adsterra's exactly as it was.
  *
  * @phpstan-type AdsterraUnit array{id: string, format: string, width: int|null, height: int, isolated: bool, document: string|null, markup: string|null, options: string|null, src: string|null, units?: array<int, array<string, mixed>>}
  * @phpstan-type BannerZone array{key: string, size: string, host: string}
@@ -56,6 +61,8 @@ class AdsterraService
     /** @var array<int, AdsterraUnit>|null */
     protected ?array $gateUnits = null;
 
+    public function __construct(protected AdBannerService $sponsored) {}
+
     /**
      * Units for the in-content slot at the foot of every page, in render order.
      *
@@ -82,14 +89,45 @@ class AdsterraService
         foreach ($specs as $spec) {
             $spec = trim((string) $spec);
 
-            $units[] = match (true) {
-                $spec === 'native' => $this->takeNative(),
-                str_contains($spec, '|') => $this->pick(explode('|', $spec)),
-                default => $this->takeBanner($spec),
-            };
+            $units[] = $spec === 'native' ? $this->takeNative() : $this->takeSpec($spec);
         }
 
         return array_values(array_filter($units));
+    }
+
+    /**
+     * One banner spec: a size, or sizes joined by `|`.
+     *
+     * Adsterra's unit is taken from the pool exactly as before, and then a live sponsored
+     * banner of one of the spec's sizes that is not on the page yet takes its place. The
+     * zones are taken all the same, on purpose: every other placement on the page (and the
+     * waiting room's extras) then gets the zones it always got, so a sponsored banner changes
+     * the one unit it replaces and nothing else. A spec Adsterra has no zone for still takes
+     * a sponsored banner of its size.
+     *
+     * @return AdsterraUnit|array<string, mixed>|null
+     */
+    protected function takeSpec(string $spec): ?array
+    {
+        $unit = str_contains($spec, '|') ? $this->pick(explode('|', $spec)) : $this->takeBanner($spec);
+
+        return $this->sponsoredFor(explode('|', $spec)) ?? $unit;
+    }
+
+    /**
+     * A sponsored banner for these sizes, or null. Never throws: no banner is the fallback,
+     * and the fallback is the Adsterra unit.
+     *
+     * @param  array<int, string>  $sizes
+     * @return array<string, mixed>|null
+     */
+    protected function sponsoredFor(array $sizes): ?array
+    {
+        try {
+            return $this->sponsored->take($sizes);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -116,7 +154,7 @@ class AdsterraService
         $units = [];
 
         if ($this->gateAdEnabled('banner', true)) {
-            $units[] = $this->pick(explode('|', self::LEADERBOARD));
+            $units[] = $this->takeSpec(self::LEADERBOARD);
         }
 
         $extra = 0;
@@ -132,8 +170,10 @@ class AdsterraService
 
             $unit = $this->takeZone($zone);
 
+            // Each extra zone is a slot of its size: a sponsored banner of that size not shown
+            // yet takes it, the way it takes the leaderboard above.
             if ($unit !== null) {
-                $units[] = $unit;
+                $units[] = $this->sponsoredFor([$zone['size']]) ?? $unit;
                 $extra++;
             }
         }
@@ -142,7 +182,12 @@ class AdsterraService
             $units[] = $this->takeNative();
         }
 
-        return $this->gateUnits = array_values(array_filter($units));
+        // The room's stack carries one "Sponsored" caption for all of its units, so a sponsored
+        // banner does not add its own here.
+        return $this->gateUnits = array_map(
+            fn (array $unit): array => ($unit['format'] ?? '') === 'direct' ? array_merge($unit, ['label' => false]) : $unit,
+            array_values(array_filter($units)),
+        );
     }
 
     /**

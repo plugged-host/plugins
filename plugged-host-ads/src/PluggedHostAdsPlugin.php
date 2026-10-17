@@ -32,6 +32,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
     {
         $id = str($panel->getId())->title();
 
+        $panel->discoverResources(plugin_path($this->getId(), "src/Filament/$id/Resources"), "PluggedHost\\Ads\\Filament\\$id\\Resources");
         $panel->discoverPages(plugin_path($this->getId(), "src/Filament/$id/Pages"), "PluggedHost\\Ads\\Filament\\$id\\Pages");
         $panel->discoverWidgets(plugin_path($this->getId(), "src/Filament/$id/Widgets"), "PluggedHost\\Ads\\Filament\\$id\\Widgets");
 

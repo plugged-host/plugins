@@ -11,6 +11,9 @@ optional ad-funded start gate, without modifying a single core panel file.
   an opaque origin, so ad code cannot reach the panel's DOM, cookies, or Livewire state.
 - **Flexible panel targeting**: App panel, server panel, admin panel, auth pages — each a toggle.
 - **Role exemptions**: exclude VIP, donor, or staff roles from seeing ads.
+- **Sponsored banners**: banners you sell yourself, uploaded as an image in **Admin › Panel ›
+  Sponsored banners**, shown in Adsterra's slots in place of the unit of their size or as a top banner
+  above every page heading (see [Sponsored banners](#sponsored-banners)).
 - **Ad-block response** (off by default): multi-signal detection with an inline notice, a dismissible
   modal, or a hard block.
 - **Start gate** (off by default): pressing Start — or Restart — on a server bigger than the Starter
@@ -153,6 +156,43 @@ stack with no unit left showing is taken out of the flow. A late fill unfolds it
 load is folded: a refreshed unit that comes back empty keeps its space and is refreshed again, and a
 first load starts its refresh clock only once it has filled. The ad-block detector ignores folded units,
 so a declined unit is never evidence of a blocker.
+
+## Sponsored banners
+
+Banners the owner sells himself (on Discord, say) and uploads in **Admin › Panel › Sponsored banners**
+(`AdBannerResource`; whoever may update plugins may manage them). Each is one image (PNG, JPG, WebP or
+GIF, up to 4 MB, stored on the public disk under `plugged-host-ads/banners/` and served from `/storage`),
+a link (`https://` only), the advertiser (public: the alt text reads "Sponsored: advertiser"), a
+placement, an optional start and end, and an active switch. Outside its window, or switched off, a
+banner is not shown; an ended one stays in the list, marked ended. The list shows each banner's status
+and clicks.
+
+| Placement | Where | Size |
+|---|---|---|
+| Adsterra slots | In place of the Adsterra unit of its size: the foot of every page, the `300x250` slots, the `server-tools` strip, the waiting rooms' leaderboard and extra zones | An Adsterra size, or twice it (`1456x180` is a sharp `728x90`) |
+| Top banner | Full width above the breadcrumbs and heading of every app and server page (`CONTENT_START`) | Any; wide and short works best |
+
+- **Slots.** Every banner unit `AdsterraService` hands out (`unitsFor()`, `gateUnits()`) first takes its
+  Adsterra zones exactly as before, then a live slot banner of one of the unit's sizes that is not on
+  the page yet takes its place (`AdBannerService::take()`, a random one when several fit, so they take
+  turns). The zones are taken anyway, so every other placement on the page gets the zones it always
+  got. With no banner live for a size, nothing changes. A banner is laid out at its slot size (a 2x
+  image at half its pixels), scales down to the slot on a phone instead of being cut or left out, and
+  is never wider than its size. It is not a frame: the unit script never folds it as unfilled and never
+  refreshes it, and it keeps its slot showing (`data-ph-unit="direct"`).
+- **Top banner.** One random live top banner per page load (wire:navigate included, never on a
+  Livewire update). Nothing renders when none is live.
+- **Who sees them**: exactly who sees any ad (`AdDisplayService::showsAdsTo()`: master switch, panel
+  switches, exempt roles, PlusPlus). `hasUnit()` also counts a live slot banner, so the slots show one
+  without Adsterra configured. There is no sidebar placement.
+- **Clicks** go through `GET /ads/b/{id}`, which adds one to the banner's count (one atomic UPDATE,
+  browser prefetches not counted) and redirects to that banner's stored link. It takes no URL, so it
+  cannot be used as an open redirect; an unknown id is a 404. Links are `target="_blank"
+  rel="sponsored noopener"`, and every banner carries a small "Sponsored" caption (in the waiting rooms,
+  their one caption covers the whole stack).
+- The banners that can still show are cached for 60 s (`plugged-host-ads:banners:v1`) and the cache is
+  cleared on every save and delete; start and end are compared on every read, so a window opens and
+  closes to the second. A replaced or deleted banner's image is deleted from the disk.
 
 ## Ad refresh
 
@@ -500,6 +540,7 @@ Dotenv refuses to parse, which would take the whole panel down on the next reque
 
 | Render hook | Content |
 |---|---|
+| `CONTENT_START` | The top sponsored banner on app and server pages, when one is live |
 | `CONTENT_END`, `SIMPLE_LAYOUT_END` | The ad slot: notice anchor, leaderboard and native frames |
 | `PAGE_HEADER_WIDGETS_AFTER` | The `server-tools` strip on server pages (by page class: not the console or waiting pages) |
 | `BODY_END` | Adsterra Social Bar and Popunder scripts; the waiting room's own zone; `linkvertise.js` on the earn page only |
@@ -523,7 +564,10 @@ allowed to load.
 
 - After changing plugin code or `.env`: `sudo -u www-data php artisan optimize:clear`. Do **not** run
   `config:cache` — plugin configs are read at runtime and settings live in `.env`.
-- This plugin ships two migrations, so a deploy needs `sudo -u www-data php artisan migrate`. `001_`
+- Sponsored banners need their table, so a deploy needs `sudo -u www-data php artisan migrate`
+  (`2026_10_17_000000_create_plugged_host_ad_banners_table`). Until it has run the admin page stays
+  hidden and no banner renders.
+- The two start-credits migrations moved to `plugged-host-economy` in 1.2.0. `001_`
   creates four tables under their original names; `002_` renames three of them —
   `ads_start_credits` → `user_tokens` (and its `credits` column → `tokens`),
   `ads_start_credit_transactions` → `token_transactions`, `ads_start_credit_claims` → `token_claims` —
@@ -581,5 +625,5 @@ or a blocked page will look like a page with no ads on it.
 Version 1.2.0 removed the a-ads unit; Adsterra is the only network. `ADS_PROVIDER`, `ADS_UNIT_ID` and
 `ADS_IFRAME_WIDTH` are no longer read, so leaving them in `.env` is harmless but pointless — delete
 them. If nothing was ever pasted into the Adsterra fields, removing a-ads means the slot now renders
-nothing at all: `hasUnit()` is exactly "Adsterra is configured", and with it false the slot, the
-detector and the start gate all stand down together.
+nothing at all: `hasUnit()` is "Adsterra is configured, or a sponsored banner for the slots is live",
+and with it false the slot and the detector stand down together (the start gate needs Adsterra itself).

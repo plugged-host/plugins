@@ -15,6 +15,9 @@
             <template data-ph-width="{{ (int) ($candidate['width'] ?? 0) }}">@include('plugged-host-ads::filament.adsterra-unit', ['unit' => $candidate, 'sandbox' => $sandbox])</template>
         @endforeach
     </div>
+@elseif (($unit['format'] ?? '') === 'direct')
+    {{-- A sponsored banner in this unit's place (AdBannerService::take()). --}}
+    @include('plugged-host-ads::filament.direct-banner', ['unit' => $unit])
 @elseif ($isolated)
     <iframe data-ph-unit="adsterra-{{ $unit['format'] }}"
             sandbox="{{ $sandbox }}"

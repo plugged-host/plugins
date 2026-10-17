@@ -11,7 +11,11 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use App\Filament\App\Resources\Servers\Pages\ListServers;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
 use PluggedHost\Ads\Filament\Server\Pages\StartGatePage;
+use PluggedHost\Ads\Http\Controllers\AdBannerClickController;
+use PluggedHost\Ads\Models\AdBanner;
+use PluggedHost\Ads\Services\AdBannerService;
 use PluggedHost\Ads\Services\AdDisplayService;
 use PluggedHost\Ads\Services\AdsterraService;
 use Throwable;
@@ -20,6 +24,7 @@ class AdsPluginServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->singleton(AdBannerService::class);
         $this->app->singleton(AdsterraService::class);
         $this->app->singleton(AdDisplayService::class);
     }
@@ -38,10 +43,66 @@ class AdsPluginServiceProvider extends ServiceProvider
         );
 
         $this->registerSlot();
+        $this->registerTopBanner();
         $this->registerPageLevelUnits();
         $this->registerNamedSlotHooks();
         $this->registerAdBlockResponse();
         $this->registerUnitScript();
+        $this->registerBannerClicks();
+    }
+
+    /**
+     * The top banner: a sponsored banner placed "top", full width above the page heading on
+     * every app and server page. CONTENT_START is the layout's, inside <main> and before the
+     * page component, so it sits under the topbar and over the breadcrumbs and heading, and it
+     * is rendered once per page load (wire:navigate included) and never on a Livewire update:
+     * a poll cannot swap it, and it rotates per page load, not per tick.
+     *
+     * Nothing renders when no top banner is live, so there is no empty box. Who sees it is the
+     * same rule as every other ad (AdDisplayService::showsAdsTo()); it needs no Adsterra.
+     */
+    protected function registerTopBanner(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::CONTENT_START,
+            function (): ?Htmlable {
+                try {
+                    [$user, $panelId, $isAuthPage] = $this->context();
+
+                    if (!in_array($panelId, ['app', 'server'], true)) {
+                        return null;
+                    }
+
+                    $banners = app(AdBannerService::class);
+
+                    // The cache read first: most pages have no top banner, and the audience
+                    // rule can reach the database (roles, memberships).
+                    if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)
+                        || !app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
+                        return null;
+                    }
+
+                    $unit = $banners->top();
+
+                    return $unit === null ? null : new HtmlString(view('plugged-host-ads::filament.top-banner', [
+                        'unit' => $unit,
+                    ])->render());
+                } catch (Throwable) {
+                    return null;
+                }
+            },
+        );
+    }
+
+    /**
+     * GET /ads/b/{banner}: counts a click on a sponsored banner and sends the browser to that
+     * banner's stored link. Stateless (no session, no cookies), see AdBannerClickController.
+     */
+    protected function registerBannerClicks(): void
+    {
+        Route::get('/ads/b/{banner}', AdBannerClickController::class)
+            ->whereNumber('banner')
+            ->name('plugged-host-ads.banner');
     }
 
     /**
