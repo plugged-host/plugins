@@ -42,9 +42,30 @@
   (`NeoBackend::activationUrl()`). neo's texts, its knowledge and its Discord prompt name the
   account portal (`:portal`) and only mention noprofit.space when it is the account system.
   neo-on-Discord takes the panel user from `discordUsage()['user_id']`.
+- From prod (2.1): **neo and rux see images.** Screenshots sent to neo or rux on Discord (and
+  the replied-to message's) and images in neo's panel chat (button, paste or drop, up to four,
+  `Agent\ChatImages` on the private disk, owner-only `/neo/images/{message}/{index}`) reach the
+  model as image parts (`Support\MessageContent`, `Support\ImageInput`: shrunk JPEGs). The
+  translators send them as OpenAI `image_url`, Gemini `inlineData` and Anthropic image blocks, and
+  `ProviderChain` tries the slots that see images first (`seesImages()`: the slot's "Sees images"
+  toggle, `NEO_P{n}_VISION` standalone or noprofit.space's, by driver until set), the others get
+  a note in their place.
+- From prod (2.1): **rux orders try the premium slot first** (`RuxAi::turn(..., premium: true)`);
+  message checks never use it. Provider cooldowns now apply (Redis hands the timestamp back as a
+  string; `ProviderChain::coolingDownUntil()` wanted an int, so a slot out of quota was asked
+  again every few seconds). **Spam without AI** (`Rux\Watch\SpamGuard`, `RUX_SPAM*`,
+  `plugged-host:rux-spam`; guideline G5 is gone). Rule checks get `Rux\Rules\ServerFacts`, each
+  rule's exceptions (`not_when`, `rux_rules.exceptions`) and the replied-to message
+  (`rux_watch_queue.replied_to`): migration `019_add_exceptions_to_rux_rules_table`.
 
 ## Unreleased (2.1)
 
+- **Model picker in neo's chat**: "Other models" (1x usage) or noprofit.space's premium model
+  (named after its slot's label, e.g. Haiku 5.5; counted at `NEO_PREMIUM_MULTIPLIER`, 2x;
+  PlusPlus only, a locked option leads to the Plus page). The pick is per user
+  (`neo_user_settings.model`, migration 017) and sent as `model` on each turn; without PlusPlus
+  turns stay standard. Provider slots get a "Premium model" switch and the limits a multiplier;
+  rux skips premium slots.
 - neo sends `usage_percent` with every turn and usage call (Plus 125%, PlusPlus 156%; Discord
   turns look the account up through the Discord link), which noprofit.space applies to the limits.
 - neo knows there are no private tickets (human help in the Discord server's public channels)

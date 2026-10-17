@@ -4,6 +4,9 @@
 
 - Binds servers' `SoftwareSwitcher`, sets new servers up from `ServerProvisioned`, and draws the
   console's "not set up yet" callout itself (moved from core).
+- From prod (2.1): Geyser's config goes where each platform reads it (`config/Geyser-NeoForge`
+  on NeoForge, not `config/Geyser-Fabric`), and its Bedrock port claim skips allocations a server
+  create has reserved.
 
 ## 1.2.1
 

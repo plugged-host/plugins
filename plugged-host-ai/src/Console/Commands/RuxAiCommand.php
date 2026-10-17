@@ -38,13 +38,14 @@ class RuxAiCommand extends Command
             $this->warn('rux keeps using the ones it fetched ' . now()->setTimestamp($fetchedAt)->diffForHumans() . ':');
         }
 
-        $this->table(['Slot', 'Label', 'API format', 'Model', 'Enabled', 'Key'], array_map(static fn (array $p): array => [
+        $this->table(['Slot', 'Label', 'API format', 'Model', 'Enabled', 'Key', 'Used for'], array_map(static fn (array $p): array => [
             'P' . ($p['slot'] ?? '?'),
             (string) ($p['label'] ?? ''),
             (string) ($p['driver'] ?? ''),
             (string) ($p['model'] ?? ''),
             !empty($p['enabled']) ? 'yes' : 'no',
             ($p['api_key'] ?? '') !== '' ? 'set' : 'MISSING',
+            !empty($p['premium']) ? 'orders (first), never checks' : 'orders, message checks',
         ], $neo->providers()));
 
         return self::SUCCESS;

@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
 use Illuminate\Support\Facades\Cache;
+use PluggedHost\Ai\Chat\ProviderChain;
 use PluggedHost\Ai\Contracts\NeoSettingsStore;
 use PluggedHost\Ai\NeoBot\NeoBotSettings;
 use PluggedHost\Ai\Rux\Support\RuxSettings;
@@ -96,6 +97,8 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'max_tokens' => (int) $provider['max_tokens'],
                 'timeout' => (int) $provider['timeout'],
                 'daily_token_cap' => (int) $provider['daily_token_cap'],
+                // The slot's flag, or until it is saved what its driver suggests (ProviderChain).
+                'vision' => ProviderChain::seesImages((array) $provider),
                 'premium' => (bool) ($provider['premium'] ?? false),
                 'extra_headers' => self::prettyJson($provider['extra_headers'] ?? []),
                 'extra_body' => self::prettyJson($provider['extra_body'] ?? []),
@@ -266,6 +269,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                     TextInput::make($prefix . 'max_tokens')->label($t('max_tokens'))->numeric()->minValue(256)->maxValue(128000)->required(),
                     TextInput::make($prefix . 'timeout')->label($t('timeout'))->numeric()->minValue(5)->maxValue(90)->required(),
                     TextInput::make($prefix . 'daily_token_cap')->label($t('daily_token_cap'))->helperText($t('daily_token_cap_hint'))->numeric()->minValue(0)->required(),
+                    Toggle::make($prefix . 'vision')->label($t('vision'))->helperText($t('vision_hint')),
                     Toggle::make($prefix . 'premium')->label($t('premium'))->helperText($t('premium_hint')),
                     Textarea::make($prefix . 'extra_headers')->label($t('extra_headers'))->helperText($t('extra_headers_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
                     Textarea::make($prefix . 'extra_body')->label($t('extra_body'))->helperText($t('extra_body_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
@@ -337,6 +341,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'max_tokens' => (int) ($fields['max_tokens'] ?? 4096),
                 'timeout' => (int) ($fields['timeout'] ?? 20),
                 'daily_token_cap' => (int) ($fields['daily_token_cap'] ?? 0),
+                'vision' => !empty($fields['vision']),
                 'premium' => !empty($fields['premium']),
                 'extra_headers' => self::decodeObject((string) ($fields['extra_headers'] ?? '{}')),
                 'extra_body' => self::decodeObject((string) ($fields['extra_body'] ?? '{}')),

@@ -12,6 +12,13 @@
   daemon, slash-command registration and the 2x Booster role changes refuse to run elsewhere
   unless `DISCORD_ALLOW_NON_PRODUCTION=true`. Dev shares production's bot token, so its hourly
   sync could change real members' roles from dev's data. neo and rux already had this rule.
+- From prod (2.1): **Discord servers tab** on the profile (`Livewire\DiscordServers`): the
+  Discord servers to join (ours and partners'), what each adds and its joining credits, Join and
+  "Check again". It reads the new `DiscordServersStatus` contract: standalone
+  (`PanelDiscordServersStatus`) there is none and the tab is hidden; plugged-host-noprofit binds
+  noprofit.space's (`NoprofitDiscordStatus`). While one is set up the rewards tab shows its boosts
+  (any of its servers), "Check for new rewards" and `/setboost` ask it to pay, and `syncBoosts`
+  pays no boost rewards itself (keeps plugged.host's own boost state and the Booster role).
 
 ## Unreleased (2.1)
 

@@ -51,6 +51,12 @@ final class LocalComputePlans implements ComputePlans
         return $this->memo[$id] = $plan;
     }
 
+    /** A plan set on this panel is shared with no other service. */
+    public function pool(?User $user): ?array
+    {
+        return null;
+    }
+
     public function tiers(): array
     {
         $tiers = [];

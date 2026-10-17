@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Servers\Support;
 
+use App\Enums\ServerState;
 use App\Exceptions\Service\Deployment\NoViableAllocationException;
 use App\Exceptions\Service\Deployment\NoViableNodeException;
 use App\Models\Allocation;
@@ -9,10 +10,16 @@ use App\Models\Egg;
 use App\Models\Node;
 use App\Models\Server;
 use App\Models\User;
+use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Allocations\AssignmentService;
 use App\Services\Deployment\FindViableNodesService;
 use App\Services\Servers\ServerCreationService;
+use App\Services\Servers\ServerDeletionService;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Services\AccountLimits;
 use PluggedHost\Servers\Services\LocationCatalog;
@@ -20,6 +27,7 @@ use PluggedHost\Servers\Services\NodeBalancer;
 use PluggedHost\Servers\Services\DeploymentPause;
 use PluggedHost\Servers\Services\NodeCapacity;
 use PluggedHost\Servers\Support\PremiumAccess;
+use Throwable;
 
 /**
  * What an account may use across all its servers, and the one way a user's server is created
@@ -211,6 +219,32 @@ final class AccountAllowance
         return $limit === 0 || ($requested > 0 && $used + $requested <= $limit);
     }
 
+    /**
+     * Variables that hold a server's second port: txAdmin's web interface on FiveM/RedM, the
+     * HTTP server Multi Theft Auto sends resources from. The eggs' defaults (30001, 22005) are
+     * ports the container would not publish, so such a server is created on two consecutive
+     * ports and the second one is written into the variable.
+     */
+    private const SECOND_PORT_VARIABLES = ['TXHOST_TXA_PORT', 'SERVER_WEBPORT'];
+
+    /** The variable that takes this egg's second port, or null when one port is enough. */
+    public static function secondPortVariable(Egg $egg): ?string
+    {
+        if (self::isCfxEgg($egg)) {
+            return 'TXHOST_TXA_PORT';
+        }
+
+        $declared = $egg->variables->pluck('env_variable')->all();
+
+        foreach (self::SECOND_PORT_VARIABLES as $name) {
+            if (in_array($name, $declared, true)) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
     public static function isCfxEgg(Egg $egg): bool
     {
         $tags = is_array($egg->tags) ? $egg->tags : (is_string($egg->tags) ? json_decode($egg->tags, true) : []);
@@ -242,11 +276,11 @@ final class AccountAllowance
             $egg = Egg::findOrFail($egg);
         }
 
-        $isCfx = self::isCfxEgg($egg);
+        $secondPort = self::secondPortVariable($egg);
 
         $environment = [];
         foreach ($egg->variables as $variable) {
-            if ($variable->env_variable === 'TXHOST_TXA_PORT') {
+            if ($variable->env_variable === $secondPort) {
                 continue;
             }
 
@@ -272,7 +306,7 @@ final class AccountAllowance
             'database_limit' => config('plugged-host-servers.user-creatable-servers.database_limit', 0),
             'allocation_limit' => max(
                 (int) config('plugged-host-servers.user-creatable-servers.allocation_limit', 0),
-                $isCfx ? 2 : 1
+                $secondPort !== null ? 2 : 1
             ),
             'backup_limit' => config('plugged-host-servers.user-creatable-servers.backup_limit', 0),
         ];
@@ -291,24 +325,20 @@ final class AccountAllowance
 
         $location = is_string($location) && $location !== '' ? strtolower(trim($location)) : null;
 
-        if ($isCfx) {
-            [$primaryAllocation, $secondaryAllocation] = $this->findOrCreateAllocationsForCfx(
+        if ($secondPort !== null) {
+            [$primaryAllocation, $secondaryAllocation] = $this->reserveFirst(fn (): array => $this->findOrCreateAllocationPair(
                 (int) $data['memory'],
                 (int) $data['disk'],
                 (int) $data['cpu'],
                 $location
-            );
-
-            $primaryAllocation->update(['is_locked' => true]);
-            $secondaryAllocation->update(['is_locked' => true]);
+            ));
 
             $data['node_id'] = $primaryAllocation->node_id;
             $data['allocation_id'] = $primaryAllocation->id;
             $data['allocation_additional'] = [$secondaryAllocation->id];
-            $data['environment']['TXHOST_TXA_PORT'] = (string) $secondaryAllocation->port;
+            $data['environment'][$secondPort] = (string) $secondaryAllocation->port;
         } else {
-            $allocation = $this->findOrCreateAllocation((int) $data['memory'], (int) $data['disk'], (int) $data['cpu'], $location);
-            $allocation->update(['is_locked' => true]);
+            [$allocation] = $this->reserveFirst(fn (): array => [$this->findOrCreateAllocation((int) $data['memory'], (int) $data['disk'], (int) $data['cpu'], $location)]);
             $data['node_id'] = $allocation->node_id;
             $data['allocation_id'] = $allocation->id;
         }
@@ -316,7 +346,106 @@ final class AccountAllowance
         /** @var ServerCreationService $service */
         $service = app(ServerCreationService::class);
 
-        return $service->handle($data);
+        try {
+            return $service->handle($data);
+        } catch (RequestException $e) {
+            return $this->recoverRejectedCreate((int) $data['allocation_id'], (bool) $data['start_on_completion'], $e);
+        }
+    }
+
+    /**
+     * Wings answered the create with an error after the server row was already committed.
+     *
+     * ServerCreationService only cleans up when wings is unreachable (ConnectionException). An
+     * error response leaves the row behind as `installing` on a node that never heard of it:
+     * nothing will ever report the install, so the owner waits on the installing page forever
+     * and the server still counts against their allowance (3e6fcbb5 on nl2, 2026-10-10: wings
+     * answered 500). Ask wings once more, and if it still refuses remove the row so the caller
+     * reports a failed create instead.
+     *
+     * No retry when the primary allocation never got linked to the server: another claim took
+     * the row between our pick and ServerCreationService linking it (it only links rows that
+     * are still free), so wings is sent no ports, rejects the config ("expected { character for
+     * map value") and would reject it again. That is what happened to 3e6fcbb5.
+     */
+    private function recoverRejectedCreate(int $allocationId, bool $startOnCompletion, RequestException $failure): Server
+    {
+        $server = Server::query()
+            ->where('allocation_id', $allocationId)
+            ->where('status', ServerState::Installing)
+            ->latest('id')
+            ->first();
+
+        if (!$server instanceof Server) {
+            throw $failure;
+        }
+
+        if ($server->allocations()->whereKey($allocationId)->exists()) {
+            try {
+                app(DaemonServerRepository::class)->setServer($server)->create($startOnCompletion);
+
+                Log::warning('[plugged-host-servers] wings rejected a server create, the retry went through', ['server' => $server->uuid, 'error' => $failure->getMessage()]);
+
+                return $server;
+            } catch (Throwable $retry) {
+                Log::error('[plugged-host-servers] wings rejected a server create twice, removing it', ['server' => $server->uuid, 'error' => $retry->getMessage()]);
+            }
+        } else {
+            Log::error('[plugged-host-servers] a new server lost its primary allocation before wings saw it, removing it', ['server' => $server->uuid, 'allocation' => $allocationId]);
+        }
+
+        app(ServerDeletionService::class)->withForce()->handle($server);
+
+        throw $failure;
+    }
+
+    /**
+     * How long a free allocation stays reserved for the create that picked it. A create links
+     * its allocation within seconds; a reservation older than this is a leftover (a failed
+     * create, or a server delete, which frees rows without clearing is_locked) and free again.
+     */
+    public const RESERVATION_MINUTES = 10;
+
+    /**
+     * Pick allocations with $find and reserve them for this create, picking again when another
+     * claim got there first.
+     *
+     * The reservation is `is_locked` on a row that is still free, written with a conditional
+     * query: Allocation's own updating hook resets is_locked on every model save of a free row,
+     * so the old `$allocation->update(['is_locked' => true])` never held. Every claimer skips
+     * reserved rows (see notReserved(); GeyserService does the same), which closes the gap in
+     * which Geyser's Bedrock claim took 3e6fcbb5's primary port (2026-10-10).
+     *
+     * @param  Closure(): array<int, Allocation>  $find
+     * @return array<int, Allocation>
+     */
+    private function reserveFirst(Closure $find): array
+    {
+        for ($attempt = 1; ; $attempt++) {
+            $allocations = $find();
+            $ids = array_map(fn (Allocation $allocation) => $allocation->getKey(), $allocations);
+
+            $reserved = Allocation::withoutGlobalScopes()
+                ->whereIn('id', $ids)
+                ->whereNull('server_id')
+                ->where(fn (Builder $query) => self::notReserved($query))
+                ->update(['is_locked' => true]);
+
+            if ($reserved === count($ids)) {
+                return $allocations;
+            }
+
+            throw_if($attempt >= 3, new NoViableAllocationException(trans('exceptions.deployment.no_viable_allocations')));
+        }
+    }
+
+    /**
+     * Constrain a free-allocation query to rows no create has reserved in the last few minutes.
+     */
+    public static function notReserved(Builder $query): Builder
+    {
+        return $query->where('is_locked', false)
+            ->orWhere('updated_at', '<', now()->subMinutes(self::RESERVATION_MINUTES));
     }
 
     /**
@@ -390,7 +519,7 @@ final class AccountAllowance
     }
 
     /** @return array{Allocation, Allocation} */
-    private function findOrCreateAllocationsForCfx(int $memory, int $disk, int $cpu, ?string $location = null): array
+    private function findOrCreateAllocationPair(int $memory, int $disk, int $cpu, ?string $location = null): array
     {
         $tags = array_filter(explode(',', (string) config('plugged-host-servers.user-creatable-servers.deployment_tags')));
         $nodes = app(FindViableNodesService::class)->handle($memory, $disk, $cpu, $tags);
@@ -410,6 +539,7 @@ final class AccountAllowance
 
             $available = Allocation::withoutGlobalScopes()
                 ->whereNull('server_id')
+                ->where(fn (Builder $query) => self::notReserved($query))
                 ->where('node_id', $node->id)
                 ->where('ip', $ip)
                 ->where(function ($query) use ($ranges) {
@@ -696,6 +826,7 @@ final class AccountAllowance
     {
         return Allocation::withoutGlobalScopes()
             ->whereNull('server_id')
+            ->where(fn (Builder $query) => self::notReserved($query))
             ->where('node_id', $node->id)
             ->where('ip', $ip)
             ->where(function ($query) use ($ranges) {

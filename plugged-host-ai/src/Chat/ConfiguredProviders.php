@@ -79,6 +79,8 @@ final class ConfiguredProviders implements ProviderSource
             'extra_headers' => array_map('strval', array_filter((array) ($config['extra_headers'] ?? []), 'is_scalar')),
             'extra_body' => (array) ($config['extra_body'] ?? []),
             'premium' => (bool) filter_var($config['premium'] ?? false, FILTER_VALIDATE_BOOL),
+            // Null until set: ProviderChain::seesImages() then goes by the driver.
+            'vision' => isset($config['vision']) && $config['vision'] !== '' ? (bool) filter_var($config['vision'], FILTER_VALIDATE_BOOL) : null,
         ];
     }
 }

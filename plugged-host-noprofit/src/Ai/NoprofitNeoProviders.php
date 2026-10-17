@@ -42,13 +42,14 @@ class NoprofitNeoProviders implements ProviderSource
     }
 
     /**
-     * Every provider slot, usable or not, in neo's order.
+     * Every provider slot, usable or not, in neo's order, premium ones included (flag `premium`):
+     * ProviderChain decides what may use them.
      *
      * @return list<array<string, mixed>>
      */
     public function providers(): array
     {
-        return $this->current()['providers'] ?? [];
+        return array_values(array_filter($this->current()['providers'] ?? [], 'is_array'));
     }
 
     /**

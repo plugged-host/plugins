@@ -32,6 +32,8 @@ class GeyserService
     /** Marks the one allocation a server holds for its Bedrock listener. */
     private const BEDROCK_NOTE = 'Geyser (Bedrock)';
 
+    private const RESERVATION_MINUTES = 10;
+
     /** GeyserMC's official build API, the fallback source when Modrinth carries no build. */
     private const GEYSERMC_DOWNLOAD = 'https://download.geysermc.org/v2/projects';
 
@@ -122,7 +124,7 @@ class GeyserService
                 $files->pull($floodgate['url'], '/' . $dir, ['filename' => $floodgate['filename']]);
             }
 
-            $this->writeConfig($files, $dir, $server, $floodgate !== null);
+            $this->writeConfig($files, $platform, $server, $floodgate !== null);
         } catch (Throwable $e) {
             report($e);
 
@@ -277,9 +279,9 @@ class GeyserService
      * A minimal-but-valid Geyser config pointing the Bedrock listener at a dedicated UDP port and
      * telling it to authenticate through Floodgate. Geyser fills the rest with its own defaults.
      */
-    private function writeConfig(DaemonFileRepository $files, string $dir, Server $server, bool $floodgate): void
+    private function writeConfig(DaemonFileRepository $files, string $platform, Server $server, bool $floodgate): void
     {
-        $configPath = $dir === 'plugins' ? 'plugins/Geyser-Spigot/config.yml' : 'config/Geyser-Fabric/config.yml';
+        $configPath = self::configPath($platform);
         $bedrockPort = $this->bedrockPort($server, $this->configuredBedrockPort($files, $configPath));
         $javaPort = (int) ($server->allocation?->port ?? 25565);
         $authType = $floodgate ? 'floodgate' : 'online';
@@ -326,15 +328,23 @@ class GeyserService
                     return (int) $own->port;
                 }
 
+                // A free row with a fresh is_locked is reserved by a server create in progress
+                // (plugged-host-servers AccountAllowance::reserveFirst, same 10 minutes): taking it
+                // left 3e6fcbb5 without its primary port on 2026-10-10.
+                $unreserved = fn ($query) => $query->where('is_locked', false)
+                    ->orWhere('updated_at', '<', now()->subMinutes(self::RESERVATION_MINUTES));
+
                 $free = Allocation::query()
                     ->where('node_id', $server->node_id)
                     ->whereNull('server_id')
+                    ->where($unreserved)
                     ->orderBy('port')
                     ->first();
 
                 $claimed = $free !== null && Allocation::query()
                     ->whereKey($free->getKey())
                     ->whereNull('server_id')
+                    ->where($unreserved)
                     ->update(['server_id' => $server->getKey(), 'notes' => self::BEDROCK_NOTE]) === 1;
 
                 return $claimed ? (int) $free->port : self::DEFAULT_BEDROCK_PORT;
@@ -356,6 +366,20 @@ class GeyserService
 
         return (clone $owned)->where('notes', self::BEDROCK_NOTE)->orderBy('port')->first()
             ?? ($configuredPort !== null ? (clone $owned)->where('port', $configuredPort)->first() : null);
+    }
+
+    /**
+     * Where Geyser reads its config on each platform: its data folder, which is
+     * plugins/Geyser-Spigot on the Spigot family and config/Geyser-<Platform> on mod loaders
+     * (GeyserFabricPlatform / GeyserNeoForgePlatform::configPath()).
+     */
+    private static function configPath(string $platform): string
+    {
+        return match ($platform) {
+            'fabric' => 'config/Geyser-Fabric/config.yml',
+            'neoforge' => 'config/Geyser-NeoForge/config.yml',
+            default => 'plugins/Geyser-Spigot/config.yml',
+        };
     }
 
     /**

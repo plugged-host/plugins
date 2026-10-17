@@ -5,14 +5,17 @@ namespace PluggedHost\Discord\Providers;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Discord\Contracts\DiscordAccounts;
 use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
+use PluggedHost\Discord\Contracts\DiscordServersStatus;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\LocalDiscordCreditPayouts;
 use PluggedHost\Discord\Services\PanelDiscordAccounts;
+use PluggedHost\Discord\Services\PanelDiscordServersStatus;
 use Throwable;
 
 /**
- * Who Discord users are and paying them credits, on the panel itself unless
- * plugged-host-noprofit binds noprofit.space's (singletonIf: either may register first).
+ * Who Discord users are, paying them credits and which Discord servers they are in (and who
+ * pays their boosts), on the panel itself unless plugged-host-noprofit binds noprofit.space's
+ * (singletonIf: either may register first).
  */
 class DiscordPayoutsServiceProvider extends ServiceProvider
 {
@@ -20,6 +23,7 @@ class DiscordPayoutsServiceProvider extends ServiceProvider
     {
         $this->app->singletonIf(DiscordAccounts::class, PanelDiscordAccounts::class);
         $this->app->singletonIf(DiscordCreditPayouts::class, LocalDiscordCreditPayouts::class);
+        $this->app->singletonIf(DiscordServersStatus::class, PanelDiscordServersStatus::class);
     }
 
     public function boot(): void

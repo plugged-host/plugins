@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Discord\Contracts\DiscordServersStatus;
 use PluggedHost\Discord\Models\DiscordInviteBaseline;
 use PluggedHost\Discord\Models\DiscordInvitedMember;
 use PluggedHost\Discord\Models\DiscordLink;
@@ -1876,15 +1877,19 @@ class DiscordVerificationService
         $previousRewarded = $link ? (int) $link->boosts_rewarded : 0;
         $creditsToAward = 0;
 
-        if ($boostCount >= 1 && $previousRewarded < 1) {
+        // noprofit.space pays the boost rewards, for boosts on any of its Discord servers
+        // (DiscordServersStatus); then this only keeps plugged.host's own boost state and role.
+        $paysBoosts = !app(DiscordServersStatus::class)->available();
+
+        if ($paysBoosts && $boostCount >= 1 && $previousRewarded < 1) {
             $creditsToAward += $this->getCreditsPerBoost1();
         }
 
-        if ($boostCount >= 2 && $previousRewarded < 2) {
+        if ($paysBoosts && $boostCount >= 2 && $previousRewarded < 2) {
             $creditsToAward += max(0, $this->getCreditsPerBoost2() - $this->getCreditsPerBoost1());
         }
 
-        $newRewarded = max($previousRewarded, $boostCount);
+        $newRewarded = $paysBoosts ? max($previousRewarded, $boostCount) : $previousRewarded;
 
         if ($creditsToAward > 0 && Plugins::available(UserCredits::class)) {
             // Claim the tier before paying it: $previousRewarded was read before a Discord round

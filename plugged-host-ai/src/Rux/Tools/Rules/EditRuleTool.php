@@ -26,14 +26,15 @@ final class EditRuleTool extends RuxTool
 
     public function description(): string
     {
-        return 'Change a standing rule (list_rules shows the numbers): what breaks it, keywords, action, duration, message deletion, the reason members are told, or its channels. Only the fields given change.';
+        return 'Change a standing rule (list_rules shows the numbers): what breaks it, what does not, keywords, action, duration, message deletion, the reason members are told, or its channels. Only the fields given change. When a rule caught the wrong message or missed one, fix its when / not_when here instead of adding another rule.';
     }
 
     public function parameters(): array
     {
         return $this->schema([
             'rule_id' => ['type' => 'integer', 'description' => 'The rule\'s number.'],
-            'when' => ['type' => 'string', 'description' => 'New description of what breaks the rule.'],
+            'when' => ['type' => 'string', 'description' => 'New description of what breaks the rule, as for add_rule.'],
+            'not_when' => ['type' => 'string', 'description' => 'The full new list of what must be left alone, as for add_rule (replaces the old one; list_rules shows it). "none" clears it.'],
             'keywords' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'The full new keyword list (replaces the old one; list_rules shows it), as for add_rule.'],
             'action' => ['type' => 'string', 'enum' => RuxRule::ACTIONS, 'description' => 'New action: warn, timeout, delete, kick or ban.'],
             'duration' => ['type' => 'string', 'description' => 'For timeout or ban: how long, like "1h". "permanent" for a ban for good.'],
@@ -52,7 +53,12 @@ final class EditRuleTool extends RuxTool
         $dropped = [];
 
         if (($when = $this->string($arguments, 'when')) !== null) {
-            $changes['description'] = mb_substr($when, 0, 300);
+            $changes['description'] = mb_substr($when, 0, 600);
+        }
+
+        if (array_key_exists('not_when', $arguments)) {
+            $notWhen = trim((string) $arguments['not_when']);
+            $changes['exceptions'] = in_array(strtolower($notWhen), ['', 'none', '-'], true) ? null : mb_substr($notWhen, 0, 600);
         }
 
         if (array_key_exists('keywords', $arguments)) {

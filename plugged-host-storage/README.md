@@ -3,7 +3,9 @@
 The storage server: 30-minute delta-mirror replication of every live server and automatic
 node-failure recovery, driven by a signed Node.js agent that runs on the storage box (and,
 optionally, on a faster backup server), plus the backups portal (backups.<domain>). Requires `plugged-host-core` (its node telemetry is the
-failover witness); works with `plugged-host-discord` for the portal's sign-in.
+failover witness); works with `plugged-host-discord` for the portal's sign-in and with
+`plugged-host-servers`, whose transfer planner picks failover destinations (without it no
+recovery starts).
 
 ## What it does
 
@@ -13,9 +15,16 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
   **pulls** — it initiates rsync — so no panel credential ever sits on the nodes.
 - **Daily S3 backup: not implemented.** The `STORAGE_DAILY_BACKUP*` settings exist, but nothing
   schedules a backup yet; recovery uses the mirror archive.
-- **Failover**: when a node is unreachable, the server is fenced, reassigned to a live node,
-  recreated, and restored from the mirror archive (fact 16/17 — it's not a transfer). **Operator
-  override in effect:** fully automatic after ~5 minutes offline (`STORAGE_FAILOVER_MODE=auto`).
+- **Failover**: when a node is unreachable, each of its servers goes through a state machine,
+  one step per minute sweep (it's not a transfer, fact 16): *creating* (fenced, moved in the panel
+  to a node the transfer planner would pick, same location first, ports kept where free; wings
+  creates it with the egg install), *restoring* (wings streams the mirror archive over it, s3
+  adapter, a temporary backup row carries the callback), *done* (servers' `ServerMoved`, so
+  subdomains repoint; the owner is told the new address). Failures back off for 30 minutes and
+  notify at most once a day; suspended servers and system servers stay put.
+  `plugged-host:failover-sweep --drill=<server>` rehearses one on a healthy node,
+  `--resume=<record>` retries a failed restore. **Operator override in effect:** fully automatic
+  after ~5 minutes offline (`STORAGE_FAILOVER_MODE=auto`).
 - **Deleted servers**: a server deleted by an admin, or by the panel itself (abuse purge, an
   account deleted through noprofit, ...), keeps its copy on the storage box for
   `STORAGE_DELETED_HOLD_DAYS` (7) days and stays listed, under its ID, for its owner on the backups
@@ -53,6 +62,7 @@ failover witness); works with `plugged-host-discord` for the portal's sign-in.
 | `backup_agent_url` / `backup_agent_secret` / `backup_mirror_public_key` | `STORAGE_BACKUP_AGENT_URL` / `STORAGE_BACKUP_AGENT_SECRET` / `STORAGE_BACKUP_MIRROR_PUBLIC_KEY` | The same three for the backup server (optional; `plugged-host:storage-setup --backup` sets them) |
 | `failover_mode` | `STORAGE_FAILOVER_MODE` (`auto`) | `off` \| `notify` \| `auto` |
 | `failover_after_failures` | `STORAGE_FAILOVER_AFTER_FAILURES` (`5`) | Consecutive minute-probe failures before acting |
+| `failover_max_in_flight` | `STORAGE_FAILOVER_MAX_IN_FLIGHT` (`3`) | Recoveries installing or restoring at once |
 | `min_free_percent` / `mirror_snapshots` | `STORAGE_*` | Agent free-space floor + snapshot retention (sent to the agent in the plan) |
 | `deleted_hold_days` | `STORAGE_DELETED_HOLD_DAYS` (`7`) | Days an admin-deleted server's copy is kept |
 | `purge_deleted` | `STORAGE_PURGE_DELETED` (`true`) | Kill switch for the agent's cleanup (holds are still recorded) |
@@ -102,8 +112,10 @@ the top of `agent/install.sh`). It sets `PH_MIRROR_JOBS` to half the cores (1 to
 
 - Offers: `StorageService::limboNode()` / `archiveUrlFor()` (limbo → storage seam),
   `/api/client/servers/{server}/replica`, the agent HTTP surface (`/plugged-host/storage/agent/*`).
-- Consumes: core's `NodeTelemetry::consecutiveFailures()` (failover witness); upstream
-  `DaemonServerRepository` / `DaemonBackupRepository` / `FindViableNodesService`.
+- Consumes: core's `NodeTelemetry::consecutiveFailures()` (failover witness) and
+  `SystemServers`; servers' `TransferPlanner`, `LocationCatalog` and `ServerMoved` (failover,
+  while plugged-host-servers is enabled); upstream `DaemonServerRepository` /
+  `DaemonBackupRepository`.
 
 ## Requirements
 

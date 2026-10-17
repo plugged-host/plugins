@@ -31,6 +31,15 @@ use Throwable;
  */
 class RuleService
 {
+    /** How the AI judges messages, for the rule checks here and the watched channels' checks. */
+    public const JUDGING = [
+        'How to judge:',
+        '- Members write casually: slang, typos, abbreviations, other languages. Judge what they mean, not the exact words.',
+        '- Only a clear break counts. Not a break: mentioning the topic in passing, answering or quoting someone, asking about a rule, joking between friends, or complaining about plugged.host.',
+        '- What a rule says does NOT break it always wins, and so do the facts about plugged.host above.',
+        '- When in doubt, it is not a break.',
+    ];
+
     /** @var list<RuxRule>|null */
     private ?array $rules = null;
 
@@ -41,6 +50,7 @@ class RuleService
         private readonly RuxAi $ai,
         private readonly ModerationService $moderation,
         private readonly RuxAccess $access,
+        private readonly ServerFacts $facts,
     ) {}
 
     // --- in the daemon ------------------------------------------------------------------
@@ -84,6 +94,7 @@ class RuleService
             'author_name' => (string) ($message['member']['nick'] ?? $author['global_name'] ?? $author['username'] ?? $author['id']),
             'roles' => array_values(array_map('strval', (array) ($message['member']['roles'] ?? []))),
             'content' => mb_substr($content, 0, 1500),
+            'replied_to' => self::repliedTo($message),
         ], 600);
 
         return $key;
@@ -164,15 +175,20 @@ class RuleService
      */
     private function judge(RuxRule $rule, array $hit): ?array
     {
+        $replied = filled($hit['replied_to'] ?? null) ? "It replies to this message:\n<replied_to untrusted=\"true\">\n{$hit['replied_to']}\n</replied_to>\n" : '';
         $messages = [
             ['role' => 'system', 'content' => implode("\n", [
-                'You check one message from the plugged.host Discord server (a free game server host) against one server rule, for the moderation bot rux.',
-                'The rule is broken when a member\'s message: ' . $rule->description,
-                'Members write casually: slang, typos, abbreviations, other languages. Judge what they mean, not the exact words.',
-                'It is NOT broken by messages that only mention the topic in passing, answer someone else, quote the rule, joke about it without asking, or are about something else that shares a word.',
+                'You check one message from the plugged.host Discord server (a free game server host) against one of its standing rules, for the moderation bot rux.',
+                '',
+                'The rule: ' . self::brief($rule),
+                '',
+                ...$this->facts->lines(),
+                '',
+                ...self::JUDGING,
+                '',
                 'Answer with only this JSON and nothing else: {"breaks": true or false, "why": "a few words"}',
             ])],
-            ['role' => 'user', 'content' => "Message by {$hit['author_name']}:\n<message untrusted=\"true\">\n{$hit['content']}\n</message>"],
+            ['role' => 'user', 'content' => "Message by {$hit['author_name']}:\n{$replied}<message untrusted=\"true\">\n{$hit['content']}\n</message>"],
         ];
 
         try {
@@ -310,6 +326,39 @@ class RuleService
     }
 
     /**
+     * A rule as the checks give it to the AI: what breaks it, what does not, what the member is
+     * told (the admin's intent, in their words) and where it applies.
+     */
+    public static function brief(RuxRule $rule): string
+    {
+        return implode(' ', array_filter([
+            "R{$rule->id} is broken by a member's message that " . rtrim((string) $rule->description, ' .') . '.',
+            filled($rule->exceptions) ? "It is NOT broken by: " . rtrim((string) $rule->exceptions, ' .') . '.' : null,
+            filled($rule->reason) ? "(Members who break it are told: \"{$rule->reason}\")" : null,
+            $rule->channel_ids ? '(Only in ' . implode(', ', array_map(static fn ($id): string => "#{$id}", $rule->channel_ids)) . '.)' : null,
+        ]));
+    }
+
+    /**
+     * "Name: text" of the message a message replies to (Discord sends it along), or null.
+     *
+     * @param  array<string, mixed>  $message
+     */
+    public static function repliedTo(array $message): ?string
+    {
+        $replied = $message['referenced_message'] ?? null;
+        $text = is_array($replied) ? trim((string) ($replied['content'] ?? '')) : '';
+
+        if ($text === '') {
+            return null;
+        }
+
+        $author = (array) ($replied['author'] ?? []);
+
+        return mb_substr((string) ($author['global_name'] ?? $author['username'] ?? 'someone') . ': ' . str_replace("\n", ' ', $text), 0, 400);
+    }
+
+    /**
      * What the rules are, for the model.
      *
      * @return array<string, mixed>
@@ -319,6 +368,7 @@ class RuleService
         return array_filter([
             'id' => $rule->id,
             'when' => $rule->description,
+            'not_when' => $rule->exceptions,
             'action' => $rule->action . ($rule->duration_seconds ? ' for ' . RuxTime::humanDuration($rule->duration_seconds) : ''),
             'deletes_message' => $rule->delete_message ?: null,
             'reason' => $rule->reason,

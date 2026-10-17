@@ -12,6 +12,7 @@ use PluggedHost\Ai\Rux\Models\RuxGiveaway;
 use PluggedHost\Ai\Rux\Rules\RuleService;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Support\RuxSupervisor;
+use PluggedHost\Ai\Rux\Watch\SpamGuard;
 use PluggedHost\Ai\Rux\Watch\WatchService;
 use Throwable;
 
@@ -41,6 +42,8 @@ class RuxGatewayCommand extends GatewayDaemon
     private ?WatchService $watch = null;
 
     private ?RuleService $rules = null;
+
+    private ?SpamGuard $spam = null;
 
     private ?GiveawayService $giveaways = null;
 
@@ -121,6 +124,13 @@ class RuxGatewayCommand extends GatewayDaemon
                     // drain and the rule check both skip them), so admins' orders are not.
                 }
 
+                // Spam is caught without AI, everywhere, and is not checked again below.
+                if (($this->spam ??= app(SpamGuard::class))->screen($data, $this->botId)) {
+                    $this->spam->flush($this->supervisor());
+
+                    break;
+                }
+
                 // Every member message in a watched channel is checked; elsewhere only the
                 // ones that hit a standing rule's keywords.
                 if (($this->watch ??= app(WatchService::class))->enqueue($data, $this->botId)) {
@@ -151,6 +161,8 @@ class RuxGatewayCommand extends GatewayDaemon
      */
     protected function tick(): void
     {
+        $this->spam?->flush($this->supervisor());
+
         $now = microtime(true);
 
         if ($now - $this->lastDueCheck < 10) {

@@ -142,12 +142,22 @@
 
         <section class="flex flex-col gap-3">
             <div class="flex flex-col gap-1">
-                <h3 class="ph-eco-heading">{{ trans('plugged-host-discord::strings.rewards.boosts_heading') }}</h3>
-                <p class="ph-eco-muted">
-                    {{ $boosts['boosting']
-                        ? trans_choice('plugged-host-discord::strings.rewards.boosting', max(1, $boosts['count']), ['count' => max(1, $boosts['count'])])
-                        : trans('plugged-host-discord::strings.rewards.not_boosting') }}
-                </p>
+                @if ($boosts['servers'] !== null)
+                    <h3 class="ph-eco-heading">{{ trans('plugged-host-discord::strings.rewards.boosts_heading_any') }}</h3>
+                    <p class="ph-eco-muted max-w-2xl">
+                        {{ $boosts['boosting']
+                            ? trans_choice('plugged-host-discord::strings.rewards.boosting_any', max(1, $boosts['count']), ['count' => max(1, $boosts['count'])])
+                            : trans('plugged-host-discord::strings.rewards.not_boosting_any') }}
+                        {{ trans('plugged-host-discord::strings.rewards.boosts_any_rule', ['servers' => $boosts['servers']]) }}
+                    </p>
+                @else
+                    <h3 class="ph-eco-heading">{{ trans('plugged-host-discord::strings.rewards.boosts_heading') }}</h3>
+                    <p class="ph-eco-muted">
+                        {{ $boosts['boosting']
+                            ? trans_choice('plugged-host-discord::strings.rewards.boosting', max(1, $boosts['count']), ['count' => max(1, $boosts['count'])])
+                            : trans('plugged-host-discord::strings.rewards.not_boosting') }}
+                    </p>
+                @endif
             </div>
 
             <div class="ph-eco-list">

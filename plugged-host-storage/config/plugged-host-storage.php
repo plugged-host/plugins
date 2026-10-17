@@ -66,6 +66,7 @@ return [
     'failover_mode' => env('STORAGE_FAILOVER_MODE', 'auto'),          // off | notify | auto
     'failover_after_failures' => (int) env('STORAGE_FAILOVER_AFTER_FAILURES', 5),
     'failover_max_per_run' => (int) env('STORAGE_FAILOVER_MAX_PER_RUN', 5),
+    'failover_max_in_flight' => (int) env('STORAGE_FAILOVER_MAX_IN_FLIGHT', 3), // recoveries installing/restoring at once (the agent builds 3 archives at a time)
 
     // Agent auto-update bundle version currently served by the panel.
     // Normally empty: the version is the plugins release + the agent code's hash (AgentRelease).

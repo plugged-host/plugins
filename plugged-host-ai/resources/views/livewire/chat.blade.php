@@ -32,6 +32,7 @@
      x-data="{
         open: false,
         working: false,
+        uploading: false,
         pendingLog: null,
         flash: null,
         attention: null,
@@ -116,8 +117,20 @@
             $wire.setPreference('enabled', true).then(() => this.load());
         },
         submit() {
-            if (this.working) { return; }
+            if (this.working || this.uploading) { return; }
             this.run(() => $wire.send(), true);
+        },
+        {{-- Picked, pasted or dropped images go up through Livewire and join the next message. --}}
+        attach(files) {
+            const images = Array.from(files || []).filter((file) => file.type.startsWith('image/'));
+            if (!images.length || this.working) { return false; }
+            this.uploading = true;
+            const done = () => { this.uploading = false; };
+            $wire.uploadMultiple('uploads', images, done, done);
+            return true;
+        },
+        paste(e) {
+            if (this.attach(e.clipboardData && e.clipboardData.files)) { e.preventDefault(); }
         },
         suggest(text) {
             $wire.draft = text;
@@ -347,7 +360,18 @@
                              once the 60-row window slid, every update rebuilt all of them. --}}
                         <div class="neo-item" wire:key="neo-{{ $message->id }}">
                             @if($message->role === 'user')
-                                <div class="neo-msg-user">{{ $message->content }}</div>
+                                @if(!empty($message->meta['images']))
+                                    <div class="neo-msg-images">
+                                        @foreach($message->meta['images'] as $index => $image)
+                                            <a href="{{ route('plugged-host-ai.image', [$message->id, $index]) }}" target="_blank" rel="noopener">
+                                                <img src="{{ route('plugged-host-ai.image', [$message->id, $index]) }}" alt="{{ $s('chat.image') }}" loading="lazy">
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                @if(filled($message->content))
+                                    <div class="neo-msg-user">{{ $message->content }}</div>
+                                @endif
                             @elseif($message->role === 'assistant')
                                 @if(filled($message->content))
                                     <div class="neo-msg-ai">{!! \Illuminate\Support\Str::markdown($message->content, ['html_input' => 'escape', 'allow_unsafe_links' => false], [new \PluggedHost\Ai\Support\Markdown\ImagesAsTextExtension()]) !!}</div>
@@ -482,14 +506,40 @@
                         </div>
                     @endif
 
-                    <form class="neo-compose" x-on:submit.prevent="submit()">
+                    @error('uploads')
+                        <div class="neo-flash">{!! $icon('tabler-alert-circle', 'neo-i-sm') !!}<span>{{ $message }}</span></div>
+                    @enderror
+
+                    @if($images)
+                        <div class="neo-attachments">
+                            @foreach($images as $index => $image)
+                                <div class="neo-attachment" wire:key="neo-image-{{ $image->getFilename() }}">
+                                    @if($image->isPreviewable())
+                                        <img src="{{ $image->temporaryUrl() }}" alt="{{ $s('chat.image') }}">
+                                    @endif
+                                    <button type="button" class="neo-attachment-remove" wire:click="removeImage({{ $index }})" x-bind:disabled="working"
+                                            title="{{ $s('chat.remove_image') }}" aria-label="{{ $s('chat.remove_image') }}">{!! $icon('tabler-x', 'neo-i-sm') !!}</button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <form class="neo-compose" x-on:submit.prevent="submit()" x-on:dragover.prevent x-on:drop.prevent="attach($event.dataTransfer && $event.dataTransfer.files)">
+                        <input type="file" x-ref="file" class="neo-file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden
+                               x-on:change="attach($event.target.files); $event.target.value = ''">
+                        <button type="button" class="neo-iconbtn neo-attach" x-on:click="$refs.file.click()" x-bind:disabled="working || uploading"
+                                title="{{ $s('chat.attach') }}" aria-label="{{ $s('chat.attach') }}">
+                            <span x-show="!uploading">{!! $icon('tabler-photo') !!}</span>
+                            <span x-show="uploading" x-cloak>{!! $icon('tabler-loader-2', 'neo-i neo-spin') !!}</span>
+                        </button>
                         <textarea class="neo-input" rows="1" x-ref="input" maxlength="{{ (int) config('plugged-host-ai.max_message_chars', 4000) }}"
                                   wire:model="draft"
                                   placeholder="{{ $s('chat.placeholder') }}"
                                   aria-label="{{ $s('chat.placeholder') }}"
                                   x-on:input="grow($el)"
+                                  x-on:paste="paste($event)"
                                   x-on:keydown.enter="enter($event)"></textarea>
-                        <button type="submit" class="neo-send" x-show="!working" title="{{ $s('chat.send') }}" aria-label="{{ $s('chat.send') }}">{!! $icon('tabler-arrow-up') !!}</button>
+                        <button type="submit" class="neo-send" x-show="!working" x-bind:disabled="uploading" title="{{ $s('chat.send') }}" aria-label="{{ $s('chat.send') }}">{!! $icon('tabler-arrow-up') !!}</button>
                         <button type="button" class="neo-send neo-send-stop" x-show="working" x-cloak x-on:click="$wire.cancel()" title="{{ $s('chat.stop') }}" aria-label="{{ $s('chat.stop') }}">{!! $icon('tabler-player-stop-filled') !!}</button>
                     </form>
                 </div>

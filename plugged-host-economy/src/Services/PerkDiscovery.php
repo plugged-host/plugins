@@ -5,6 +5,8 @@ namespace PluggedHost\Economy\Services;
 use App\Models\User;
 use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Discord\Contracts\DiscordServersStatus;
+use PluggedHost\Discord\Livewire\DiscordServers;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
@@ -56,10 +58,11 @@ class PerkDiscovery
     }
 
     /**
-     * "Join our Discord for +4 GB RAM" -- or, before linking, "link Discord" (AccountPortal).
+     * "Join our Discord servers for +3 GB RAM" -- or, before linking, "link Discord"
+     * (AccountPortal).
      *
-     * Suppressed entirely once the user is in the server, while the tiers are not known, or
-     * when the Discord tier would not improve on the default one.
+     * Suppressed entirely once the Discord servers add all they can, while that is not known,
+     * or when they would add nothing.
      */
     private function discordTierPerk(User $user): ?array
     {
@@ -70,10 +73,10 @@ class PerkDiscovery
         }
 
         $link = $this->discordLink($user);
-        $inviteUrl = config('plugged-host-discord.invite_url');
+        $inviteUrl = (Plugins::available(DiscordServers::class) ? DiscordServers::url() : null) ?? config('plugged-host-discord.invite_url');
 
-        // Linked but not a member: the tier follows verified membership, so the next step is
-        // the invite rather than linking again.
+        // Linked but not in every server: the memory follows membership, so the next step is
+        // the servers (the Discord servers tab) rather than linking again.
         if ($link?->isLinked() && filled($inviteUrl)) {
             return [
                 'id' => 'discord-join',
@@ -83,7 +86,7 @@ class PerkDiscovery
                 'body' => trans('plugged-host-economy::strings.perks.discord_join_body'),
                 'cta' => trans('plugged-host-economy::strings.perks.discord_join_cta'),
                 'url' => $inviteUrl,
-                'external' => true,
+                'external' => !str_starts_with((string) $inviteUrl, url('/')),
             ];
         }
 
@@ -107,13 +110,26 @@ class PerkDiscovery
     }
 
     /**
-     * What the Discord tier (ComputePlans) adds to the default tier ("+4 GB RAM"), or null when
-     * the user is already in the Discord server, the tiers are unknown, or it adds nothing.
+     * What joining the Discord servers would still add ("+3 GB RAM"), or null when they already
+     * add all they can, that is unknown, or it is nothing. With a Discord servers status
+     * (DiscordServersStatus: noprofit.space's servers) that is the memory of the servers the
+     * account is not in yet; without one, the Discord tier (ComputePlans) over the default one
+     * until the user is in the panel's Discord server.
      */
     public function discordTierGain(User $user): ?string
     {
         if (!Plugins::available(DiscordLink::class) || !Plugins::enabled('plugged-host-economy')) {
             return null;
+        }
+
+        $status = Plugins::available(DiscordServersStatus::class) ? app(DiscordServersStatus::class)->forUser($user) : null;
+
+        if ($status !== null) {
+            $delta = (int) $status['max_memory_bonus'] - (int) $status['memory_bonus'];
+
+            return $delta > 0
+                ? $this->joinGains([trans('plugged-host-economy::strings.perks.gain_memory', ['amount' => $this->formatMebibytes($delta)])])
+                : null;
         }
 
         if ($this->discordLink($user)?->isVerified()) {

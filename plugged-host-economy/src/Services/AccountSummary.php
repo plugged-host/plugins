@@ -6,6 +6,7 @@ use App\Models\Server;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\TokenService;
 use Throwable;
@@ -44,6 +45,7 @@ class AccountSummary
      *     tokens: ?int, credits: ?int,
      *     cpu_used: int, cpu_limit: int, memory_used: int, memory_limit: int,
      *     disk_used: int, disk_limit: int, servers_used: int,
+     *     cpu_elsewhere: int, memory_elsewhere: int, disk_elsewhere: int,
      * }
      */
     public function forUser(?User $user): ?array
@@ -126,17 +128,42 @@ class AccountSummary
             ->selectRaw('COALESCE(SUM(disk), 0) AS disk_used')
             ->first();
 
-        return [
+        $summary = [
             'tokens' => $this->tokens($user),
             'credits' => $this->credits($user),
-            'cpu_used' => (int) ($used->cpu_used ?? 0),
-            'cpu_limit' => (int) $limits['cpu'],
-            'memory_used' => (int) ($used->memory_used ?? 0),
-            'memory_limit' => (int) $limits['memory'],
-            'disk_used' => (int) ($used->disk_used ?? 0),
-            'disk_limit' => (int) $limits['disk'],
             'servers_used' => (int) ($used->servers_used ?? 0),
         ];
+
+        // Where the plan is a pool other services share (noprofit.space: plugged.cloud too),
+        // shown as they show it: the whole pool (plus what the allowance adds here, PlusPlus
+        // CPU) and what every service uses of it. What is left is the same as before (the
+        // allowance less these servers): only the enforced share is smaller than the pool by
+        // what the other services use. A plan of this panel's alone has no pool.
+        $pool = $this->pool($user);
+
+        foreach (['cpu', 'memory', 'disk'] as $resource) {
+            $own = (int) ($used->{"{$resource}_used"} ?? 0);
+            $allowance = (int) $limits[$resource];
+            $part = $pool[$resource] ?? null;
+
+            $summary["{$resource}_used"] = $part === null ? $own : $own + $part['elsewhere'];
+            $summary["{$resource}_limit"] = $part === null ? $allowance : $part['total'] + max(0, $allowance - $part['share']);
+            $summary["{$resource}_elsewhere"] = $part['elsewhere'] ?? 0;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @return array<string, array{total: int, elsewhere: int, share: int}>|null
+     */
+    private function pool(User $user): ?array
+    {
+        try {
+            return app(ComputePlans::class)->pool($user);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

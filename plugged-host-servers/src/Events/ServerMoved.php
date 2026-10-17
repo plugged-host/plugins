@@ -9,7 +9,8 @@ use Illuminate\Foundation\Events\Dispatchable;
 /**
  * A server finished moving to another node (self-service or admin transfer) and is starting
  * there. Dispatched synchronously from TransferService::complete(), before the move is marked
- * completed, so listeners finish their follow-up (DNS, caches) within the move.
+ * completed, so listeners finish their follow-up (DNS, caches) within the move. Storage's
+ * failover dispatches it too, once a server recovered off a dead node has its files back.
  *
  * note() writes into the move's event log, the timeline the transfer page shows.
  * plugged-host-subdomains repoints DNS from here; until 2.2 servers called it directly.

@@ -11,12 +11,16 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use PluggedHost\Ai\Agent\ChatImages;
 use PluggedHost\Ai\Console\Commands\NeoPruneCommand;
 use PluggedHost\Ai\Livewire\LogCheckBanner;
 use PluggedHost\Ai\Livewire\NeoChat;
+use PluggedHost\Ai\Models\NeoMessage;
 use Throwable;
 
 /**
@@ -45,6 +49,17 @@ class NeoPluginProvider extends ServiceProvider
     public function boot(): void
     {
         Livewire::component('plugged-host-ai.chat', NeoChat::class);
+
+        // Images attached in the chat, for its owner only (ChatImages).
+        Route::middleware(['web'])->get('/neo/images/{message}/{index}', function (int $message, int $index) {
+            $row = NeoMessage::query()->with('conversation')->find($message);
+            $owner = $row?->conversation?->user_id;
+            $path = ChatImages::existing(((array) $row?->meta)['images'][$index]['path'] ?? null);
+
+            abort_unless($row?->role === NeoMessage::USER && $owner !== null && (int) $owner === (int) auth()->id() && $path !== null, 404);
+
+            return Storage::disk('local')->response($path, null, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, max-age=604800, immutable']);
+        })->whereNumber(['message', 'index'])->name('plugged-host-ai.image');
 
         $this->injectActivityDescriptions();
 

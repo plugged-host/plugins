@@ -2,6 +2,7 @@
 
 namespace PluggedHost\Ai\Chat;
 
+use PluggedHost\Ai\Support\MessageContent;
 use stdClass;
 
 /**
@@ -47,7 +48,13 @@ final class OpenAiTranslator
                     return $out;
                 }
 
-                return ['role' => $role, 'content' => (string) ($message['content'] ?? '')];
+                if (MessageContent::hasImages([$message])) {
+                    return ['role' => $role, 'content' => array_map(static fn (array $part): array => $part['type'] === 'text'
+                        ? ['type' => 'text', 'text' => $part['text']]
+                        : ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $part['mime'] . ';base64,' . $part['data']]], MessageContent::parts($message['content']))];
+                }
+
+                return ['role' => $role, 'content' => MessageContent::text($message['content'] ?? '')];
             }, $messages),
             'max_completion_tokens' => $maxTokens,
             'stream' => false,

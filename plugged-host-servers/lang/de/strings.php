@@ -49,6 +49,11 @@ return [
         'trimmed' => 'Die zusätzliche CPU von PlusPlus wurde gleichmäßig von deinen Servern abgezogen: :servers.',
     ],
 
+    'memory_trimmed' => [
+        'title' => 'Deine Server haben jetzt weniger RAM',
+        'body' => 'Unsere Discord-Server geben deinem Konto jetzt einzeln RAM: 1 GB für jeden Server, auf dem du bist, und 1 GB mehr, wenn du auf allen drei bist. Deine Server haben mehr RAM genutzt, als dein Konto jetzt hat, deshalb wurde er gleichmäßig abgezogen: :servers. Tritt unseren anderen Discord-Servern bei, um ihn zurückzubekommen (Profil, Discord-Server).',
+    ],
+
     'settings' => [
         'section_premium' => 'Plus- & Premium-Standorte',
         'section_premium_hint' => 'Nodes mit dem Plus- oder Premium-Tag bilden die kostenpflichtigen Stufen. Plus-Standorte gibt es mit plugged.host Plus, Premium-Standorte mit PlusPlus (Preise: Einstellungen von plugged.host Economy).',

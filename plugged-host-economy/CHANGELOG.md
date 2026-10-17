@@ -10,6 +10,11 @@
   `CREDITS_STARTING_BALANCE`) by default, or from noprofit.space when plugged-host-noprofit is
   enabled. The credit sync with noprofit.space moved to that plugin.
 - The `user_credits`/`credit_transactions` migration moved here from core (same filename).
+- From prod (2.1): `ComputePlans::pool()`: where the plan is this panel's share of a pool other
+  services use (noprofit.space's, which plugged.cloud shares), the sidebar, the Resource Store
+  and neo show the whole pool and every service's use, as plugged.cloud does. What is left and
+  what is enforced are unchanged; `LocalComputePlans` has no pool. The Discord perk points to the
+  Discord servers tab with what joining the rest would still add (`DiscordServersStatus`).
 
 ## Unreleased (2.1)
 

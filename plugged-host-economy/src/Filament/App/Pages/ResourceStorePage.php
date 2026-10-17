@@ -8,6 +8,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Livewire\DiscordRewards;
+use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Economy\Filament\App\Widgets\PerkDiscoveryWidget;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\AccountLimits;
@@ -146,6 +147,8 @@ class ResourceStorePage extends Page
     {
         $allowance = AccountLimits::forUser($user);
         $usage = AccountLimits::usage($user);
+        // A pool other services share (noprofit.space's) shows whole, as in the sidebar.
+        $pool = app(ComputePlans::class)->pool($user);
         $pricing = $store->pricing(60);
         $sells = $pricing !== null && $store->sellsComputeTo($user);
         $percent = fn (int $n): string => $n . '%';
@@ -160,6 +163,11 @@ class ResourceStorePage extends Page
         ] as $key => [$label, $format, $method]) {
             $limit = (int) ($allowance[$key] ?? 0);
             $used = (int) ($usage[$key] ?? 0);
+
+            if (($part = $pool[$key] ?? null) !== null && $allowance !== null) {
+                $used += $part['elsewhere'];
+                $limit = $part['total'] + max(0, $limit - $part['share']);
+            }
             $current = $store->current($user, $key);
             $priceLimit = $store->limit($user, $key);
             $soft = $pricing?->softLimit($priceLimit) ?? 0;

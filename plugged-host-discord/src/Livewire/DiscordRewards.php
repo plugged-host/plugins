@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Discord\Contracts\DiscordServersStatus;
 use PluggedHost\Discord\Models\DiscordInvitedMember;
 use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Discord\Services\DiscordVerificationService;
@@ -19,8 +20,9 @@ use PluggedHost\Economy\Models\CreditTransaction;
 use Throwable;
 
 /**
- * The "Discord rewards" tab on the profile page: what inviting friends and boosting the
- * plugged.host Discord server has earned, what is still on its way, and the rules.
+ * The "Discord rewards" tab on the profile page: what inviting friends to the plugged.host
+ * Discord server and boosting any of the Discord servers has earned, what is still on its way,
+ * and the rules. Boosts are noprofit.space's (DiscordServersStatus) when it is set up.
  *
  * Linking the Discord account is not here: that is the account portal's (AccountPortal: the
  * panel's Discord OAuth, or noprofit.space with plugged-host-noprofit), which mirrors the
@@ -83,6 +85,8 @@ class DiscordRewards extends Component
 
         try {
             $credits = (int) ($discord->syncRewards($user, $link)['total_credits'] ?? 0);
+            // Boosts on any of the Discord servers are paid by noprofit.space.
+            $credits += (int) (app(DiscordServersStatus::class)->forUser($user, check: true)['paid'] ?? 0);
         } catch (Throwable $e) {
             report($e);
 
@@ -106,8 +110,6 @@ class DiscordRewards extends Component
         $discordId = filled($link?->discord_id) ? (string) $link->discord_id : null;
 
         $perInvite = $discord->getCreditsPerInvite();
-        $boostOne = $discord->getCreditsPerBoost1();
-        $boostTwo = max($boostOne, $discord->getCreditsPerBoost2());
 
         return view('plugged-host-discord::livewire.rewards', [
             'linked' => $discordId !== null,
@@ -122,17 +124,51 @@ class DiscordRewards extends Component
             'clawback' => $discord->inviteClawbackEnabled(),
             'invites' => $discordId !== null ? $this->invites($discord, $discordId, $link) : null,
             'inviteCredits' => $user instanceof User ? $this->sumOf($user, ['discord_invite']) : 0,
-            'boosts' => [
-                'boosting' => (bool) $link?->is_boosting,
-                'count' => (int) ($link?->boost_count ?? 0),
-                'levels' => [
-                    ['boosts' => 1, 'credits' => $boostOne, 'total' => $boostOne, 'received' => (int) ($link?->boosts_rewarded ?? 0) >= 1],
-                    ['boosts' => 2, 'credits' => $boostTwo - $boostOne, 'total' => $boostTwo, 'received' => (int) ($link?->boosts_rewarded ?? 0) >= 2],
-                ],
-            ],
+            'boosts' => $this->boosts($discord, $user instanceof User ? $user : null, $link),
             'earned' => $user instanceof User ? $this->sumOf($user, self::EARNED_TYPES) : 0,
             'history' => $user instanceof User ? $this->history($user) : collect(),
         ]);
+    }
+
+    /**
+     * Boosts and their levels. With noprofit.space they are its numbers: boosts on any of its
+     * Discord servers add up there, and it pays the levels. Without it, plugged.host's own.
+     *
+     * @return array{boosting: bool, count: int, servers: ?string, levels: list<array{boosts: int, credits: int, total: int, received: bool}>}
+     */
+    private function boosts(DiscordVerificationService $discord, ?User $user, ?DiscordLink $link): array
+    {
+        $status = $user !== null ? app(DiscordServersStatus::class)->forUser($user) : null;
+
+        if ($status !== null) {
+            $levels = [];
+            $previous = 0;
+
+            foreach ($status['boost_credits'] as $boosts => $total) {
+                $levels[] = ['boosts' => (int) $boosts, 'credits' => max(0, $total - $previous), 'total' => $total, 'received' => (int) $status['boosts_rewarded'] >= $boosts];
+                $previous = $total;
+            }
+
+            return [
+                'boosting' => (int) $status['boosts'] > 0,
+                'count' => (int) $status['boosts'],
+                'servers' => collect($status['servers'])->pluck('name')->implode(', '),
+                'levels' => $levels,
+            ];
+        }
+
+        $boostOne = $discord->getCreditsPerBoost1();
+        $boostTwo = max($boostOne, $discord->getCreditsPerBoost2());
+
+        return [
+            'boosting' => (bool) $link?->is_boosting,
+            'count' => (int) ($link?->boost_count ?? 0),
+            'servers' => null,
+            'levels' => [
+                ['boosts' => 1, 'credits' => $boostOne, 'total' => $boostOne, 'received' => (int) ($link?->boosts_rewarded ?? 0) >= 1],
+                ['boosts' => 2, 'credits' => $boostTwo - $boostOne, 'total' => $boostTwo, 'received' => (int) ($link?->boosts_rewarded ?? 0) >= 2],
+            ],
+        ];
     }
 
     /**

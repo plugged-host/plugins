@@ -35,6 +35,14 @@
 - Failover reads core's node telemetry instead of the status plugin.
 - `plugged-host:doctor` checks the agent settings and the last mirror pass.
 - README no longer claims a daily S3 backup: it was never scheduled.
+- From prod (2.1): **node failover actually recovers servers**: a state machine run by the
+  minute sweep (creating: fence, move to a node the transfer planner would pick, wings create
+  with the egg install; restoring: wings streams the mirror, adapter s3, a temporary backup row;
+  done: `ServerMoved` (subdomains repoint), owner told the new address). Back-off after failures,
+  at most one notification a day, `STORAGE_FAILOVER_MAX_IN_FLIGHT` (3), suspended servers stay
+  put, `plugged-host:failover-sweep --drill= --resume=`. Needs plugged-host-servers (optional
+  dependency). Agent archives list regular files only (format 2) and are typed
+  `application/gzip` for non-browser clients.
 
 ## Agent 1.4.0: deleted servers, nothing kept twice (2026-10-10)
 

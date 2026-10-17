@@ -31,6 +31,17 @@ interface ComputePlans
     public function plan(?User $user): ?array;
 
     /**
+     * For display, when the plan is this panel's share of a pool other services use too
+     * (noprofit.space's, which plugged.cloud shares): per resource the whole pool (base plus
+     * bought), what the other services use of it, and this panel's share (the plan's
+     * cpu/memory/disk, the pool less that use, which is what is enforced here). Null when the
+     * plan is this panel's alone; then limit and use are the plan's and these servers'.
+     *
+     * @return null|array{cpu: array{total: int, elsewhere: int, share: int}, memory: array{total: int, elsewhere: int, share: int}, disk: array{total: int, elsewhere: int, share: int}}
+     */
+    public function pool(?User $user): ?array;
+
+    /**
      * The base without and with the Discord server, or null while not known.
      *
      * @return null|array{default: array{cpu: int, memory: int, disk: int}, discord: array{cpu: int, memory: int, disk: int}}

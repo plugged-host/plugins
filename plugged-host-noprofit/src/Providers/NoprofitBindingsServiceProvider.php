@@ -10,10 +10,12 @@ use PluggedHost\Ai\Contracts\ProviderSource;
 use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Discord\Contracts\DiscordAccounts;
 use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
+use PluggedHost\Discord\Contracts\DiscordServersStatus;
 use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Noprofit\Ai\NoprofitNeoBackend;
 use PluggedHost\Noprofit\Ai\NoprofitNeoProviders;
 use PluggedHost\Noprofit\Credits\NoprofitComputePlans;
+use PluggedHost\Noprofit\Discord\NoprofitDiscordStatus;
 use PluggedHost\Noprofit\Discord\NoprofitRuxClient;
 use PluggedHost\Noprofit\Identity\NoprofitAccountPortal;
 use PluggedHost\Noprofit\Services\GuardedSubuserCreationService;
@@ -32,6 +34,8 @@ class NoprofitBindingsServiceProvider extends ServiceProvider
         $this->app->singleton(NoprofitRuxClient::class);
         $this->app->singleton(DiscordAccounts::class, fn ($app) => $app->make(NoprofitRuxClient::class));
         $this->app->singleton(DiscordCreditPayouts::class, fn ($app) => $app->make(NoprofitRuxClient::class));
+        // The Discord servers noprofit.space checks (ours and partners'), and it pays their boosts.
+        $this->app->singleton(DiscordServersStatus::class, NoprofitDiscordStatus::class);
 
         // neo: its turns and limits on noprofit.space's gateway, and the providers it runs there
         // (rux calls the same ones).

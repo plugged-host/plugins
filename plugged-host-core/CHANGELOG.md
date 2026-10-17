@@ -28,6 +28,18 @@
 - **Node telemetry is core's** (`NodeTelemetry`, `plugged-host:sample-nodes`): every node probed
   once a minute; servers, storage and status read it instead of the status plugin's tables.
 - The console widget swap moved to servers, the credit tables' migration to economy.
+- From prod (2.1): **panel backups off per node** (`BACKUPS_DISABLED_NODES`, core settings ›
+  Backups; `Support\NodeBackups`): those nodes' servers get no Backups page, its URL goes to
+  the console, and `InitiateBackupService` is bound to `NodeAwareInitiateBackupService`, which
+  refuses new backups there (panel, client API, schedules, neo).
+
+## 2.1.0
+
+- **One version for plugged.host**: `v<major major>.<major>.<patch>.<commit>` (now v2.1.0.<commit>),
+  from the plugins repo's `VERSION` file plus the checkout's commit (`Support\Release`). Shown at
+  the foot of every panel page, on error pages, the backups portal, in the status export
+  (`release`, for the sites' footers) and to neo. Every plugged.host plugin reports that same
+  version, commit included.
 
 ## Unreleased (2.1)
 

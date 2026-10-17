@@ -6,6 +6,12 @@
   goes through a `SoftwareSwitcher` contract a game plugin binds, a new server announces
   `ServerProvisioned` (minecraft sets up onboarding and the EULA), a finished move announces
   `ServerMoved` (subdomains repoints DNS). The settings page styles moved here from core.
+- From prod (2.1): a create wings rejects is retried once and then removed, never left
+  `installing`; a new server's allocation is reserved with a conditional query (`notReserved()`,
+  10 minutes; Geyser's Bedrock claim skips reserved rows too). An egg with `SERVER_WEBPORT`
+  (Multi Theft Auto) gets two ports like FiveM (`secondPortVariable()`,
+  `findOrCreateAllocationPair()`). `plugged-host:trim-memory` takes back what a noprofit.space
+  memory-trim plan asks, evenly (`MemoryTrim`, `Support\EvenCuts`).
 
 ## Unreleased (2.1)
 

@@ -17,6 +17,12 @@ final class NoprofitComputePlans implements ComputePlans
         return NoprofitCreditSync::plan($user);
     }
 
+    /** The noprofit.space pool, which plugged.cloud shares. */
+    public function pool(?User $user): ?array
+    {
+        return NoprofitCreditSync::pool($user);
+    }
+
     public function tiers(): ?array
     {
         return NoprofitCreditSync::tiers();

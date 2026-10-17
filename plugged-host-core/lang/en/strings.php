@@ -6,6 +6,11 @@ return [
         'more' => 'More',
     ],
 
+    // A node with backups turned off (Support\NodeBackups, NodeAwareInitiateBackupService).
+    'backups' => [
+        'disabled' => 'Backups are turned off for servers on this node.',
+    ],
+
     'role' => 'Role|Roles',
     'user' => 'User|Users',
     'cpu' => 'CPU',

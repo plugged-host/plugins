@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
 use PluggedHost\Ai\Contracts\ProviderSource;
+use PluggedHost\Ai\Support\MessageContent;
 use stdClass;
 use Throwable;
 
@@ -27,6 +28,9 @@ use Throwable;
  * Premium slots answer only turns that ask for the premium model (neo chats where a PlusPlus user
  * picked it): those try the premium slots first and fall back to the others. Every other turn,
  * rux's included, never reaches a premium slot.
+ *
+ * A turn with images (MessageContent parts: screenshots on Discord, images in neo's chat) tries
+ * the slots that see them first (seesImages()); a slot that does not gets a note in their place.
  *
  * Each caller uses its own scope (for('rux'), for('neo')): cooldowns, daily token counts, what a
  * provider does with tools, log lines and the prompted-tools wording are kept per scope, as they
@@ -116,6 +120,20 @@ class ProviderChain
     }
 
     /**
+     * The slot's vision flag (NEO_P{n}_VISION, or noprofit.space's); until one is set, Gemini and
+     * Anthropic slots count as seeing images and OpenAI-style ones not (noprofit.space's default
+     * too).
+     *
+     * @param  array<string, mixed>  $provider
+     */
+    public static function seesImages(array $provider): bool
+    {
+        return isset($provider['vision'])
+            ? (bool) $provider['vision']
+            : in_array($provider['driver'] ?? 'openai', ['gemini', 'anthropic'], true);
+    }
+
+    /**
      * Whether there are providers to be had at all (ProviderSource::configured()). Whether one
      * of them answers is only known per call (AiUnavailableException).
      */
@@ -143,8 +161,16 @@ class ProviderChain
 
         $deadline = microtime(true) + $this->source->failover()['deadline'];
         $transient = false;
+        $images = MessageContent::hasImages($messages);
+
+        // With images, the slots that see them go first; the others get a note in their place.
+        if ($images) {
+            usort($providers, static fn (array $a, array $b): int => self::seesImages($b) <=> self::seesImages($a));
+        }
 
         foreach ($providers as $provider) {
+            $slotMessages = $images && !self::seesImages($provider) ? MessageContent::withoutImages($messages) : $messages;
+
             if ($this->coolingDownUntil($provider) !== null) {
                 $transient = true;
 
@@ -173,8 +199,8 @@ class ProviderChain
             }
 
             $outcome = $prompted
-                ? $this->call($provider, $this->prompted->messages($messages, $tools, $toolChoice, $this->gatewayTools($provider)), [], $toolChoice, min(max(5, (int) $provider['timeout']), $remaining))
-                : $this->call($provider, $messages, $tools, $toolChoice, min(max(5, (int) $provider['timeout']), $remaining));
+                ? $this->call($provider, $this->prompted->messages($slotMessages, $tools, $toolChoice, $this->gatewayTools($provider)), [], $toolChoice, min(max(5, (int) $provider['timeout']), $remaining))
+                : $this->call($provider, $slotMessages, $tools, $toolChoice, min(max(5, (int) $provider['timeout']), $remaining));
 
             if (isset($outcome['message'])) {
                 $this->countTokens($provider, $outcome);
@@ -251,9 +277,11 @@ class ProviderChain
      */
     public function coolingDownUntil(array $provider): ?int
     {
+        // Redis hands numbers back as strings: an is_int() check here never saw a cooldown, so a
+        // provider out of quota was asked again every few seconds (prod, 2026-10-15).
         $until = Cache::get($this->key($provider, 'cooldown'));
 
-        return is_int($until) && $until > time() ? $until : null;
+        return is_numeric($until) && (int) $until > time() ? (int) $until : null;
     }
 
     /**

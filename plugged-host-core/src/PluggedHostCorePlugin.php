@@ -4,6 +4,7 @@ namespace PluggedHost\Core;
 
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Enums\TablerIcon;
+use App\Models\Node;
 use App\Traits\EnvironmentWriterTrait;
 use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
@@ -24,8 +25,10 @@ use PluggedHost\Core\Filament\App\Pages\WelcomeTourPage;
 use PluggedHost\Core\Filament\HiddenNavigationManager;
 use PluggedHost\Core\Filament\ServerNavigation;
 use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
+use PluggedHost\Core\Http\Middleware\RedirectFromDisabledBackups;
 use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
+use PluggedHost\Core\Support\NodeBackups;
 use Throwable;
 
 class PluggedHostCorePlugin implements HasPluginSettings, Plugin
@@ -59,8 +62,10 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             $panel->navigationGroups([ServerNavigation::moreGroup()]);
 
             // A suspended server's pages show why it is suspended (SuspendedServerPage).
+            // A node with backups turned off (Support\NodeBackups) has no Backups page.
             $panel->tenantMiddleware([
                 RedirectToSuspendedPage::class,
+                RedirectFromDisabledBackups::class,
             ]);
         }
 
@@ -175,6 +180,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
         $data = [
             'tour_enabled' => (bool) config('plugged-host-core.tour.enabled', true),
             'tour_version' => (string) config('plugged-host-core.tour.version', '2'),
+            'backups_disabled_nodes' => NodeBackups::disabledNodeIds(),
         ];
 
         // One Select per panel, because a navigation key is a class name and a class only
@@ -213,6 +219,17 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->maxLength(64)
                         ->default(fn () => (string) config('plugged-host-core.tour.version', '2')),
+                ]),
+            Section::make('Backups')
+                ->description('Panel backups are stored on the node\'s own disk. On these nodes servers get no Backups page and cannot make new backups; existing backups stay until deleted. The off-site mirror and failover are not affected.')
+                ->schema([
+                    Select::make('backups_disabled_nodes')
+                        ->label('Backups off on')
+                        ->options(fn () => Node::query()->orderBy('name')->pluck('name', 'id')->all())
+                        ->multiple()
+                        ->searchable()
+                        ->placeholder('No node')
+                        ->default(fn () => NodeBackups::disabledNodeIds()),
                 ]),
             Section::make('Sidebar visibility')
                 ->description('Hide navigation entries you do not want users to see. The pages stay reachable by URL — this only removes them from the sidebar.')
@@ -342,6 +359,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             'TOUR_ENABLED' => $data['tour_enabled'] ? 'true' : 'false',
             'TOUR_VERSION' => (string) $data['tour_version'],
             'NAV_HIDDEN_ITEMS' => implode(',', $this->hiddenNavigationFromForm($data)),
+            'BACKUPS_DISABLED_NODES' => implode(',', array_filter(array_map('intval', (array) ($data['backups_disabled_nodes'] ?? [])))),
         ];
 
         $this->writeToEnvironment($environment);

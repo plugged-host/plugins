@@ -25,3 +25,7 @@
   calls, cache keys and the `plugged-host-discord` service name). The neo gateway secret is a
   field of this plugin's settings now (`NEO_GATEWAY_SECRET`, at least 32 characters), and
   `plugged-host:doctor` checks it while plugged-host-ai is on.
+- From prod (2.1): `NoprofitDiscordStatus` (noprofit.space's `/internal/discord/status`, a
+  minute's cache) is bound as discord's `DiscordServersStatus`; `NoprofitComputePlans::pool()`
+  reads `NoprofitCreditSync::pool()` (`total_*` / `elsewhere_*`, else worked out from `base_*`
+  and the resources bought).

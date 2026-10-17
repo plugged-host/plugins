@@ -256,6 +256,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
             'extra_headers' => (object) $this->maskHeaders((array) $provider['extra_headers']),
             'extra_body' => (object) $provider['extra_body'],
             'premium' => !empty($provider['premium']),
+            'vision' => ProviderChain::seesImages($provider),
             'usable' => ProviderChain::usable($provider),
             'cooldown_until' => $cooldownUntil === null ? null : gmdate('Y-m-d\TH:i:s\Z', $cooldownUntil),
             'last_error' => $this->chain->lastError($provider),
@@ -351,7 +352,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
             $config[$configPrefix . $field] = $configValue;
         };
 
-        foreach (['enabled', 'premium'] as $flag) {
+        foreach (['enabled', 'premium', 'vision'] as $flag) {
             if (!array_key_exists($flag, $fields)) {
                 continue;
             }
