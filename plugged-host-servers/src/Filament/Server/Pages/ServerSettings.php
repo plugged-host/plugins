@@ -220,7 +220,10 @@ class ServerSettings extends ServerFormPage
      */
     public function hasDevbox(): bool
     {
+        // ready(): devboxes switched on (DEVBOX_ENABLED) and migrated. Without it the card renders
+        // nothing and the section and its menu link would stand empty.
         return Plugins::available(self::DEVBOX_CARD)
+            && \PluggedHost\Devbox\Support\DevboxAccess::ready()
             && (bool) user()?->can('devbox.connect', $this->getRecord());
     }
 
