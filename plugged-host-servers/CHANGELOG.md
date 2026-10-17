@@ -2,6 +2,10 @@
 
 ## 2.2.0 (unreleased)
 
+- The server settings' VS Code section (plugged-host-devbox) shows only to people who may have a
+  devbox there (`DevboxAccess::isMember()`: owner, or a subuser with VS Code, SFTP and every
+  file permission), not to every admin or subuser with the VS Code permission alone, for whom
+  it stood empty.
 - servers no longer knows plugged-host-minecraft: the settings page's "Server software" section
   goes through a `SoftwareSwitcher` contract a game plugin binds, a new server announces
   `ServerProvisioned` (minecraft sets up onboarding and the EULA), a finished move announces

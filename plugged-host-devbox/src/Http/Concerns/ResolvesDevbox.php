@@ -10,6 +10,9 @@ use PluggedHost\Devbox\Support\DevboxAccess;
 /**
  * The devbox a request comes from, by the bearer token of its current start, and a per-devbox
  * rate limit. Many devboxes share a node's address, so limits are per devbox, not per IP.
+ *
+ * A devbox that is being stopped keeps its token until Wings confirms the stop, but it is no
+ * longer answered for: its `ph` gets a 401, closes every session and ends what runs inside.
  */
 trait ResolvesDevbox
 {
@@ -20,7 +23,10 @@ trait ResolvesDevbox
             return null;
         }
 
-        return Devbox::query()->where('token_hash', Devbox::hashToken($token))->first();
+        return Devbox::query()
+            ->where('token_hash', Devbox::hashToken($token))
+            ->whereNull('stopping_at')
+            ->first();
     }
 
     private function allow(Devbox $devbox, string $action, int $perMinute): bool

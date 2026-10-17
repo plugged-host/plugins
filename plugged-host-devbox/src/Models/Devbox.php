@@ -24,6 +24,7 @@ use PluggedHost\Core\Support\SystemServers;
  * @property ?int $node_id
  * @property string $slug
  * @property ?string $token_hash
+ * @property ?\Illuminate\Support\Carbon $stopping_at
  * @property ?string $boot_status
  * @property ?string $boot_detail
  * @property ?string $host_key
@@ -52,6 +53,7 @@ class Devbox extends Model
     {
         return [
             'shared_rights' => 'array',
+            'stopping_at' => 'datetime',
             'started_at' => 'datetime',
             'booted_at' => 'datetime',
             'last_seen_at' => 'datetime',
@@ -87,6 +89,21 @@ class Devbox extends Model
     public function isShared(): bool
     {
         return $this->user_id === null;
+    }
+
+    /**
+     * Started and not on its way down: its token is good and people may sign in. A devbox that
+     * is stopping still holds its token (and counts as running for the caps) until Wings says
+     * it is offline, but the panel no longer answers for it.
+     */
+    public function isRunning(): bool
+    {
+        return $this->token_hash !== null && $this->stopping_at === null;
+    }
+
+    public function isStopping(): bool
+    {
+        return $this->token_hash !== null && $this->stopping_at !== null;
     }
 
     public function externalId(): string

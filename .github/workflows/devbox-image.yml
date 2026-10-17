@@ -1,6 +1,8 @@
 # Builds the devbox image (plugged-host-devbox/image/Dockerfile, ph's tests run inside the build)
-# and publishes it to ghcr.io/plugged-host/devbox: a moving tag per release line (2.2), which
-# the devbox egg uses, and an immutable one per commit (2.2.0.<sha>).
+# and publishes it to ghcr.io/plugged-host/devbox with three tags: the release (2.2.0, from
+# VERSION), which panels run by default (DevboxProvisioner::image()); the release line (2.2); and
+# one per commit (2.2.0.<sha>). For production pin the digest this job prints
+# (DEVBOX_IMAGE=ghcr.io/plugged-host/devbox@sha256:…): tags move with every push.
 name: devbox image
 
 on:
@@ -10,6 +12,8 @@ on:
       - 'plugged-host-devbox/ph/**'
       - 'plugged-host-devbox/image/**'
       - '.github/workflows/devbox-image.yml'
+      # A new release needs its tag: panels on it pull ghcr.io/plugged-host/devbox:<VERSION>.
+      - 'VERSION'
   workflow_dispatch:
 
 permissions:
@@ -30,6 +34,7 @@ jobs:
         id: meta
         run: |
           release="$(tr -d '[:space:]' < VERSION)"
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
           echo "version=${release}.$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           echo "line=$(echo "$release" | cut -d. -f1,2)" >> "$GITHUB_OUTPUT"
 
@@ -42,12 +47,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
+        id: push
         with:
           context: plugged-host-devbox
           file: plugged-host-devbox/image/Dockerfile
           build-args: PH_VERSION=${{ steps.meta.outputs.version }}
           push: true
           tags: |
+            ghcr.io/plugged-host/devbox:${{ steps.meta.outputs.release }}
             ghcr.io/plugged-host/devbox:${{ steps.meta.outputs.line }}
             ghcr.io/plugged-host/devbox:${{ steps.meta.outputs.version }}
           labels: |
@@ -55,3 +62,7 @@ jobs:
             org.opencontainers.image.description=plugged.host devbox: VS Code on the server
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Digest
+        run: |
+          echo "ghcr.io/plugged-host/devbox@${{ steps.push.outputs.digest }} (${{ steps.meta.outputs.version }})" | tee -a "$GITHUB_STEP_SUMMARY"

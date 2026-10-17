@@ -58,7 +58,7 @@ func (p *panelClient) post(ctx context.Context, path string, in, out any) error 
 		return errThrottled
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return fmt.Errorf("panel answered %s on %s", res.Status, path)
+		return &statusError{code: res.StatusCode, status: res.Status, path: path}
 	}
 	if out == nil {
 		return nil
@@ -68,6 +68,25 @@ func (p *panelClient) post(ctx context.Context, path string, in, out any) error 
 }
 
 var errThrottled = errors.New("panel throttled the request")
+
+// statusError is a panel answer outside 2xx.
+type statusError struct {
+	code         int
+	status, path string
+}
+
+func (e *statusError) Error() string {
+	return fmt.Sprintf("panel answered %s on %s", e.status, e.path)
+}
+
+// revoked reports whether the panel refused this devbox's token itself (401) or everyone in it
+// (403): the devbox was stopped, restarted with a new token, or its people lost access. Nothing
+// the panel said before counts any more.
+func revoked(err error) bool {
+	var se *statusError
+
+	return errors.As(err, &se) && (se.code == http.StatusUnauthorized || se.code == http.StatusForbidden)
+}
 
 // access is what the panel says about who may sign in: the people bound to this devbox (one
 // for a personal devbox, the owner and permitted subusers for a shared one) and the public keys
@@ -105,6 +124,15 @@ func (p *people) set(a access) {
 	p.mu.Lock()
 	p.users = users
 	p.mu.Unlock()
+}
+
+// anyone reports whether anybody at all may sign in: false before the panel's first answer and
+// once the devbox is locked down.
+func (p *people) anyone() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	return len(p.users) > 0
 }
 
 func (p *people) known(username string) bool {

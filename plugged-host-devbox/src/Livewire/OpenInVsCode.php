@@ -29,7 +29,12 @@ class OpenInVsCode extends Component
     #[Locked]
     public int $serverId;
 
-    /** Devbox id waiting for its server to finish installing before it can be started. */
+    /**
+     * Devbox id waiting for its server to finish installing before it can be started. Locked: the
+     * browser can't point it at someone else's devbox, and poll() checks it against the devbox
+     * the person resolves to anyway.
+     */
+    #[Locked]
     public ?int $pendingStart = null;
 
     public ?string $error = null;
@@ -50,18 +55,14 @@ class OpenInVsCode extends Component
         try {
             $devbox = app(DevboxProvisioner::class)->ensure($user, $game);
 
+            if ($devbox->isStopping()) {
+                throw new DevboxException('stopping');
+            }
             if ($devbox->token_hash !== null) {
                 return; // already running
             }
 
-            if (!$devbox->isShared()) {
-                $running = Devbox::query()->where('user_id', $user->id)->whereNotNull('token_hash')->count();
-                if ($running >= max(1, (int) config('plugged-host-devbox.running_per_user', 2))) {
-                    throw new DevboxException('too_many');
-                }
-            }
-
-            $this->startWhenInstalled($devbox);
+            $this->startWhenInstalled($devbox, $user);
         } catch (DevboxException $exception) {
             $this->error = $exception->reason;
         } catch (Throwable $exception) {
@@ -72,23 +73,45 @@ class OpenInVsCode extends Component
 
     /**
      * wire:poll while something is on its way: starts a devbox whose server just finished
-     * installing, and re-renders until it reports in.
+     * installing, carries a stop on, and re-renders until the devbox reports in. The pending id
+     * only counts while it is still the devbox this person gets on this server.
      */
     public function poll(): void
     {
+        [$user, $game] = $this->context();
+        $devbox = $user !== null && $game !== null ? $this->current($user, $game) : null;
+
+        if ($user === null || $devbox === null) {
+            $this->pendingStart = null;
+
+            return;
+        }
+
+        if ($devbox->isStopping()) {
+            try {
+                app(DevboxPower::class)->settle($devbox);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+
+            return;
+        }
+
         if ($this->pendingStart === null) {
             return;
         }
 
-        $devbox = Devbox::query()->find($this->pendingStart);
-        if ($devbox === null || $devbox->token_hash !== null) {
+        if ((int) $this->pendingStart !== (int) $devbox->id || $devbox->token_hash !== null) {
             $this->pendingStart = null;
 
             return;
         }
 
         try {
-            $this->startWhenInstalled($devbox);
+            $this->startWhenInstalled($devbox, $user);
+        } catch (DevboxException $exception) {
+            $this->pendingStart = null;
+            $this->error = $exception->reason;
         } catch (Throwable $exception) {
             report($exception);
             $this->pendingStart = null;
@@ -104,7 +127,7 @@ class OpenInVsCode extends Component
     {
         [$user, $game] = $this->context();
         $devbox = $user && $game ? $this->current($user, $game) : null;
-        if ($devbox === null || $devbox->token_hash === null || !DevboxWeb::enabled()) {
+        if ($devbox === null || !$devbox->isRunning() || !DevboxWeb::enabled()) {
             return;
         }
 
@@ -119,7 +142,7 @@ class OpenInVsCode extends Component
             return;
         }
 
-        app(DevboxPower::class)->stop($devbox);
+        $this->attempt(fn () => app(DevboxPower::class)->stop($devbox));
     }
 
     public function enableShared(): void
@@ -129,7 +152,7 @@ class OpenInVsCode extends Component
             return;
         }
 
-        app(DevboxProvisioner::class)->enableShared($game);
+        $this->attempt(fn () => app(DevboxProvisioner::class)->enableShared($game));
     }
 
     public function disableShared(): void
@@ -139,7 +162,8 @@ class OpenInVsCode extends Component
             return;
         }
 
-        app(DevboxProvisioner::class)->disableShared($game);
+        // Refused while Wings can't delete it or an abuse finding holds it (DevboxException).
+        $this->attempt(fn () => app(DevboxProvisioner::class)->disableShared($game));
     }
 
     public function render(): View
@@ -149,7 +173,21 @@ class OpenInVsCode extends Component
         return view('plugged-host-devbox::livewire.open-in-vscode', $this->viewData($user, $game));
     }
 
-    private function startWhenInstalled(Devbox $devbox): void
+    private function attempt(callable $action): void
+    {
+        $this->error = null;
+
+        try {
+            $action();
+        } catch (DevboxException $exception) {
+            $this->error = $exception->reason;
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->error = 'failed';
+        }
+    }
+
+    private function startWhenInstalled(Devbox $devbox, User $user): void
     {
         $server = $devbox->server;
         if ($server === null) {
@@ -163,7 +201,7 @@ class OpenInVsCode extends Component
         }
 
         $this->pendingStart = null;
-        app(DevboxPower::class)->start($devbox);
+        app(DevboxPower::class)->start($devbox, $user);
     }
 
     /**
@@ -219,13 +257,14 @@ class OpenInVsCode extends Component
         $state = match (true) {
             $devbox === null || $server === null => 'none',
             $this->pendingStart === $devbox->id || !$server->isInstalled() => 'creating',
+            $devbox->isStopping() => 'stopping',
             $devbox->token_hash === null => 'stopped',
             $devbox->booted_at === null => $devbox->started_at?->lt(now()->subMinutes(10)) ? 'failed' : 'starting',
             $devbox->boot_status === 'mount_missing' => 'mount_missing',
             default => 'ready',
         };
 
-        $data = $base + ['state' => $state, 'polling' => in_array($state, ['creating', 'starting'], true)];
+        $data = $base + ['state' => $state, 'polling' => in_array($state, ['creating', 'starting', 'stopping'], true)];
 
         if ($state !== 'ready') {
             return $data;

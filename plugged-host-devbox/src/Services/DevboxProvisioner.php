@@ -6,12 +6,16 @@ use App\Models\Egg;
 use App\Models\Mount;
 use App\Models\Server;
 use App\Models\User;
+use App\Repositories\Daemon\DaemonServerRepository;
 use App\Services\Servers\ServerCreationService;
 use App\Services\Servers\ServerDeletionService;
 use Filament\Facades\Filament;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use PluggedHost\Core\Support\Release;
 use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Devbox\Models\Devbox;
 use PluggedHost\Devbox\Support\DevboxAccess;
@@ -32,17 +36,36 @@ final class DevboxProvisioner
 {
     public const EGG_UUID = '21a6b972-a167-451f-b79b-70d2675b950c';
 
+    public const IMAGE_REPOSITORY = 'ghcr.io/plugged-host/devbox';
+
+    /** Every node a devbox server was made on: where the reconcile looks for leftover devboxes. */
+    public const NODES_KEY = 'plugged-host-devbox:nodes';
+
+    /**
+     * The image devboxes run: DEVBOX_IMAGE (a tag, a digest `…@sha256:…`, or `~…` for a local
+     * image), or by default this release's tag (ghcr.io/plugged-host/devbox:2.2.0), which CI
+     * publishes with every release, so a panel never runs a newer release line's devbox.
+     */
+    public static function image(): string
+    {
+        $image = trim((string) config('plugged-host-devbox.image', ''));
+
+        return $image !== '' ? $image : self::IMAGE_REPOSITORY . ':' . Release::version();
+    }
+
     /**
      * The devbox $user works in on $game, created (not started) when it doesn't exist yet.
      */
     public function ensure(User $user, Server $game): Devbox
     {
         $resolved = DevboxAccess::resolve($user, $game) ?? throw new DevboxException('not_allowed');
-        if ($reason = DevboxAccess::blockedReason($game)) {
+
+        [$kind] = $resolved;
+        $payer = ($kind === 'shared' ? $game->user : $user) ?? throw new DevboxException('not_allowed');
+        if ($reason = DevboxAccess::refusal($user, $game, $payer)) {
             throw new DevboxException($reason);
         }
 
-        [$kind] = $resolved;
         $owner = $kind === 'shared' ? null : (int) $user->id;
 
         return $this->locked($game, $owner, function () use ($game, $owner): Devbox {
@@ -86,8 +109,17 @@ final class DevboxProvisioner
             ]);
         });
 
-        Devbox::query()->where('game_server_id', $game->id)->whereNotNull('user_id')->get()
-            ->each(fn (Devbox $personal) => $this->destroy($personal));
+        // One that can't go right now (Wings down, under abuse review) is retried by the
+        // reconcile, which removes personal devboxes on a server whose shared one is on.
+        foreach (Devbox::query()->where('game_server_id', $game->id)->whereNotNull('user_id')->get() as $personal) {
+            try {
+                $this->destroy($personal);
+            } catch (Throwable $exception) {
+                if (!$exception instanceof DevboxException) {
+                    report($exception);
+                }
+            }
+        }
 
         return $devbox;
     }
@@ -100,11 +132,20 @@ final class DevboxProvisioner
     }
 
     /**
-     * Removes a devbox completely: its server (through Wings), its mount and the row.
+     * Removes a devbox completely: its server (through Wings), its mount and the row. Nothing is
+     * removed while the abuse checks hold a live critical finding on its server (the finding and
+     * its evidence would go with it) or while Wings can't confirm the deletion: the row stays and
+     * whoever asked (the reconcile, every minute) asks again. DevboxException('abuse' or
+     * 'node_down') says which.
      */
     public function destroy(Devbox $devbox): void
     {
+        if (DevboxAbuse::underReview($devbox)) {
+            throw new DevboxException('abuse');
+        }
+
         self::outsideTenant(function () use ($devbox): void {
+            $this->removeServer($devbox);
             if (DevboxWeb::domain() !== '') {
                 try {
                     app(DevboxDns::class)->remove($devbox);
@@ -112,7 +153,6 @@ final class DevboxProvisioner
                     report($exception);
                 }
             }
-            $this->removeServer($devbox);
             ConnectCodes::forgetAll($devbox);
             $devbox->delete();
         });
@@ -149,7 +189,7 @@ final class DevboxProvisioner
                 'threads' => null,
                 'oom_killer' => true,
                 'startup' => 'ph serve',
-                'image' => (string) config('plugged-host-devbox.image'),
+                'image' => self::image(),
                 'skip_scripts' => true,
                 'database_limit' => 0,
                 'allocation_limit' => 0,
@@ -180,21 +220,42 @@ final class DevboxProvisioner
             'mount_id' => $mount->id,
             'node_id' => $node->id,
             'token_hash' => null,
+            'stopping_at' => null,
             'boot_status' => null,
             'boot_detail' => null,
         ])->save();
 
+        $nodes = (array) Cache::get(self::NODES_KEY, []);
+        if (!in_array((int) $node->id, $nodes, true)) {
+            Cache::forever(self::NODES_KEY, [...$nodes, (int) $node->id]);
+        }
+
         Log::info('plugged-host-devbox: created', ['devbox' => $devbox->id, 'server' => $server->uuid, 'game' => $game->uuid, 'tier' => $tier]);
     }
 
+    /**
+     * Deletes the devbox's server on Wings first, and only then in the panel: never by force, so
+     * a devbox Wings still runs never loses the row that lets the panel stop it. Upstream's
+     * deletion service carries on past most Wings errors (it only stops on a connection error), so
+     * the Wings call is made and checked here; its own second call then gets a 404, which it
+     * treats as gone.
+     */
     private function removeServer(Devbox $devbox): void
     {
         if ($server = $devbox->server) {
             try {
-                app(ServerDeletionService::class)->withForce()->handle($server);
-            } catch (Throwable $exception) {
-                report($exception);
+                app(DaemonServerRepository::class)->setServer($server)->delete();
+            } catch (RequestException $exception) {
+                if ($exception->response->status() !== 404) {
+                    report($exception);
+
+                    throw new DevboxException('node_down');
+                }
+            } catch (ConnectionException) {
+                throw new DevboxException('node_down');
             }
+
+            app(ServerDeletionService::class)->handle($server);
         }
 
         if ($mount = $devbox->mount) {
@@ -202,7 +263,7 @@ final class DevboxProvisioner
             $mount->delete();
         }
 
-        $devbox->forceFill(['server_id' => null, 'mount_id' => null, 'token_hash' => null, 'connections' => 0])->save();
+        $devbox->forceFill(['server_id' => null, 'mount_id' => null, 'token_hash' => null, 'stopping_at' => null, 'connections' => 0])->save();
     }
 
     /**

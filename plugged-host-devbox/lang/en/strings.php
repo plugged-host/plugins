@@ -3,7 +3,7 @@
 return [
     'permissions' => [
         'devbox_title' => 'VS Code',
-        'devbox_desc' => 'Open this server in VS Code: a Linux devbox with the server\'s files, a terminal and every extension. Needs SFTP too.',
+        'devbox_desc' => 'Open this server in VS Code: a Linux devbox with the server\'s files, a terminal and every extension. Needs SFTP and every file permission (read, read content, create, update, delete) too.',
         'devbox_connect' => 'Allows the user to open their own devbox on this server (with their own Plus) or the server\'s shared one.',
     ],
     'card' => [
@@ -18,6 +18,7 @@ return [
             'stopped' => 'Stopped',
             'creating' => 'Creating…',
             'starting' => 'Starting…',
+            'stopping' => 'Stopping…',
             'failed' => 'Did not start',
             'mount_missing' => 'Can\'t reach the server\'s files',
             'ready' => 'Running',
@@ -25,6 +26,7 @@ return [
         'hints' => [
             'creating' => 'The first devbox on a node downloads its image, which can take a few minutes.',
             'starting' => 'Almost there.',
+            'stopping' => 'Waiting for the node to confirm.',
             'failed' => 'Stop it and try again. If it keeps happening, tell support.',
             'mount_missing' => 'This node isn\'t set up for devboxes yet. Support has been notified by the panel\'s health check.',
         ],
@@ -58,6 +60,11 @@ return [
         'maintenance' => 'The node is under maintenance.',
         'installing' => 'The server is still installing.',
         'busy' => 'The server is busy (restoring a backup or moving).',
+        'stopping' => 'The devbox is still stopping. Try again in a moment.',
+        'node_busy' => 'This server\'s node is too busy for a devbox right now. Try again later.',
+        'node_down' => 'This server\'s node isn\'t answering right now. Try again in a moment.',
+        'disk_full' => 'The server\'s disk is full. Free some space first.',
+        'abuse' => 'Devboxes are paused here while support looks into an abuse report.',
         'failed' => 'Something went wrong. Try again in a moment.',
     ],
 ];

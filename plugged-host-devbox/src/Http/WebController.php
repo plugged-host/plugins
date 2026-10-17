@@ -155,7 +155,7 @@ final class WebController
     private function allowed(Devbox $devbox, User $user): bool
     {
         return DevboxAccess::ready()
-            && $devbox->token_hash !== null
+            && $devbox->isRunning()
             && DevboxAccess::people($devbox)->contains(fn (User $person): bool => (int) $person->id === (int) $user->id);
     }
 

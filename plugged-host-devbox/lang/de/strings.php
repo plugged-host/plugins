@@ -3,7 +3,7 @@
 return [
     'permissions' => [
         'devbox_title' => 'VS Code',
-        'devbox_desc' => 'Diesen Server in VS Code öffnen: eine Linux-Devbox mit den Serverdateien, einem Terminal und jeder Erweiterung. Braucht auch SFTP.',
+        'devbox_desc' => 'Diesen Server in VS Code öffnen: eine Linux-Devbox mit den Serverdateien, einem Terminal und jeder Erweiterung. Braucht auch SFTP und alle Dateirechte (lesen, Inhalt lesen, erstellen, bearbeiten, löschen).',
         'devbox_connect' => 'Erlaubt dem Nutzer, auf diesem Server eine eigene Devbox zu öffnen (mit eigenem Plus) oder die geteilte des Servers.',
     ],
     'card' => [
@@ -18,6 +18,7 @@ return [
             'stopped' => 'Gestoppt',
             'creating' => 'Wird erstellt …',
             'starting' => 'Startet …',
+            'stopping' => 'Stoppt …',
             'failed' => 'Nicht gestartet',
             'mount_missing' => 'Kommt nicht an die Serverdateien',
             'ready' => 'Läuft',
@@ -25,6 +26,7 @@ return [
         'hints' => [
             'creating' => 'Die erste Devbox auf einem Node lädt ihr Image herunter, das kann ein paar Minuten dauern.',
             'starting' => 'Gleich geschafft.',
+            'stopping' => 'Wartet auf die Bestätigung des Nodes.',
             'failed' => 'Stoppe sie und versuche es erneut. Wenn es wieder passiert, melde dich beim Support.',
             'mount_missing' => 'Dieser Node ist noch nicht für Devboxen eingerichtet. Der Support sieht das in der Systemprüfung des Panels.',
         ],
@@ -58,6 +60,11 @@ return [
         'maintenance' => 'Der Node ist in Wartung.',
         'installing' => 'Der Server wird noch installiert.',
         'busy' => 'Der Server ist beschäftigt (Backup-Wiederherstellung oder Umzug).',
+        'stopping' => 'Die Devbox stoppt noch. Versuche es gleich noch einmal.',
+        'node_busy' => 'Der Node dieses Servers ist gerade zu ausgelastet für eine Devbox. Versuche es später erneut.',
+        'node_down' => 'Der Node dieses Servers antwortet gerade nicht. Versuche es gleich noch einmal.',
+        'disk_full' => 'Der Speicher des Servers ist voll. Gib zuerst etwas Platz frei.',
+        'abuse' => 'Devboxen sind hier pausiert, solange der Support einer Missbrauchsmeldung nachgeht.',
         'failed' => 'Etwas ist schiefgelaufen. Versuche es gleich noch einmal.',
     ],
 ];

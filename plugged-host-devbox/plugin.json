@@ -14,8 +14,8 @@
     "api_version": 1,
     "composer_packages": null,
     "plugged_host": {
-        "requires": ["plugged-host-core", "plugged-host-servers", "plugged-host-economy"],
-        "optional": ["plugged-host-abuse", "plugged-host-storage", "plugged-host-limbo"]
+        "requires": ["plugged-host-core", "plugged-host-servers", "plugged-host-economy", "plugged-host-abuse"],
+        "optional": ["plugged-host-storage", "plugged-host-limbo"]
     },
     "meta": {
         "status": "enabled",

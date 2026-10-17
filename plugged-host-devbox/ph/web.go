@@ -98,6 +98,14 @@ func (w *webSide) serve(l net.Listener) error {
 }
 
 func (w *webSide) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	// The edge asked the panel who this browser is; the devbox still has to be open to anyone at
+	// all (not before the panel's first answer, not once it is locked down).
+	if !w.d.people.anyone() {
+		http.Error(rw, "This devbox is not open right now. Open it again from the panel.", http.StatusServiceUnavailable)
+
+		return
+	}
+
 	proxy, err := w.ensure()
 	if err != nil {
 		log.Printf("web: %v", err)
@@ -182,6 +190,16 @@ func (w *webSide) ensure() (*httputil.ReverseProxy, error) {
 	log.Printf("web: code-server started on 127.0.0.1:%d", port)
 
 	return proxy, nil
+}
+
+// closeBackend ends code-server, and with it every browser connection proxied to it. The next
+// allowed request starts it again.
+func (w *webSide) closeBackend() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.cmd != nil && w.cmd.Process != nil {
+		_ = w.cmd.Process.Kill()
+	}
 }
 
 func (w *webSide) stop() {

@@ -11,6 +11,8 @@ use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Core\Support\Release;
+use PluggedHost\Devbox\Services\DevboxProvisioner;
 
 /**
  * Devboxes: VS Code on the server for Plus (see Providers\DevboxPluginProvider). Its UI is the
@@ -47,7 +49,7 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
     public function getSettingsFormData(): array
     {
         $data = [
-            'enabled' => (bool) config('plugged-host-devbox.enabled', true),
+            'enabled' => (bool) config('plugged-host-devbox.enabled', false),
             'image' => (string) config('plugged-host-devbox.image'),
             'web_domain' => (string) config('plugged-host-devbox.web_domain'),
             'web_origin_ip' => (string) config('plugged-host-devbox.web_origin_ip'),
@@ -79,11 +81,11 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
                 ->schema([
                     Toggle::make('enabled')
                         ->label('Devboxes on')
-                        ->helperText('Off hides "Open in VS Code" and stops new devboxes; running ones stop at the next reconcile.'),
+                        ->helperText('Off hides "Open in VS Code" and stops new devboxes; running ones stop at the next reconcile. Needs plugged-host-abuse enabled, and the node firewall from the plugin\'s README on every node first.'),
                     TextInput::make('image')
                         ->label('Image')
-                        ->helperText('What Wings runs. A leading ~ uses a local image without pulling.')
-                        ->required()
+                        ->placeholder(fn (): string => DevboxProvisioner::IMAGE_REPOSITORY . ':' . Release::version())
+                        ->helperText('What Wings runs. Empty: this release\'s tag. A digest (…@sha256:…) pins one exact build; a leading ~ uses a local image without pulling. Applies at each devbox\'s next start.')
                         ->maxLength(255),
                 ]),
             Section::make('Plus')
@@ -143,8 +145,8 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
         ];
 
         $image = trim((string) ($data['image'] ?? ''));
-        if ($image !== '' && preg_match('/^~?[A-Za-z0-9._\/:@-]+$/', $image)) {
-            $environment['DEVBOX_IMAGE'] = $image;
+        if ($image === '' || preg_match('/^~?[A-Za-z0-9._\/:@-]+$/', $image)) {
+            $environment['DEVBOX_IMAGE'] = $image; // empty: back to this release's tag
         }
 
         $domain = strtolower(trim((string) ($data['web_domain'] ?? ''), '. '));

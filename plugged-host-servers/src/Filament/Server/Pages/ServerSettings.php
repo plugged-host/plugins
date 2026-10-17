@@ -14,6 +14,7 @@ use App\Filament\Server\Pages\Console;
 use App\Filament\Server\Pages\ServerFormPage;
 use App\Models\Server;
 use App\Models\ServerVariable;
+use App\Models\User;
 use App\Services\Servers\ReinstallServerService;
 use App\Services\Servers\ServerDeletionService;
 use BackedEnum;
@@ -215,16 +216,21 @@ class ServerSettings extends ServerFormPage
     private const DEVBOX_CARD = 'PluggedHost\\Devbox\\Livewire\\OpenInVsCode';
 
     /**
-     * Whether the VS Code section shows: the devbox plugin is on and the person may use a devbox
-     * here (owner, or a subuser with its "VS Code" permission).
+     * Whether the VS Code section shows: the devbox plugin is on and the person is a member in the
+     * devbox's sense (owner, or a subuser with "VS Code", SFTP and every file permission;
+     * DevboxAccess::isMember()). Not User::can(): an admin passes that on every server, and the
+     * card renders nothing for anyone who isn't a member.
      */
     public function hasDevbox(): bool
     {
         // ready(): devboxes switched on (DEVBOX_ENABLED) and migrated. Without it the card renders
         // nothing and the section and its menu link would stand empty.
+        $user = user();
+
         return Plugins::available(self::DEVBOX_CARD)
             && \PluggedHost\Devbox\Support\DevboxAccess::ready()
-            && (bool) user()?->can('devbox.connect', $this->getRecord());
+            && $user instanceof User
+            && \PluggedHost\Devbox\Support\DevboxAccess::isMember($user, $this->getRecord());
     }
 
     /**

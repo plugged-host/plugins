@@ -340,9 +340,18 @@ func (d *devbox) forwardOK(ctx ssh.Context, host string, port uint32) bool {
 	return false
 }
 
+// failClosedAfter is how long the devbox goes on without the panel's word on who may sign in: a
+// devbox that can't reach its panel, or whose panel stopped answering for it, closes every session
+// and lets nobody in until the panel answers again.
+const failClosedAfter = 5 * time.Minute
+
 // report tells the panel the devbox is up (and whether /server is really mounted), then sends a
 // heartbeat every minute. Both answers carry who may sign in; until the first one arrives nobody
 // can, so a devbox that can't reach the panel fails closed.
+//
+// A 401/403 means the panel took the devbox away (stopped, restarted with a new token, its people
+// lost access): everyone is thrown out and everything else running in it ends, whatever Wings
+// does next. failClosedAfter without any answer: everyone is thrown out, nobody gets in.
 func (d *devbox) report(ctx context.Context, mount, detail string) {
 	if d.panel == nil {
 		return
@@ -362,6 +371,10 @@ func (d *devbox) report(ctx context.Context, mount, detail string) {
 			break
 		}
 		log.Printf("boot report failed: %v", err)
+		if revoked(err) {
+			// Nobody is in yet; still end anything that runs before the panel's word.
+			d.lockDown(true)
+		}
 
 		wait := time.Duration(1<<min(attempt, 5)) * time.Second
 		select {
@@ -371,6 +384,8 @@ func (d *devbox) report(ctx context.Context, mount, detail string) {
 		}
 	}
 
+	lastOK := time.Now()
+	locked, gone := false, false
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
@@ -382,13 +397,61 @@ func (d *devbox) report(ctx context.Context, mount, detail string) {
 
 		var a access
 		err := d.panel.post(ctx, "heartbeat", map[string]int64{"connections": d.connections()}, &a)
-		if err != nil {
+		switch {
+		case err == nil:
+			if locked {
+				log.Printf("the panel answers again; sign-ins are open")
+			}
+			d.people.set(a)
+			d.dropRevoked()
+			lastOK, locked, gone = time.Now(), false, false
+		case revoked(err):
+			if !gone {
+				log.Printf("heartbeat: %v: this devbox was taken away; closing every session", err)
+			}
+			d.lockDown(true)
+			locked, gone = true, true
+		default:
 			log.Printf("heartbeat failed: %v", err)
-
-			continue
+			if !locked && time.Since(lastOK) >= failClosedAfter {
+				log.Printf("no answer from the panel for %s: closing every session until it answers", failClosedAfter)
+				d.lockDown(false)
+				locked = true
+			}
 		}
-		d.people.set(a)
-		d.dropRevoked()
+	}
+}
+
+// lockDown empties the access list (no sign-in by code or key, no browser), forgets accepted
+// codes and closes every open connection. With end, everything else in the devbox ends too:
+// whatever someone left running (VS Code's server, a job in the background) must not outlive
+// their access.
+func (d *devbox) lockDown(end bool) {
+	d.people.set(access{})
+	d.codes.forget()
+	d.dropRevoked()
+	if d.web != nil {
+		d.web.closeBackend()
+	}
+	if end {
+		endOthers()
+	}
+}
+
+// endOthers kills every process in the devbox but ph and tini. kill(-1) reaches every process the
+// caller may signal in its own PID namespace, never PID 1 or the caller; so only when ph really is
+// tini's child in the devbox's own namespace (Wings gives each container one), never anywhere it
+// could reach other containers' processes running as the same user.
+func endOthers() {
+	comm, _ := os.ReadFile("/proc/1/comm")
+	if os.Getppid() != 1 || strings.TrimSpace(string(comm)) != "tini" {
+		log.Printf("not ending leftover processes: ph is not tini's child in its own PID namespace")
+
+		return
+	}
+
+	if err := syscall.Kill(-1, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+		log.Printf("could not end leftover processes: %v", err)
 	}
 }
 

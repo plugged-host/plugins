@@ -14,7 +14,9 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use PluggedHost\Abuse\Models\AbuseFinding;
 use PluggedHost\Core\Doctor\Doctor;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Core\Support\SystemServers;
 use PluggedHost\Devbox\Console\Commands\DevboxReconcileCommand;
 use PluggedHost\Devbox\Http\AgentController;
@@ -22,6 +24,8 @@ use PluggedHost\Devbox\Http\GameController;
 use PluggedHost\Devbox\Http\WebController;
 use PluggedHost\Devbox\Livewire\OpenInVsCode;
 use PluggedHost\Devbox\Models\Devbox;
+use PluggedHost\Devbox\Services\DevboxAbuse;
+use PluggedHost\Devbox\Services\DevboxException;
 use PluggedHost\Devbox\Services\DevboxPower;
 use PluggedHost\Devbox\Services\DevboxProvisioner;
 use PluggedHost\Devbox\Support\DevboxAccess;
@@ -91,6 +95,7 @@ class DevboxPluginProvider extends ServiceProvider
         $this->registerAgentRoutes();
         $this->registerWebRoutes();
         $this->registerCleanup();
+        $this->registerAbuseHook();
         $this->registerDoctorChecks();
     }
 
@@ -150,6 +155,9 @@ class DevboxPluginProvider extends ServiceProvider
             self::destroyLater(Devbox::query()->where('user_id', $user->id)->pluck('id')->all());
         });
 
+        // A subuser who loses access (removed, or a permission taken) loses it now: their own
+        // devbox stops, and a shared one they were in starts over with a new token and nothing
+        // of theirs left running in it (they shared its Linux user).
         $revoke = function (Subuser $subuser): void {
             if (!DevboxAccess::ready()) {
                 return;
@@ -161,13 +169,39 @@ class DevboxPluginProvider extends ServiceProvider
                 return;
             }
 
-            foreach (Devbox::query()->where('game_server_id', $game->id)->where('user_id', $user->id)->get() as $devbox) {
+            foreach (Devbox::query()->where('game_server_id', $game->id)->where('user_id', $user->id)->whereNotNull('token_hash')->get() as $devbox) {
                 $this->quietly(fn () => app(DevboxPower::class)->stop($devbox));
+            }
+
+            if (self::wasMember($subuser)) {
+                $this->restartShared($game);
             }
         };
 
         Subuser::deleted($revoke);
         Subuser::updated($revoke);
+
+        // The game server changed hands: whoever is no longer a member loses their devbox, and
+        // the shared one starts over (the new owner's Plus pays for it now, or it stops). Suspended:
+        // every devbox on it stops now, not at the next reconcile.
+        Server::updated(function (Server $server): void {
+            $owner = $server->wasChanged('owner_id');
+            $suspended = $server->wasChanged('status') && $server->isSuspended();
+            if ((!$owner && !$suspended) || SystemServers::is($server) || !DevboxAccess::ready()) {
+                return;
+            }
+
+            $power = app(DevboxPower::class);
+            foreach (Devbox::query()->where('game_server_id', $server->id)->whereNotNull('token_hash')->whereNull('stopping_at')->with('user')->get() as $devbox) {
+                if ($suspended) {
+                    $this->quietly(fn () => $power->stop($devbox));
+                } elseif ($devbox->isShared()) {
+                    $this->quietly(fn () => $power->restart($devbox));
+                } elseif ($devbox->user === null || !DevboxAccess::isMember($devbox->user, $server)) {
+                    $this->quietly(fn () => $power->stop($devbox));
+                }
+            }
+        });
 
         // A game server that starts moving (any path: owner, admin, load balancing, limbo) loses
         // its devboxes' sessions now; they are rebuilt on the new node the next time they open.
@@ -182,11 +216,54 @@ class DevboxPluginProvider extends ServiceProvider
         });
     }
 
+    /**
+     * Abuse protection is a requirement (plugin.json), but only hooked while it is enabled: a
+     * critical finding on a devbox takes devboxes away from its person (Services\DevboxAbuse).
+     */
+    private function registerAbuseHook(): void
+    {
+        if (!Plugins::enabled('plugged-host-abuse') || !Plugins::available(AbuseFinding::class)) {
+            return;
+        }
+
+        AbuseFinding::saved(function (AbuseFinding $finding): void {
+            try {
+                app(DevboxAbuse::class)->onFinding($finding);
+            } catch (Throwable $exception) {
+                // Never in the way of the abuse checks themselves.
+                report($exception);
+            }
+        });
+    }
+
+    /**
+     * Whether a subuser had what a devbox needs before this change (before the update, or when
+     * deleted): only then can they have been in the shared devbox.
+     */
+    private static function wasMember(Subuser $subuser): bool
+    {
+        $before = $subuser->exists ? $subuser->getOriginal('permissions') : $subuser->permissions;
+
+        if (is_string($before)) {
+            $before = json_decode($before, true);
+        }
+
+        return DevboxAccess::grants(is_array($before) ? $before : []);
+    }
+
+    private function restartShared(Server $game): void
+    {
+        $shared = DevboxAccess::shared($game);
+        if ($shared !== null && $shared->isRunning()) {
+            $this->quietly(fn () => app(DevboxPower::class)->restart($shared));
+        }
+    }
+
     private function registerDoctorChecks(): void
     {
         Doctor::check('plugged-host-devbox', 'Egg and system user', function (): array {
             if (!DevboxAccess::ready()) {
-                return Doctor::warn('not ready: run the migrations (and DEVBOX_ENABLED must be on)');
+                return Doctor::warn('not ready: needs DEVBOX_ENABLED on, plugged-host-abuse enabled and the migrations (018, 020) run');
             }
 
             $missing = array_filter([
@@ -199,7 +276,23 @@ class DevboxPluginProvider extends ServiceProvider
                 : Doctor::fail('missing ' . implode(' and ', $missing) . ': run php artisan plugged-host:devbox-setup');
         });
 
+        Doctor::check('plugged-host-devbox', 'Image', function (): array {
+            if (!DevboxAccess::ready()) {
+                return Doctor::ok('not in use (devboxes are off)');
+            }
+
+            $image = DevboxProvisioner::image();
+
+            return str_contains($image, '@sha256:')
+                ? Doctor::ok($image)
+                : Doctor::warn("{$image}: a tag; DEVBOX_IMAGE=" . DevboxProvisioner::IMAGE_REPOSITORY . '@sha256:… pins the exact build');
+        });
+
         Doctor::check('plugged-host-devbox', 'Reconcile (idle stop)', function (): array {
+            if (!DevboxAccess::ready()) {
+                return Doctor::ok('not in use (devboxes are off)');
+            }
+
             $tick = (int) Cache::get(DevboxReconcileCommand::TICK_KEY, 0);
 
             return $tick > time() - 180
@@ -234,6 +327,8 @@ class DevboxPluginProvider extends ServiceProvider
             foreach (Devbox::query()->whereIn('id', $ids)->get() as $devbox) {
                 try {
                     app(DevboxProvisioner::class)->destroy($devbox);
+                } catch (DevboxException) {
+                    // Wings down or kept for an abuse review: the reconcile removes it later.
                 } catch (Throwable $exception) {
                     report($exception);
                 }

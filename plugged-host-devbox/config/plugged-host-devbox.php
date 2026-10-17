@@ -5,12 +5,16 @@ return [
      * Devboxes: a private Linux box next to a game server for VS Code (Remote-SSH), Plus only.
      * Each is a hidden server Wings runs (egg EGG_UUID, owned by the system user below) with the
      * game server's volume mounted at /server. Needs `allowed_mounts: [/var/lib/pelican/volumes]`
-     * in the node's Wings config.yml (docs/deploy/node-scan/update-nodes.mjs --devbox).
+     * in the node's Wings config.yml (docs/deploy/node-scan/update-nodes.mjs --devbox), the node
+     * firewall from the plugin's README, and plugged-host-abuse enabled. Off until switched on.
      */
-    'enabled' => (bool) env('DEVBOX_ENABLED', true),
+    'enabled' => (bool) env('DEVBOX_ENABLED', false),
 
-    // The image Wings runs. A leading ~ makes Wings use a local image without pulling.
-    'image' => (string) env('DEVBOX_IMAGE', 'ghcr.io/plugged-host/devbox:2.2'),
+    // The image Wings runs. Empty: this release's tag, ghcr.io/plugged-host/devbox:<VERSION>
+    // (e.g. 2.2.0, published by CI). A digest (ghcr.io/plugged-host/devbox@sha256:…) pins one
+    // exact build; a leading ~ makes Wings use a local image without pulling. Devboxes pick a
+    // change up at their next start.
+    'image' => (string) env('DEVBOX_IMAGE', ''),
 
     // The account that owns every devbox server; nobody signs in as it.
     'system_user' => (string) env('DEVBOX_SYSTEM_USER', 'ph-devbox'),
@@ -38,7 +42,8 @@ return [
     // Stopped by the panel this long after it was started, connected or not (hours).
     'max_hours' => (int) env('DEVBOX_MAX_HOURS', 12),
 
-    // Devboxes one person may have running at once.
+    // Devboxes one person may have running at once: their own, and the shared ones on servers
+    // they own (they pay for those).
     'running_per_user' => (int) env('DEVBOX_RUNNING_PER_USER', 2),
 
     // A devbox nobody used for this long is deleted with its home (days).
