@@ -117,6 +117,11 @@ sudo nft list table inet ph_node_guard
 Servers whose egg has "force outgoing IP" on run on Wings' per-address Docker networks (`ip-…`),
 not on `pelican0`, and are not covered; the devbox egg never has it.
 
+**A node that is also a database host** (Admin › Database Hosts: a host whose address is this node,
+like prod's MySQL on de1) must let its own servers reach that port, or every server database on
+the node stops working: add `tcp dport 3306 return` (the host's port) to `input` before the drop.
+Check Admin › Database Hosts for every node before loading the table there.
+
 If containers must reach something on the host or in a private network (a node whose
 `docker.network.dns` points at a resolver on the host: add `udp dport 53 return` and
 `tcp dport 53 return` to `input`; a database in the provider's private network: a `return` for
