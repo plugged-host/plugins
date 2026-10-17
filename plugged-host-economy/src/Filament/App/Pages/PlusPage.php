@@ -7,6 +7,7 @@ use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Devbox\Support\DevboxAccess;
 use PluggedHost\Economy\Models\UserCredits;
 use PluggedHost\Economy\Services\MembershipService;
 use PluggedHost\Economy\Services\TokenService;
@@ -193,7 +194,48 @@ class PlusPage extends Page
             'aiPlusPlusTotal' => max(0, intdiv(max(100, (int) config('plugged-host-economy.membership.plus_ai_percent', 125)) * max(100, (int) config('plugged-host-economy.membership.plusplus_ai_percent', 125)), 100) - 100),
             'offers' => $offers,
             'credits' => $credits,
+            'devbox' => $this->devboxPerk(),
         ];
+    }
+
+    /**
+     * VS Code on the server (plugged-host-devbox), the resources each tier's devbox gets, from the
+     * devbox settings. Null unless devboxes are switched on and migrated (DevboxAccess::ready()):
+     * a perk nobody can use yet is not sold.
+     *
+     * @return null|array<string, array{cpu: string, memory: string, disk: string}>
+     */
+    protected function devboxPerk(): ?array
+    {
+        if (!Plugins::available(DevboxAccess::class) || !DevboxAccess::ready()) {
+            return null;
+        }
+
+        $perk = [];
+
+        foreach (['plus', 'plusplus'] as $tier) {
+            $limits = (array) config("plugged-host-devbox.tiers.{$tier}", []);
+            $perk[$tier] = [
+                // % of one thread: 200 is 2 vCPU
+                'cpu' => rtrim(rtrim(number_format(max(0, (int) ($limits['cpu'] ?? 0)) / 100, 2, '.', ''), '0'), '.'),
+                'memory' => $this->formatMebibytes((int) ($limits['memory'] ?? 0)),
+                'disk' => $this->formatMebibytes((int) ($limits['disk'] ?? 0)),
+            ];
+        }
+
+        return $perk;
+    }
+
+    /** Like PerkDiscovery: whole GiB/GB when it divides, else MiB/MB. */
+    private function formatMebibytes(int $amount): string
+    {
+        $binary = (bool) config('panel.use_binary_prefix');
+
+        if ($amount > 0 && $amount % 1024 === 0) {
+            return intdiv($amount, 1024) . ($binary ? ' GiB' : ' GB');
+        }
+
+        return $amount . ($binary ? ' MiB' : ' MB');
     }
 
     protected function earnTokensUrl(): ?string

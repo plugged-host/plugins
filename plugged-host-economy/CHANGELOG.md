@@ -15,6 +15,9 @@
   and neo show the whole pool and every service's use, as plugged.cloud does. What is left and
   what is enforced are unchanged; `LocalComputePlans` has no pool. The Discord perk points to the
   Discord servers tab with what joining the rest would still add (`DiscordServersStatus`).
+- The Plus page lists **VS Code on your server** (plugged-host-devbox) on both plans and in the
+  comparison, with each tier's devbox resources from the devbox settings, only while devboxes
+  are switched on and migrated (`DevboxAccess::ready()`).
 
 ## Unreleased (2.1)
 

@@ -67,6 +67,9 @@
                             @if ($membership['aiPlus'] > 0)
                                 <li>{{ trans('plugged-host-economy::strings.membership.perk_ai_plus', ['percent' => $membership['aiPlus']]) }}</li>
                             @endif
+                            @if ($membership['devbox'])
+                                <li>{{ trans('plugged-host-economy::strings.membership.perk_devbox', $membership['devbox']['plus']) }}</li>
+                            @endif
                         </ul>
                     </div>
 
@@ -121,6 +124,9 @@
                             @if ($membership['aiPlusPlus'] > 0)
                                 <li>{{ trans('plugged-host-economy::strings.membership.perk_ai_plusplus', ['percent' => $membership['aiPlusPlus']]) }}</li>
                             @endif
+                            @if ($membership['devbox'])
+                                <li>{{ trans('plugged-host-economy::strings.membership.perk_devbox_plusplus', $membership['devbox']['plusplus']) }}</li>
+                            @endif
                         </ul>
                     </div>
 
@@ -170,6 +176,14 @@
                                 <div role="cell">{{ trans("plugged-host-economy::strings.plus_page.cell_{$row}_{$col}", ['cpu' => $membership['cpuBonus'], 'plus' => $membership['aiPlus'], 'plusplus' => $membership['aiPlusPlusTotal']]) }}</div>
                             @endforeach
                         @endforeach
+
+                        {{-- VS Code on the server (plugged-host-devbox), while devboxes are on. --}}
+                        @if ($membership['devbox'])
+                            <div class="ph-plus-rowhead" role="rowheader">{{ trans('plugged-host-economy::strings.plus_page.row_devbox') }}</div>
+                            <div role="cell">{{ trans('plugged-host-economy::strings.plus_page.cell_devbox_free') }}</div>
+                            <div role="cell">{{ trans('plugged-host-economy::strings.plus_page.cell_devbox_tier', $membership['devbox']['plus']) }}</div>
+                            <div role="cell">{{ trans('plugged-host-economy::strings.plus_page.cell_devbox_tier', $membership['devbox']['plusplus']) }}</div>
+                        @endif
                     </div>
                 </div>
             </section>
