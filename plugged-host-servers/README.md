@@ -15,8 +15,9 @@ allocation-safe network-ports action, and paid (Plus/Premium) locations. Extract
 - **Flags**: vendored `flag-icons` SVGs (`resources/flags/4x3/<cc>.svg`) inlined by
   `LocationCatalog::flagSvg()` — no `public/flags` dependency, no HTTP, immune to a tarball
   extract and to flag-icons' `.fi-*` CSS clashing with Filament.
-- **Latency**: a "panel → node" badge per location, median of the daemon-probe times the status
-  plugin records — read via `PluggedHost\Status\Services\NodeLatency` by class-string.
+- **Latency**: a "panel → node" badge per location, the median of the probe times core's
+  `PluggedHost\Core\Nodes\NodeTelemetry` records for every node each minute
+  (`plugged-host:sample-nodes`).
 - **Location tiers (WP13)**: nodes tagged `plus` or `premium` form paid tiers (`plus:<cc>` /
   `premium:<cc>` codes; a node tagged both is premium). Plus locations need plugged.host Plus,
   Premium locations need PlusPlus (plugged-host-economy `MembershipService`, read by
@@ -29,7 +30,16 @@ allocation-safe network-ports action, and paid (Plus/Premium) locations. Extract
 - **Node capacity / account allowance**: `NodeCapacity`, `AvailableResources`, the resource/console
   widgets, and `Support/AccountAllowance`: what an account may use is its noprofit.space plan
   (default tier, or the Discord tier while in the server, plus bought resources). There are no
-  role limits and no server count.
+  role limits and no server count. `NodeCapacity` keeps new servers off a node whose disk is over
+  `NODES_STORAGE_PERCENT`.
+- **Deployment pause** (`Services/DeploymentPause`, every minute, `plugged-host:deploy-pause
+  [--show]`): a node over the start queue's line (`START_QUEUE_THRESHOLD_PERCENT`, 85) on memory or
+  CPU, read from core's `NodeTelemetry`, takes no new servers, transfers or queue moves until its
+  reading and its 5-minute average are back under it. Small nodes (under
+  `NODES_DEPLOY_PAUSE_SMALL_MEMORY_GB` 34 GB or `NODES_DEPLOY_PAUSE_SMALL_THREADS` 9 threads) get a
+  line `NODES_DEPLOY_PAUSE_SMALL_OFFSET` (10) points lower, so 75. Three missed readings in a row
+  pause a node too. A location whose nodes are all paused shows as Full. Tags and `public` are never
+  touched.
 - **Lowered allowances**: when an account's base goes down on noprofit.space (an admin, a lower
   tier, a Discord server left; noprofit.space splits it between its services by their servers and
   sends plugged.host its share with the plan: economy's `AccountLimitsLowered`, from
@@ -86,7 +96,10 @@ Owns the **UCS_\*** and **NODES_\*** settings (its own `HasPluginSettings` tab),
 | `user-creatable-servers.plans` / `catalog` | — | Resource presets + per-egg software variants |
 | `user-creatable-servers.plus.tag` | `UCS_PLUS_TAG` (`plus`) | Plus node tag |
 | `user-creatable-servers.premium.tag` | `UCS_PREMIUM_TAG` (`premium`) | Premium node tag |
-| `nodes.hot_percent` / `storage_percent` | `NODES_*` | Node-pressure thresholds |
+| `provision_lock_wait` | `UCS_PROVISION_LOCK_WAIT` (`30`) | Seconds a create or resize waits for the account's provisioning lock |
+| `nodes.storage_percent` | `NODES_STORAGE_PERCENT` (`90`) | Disk over this and a node takes no new servers |
+| `nodes.storage_guard_strict` | `NODES_STORAGE_GUARD_STRICT` (`false`) | Refuse a node whose disk cannot be measured |
+| `deploy_pause.*` | `NODES_DEPLOY_PAUSE_*` | Deployment pause (on by default; the line itself is the queue's `START_QUEUE_THRESHOLD_PERCENT`) |
 | `transfers.enabled` | `TRANSFERS_ENABLED` (`true`) | Transfer page for owners / permitted subusers |
 | `transfers.cooldown_hours` | `TRANSFERS_COOLDOWN_HOURS` (`6`) | Minimum time between two finished moves of a server |
 | `transfers.max_attempts` | `TRANSFERS_MAX_ATTEMPTS` (`3`) | Nodes tried before a move gives up |
@@ -95,6 +108,8 @@ Owns the **UCS_\*** and **NODES_\*** settings (its own `HasPluginSettings` tab),
 | `transfers.finalize_minutes` | `TRANSFERS_FINALIZE_MINUTES` (`20`) | Time the new node gets to confirm after the last byte |
 
 Env variable spellings are unchanged from when these lived in core, so `.env` needs no edit.
+`NODES_HOT_PERCENT` and `UCS_PREMIUM_COST` are no longer read (nothing used them); a leftover line
+in `.env` is harmless.
 
 ## Migrations
 
@@ -110,13 +125,16 @@ Env variable spellings are unchanged from when these lived in core, so `.env` ne
 
 - Offers: `AccountAllowance::createServer()`, `LocationCatalog`, `PlanCatalog`, `GameCatalog`,
   `CardSelect`, `PremiumAccess`, `PlusPlusExpiry`, and API routes under `/api/client/provision/*`.
-- Consumes (all by class-string behind `class_exists()`): status `NodeLatency` (latency badge),
-  economy `MembershipService` (Plus/PlusPlus), minecraft `ServerOnboarding::markRequired` (post-create),
-  subdomains `Subdomain::upsertOnCloudflare()` (after a transfer).
+- Consumes: core's `NodeTelemetry` (latency badge, balancing, deployment pause), economy
+  `MembershipService` (Plus/PlusPlus, by class name behind `Plugins::available()`), and announces
+  `ServerProvisioned` (minecraft sets up onboarding) and `ServerMoved` (subdomains repoints DNS);
+  the settings page's "Server software" goes through the `SoftwareSwitcher` contract a game
+  plugin binds.
 - Offers `TransferService::start()` to other plugins: the start queue's "move to a quieter node"
   hands its candidate nodes to it (`origin = queue`, starts the server on arrival).
 
 ## Requirements
 
-Pelican Panel `1.0.0-beta38`. `plugged-host-core` (base). Optional: `plugged-host-status`
-(latency), `plugged-host-economy` (paid tiers), `plugged-host-minecraft` (onboarding).
+Pelican Panel `v1.0.0-rc.1`. `plugged-host-core` (base, node telemetry) and `plugged-host-economy`
+(allowance, paid tiers). Optional: `plugged-host-ai` (neo's server tools), `plugged-host-ads`,
+and a game plugin such as `plugged-host-minecraft` (onboarding, software switcher).

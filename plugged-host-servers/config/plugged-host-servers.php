@@ -15,6 +15,12 @@
 */
 
 return [
+    /*
+     * Seconds a create or resize waits for the account's provisioning lock (one at a time per
+     * account, ServerProvisioner::oneAtATime()) before it gives up as "busy".
+     */
+    'provision_lock_wait' => (int) env('UCS_PROVISION_LOCK_WAIT', 30),
+
     'user-creatable-servers' => [
         'database_limit' => (int) env('UCS_DEFAULT_DATABASE_LIMIT', 0),
         'allocation_limit' => (int) env('UCS_DEFAULT_ALLOCATION_LIMIT', 0),
@@ -30,9 +36,9 @@ return [
         /*
          * Paid location tiers (WP13). A node tagged with a tier's `tag` (alongside its country
          * code and a deployment tag) belongs to that tier; a node tagged with both is premium.
-         * Plus and Premium are two labels over one unlock: a single token purchase of
-         * `premium.cost` opens every paid location for a user, permanently. All defaults are
-         * safe, so none is required.
+         * The Plus locations come with Plus, the Premium ones with PlusPlus, both sold by
+         * plugged-host-economy (Support\PremiumAccess). All defaults are safe, so none is
+         * required.
          */
         'plus' => [
             'tag' => env('UCS_PLUS_TAG', 'plus'),
@@ -40,7 +46,6 @@ return [
 
         'premium' => [
             'tag' => env('UCS_PREMIUM_TAG', 'premium'),
-            'cost' => (int) env('UCS_PREMIUM_COST', 25),
         ],
 
         /*
@@ -102,7 +107,8 @@ return [
          * An egg absent from this list simply has no type step.
          */
         'catalog' => [
-            // Minecraft: Java Edition — see /var/www/javaegg.json
+            // Minecraft: Java Edition — plugged-host-minecraft/egg/egg-minecraft-java.json,
+            // imported by `php artisan plugged-host:minecraft-setup`.
             '2f6a1c58-9e4b-4d7a-8c31-5b0e7f9a4d62' => [
                 'variable' => 'MC_SOFTWARE',
                 'types' => [
@@ -137,21 +143,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Node pressure thresholds
+    | Node storage guard
     |--------------------------------------------------------------------------
     |
-    | How full a node has to be, right now, before we treat it as full. Read by
-    | PluggedHost\Servers\Services\NodeCapacity against live wings utilisation
-    | (Node::statistics()), never against committed allocation sums.
+    | How full a node's disk has to be, right now, before it takes no new
+    | servers. Read by PluggedHost\Servers\Services\NodeCapacity against live
+    | wings utilisation (Node::statistics()), never against committed allocation
+    | sums. Memory and CPU are the deployment pause's (below) and the start
+    | queue's line (START_QUEUE_THRESHOLD_PERCENT), not a setting here.
     |
-    | hot_percent — memory, CPU *or* disk above this and the node is hot, which
-    | is what sends a start into the queue instead of straight through.
     | storage_percent — disk above this and the node stops accepting new servers.
     | storage_guard_strict — refuse a node that cannot be measured (default off).
     |
     */
     'nodes' => [
-        'hot_percent' => (float) env('NODES_HOT_PERCENT', 95),
         'storage_percent' => (float) env('NODES_STORAGE_PERCENT', 90),
         'storage_guard_strict' => (bool) env('NODES_STORAGE_GUARD_STRICT', false),
     ],

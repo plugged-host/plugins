@@ -868,10 +868,10 @@ final class AccountAllowance
      * The IP that allocations created for a freshly-provisioned server bind to.
      *
      * Always 0.0.0.0: wings binds every interface, and the address a player actually dials is
-     * carried by the allocation *alias* (the node's fqdn, e.g. de1.plugged.host), set on every
-     * created allocation below. Resolving the node's hostname to a concrete address instead — the
-     * old behaviour — pinned each server to a single IP (79.76.124.124), which is what had to be
-     * changed by hand on every new server, and which breaks the moment the node is renumbered.
+     * carried by the allocation *alias* (the node's fqdn), set on every created allocation below.
+     * Resolving the node's hostname to a concrete address instead — the old behaviour — pinned
+     * each server to the node's single public IP, which is what had to be changed by hand on
+     * every new server, and which breaks the moment the node is renumbered.
      *
      * Returned as a nullable string to keep the two callers' "skip this node" contract, but with a
      * constant it never actually returns null.

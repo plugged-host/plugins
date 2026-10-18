@@ -135,18 +135,9 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => array_filter(explode(',', config('plugged-host-servers.user-creatable-servers.allowed_eggs')))),
                 ]),
             Section::make('Node pressure')
-                ->description('Measured live against wings utilisation, not against committed allocations — a node can be 40% allocated and 96% full. A node that does not answer within the one-second timeout reports as empty, which is why both guards allow it through unless strict mode says otherwise.')
-                ->columns(3)
+                ->description('Measured live against wings utilisation, not against committed allocations — a node can be 40% allocated and 96% full. A node that does not answer within the one-second timeout reports as empty, which is why the guard allows it through unless strict mode says otherwise. Memory and CPU are not set here: a node over the start queue\'s busy threshold (plugged.host Queue settings) on either takes no new servers until it is back under it, with a lower line on small nodes (NODES_DEPLOY_PAUSE_*).')
+                ->columns(2)
                 ->schema([
-                    TextInput::make('hot_percent')
-                        ->label('Node is busy above')
-                        ->required()
-                        ->numeric()
-                        ->minValue(1)
-                        ->maxValue(100)
-                        ->suffix('%')
-                        ->helperText('Memory, CPU or disk over this and starts on that node go through the start queue.')
-                        ->default(fn () => config('plugged-host-servers.nodes.hot_percent', 95)),
                     TextInput::make('storage_percent')
                         ->label('Stop placing servers above')
                         ->required()
@@ -154,7 +145,7 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
                         ->minValue(1)
                         ->maxValue(100)
                         ->suffix('% disk')
-                        ->helperText('New servers go to another node in the same location instead. Lower than the busy threshold on purpose: a full disk does not recover on its own.')
+                        ->helperText('New servers go to another node in the same location instead. A full disk does not recover on its own, so keep some room below 100%.')
                         ->default(fn () => config('plugged-host-servers.nodes.storage_percent', 90)),
                     Toggle::make('storage_guard_strict')
                         ->label('Refuse nodes that cannot be measured')
@@ -165,7 +156,7 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-servers.nodes.storage_guard_strict', false)),
                 ]),
             Section::make(trans('plugged-host-servers::strings.settings.section_premium'))
-                ->description(trans('plugged-host-servers::strings.settings.section_premium_hint'))
+                ->description(trans('plugged-host-servers::strings.settings.section_premium_hint', ['app' => config('app.name')]))
                 ->columns()
                 ->schema([
                     TextInput::make('premium_tag')
@@ -231,7 +222,6 @@ class PluggedHostServersPlugin implements HasPluginSettings, Plugin
             'UCS_DEPLOYMENT_TAGS' => implode(',', $data['deployment_tags']),
             'UCS_DEPLOYMENT_PORTS' => implode(',', $data['deployment_ports']),
             'UCS_ALLOWED_EGGS' => implode(',', $data['allowed_eggs']),
-            'NODES_HOT_PERCENT' => $data['hot_percent'] ?? '95',
             'NODES_STORAGE_PERCENT' => $data['storage_percent'] ?? '90',
             'NODES_STORAGE_GUARD_STRICT' => !empty($data['storage_guard_strict']) ? 'true' : 'false',
             'UCS_PREMIUM_TAG' => trim((string) ($data['premium_tag'] ?? '')) !== '' ? trim((string) $data['premium_tag']) : 'premium',

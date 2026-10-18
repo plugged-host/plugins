@@ -22,8 +22,8 @@ use PluggedHost\Servers\Support\PremiumAccess;
  * come from the `<cc>` half. Each tier derives ONLY from its own nodes — the tiers never bleed into
  * each other.
  *
- * Plus and Premium are two labels over one entitlement: a single token purchase
- * (UCS_PREMIUM_COST, PremiumAccess) unlocks every paid location in both tiers.
+ * Plus locations need Plus, Premium locations PlusPlus (plugged-host-economy's memberships, read
+ * through Support\PremiumAccess).
  */
 class LocationCatalog
 {
