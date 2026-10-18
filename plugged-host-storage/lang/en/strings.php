@@ -34,23 +34,15 @@ return [
 
         // Replication.
         'section_replication' => 'Replication',
-        'section_replication_hint' => 'Delta-mirror cadence and retention. The panel schedules; the agent enforces.',
+        'section_replication_hint' => 'Delta-mirror cadence and retention, enforced by the agent on each box.',
         'mirror_interval_min' => 'Mirror Interval (minutes)',
-        'mirror_interval_min_hint' => 'How often delta mirrors run, in minutes.',
+        'mirror_interval_min_hint' => 'How often delta mirrors run, in minutes. A box picks a change up when its setup command is run there again; the panel uses it at once to judge how fresh the copies are.',
         'mirror_snapshots' => 'Mirror Snapshots Retained',
         'mirror_snapshots_hint' => 'Number of rolling mirror snapshots to keep.',
         'min_free_percent' => 'Minimum Free Space (%)',
-        'min_free_percent_hint' => 'Refuse to replicate when free disk falls below this percentage.',
+        'min_free_percent_hint' => 'Refuse to replicate when free disk falls below this percentage. A box picks a change up when its setup command is run there again.',
         'daemon_base' => 'Daemon Volume Base',
         'daemon_base_hint' => 'Default wings volume base path; a per-node column overrides it where present.',
-
-        // Backup / S3.
-        'section_backup' => 'Daily Backup',
-        'section_backup_hint' => 'Daily panel-visible S3 backup through the backup service against an S3 backup host.',
-        'daily_backup_enabled' => 'Enable Daily Backup',
-        'daily_backup_enabled_hint' => 'Run the panel-visible daily S3 backup.',
-        'daily_backup_hour' => 'Daily Backup Hour (0-23)',
-        'daily_backup_hour_hint' => 'Hour of day the daily backup runs, in 24-hour local time.',
 
         // Failover.
         'section_failover' => 'Failover',

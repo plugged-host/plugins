@@ -374,17 +374,24 @@ class StoragePluginProvider extends ServiceProvider
         );
     }
 
-    /** Build the agent bundle tar.gz (cached), returning its absolute path or null. */
+    /**
+     * Build the agent bundle tar.gz (cached), returning its absolute path or null. Rebuilt when
+     * either bundled file is newer than the cache: both are in the agent's version
+     * (AgentRelease), so a bundle older than one of them would not be the version it is served as.
+     */
     private function bundlePath(): ?string
     {
         $agentDir = plugin_path('plugged-host-storage', 'agent');
         $out = storage_path('app/plugged-host-storage-agent.tar.gz');
+        $files = ['agent.mjs', 'package.json'];
 
         try {
-            if (!is_file($out) || filemtime($out) < filemtime($agentDir . '/agent.mjs')) {
+            $newest = max(array_map(fn (string $f): int => (int) @filemtime($agentDir . '/' . $f), $files));
+
+            if (!is_file($out) || filemtime($out) < $newest) {
                 @unlink($out);
                 $phar = new \PharData(storage_path('app/plugged-host-storage-agent.tar'));
-                foreach (['agent.mjs', 'package.json'] as $f) {
+                foreach ($files as $f) {
                     if (is_file($agentDir . '/' . $f)) {
                         $phar->addFile($agentDir . '/' . $f, $f);
                     }

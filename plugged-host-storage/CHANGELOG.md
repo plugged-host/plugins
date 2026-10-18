@@ -13,6 +13,11 @@
 - The message after a failed recovery no longer says support was alerted (nothing alerts anyone;
   the failure is logged): it asks the owner to contact support if the server stays unavailable.
 - "Max Failovers Per Run" counts servers, not nodes (settings hint).
+- Removed the `STORAGE_DAILY_BACKUP` / `STORAGE_DAILY_BACKUP_HOUR` settings: nothing read them.
+  The mirror interval and free-space floor hints say that a box picks a change up when its setup
+  command is run there again (only the snapshot count travels in the work-plan).
+- The agent bundle is rebuilt when `agent/package.json` changes too, not only `agent.mjs`.
+- The limbo node's tag is read from `config('plugged-host-limbo.node_tag')`, not `env()`.
 - **The backup server as the limbo node.** The backup server no longer copies the servers on the
   storage box's own node (the old limbo node): they are on the storage box's drive already, and
   reading them all over that drive was what it is there to spare. The storage box still copies

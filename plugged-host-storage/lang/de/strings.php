@@ -34,23 +34,15 @@ return [
 
         // Replikation.
         'section_replication' => 'Replikation',
-        'section_replication_hint' => 'Takt und Aufbewahrung der Delta-Spiegel. Das Panel plant, der Agent setzt um.',
+        'section_replication_hint' => 'Takt und Aufbewahrung der Delta-Spiegel, umgesetzt vom Agenten auf jeder Box.',
         'mirror_interval_min' => 'Spiegel-Intervall (Minuten)',
-        'mirror_interval_min_hint' => 'Wie oft Delta-Spiegel laufen, in Minuten.',
+        'mirror_interval_min_hint' => 'Wie oft Delta-Spiegel laufen, in Minuten. Eine Box übernimmt eine Änderung, wenn ihr Einrichtungsbefehl dort erneut ausgeführt wird; das Panel beurteilt damit sofort, wie aktuell die Kopien sind.',
         'mirror_snapshots' => 'Aufbewahrte Spiegel-Snapshots',
         'mirror_snapshots_hint' => 'Anzahl der rollierenden Spiegel-Snapshots, die behalten werden.',
         'min_free_percent' => 'Minimaler freier Speicher (%)',
-        'min_free_percent_hint' => 'Replikation verweigern, wenn der freie Speicher unter diesen Prozentsatz fällt.',
+        'min_free_percent_hint' => 'Replikation verweigern, wenn der freie Speicher unter diesen Prozentsatz fällt. Eine Box übernimmt eine Änderung, wenn ihr Einrichtungsbefehl dort erneut ausgeführt wird.',
         'daemon_base' => 'Daemon-Volume-Basis',
         'daemon_base_hint' => 'Standard-Volume-Basispfad von Wings; eine Pro-Node-Spalte überschreibt ihn, sofern vorhanden.',
-
-        // Backup / S3.
-        'section_backup' => 'Tägliches Backup',
-        'section_backup_hint' => 'Tägliches, im Panel sichtbares S3-Backup über den Backup-Dienst gegen einen S3-Backup-Host.',
-        'daily_backup_enabled' => 'Tägliches Backup aktivieren',
-        'daily_backup_enabled_hint' => 'Das im Panel sichtbare tägliche S3-Backup ausführen.',
-        'daily_backup_hour' => 'Stunde des täglichen Backups (0-23)',
-        'daily_backup_hour_hint' => 'Tagesstunde, zu der das tägliche Backup läuft, in lokaler 24-Stunden-Zeit.',
 
         // Failover.
         'section_failover' => 'Failover',

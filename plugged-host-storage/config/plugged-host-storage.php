@@ -6,10 +6,9 @@
 |--------------------------------------------------------------------------
 |
 | The storage box (and optionally the backup server): 30-minute delta-mirror
-| replication, a daily panel-visible S3 backup, and node-failure recovery. The
-| Node.js agent (agent/) pulls the mirrors and serves signed archives; the panel
-| schedules failover detection and serves each agent its work-plan, updates,
-| and report sink.
+| replication and node-failure recovery. The Node.js agent (agent/) pulls the
+| mirrors and serves signed archives; the panel schedules failover detection and
+| serves each agent its work-plan, updates, and report sink.
 |
 | NOTE on failover mode: the operator asked for FULLY AUTOMATIC failover once a
 | node is unreachable for ~5 minutes ("node offline > 5 min => auto switch from
@@ -49,17 +48,16 @@ return [
     // Signed-URL lifetime (seconds) for archive fetch / reachability probes.
     'signed_ttl' => (int) env('STORAGE_SIGNED_TTL', 900),
 
-    // Replication cadence + retention (mostly informative on the panel side; the agent enforces).
+    // Replication cadence + retention, enforced by the agent on each box. The snapshot count goes
+    // out with every work-plan; the interval and the free-space floor are written into the box's
+    // agent config by its installer, so a change reaches a box when its setup command is run
+    // there again. The panel also uses the interval itself (doctor, which box serves an archive).
     'mirror_interval_min' => (int) env('STORAGE_MIRROR_INTERVAL_MIN', 30),
     'mirror_snapshots' => (int) env('STORAGE_MIRROR_SNAPSHOTS', 3),
     'min_free_percent' => (float) env('STORAGE_MIN_FREE_PERCENT', 10),
 
     // The wings default volume base; a real per-node column overrides it where present.
     'daemon_base' => env('STORAGE_DAEMON_BASE', '/var/lib/pelican/volumes'),
-
-    // Daily panel-visible S3 backup (through InitiateBackupService against an S3 BackupHost).
-    'daily_backup_enabled' => (bool) env('STORAGE_DAILY_BACKUP', true),
-    'daily_backup_hour' => (int) env('STORAGE_DAILY_BACKUP_HOUR', 4),
 
     // A server deleted by an admin (or by the panel itself) keeps its copy on the storage box
     // this many days, listed for its owner on the backups portal. Owners' own deletions: none.

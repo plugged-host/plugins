@@ -13,8 +13,7 @@ recovery starts).
   server volume off its node into `/mnt/storage/mirror/<uuid>/`, keeping rotating hardlink
   snapshots. The storage box holds a full copy; only changed bytes cross the wire. The agent
   **pulls** — it initiates rsync — so no panel credential ever sits on the nodes.
-- **Daily S3 backup: not implemented.** The `STORAGE_DAILY_BACKUP*` settings exist, but nothing
-  schedules a backup yet; recovery uses the mirror archive.
+- **Daily S3 backup: not implemented**; recovery uses the mirror archive.
 - **Failover**: when a node is unreachable, each of its servers goes through a state machine,
   one step per minute sweep (it's not a transfer, fact 16): *creating* (fenced, moved in the panel
   to a node the transfer planner would pick, same location first, ports kept where free; wings
@@ -77,7 +76,8 @@ recovery starts).
 | `failover_after_failures` | `STORAGE_FAILOVER_AFTER_FAILURES` (`5`) | Consecutive minute-probe failures before acting |
 | `failover_max_per_run` | `STORAGE_FAILOVER_MAX_PER_RUN` (`5`) | Servers one sweep starts recovering (or notifies about, in `notify` mode) |
 | `failover_max_in_flight` | `STORAGE_FAILOVER_MAX_IN_FLIGHT` (`3`) | Recoveries installing or restoring at once |
-| `min_free_percent` / `mirror_snapshots` | `STORAGE_*` | Agent free-space floor + snapshot retention (sent to the agent in the plan) |
+| `mirror_snapshots` | `STORAGE_MIRROR_SNAPSHOTS` (`3`) | Snapshot retention, sent to the agents with every work-plan |
+| `mirror_interval_min` / `min_free_percent` | `STORAGE_MIRROR_INTERVAL_MIN` (`30`) / `STORAGE_MIN_FREE_PERCENT` (`10`) | Mirror cadence and the agent's free-space floor. Written into a box's agent config by its installer: a change reaches a box when its setup command is run there again. The panel uses the interval at once (doctor, which box serves an archive) |
 | `deleted_hold_days` | `STORAGE_DELETED_HOLD_DAYS` (`7`) | Days an admin-deleted server's copy is kept |
 | `purge_deleted` | `STORAGE_PURGE_DELETED` (`true`) | Kill switch for the agent's cleanup (holds are still recorded) |
 
@@ -126,6 +126,8 @@ the top of `agent/install.sh`). It sets `PH_MIRROR_JOBS` to half the cores (1 to
 
 - Offers: `StorageService::limboNode()` / `limboNodes()` / `archiveUrlFor()` (limbo → storage seam),
   `/api/client/servers/{server}/replica`, the agent HTTP surface (`/plugged-host/storage/agent/*`).
+- Reads limbo's `node_tag` (`LIMBO_NODE_TAG`) config (Pelican loads every plugin's config, also a
+  disabled one's).
 - Consumes: core's `NodeTelemetry::consecutiveFailures()` (failover witness) / `samples()` (has a
   node answered since a recovery finished) and
   `SystemServers`; servers' `TransferPlanner`, `LocationCatalog` and `ServerMoved` (failover,
