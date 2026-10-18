@@ -53,6 +53,18 @@ limbo's own stop, transfers). Merely opening the console logs nothing and does n
 
 Marker states: `stopped` → `hibernating` → `limbo` → `restoring` → `restored`, plus `failed`.
 
+**Moving limbo to another node.** The limbo node is the node with the `LIMBO_NODE_TAG` tag
+(the first one, by id). Each row records the node its server was parked on (`limbo_node_id`,
+migration 021), so the tag can move: tag the new node and untag the old one, and new servers are
+parked on the new node while the ones on the old node stay parked there, with their restore page
+and their way home. A server on a node servers are parked on is never hibernated again (it would
+come back to that node), and no restore goes to one. `plugged-host:limbo-sweep --status` names the
+limbo node and every node servers are parked on, with their disk use.
+
+**Disk limit.** No new moves while the limbo node's data disk is used past
+`LIMBO_MAX_DISK_PERCENT` (85, core's node telemetry): the limbo node is also a storage agent's
+box, and that agent stops copying when the disk runs low.
+
 ## Config keys / env (all `LIMBO_*`)
 
 | Config | Env | Meaning |
@@ -62,16 +74,21 @@ Marker states: `stopped` → `hibernating` → `limbo` → `restoring` → `rest
 | `prune` | `LIMBO_PRUNE` (`true`) | Delete the storage exemptions before a move (`prune_keep`: `alpine`) |
 | `node_tag` | `LIMBO_NODE_TAG` (`limbo`) | The limbo node's tag (not a country code; keep out of `UCS_DEPLOYMENT_TAGS`) |
 | `max_per_run` | `LIMBO_MAX_PER_RUN` (`3`) | Cap on moves to the limbo node in flight at once (and stops per sweep) |
+| `max_disk_percent` | `LIMBO_MAX_DISK_PERCENT` (`85`) | No new moves while the limbo node's disk is used past this (0: off) |
 | `cost_early` / `cost_late` / `cost_window_hours` | `LIMBO_COST_*` | Ransom |
 
 ## Migrations
 
 - `001_create_server_limbo_states_table.php` (operator-run). `LimboService` is a logged-once
   no-op until it exists.
+- `021_add_limbo_node_to_server_limbo_states_table.php`: `limbo_node_id`, filled in for rows that
+  are parked or moving (from where the server is, or its transfer; not from the tag). Until it
+  runs, limbo knows only the tagged node, as before: run it before moving the tag.
 
 ## Extension points it consumes (all by class-string behind `class_exists()`)
 
-- storage `StorageService::limboNode()` (the limbo node lookup),
+- storage `StorageService::limboNodes()` / `limboNode()` (the limbo node lookup),
+- core `NodeTelemetry::latest()` (the limbo node's disk),
 - economy `TokenService::spend()` / `add()` (ransom + refund),
 - ads `PowerActionInterceptor` chain + `AdDisplayService::registerInterstitialRoute()`,
 - upstream `TransferServerService` (the move to/from limbo).

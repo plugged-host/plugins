@@ -57,6 +57,7 @@ class PluggedHostLimboPlugin implements HasPluginSettings, Plugin
             'transfer_hours' => (int) config('plugged-host-limbo.transfer_hours', 72),
             'node_tag' => (string) config('plugged-host-limbo.node_tag', 'limbo'),
             'max_per_run' => (int) config('plugged-host-limbo.max_per_run', 3),
+            'max_disk_percent' => (int) config('plugged-host-limbo.max_disk_percent', 85),
             'cost_early' => (int) config('plugged-host-limbo.cost_early', 5),
             'cost_late' => (int) config('plugged-host-limbo.cost_late', 10),
             'cost_window_hours' => (int) config('plugged-host-limbo.cost_window_hours', 72),
@@ -104,6 +105,13 @@ class PluggedHostLimboPlugin implements HasPluginSettings, Plugin
                         ->minValue(1)
                         ->maxValue(1000)
                         ->required(),
+                    TextInput::make('max_disk_percent')
+                        ->label(trans('plugged-host-limbo::strings.settings.max_disk_percent'))
+                        ->helperText(trans('plugged-host-limbo::strings.settings.max_disk_percent_hint'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(99)
+                        ->required(),
                 ]),
             Section::make(trans('plugged-host-limbo::strings.settings.section_ransom'))
                 ->description(trans('plugged-host-limbo::strings.settings.section_ransom_hint'))
@@ -144,6 +152,7 @@ class PluggedHostLimboPlugin implements HasPluginSettings, Plugin
             'LIMBO_TRANSFER_HOURS' => (string) max(1, min(8760, (int) ($data['transfer_hours'] ?? 72))),
             'LIMBO_NODE_TAG' => (string) ($data['node_tag'] ?? 'limbo'),
             'LIMBO_MAX_PER_RUN' => (string) max(1, min(1000, (int) ($data['max_per_run'] ?? 3))),
+            'LIMBO_MAX_DISK_PERCENT' => (string) max(0, min(99, (int) ($data['max_disk_percent'] ?? 85))),
             'LIMBO_COST_EARLY' => (string) max(0, min(100000, (int) ($data['cost_early'] ?? 5))),
             'LIMBO_COST_LATE' => (string) max(0, min(100000, (int) ($data['cost_late'] ?? 10))),
             'LIMBO_COST_WINDOW_HOURS' => (string) max(1, min(8760, (int) ($data['cost_window_hours'] ?? 72))),

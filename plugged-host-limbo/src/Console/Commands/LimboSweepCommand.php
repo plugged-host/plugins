@@ -20,7 +20,10 @@ use Throwable;
  * skip suspended, skip nodes under maintenance, skip disk=0 (unbounded volume), only move a
  * server the sweep has already stopped, back off a day after a failed move, cap the moves in
  * flight at once (not per run: a move takes minutes, and the limbo node is small), pause moves
- * while the limbo node refuses them (LimboService::moveBudget()), and the global kill switch.
+ * while the limbo node refuses them or its disk is full (LimboService::moveBudget()), and the
+ * global kill switch.
+ *
+ * --status also names the limbo node (where new servers go) and every node servers are parked on.
  */
 class LimboSweepCommand extends Command
 {
@@ -41,6 +44,10 @@ class LimboSweepCommand extends Command
 
         $dryRun = (bool) ($this->option('dry-run') || $this->option('status'));
 
+        if ($dryRun) {
+            $this->describeNodes($limbo);
+        }
+
         foreach ($limbo->reconcile($dryRun) as $line) {
             $this->line('  ' . $line);
         }
@@ -58,7 +65,9 @@ class LimboSweepCommand extends Command
         $moveSlots = $limbo->moveBudget($cap);
 
         if ($moveSlots === 0 && ServerLimboState::query()->where('state', 'hibernating')->count() < $cap) {
-            $this->warn('The last moves to the limbo node all failed — new moves are paused (one probe an hour).');
+            $this->warn($limbo->limboNodeFull()
+                ? sprintf('The limbo node\'s disk is over %d%% (LIMBO_MAX_DISK_PERCENT) — new moves are paused.', (int) config('plugged-host-limbo.max_disk_percent', 85))
+                : 'The last moves to the limbo node all failed — new moves are paused (one probe an hour).');
         }
 
         $stopped = 0;
@@ -114,6 +123,26 @@ class LimboSweepCommand extends Command
         $this->info(sprintf('limbo sweep: stopped=%d hibernated=%d%s', $stopped, $hibernated, $dryRun ? ' (dry-run)' : ''));
 
         return self::SUCCESS;
+    }
+
+    private function describeNodes(LimboService $limbo): void
+    {
+        $nodes = $limbo->nodeSummary();
+
+        if (!collect($nodes)->contains('destination', true)) {
+            $this->warn(sprintf('No node has the limbo tag (%s): nothing new is parked.', config('plugged-host-limbo.node_tag', 'limbo')));
+        }
+
+        foreach ($nodes as $row) {
+            $this->line(sprintf(
+                '  %-11s %s (#%d): %d parked%s',
+                $row['destination'] ? 'LIMBO NODE' : 'PARKED ON',
+                $row['node']->name,
+                $row['node']->getKey(),
+                $row['parked'],
+                $row['disk_percent'] !== null ? sprintf(', disk %.1f%% used', $row['disk_percent']) : '',
+            ));
+        }
     }
 
     /**

@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use PluggedHost\Core\Nodes\NodeTelemetry;
 use PluggedHost\Core\Power\StartGate;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Limbo\Filament\Server\Pages\RestoreFromLimboPage;
@@ -39,6 +40,11 @@ use Throwable;
  * two moving states are only settled by reconcile(), once the panel's transfer row has an
  * outcome: nothing is suspended, unsuspended or marked restored on the strength of a transfer
  * merely having been asked for.
+ *
+ * The limbo node is the node with the limbo tag (StorageService::limboNode()). Each row records
+ * the node its server was parked on (limbo_node_id), so the tag can move to another node: new
+ * servers are parked there, and the ones on the old node stay parked where they are, with their
+ * restore page and their way back.
  */
 class LimboService implements StartGate
 {
@@ -46,6 +52,8 @@ class LimboService implements StartGate
     private const UNSETTLED = ['hibernating', 'limbo', 'restoring'];
 
     private static bool $missingTableLogged = false;
+
+    private static ?bool $limboNodeColumn = null;
 
     public function enabled(): bool
     {
@@ -155,9 +163,10 @@ class LimboService implements StartGate
 
     /**
      * How many new moves to the limbo node may start now: the in-flight cap, unless the limbo
-     * node is refusing work. When the last three moves there all failed, none start for an hour
-     * after the latest failure, then one at a time as a probe until one lands — so a broken limbo
-     * node costs one server's exempt files an hour (see ExemptionPruner), not a sweep's worth.
+     * node is refusing work or its disk is full (limboNodeFull()). When the last three moves
+     * there all failed, none start for an hour after the latest failure, then one at a time as a
+     * probe until one lands — so a broken limbo node costs one server's exempt files an hour (see
+     * ExemptionPruner), not a sweep's worth.
      */
     public function moveBudget(int $cap): int
     {
@@ -167,6 +176,10 @@ class LimboService implements StartGate
 
         if ($budget === 0 || $node === null) {
             return $budget;
+        }
+
+        if ($this->limboNodeFull($node)) {
+            return 0;
         }
 
         $recent = ServerTransfer::query()
@@ -185,6 +198,71 @@ class LimboService implements StartGate
         }
 
         return $inFlight > 0 ? 0 : 1;
+    }
+
+    /**
+     * Whether the limbo node's disk is used past LIMBO_MAX_DISK_PERCENT, from core's node
+     * telemetry (wings' figure for its data disk). A limbo node is also a storage agent's box,
+     * whose mirror passes stop when that disk runs out, so parking stops well before. Unknown
+     * (no recent sample, no figures): not full; a node that cannot be reached fails its moves
+     * and the breaker in moveBudget() holds them.
+     */
+    public function limboNodeFull(?Node $node = null): bool
+    {
+        $node ??= $this->limboNode();
+        $max = (float) config('plugged-host-limbo.max_disk_percent', 85);
+
+        if ($node === null || $max <= 0 || $max >= 100) {
+            return false;
+        }
+
+        $percent = $this->diskPercent($node);
+
+        return $percent !== null && $percent >= $max;
+    }
+
+    /** Percent of the node's data disk in use, from its latest telemetry sample; null when unknown. */
+    public function diskPercent(Node $node): ?float
+    {
+        try {
+            $sample = app(NodeTelemetry::class)->latest((int) $node->getKey());
+        } catch (Throwable) {
+            return null;
+        }
+
+        $total = (int) ($sample['disk_total'] ?? 0);
+
+        return $total > 0 ? round(100 * (int) ($sample['disk_used'] ?? 0) / $total, 1) : null;
+    }
+
+    /**
+     * The nodes limbo knows: the one new servers are parked on and every node servers are
+     * parked on, with how many are parked there (for `plugged-host:limbo-sweep --status`).
+     *
+     * @return list<array{node: Node, destination: bool, parked: int, disk_percent: ?float}>
+     */
+    public function nodeSummary(): array
+    {
+        $destination = $this->limboNode();
+        $ids = $this->parkingNodeIds();
+
+        $parked = ServerLimboState::query()
+            ->join('servers', 'servers.id', '=', 'server_limbo_states.server_id')
+            ->where('server_limbo_states.state', 'limbo')
+            ->groupBy('servers.node_id')
+            ->selectRaw('servers.node_id as node_id, count(*) as parked')
+            ->pluck('parked', 'node_id')
+            ->all();
+
+        return Node::query()->whereIn('id', array_values(array_unique([...$ids, ...array_keys($parked)])))->orderBy('id')->get()
+            ->map(fn (Node $node) => [
+                'node' => $node,
+                'destination' => $destination !== null && $node->is($destination),
+                'parked' => (int) ($parked[$node->getKey()] ?? 0),
+                'disk_percent' => $this->diskPercent($node),
+            ])
+            ->values()
+            ->all();
     }
 
     /** Cost to restore, per the ransom window measured from limbo_at. */
@@ -256,7 +334,9 @@ class LimboService implements StartGate
             return false;
         }
 
-        if ((int) $server->node_id === (int) $limboNode->getKey() || $server->transfer !== null) {
+        // Already on a node servers are parked on (the limbo node, or one it used to be): never
+        // carried from one to another, nor recorded with such a node as its home.
+        if (in_array((int) $server->node_id, $this->parkingNodeIds(), true) || $server->transfer !== null) {
             return false;
         }
 
@@ -292,7 +372,7 @@ class LimboService implements StartGate
                 'origin_node_id' => $server->node_id,
                 'origin_allocation_id' => $server->allocation_id,
                 'origin_allocations' => $server->allocations()->pluck('id')->map(fn ($id) => (int) $id)->all(),
-            ],
+            ] + ($this->recordsLimboNode() ? ['limbo_node_id' => (int) $limboNode->getKey()] : []),
         );
 
         $primary = (int) array_shift($allocationIds);
@@ -512,6 +592,14 @@ class LimboService implements StartGate
     private function settleHibernation(Server $server, ServerLimboState $state, bool $dryRun): ?string
     {
         if ($this->onLimboNode($server, $state)) {
+            // On a tagged limbo node other than the one recorded (an admin moved it between
+            // them, or a row from before the record): remember where it is now. Only a tagged
+            // node: a recorded node counts as a limbo node everywhere else in this class.
+            if (!$dryRun && $this->recordsLimboNode() && (int) $state->limbo_node_id !== (int) $server->node_id
+                && in_array((int) $server->node_id, $this->limboNodeIds(), true)) {
+                $state->update(['limbo_node_id' => (int) $server->node_id]);
+            }
+
             if ($state->state === 'limbo' && $server->isSuspended()) {
                 return null;
             }
@@ -571,18 +659,33 @@ class LimboService implements StartGate
     }
 
     /**
-     * Whether the server sits on the limbo node rather than where it came from. The recorded
-     * origin decides first, so a renamed limbo tag cannot make every parked server look lost.
+     * Whether the server sits on a limbo node rather than where it came from: the node it was
+     * parked on (recorded), or any node with the limbo tag. The recorded origin decides first,
+     * so a renamed limbo tag cannot make every parked server look lost, and the recorded limbo
+     * node keeps servers parked on a node the tag has moved away from.
      */
     private function onLimboNode(Server $server, ServerLimboState $state): bool
     {
-        if ($state->origin_node_id !== null && (int) $server->node_id === (int) $state->origin_node_id) {
+        $nodeId = (int) $server->node_id;
+
+        if ($state->origin_node_id !== null && $nodeId === (int) $state->origin_node_id) {
             return false;
         }
 
-        $limbo = $this->limboNode();
+        $recorded = $this->recordsLimboNode() && $state->limbo_node_id !== null ? (int) $state->limbo_node_id : null;
 
-        return $limbo === null || (int) $server->node_id === (int) $limbo->getKey();
+        if ($recorded !== null && $nodeId === $recorded) {
+            return true;
+        }
+
+        $tagged = $this->limboNodeIds();
+
+        // Nothing to tell by (no record, no tagged node): anywhere but home, as before.
+        if ($recorded === null && $tagged === []) {
+            return true;
+        }
+
+        return in_array($nodeId, $tagged, true);
     }
 
     /**
@@ -595,7 +698,7 @@ class LimboService implements StartGate
     private function restoreDestination(Server $server, ServerLimboState $state): ?array
     {
         $origin = $this->originNode($state);
-        $limbo = $this->limboNode();
+        $parking = $this->parkingNodeIds();
         $needed = max(1, count($state->origin_allocations ?? []));
 
         $nodes = collect($origin ? [$origin] : []);
@@ -607,7 +710,7 @@ class LimboService implements StartGate
         if ($tags !== []) {
             $nodes = $nodes->merge(
                 Node::query()->get()->filter(fn (Node $node) => $node->getKey() !== $origin->getKey()
-                    && $node->getKey() !== $limbo?->getKey()
+                    && !in_array((int) $node->getKey(), $parking, true)
                     && $this->tagSet($node) === $tags)
             );
         }
@@ -777,19 +880,85 @@ class LimboService implements StartGate
         }
     }
 
+    /** The node new servers are parked on (the first with the limbo tag). */
     private function limboNode(): ?Node
+    {
+        return $this->limboNodes()[0] ?? null;
+    }
+
+    /**
+     * Every node with the limbo tag, from plugged-host-storage (an older one only knows one).
+     *
+     * @return list<Node>
+     */
+    private function limboNodes(): array
     {
         $storage = 'PluggedHost\\Storage\\Services\\StorageService';
 
         if (Plugins::available($storage)) {
             try {
-                return app($storage)->limboNode();
+                $service = app($storage);
+
+                if (method_exists($service, 'limboNodes')) {
+                    return array_values($service->limboNodes());
+                }
+
+                $node = $service->limboNode();
+
+                return $node instanceof Node ? [$node] : [];
             } catch (Throwable) {
                 //
             }
         }
 
-        return null;
+        return [];
+    }
+
+    /** @return list<int> */
+    private function limboNodeIds(): array
+    {
+        return array_map(fn (Node $node) => (int) $node->getKey(), $this->limboNodes());
+    }
+
+    /**
+     * Every node servers are or may be parked on: the tagged ones, and the ones recorded for
+     * servers that are parked or on their way (a former limbo node keeps its parked servers).
+     *
+     * @return list<int>
+     */
+    private function parkingNodeIds(): array
+    {
+        $ids = $this->limboNodeIds();
+
+        if ($this->recordsLimboNode()) {
+            try {
+                $ids = [...$ids, ...ServerLimboState::query()
+                    ->whereIn('state', self::UNSETTLED)
+                    ->whereNotNull('limbo_node_id')
+                    ->distinct()
+                    ->pluck('limbo_node_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all()];
+            } catch (Throwable) {
+                //
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /** server_limbo_states has limbo_node_id (migration 021). */
+    private function recordsLimboNode(): bool
+    {
+        if (self::$limboNodeColumn === null) {
+            try {
+                self::$limboNodeColumn = Schema::hasColumn('server_limbo_states', 'limbo_node_id');
+            } catch (Throwable) {
+                return false;
+            }
+        }
+
+        return self::$limboNodeColumn;
     }
 
     private function originNode(ServerLimboState $state): ?Node

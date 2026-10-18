@@ -33,9 +33,11 @@ return [
         'transfer_hours' => 'Transfer after (hours)',
         'transfer_hours_hint' => 'Hours of no panel activity before a stopped server is moved to the limbo node.',
         'node_tag' => 'Limbo node tag',
-        'node_tag_hint' => 'Tag that identifies the limbo node. Must not be a country code and must be excluded from UCS deployment tags.',
+        'node_tag_hint' => 'Tag that identifies the limbo node. Must not be a country code and must be excluded from UCS deployment tags. Move the tag to another node to park new servers there; servers already parked on the old node stay there.',
         'max_per_run' => 'Max transfers at once',
         'max_per_run_hint' => 'How many servers may be on their way to the limbo node at the same time (also the most servers one sweep stops). A move takes minutes, so this keeps the limbo node from being flooded.',
+        'max_disk_percent' => 'Limbo node disk limit (%)',
+        'max_disk_percent_hint' => 'No new moves while the limbo node\'s disk is used past this percentage. The limbo node also holds a storage agent\'s copies, which stop when its disk runs low. 0 turns the check off.',
 
         'section_ransom' => 'Restore cost',
         'section_ransom_hint' => 'Token ransom the owner pays to restore a hibernated server back to a live node.',

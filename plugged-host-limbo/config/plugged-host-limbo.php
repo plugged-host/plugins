@@ -21,7 +21,14 @@ return [
 
     // The limbo node is matched by this tag (must NOT be a country code, and must be excluded
     // from UCS_DEPLOYMENT_TAGS). Owned by plugged-host-storage::StorageService::limboNode().
+    // Move the tag to move limbo: new servers are parked on the newly tagged node, the ones on
+    // the old node stay parked there (each server's node is recorded, migration 021).
     'node_tag' => env('LIMBO_NODE_TAG', 'limbo'),
+
+    // No new moves while the limbo node's data disk is used past this percentage (core's node
+    // telemetry). The limbo node is also a storage agent's box, and its mirror passes stop when
+    // that disk runs low. 0 turns the check off.
+    'max_disk_percent' => (int) env('LIMBO_MAX_DISK_PERCENT', 85),
 
     // Moves to the limbo node in flight at once (and stops per sweep): a move takes minutes and
     // the limbo node is small.

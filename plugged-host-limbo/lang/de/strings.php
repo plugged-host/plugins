@@ -33,9 +33,11 @@ return [
         'transfer_hours' => 'Verschieben nach (Stunden)',
         'transfer_hours_hint' => 'Stunden ohne Panel-Aktivität, bevor ein gestoppter Server auf den Limbo-Node verschoben wird.',
         'node_tag' => 'Limbo-Node-Tag',
-        'node_tag_hint' => 'Tag, das den Limbo-Node kennzeichnet. Darf kein Ländercode sein und muss von den UCS-Deployment-Tags ausgeschlossen werden.',
+        'node_tag_hint' => 'Tag, das den Limbo-Node kennzeichnet. Darf kein Ländercode sein und muss von den UCS-Deployment-Tags ausgeschlossen werden. Verschiebe das Tag auf einen anderen Node, um neue Server dort zu parken; Server, die schon auf dem alten Node geparkt sind, bleiben dort.',
         'max_per_run' => 'Max. gleichzeitige Verschiebungen',
         'max_per_run_hint' => 'Wie viele Server gleichzeitig auf dem Weg zum Limbo-Node sein dürfen (auch die meisten Server, die ein Durchlauf stoppt). Eine Verschiebung dauert Minuten, so wird der Limbo-Node nicht überflutet.',
+        'max_disk_percent' => 'Speichergrenze des Limbo-Nodes (%)',
+        'max_disk_percent_hint' => 'Keine neuen Verschiebungen, solange die Festplatte des Limbo-Nodes über diesem Prozentsatz belegt ist. Der Limbo-Node hält auch die Kopien eines Storage-Agents, die bei knappem Speicher anhalten. 0 schaltet die Prüfung ab.',
 
         'section_ransom' => 'Wiederherstellungskosten',
         'section_ransom_hint' => 'Token-Lösegeld, das der Besitzer zahlt, um einen im Ruhezustand befindlichen Server auf einen aktiven Node zurückzuholen.',

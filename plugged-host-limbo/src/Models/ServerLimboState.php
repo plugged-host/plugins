@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One row per server that limbo has touched. Records where it came from (origin node +
- * allocations) so restore can return it to the same location tag, and when it entered each
- * state so the ransom window can be computed.
+ * allocations) so restore can return it to the same location tag, where it was parked
+ * (limbo_node_id, migration 021: the limbo node can change while servers stay parked on the old
+ * one), and when it entered each state so the ransom window can be computed.
  */
 class ServerLimboState extends Model
 {
@@ -17,7 +18,7 @@ class ServerLimboState extends Model
 
     protected $fillable = [
         'server_id', 'state', 'idle_since', 'stopped_at', 'limbo_at',
-        'origin_node_id', 'origin_allocation_id', 'origin_allocations',
+        'origin_node_id', 'origin_allocation_id', 'origin_allocations', 'limbo_node_id',
         'restore_cost', 'restored_at',
     ];
 
@@ -29,6 +30,7 @@ class ServerLimboState extends Model
             'limbo_at' => 'datetime',
             'restored_at' => 'datetime',
             'origin_allocations' => 'array',
+            'limbo_node_id' => 'integer',
         ];
     }
 

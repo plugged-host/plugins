@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.0 (unreleased)
+
+- **The limbo node can move.** Each row records the node its server was parked on
+  (`limbo_node_id`, migration 021, filled in for parked and moving servers from where the server
+  is or its transfer). Move the `LIMBO_NODE_TAG` tag to another node and new servers are parked
+  there, while the ones already parked on the old node stay parked, with their restore page and
+  their way home. Before, untagging the old node made reconcile see every server there as a
+  failed move: it unsuspended them all and later moved them on. A server on a node servers are
+  parked on is never hibernated again, and no restore goes to one.
+- No new moves while the limbo node's disk is used past `LIMBO_MAX_DISK_PERCENT` (85, from
+  core's node telemetry; new setting): the limbo node is also a storage agent's box, whose
+  copies stop when its disk runs low.
+- `plugged-host:limbo-sweep --status` names the limbo node and every node servers are parked on,
+  with how many and their disk use.
+
 ## 1.2.3
 
 - The storage exemptions now apply to limbo: before a server is moved to the limbo node, the
