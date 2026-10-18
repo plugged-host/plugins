@@ -20,8 +20,8 @@ use PluggedHost\Storage\Support\StorageBox;
  * (replica/failover status) are discovered on the admin panel. Minus topbar(true) — theme-v2
  * owns the topbar.
  *
- * Settings tab: the storage box's env knobs (agent connection, replication cadence and
- * failover), plus the optional backup server's connection over the same EnvironmentWriterTrait every plugged.host plugin uses. The
+ * Settings tab: the storage box's env knobs (agent connection, replication cadence, the backups
+ * portal's address and failover), plus the optional backup server's connection over the same EnvironmentWriterTrait every plugged.host plugin uses. The
  * agent HMAC secret is handled by the "masked, save-if-changed" convention this plugin set uses
  * everywhere: its real value is NEVER loaded into the form (getSettingsFormData returns '' for
  * it), the field renders masked with helper text saying only whether one is set, and saveSettings
@@ -81,6 +81,9 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'mirror_snapshots' => (int) config('plugged-host-storage.mirror_snapshots', 3),
             'min_free_percent' => (float) config('plugged-host-storage.min_free_percent', 10),
             'daemon_base' => (string) config('plugged-host-storage.daemon_base', '/var/lib/pelican/volumes'),
+
+            // Backups portal.
+            'portal_url' => (string) config('plugged-host-storage.portal_url', ''),
 
             // Failover.
             'failover_mode' => (string) config('plugged-host-storage.failover_mode', 'auto'),
@@ -209,6 +212,16 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                         ->required(),
                 ]),
 
+            Section::make(trans('plugged-host-storage::strings.settings.section_portal'))
+                ->description(trans('plugged-host-storage::strings.settings.section_portal_hint'))
+                ->schema([
+                    TextInput::make('portal_url')
+                        ->label(trans('plugged-host-storage::strings.settings.portal_url'))
+                        ->helperText(fn () => trans('plugged-host-storage::strings.settings.portal_url_hint', ['url' => url('/backups')]))
+                        ->url()
+                        ->maxLength(255),
+                ]),
+
             Section::make(trans('plugged-host-storage::strings.settings.section_failover'))
                 ->description(trans('plugged-host-storage::strings.settings.section_failover_hint'))
                 ->schema([
@@ -266,6 +279,9 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'STORAGE_MIRROR_SNAPSHOTS' => (string) max(1, min(100, (int) ($data['mirror_snapshots'] ?? 3))),
             'STORAGE_MIN_FREE_PERCENT' => (string) max(0, min(100, (float) ($data['min_free_percent'] ?? 10))),
             'STORAGE_DAEMON_BASE' => (string) ($data['daemon_base'] ?? '/var/lib/pelican/volumes'),
+
+            // Backups portal.
+            'BACKUPS_PORTAL_URL' => rtrim(trim((string) ($data['portal_url'] ?? '')), '/'),
 
             // Failover.
             'STORAGE_FAILOVER_MODE' => $failoverMode,

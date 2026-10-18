@@ -2,6 +2,15 @@
 
 ## 2.2.0 (unreleased)
 
+- **The backups portal's address is a setting.** `BACKUPS_PORTAL_URL` (config `portal_url`,
+  Admin › Plugins › plugged.host Storage › Backups portal) defaults to empty instead of
+  plugged.host's portal: the portal's routes answer on that URL's host when it is set, and on the
+  panel under `/backups` (now with its sign-in and logout routes, signing in with the panel's own
+  session) when it is not. The Backups page's links and the header action follow it. The portal
+  page takes the panel's name (`APP_NAME`), its status link from `plugged-host-core.status_url`
+  and its Discord link from `plugged-host-discord.invite_url` (each left out while empty), shows
+  the Store link only with the store page and "Sign in with Discord" only with
+  plugged-host-discord, and is translated (en, de). The controller's panel fallback is `url('/')`.
 - **A recovered server is recovered again.** A `done` failover fenced its server for good, so a
   server recovered (or drilled) once was never recovered again, also when the node it was
   recovered to failed. A done recovery now fences only the outage it answered: while the server
