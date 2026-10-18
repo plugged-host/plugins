@@ -2,10 +2,11 @@
 
 The storage server: 30-minute delta-mirror replication of every live server and automatic
 node-failure recovery, driven by a signed Node.js agent that runs on the storage box (and,
-optionally, on a faster backup server), plus the backups portal (backups.<domain>). Requires `plugged-host-core` (its node telemetry is the
-failover witness); works with `plugged-host-discord` for the portal's sign-in and with
-`plugged-host-servers`, whose transfer planner picks failover destinations (without it no
-recovery starts).
+optionally, on a faster backup server), plus the backups portal (on its own host such as
+backups.<domain> when `BACKUPS_PORTAL_URL` is set, else at the panel's `/backups`). Requires
+`plugged-host-core` (its node telemetry is the failover witness); works with
+`plugged-host-discord` for the portal's sign-in and with `plugged-host-servers`, whose transfer
+planner picks failover destinations (without it no recovery starts).
 
 ## What it does
 
@@ -32,6 +33,14 @@ recovery starts).
   the mode is `notify` or `auto` again, and `--drill` / `--resume` are refused (nothing would carry
   them past their first step). **Operator override in effect:** fully automatic after ~5 minutes
   offline (`STORAGE_FAILOVER_MODE=auto`).
+- **Backups portal**: owners sign in and download the latest copy of each of their servers, and of
+  servers an admin deleted in the last days. With `BACKUPS_PORTAL_URL` set (a host of its own, e.g.
+  `https://backups.<domain>`, pointed at the panel's web server) the portal answers there and signs
+  in through the panel (`/auth/backups-sso`); the page also answers at the panel's `/backups`.
+  Unset, it lives on the panel under `/backups` with the panel's own session and sign-in. Its
+  name, status link (`plugged-host-core.status_url`) and Discord link
+  (`plugged-host-discord.invite_url`) come from the panel's settings; an unset link is left out.
+  The server's Backups page and Theme v2's sidebar link to it.
 - **Deleted servers**: a server deleted by an admin, or by the panel itself (abuse purge, an
   account deleted through noprofit, ...), keeps its copy on the storage box for
   `STORAGE_DELETED_HOLD_DAYS` (7) days and stays listed, under its ID, for its owner on the backups
@@ -78,6 +87,7 @@ recovery starts).
 | `failover_max_in_flight` | `STORAGE_FAILOVER_MAX_IN_FLIGHT` (`3`) | Recoveries installing or restoring at once |
 | `mirror_snapshots` | `STORAGE_MIRROR_SNAPSHOTS` (`3`) | Snapshot retention, sent to the agents with every work-plan |
 | `mirror_interval_min` / `min_free_percent` | `STORAGE_MIRROR_INTERVAL_MIN` (`30`) / `STORAGE_MIN_FREE_PERCENT` (`10`) | Mirror cadence and the agent's free-space floor. Written into a box's agent config by its installer: a change reaches a box when its setup command is run there again. The panel uses the interval at once (doctor, which box serves an archive) |
+| `portal_url` | `BACKUPS_PORTAL_URL` (empty) | The backups portal's own address; empty: the panel's `/backups` |
 | `deleted_hold_days` | `STORAGE_DELETED_HOLD_DAYS` (`7`) | Days an admin-deleted server's copy is kept |
 | `purge_deleted` | `STORAGE_PURGE_DELETED` (`true`) | Kill switch for the agent's cleanup (holds are still recorded) |
 
@@ -125,9 +135,10 @@ the top of `agent/install.sh`). It sets `PH_MIRROR_JOBS` to half the cores (1 to
 ## Extension points it offers / consumes
 
 - Offers: `StorageService::limboNode()` / `limboNodes()` / `archiveUrlFor()` (limbo → storage seam),
+  `Support\BackupsPortal::url()` / `forServer()` (the portal's address; Theme v2's sidebar),
   `/api/client/servers/{server}/replica`, the agent HTTP surface (`/plugged-host/storage/agent/*`).
-- Reads limbo's `node_tag` (`LIMBO_NODE_TAG`) config (Pelican loads every plugin's config, also a
-  disabled one's).
+- Reads limbo's `node_tag` (`LIMBO_NODE_TAG`), core's `status_url` and discord's `invite_url`
+  config (Pelican loads every plugin's config, also a disabled one's).
 - Consumes: core's `NodeTelemetry::consecutiveFailures()` (failover witness) / `samples()` (has a
   node answered since a recovery finished) and
   `SystemServers`; servers' `TransferPlanner`, `LocationCatalog` and `ServerMoved` (failover,

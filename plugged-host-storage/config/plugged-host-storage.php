@@ -6,9 +6,10 @@
 |--------------------------------------------------------------------------
 |
 | The storage box (and optionally the backup server): 30-minute delta-mirror
-| replication and node-failure recovery. The Node.js agent (agent/) pulls the
-| mirrors and serves signed archives; the panel schedules failover detection and
-| serves each agent its work-plan, updates, and report sink.
+| replication, node-failure recovery and the backups portal. The Node.js agent
+| (agent/) pulls the mirrors and serves signed archives; the panel schedules
+| failover detection and serves each agent its work-plan, updates, and report
+| sink.
 |
 | NOTE on failover mode: the operator asked for FULLY AUTOMATIC failover once a
 | node is unreachable for ~5 minutes ("node offline > 5 min => auto switch from
@@ -58,6 +59,10 @@ return [
 
     // The wings default volume base; a real per-node column overrides it where present.
     'daemon_base' => env('STORAGE_DAEMON_BASE', '/var/lib/pelican/volumes'),
+
+    // The backups portal's own address, e.g. https://backups.example.com, with that name pointed at
+    // this panel's web server. Empty: the portal is on the panel at /backups (Support\BackupsPortal).
+    'portal_url' => (string) env('BACKUPS_PORTAL_URL', ''),
 
     // A server deleted by an admin (or by the panel itself) keeps its copy on the storage box
     // this many days, listed for its owner on the backups portal. Owners' own deletions: none.

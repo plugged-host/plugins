@@ -1,11 +1,17 @@
+@php
+    // The portal's strings; :app is the panel's name (APP_NAME).
+    $t = fn (string $key, array $replace = []) => trans('plugged-host-storage::strings.portal.' . $key, ['app' => $appName] + $replace);
+@endphp
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Server Backups &bull; plugged.host</title>
-    <link rel="icon" type="image/png" href="{{ config('app.favicon', '/plugged.host_nobg.png') }}">
-    <meta name="description" content="Download dedicated off-site backups for your plugged.host game servers.">
+    <title>{{ $t('title') }} &bull; {{ $appName }}</title>
+    @if (filled(config('app.favicon')))
+        <link rel="icon" type="image/png" href="{{ config('app.favicon') }}">
+    @endif
+    <meta name="description" content="{{ $t('meta_description') }}">
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -490,16 +496,22 @@
 <body>
     <header class="topbar">
         <div class="container topbar-inner">
-            <a href="{{ $panelUrl }}" class="brand" title="plugged.host Panel">
-                <img src="{{ config('app.logo', '/plugged.host_nobg.png') }}" alt="plugged.host" class="brand-logo">
-                <span class="brand-text">plugged.host</span>
+            <a href="{{ $panelUrl }}" class="brand" title="{{ $t('panel_title') }}">
+                @if (filled(config('app.logo')))
+                    <img src="{{ config('app.logo') }}" alt="{{ $appName }}" class="brand-logo">
+                @endif
+                <span class="brand-text">{{ $appName }}</span>
             </a>
 
             <nav class="topnav">
-                <a href="{{ $panelUrl }}/">Servers</a>
-                <a href="#" aria-current="page">Backups</a>
-                <a href="{{ $panelUrl }}/store">Store</a>
-                <a href="https://status.plugged.host" target="_blank">Status</a>
+                <a href="{{ $panelUrl }}/">{{ $t('nav_servers') }}</a>
+                <a href="#" aria-current="page">{{ $t('nav_backups') }}</a>
+                @if ($storeUrl)
+                    <a href="{{ $storeUrl }}">{{ $t('nav_store') }}</a>
+                @endif
+                @if (filled($statusUrl))
+                    <a href="{{ $statusUrl }}" target="_blank">{{ $t('nav_status') }}</a>
+                @endif
             </nav>
 
             <div class="account">
@@ -515,15 +527,15 @@
                         <span class="user-name">{{ $user->username }}</span>
                     </div>
 
-                    <a href="{{ $panelUrl }}/" class="btn btn-secondary btn-sm" title="Return to Panel Dashboard">Panel</a>
+                    <a href="{{ $panelUrl }}/" class="btn btn-secondary btn-sm" title="{{ $t('panel_hint') }}">{{ $t('panel') }}</a>
 
-                    <a href="{{ route('backups.portal.logout') }}" class="icon-btn" title="Log out" aria-label="Log out">
+                    <a href="{{ route('backups.portal.logout') }}" class="icon-btn" title="{{ $t('log_out') }}" aria-label="{{ $t('log_out') }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
                         </svg>
                     </a>
                 @else
-                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-secondary btn-sm">Log In with Panel</a>
+                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-secondary btn-sm">{{ $t('log_in') }}</a>
                 @endif
             </div>
         </div>
@@ -531,25 +543,27 @@
 
     <main class="container">
         <div class="page-header">
-            <h1 class="page-title">Server backups</h1>
-            <p class="page-subtitle">Download a full copy of your server files. Copies are kept on a separate storage server, without caches, logs and other files your server can rebuild.</p>
+            <h1 class="page-title">{{ $t('heading') }}</h1>
+            <p class="page-subtitle">{{ $t('subtitle') }}</p>
         </div>
 
         @unless ($user)
             {{-- Backups are only listed for the signed-in owner; there is no lookup by server ID. --}}
             <section class="card signin-card">
-                <h2 class="card-title">Sign in to download your backups</h2>
-                <p class="card-text">Your servers and their latest off-site copies appear here once you sign in with the account that owns them.</p>
+                <h2 class="card-title">{{ $t('sign_in_title') }}</h2>
+                <p class="card-text">{{ $t('sign_in_text') }}</p>
                 <div class="card-actions">
-                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-primary">Sign in with plugged.host</a>
-                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-secondary">Sign in with Discord</a>
+                    <a href="{{ route('backups.portal.discord') }}" class="btn btn-primary">{{ $t('sign_in_app') }}</a>
+                    @if ($discordSignIn)
+                        <a href="{{ route('backups.portal.discord') }}" class="btn btn-secondary">{{ $t('sign_in_discord') }}</a>
+                    @endif
                 </div>
             </section>
         @endunless
 
         @if ($user)
             <section>
-                <h2 class="section-title">Your servers</h2>
+                <h2 class="section-title">{{ $t('your_servers') }}</h2>
 
                 @if ($userServers->isNotEmpty())
                     <div class="server-list">
@@ -563,13 +577,13 @@
                                         <span class="sep" aria-hidden="true">&middot;</span>
                                         <span>{{ $srv['node'] }}</span>
                                         <span class="sep" aria-hidden="true">&middot;</span>
-                                        <button type="button" class="server-id" onclick="copyId('{{ $srv['uuid_short'] }}')" title="Copy server ID">#{{ $srv['uuid_short'] }}</button>
+                                        <button type="button" class="server-id" onclick="copyId('{{ $srv['uuid_short'] }}')" title="{{ $t('copy_id') }}">#{{ $srv['uuid_short'] }}</button>
                                     </div>
 
                                     <div class="server-status">
                                         @if ($srv['has_backup'])
                                             <span class="dot dot-ok" aria-hidden="true"></span>
-                                            <span>Backup ready</span>
+                                            <span>{{ $t('backup_ready') }}</span>
                                             @php
                                                 $size = $srv['archive_bytes'] ?: $srv['bytes'];
                                                 $sizeText = $size >= 1073741824
@@ -578,7 +592,7 @@
                                             @endphp
                                             @if ($size)
                                                 <span class="sep" aria-hidden="true">&middot;</span>
-                                                <span>{{ $srv['archive_bytes'] ? $sizeText : 'about ' . $sizeText }}</span>
+                                                <span>{{ $srv['archive_bytes'] ? $sizeText : $t('about_size', ['size' => $sizeText]) }}</span>
                                             @endif
                                             @if (!empty($srv['mtime']))
                                                 <span class="sep" aria-hidden="true">&middot;</span>
@@ -586,36 +600,36 @@
                                             @endif
                                         @elseif ($srv['unreachable'])
                                             <span class="dot" aria-hidden="true"></span>
-                                            <span>Backup storage is unreachable right now, try again in a few minutes</span>
+                                            <span>{{ $t('unreachable') }}</span>
                                         @else
                                             <span class="dot" aria-hidden="true"></span>
-                                            <span>Waiting for the first copy from the node</span>
+                                            <span>{{ $t('waiting') }}</span>
                                         @endif
                                     </div>
                                 </div>
 
                                 <div class="server-actions">
                                     @if ($srv['has_backup'])
-                                        <a href="{{ $srv['download_url'] }}" class="btn btn-secondary btn-sm" data-download>Download</a>
+                                        <a href="{{ $srv['download_url'] }}" class="btn btn-secondary btn-sm" data-download>{{ $t('download') }}</a>
                                     @endif
 
-                                    <a href="{{ $srv['manage_url'] }}" class="link" title="Manage Server in Panel">Manage</a>
+                                    <a href="{{ $srv['manage_url'] }}" class="link" title="{{ $t('manage_hint') }}">{{ $t('manage') }}</a>
 
-                                    <a href="{{ $srv['backups_url'] }}" class="link" title="View in Server Backups Tab">Backups</a>
+                                    <a href="{{ $srv['backups_url'] }}" class="link" title="{{ $t('backups_hint') }}">{{ $t('backups') }}</a>
                                 </div>
                             </div>
                         @endforeach
                     </div>
                 @else
-                    <div class="card empty">No active servers found on this account.</div>
+                    <div class="card empty">{{ $t('no_servers') }}</div>
                 @endif
             </section>
 
             @if ($deletedServers->isNotEmpty())
-                {{-- Deleted by an admin or by plugged.host itself: the last copy stays for a few days. --}}
+                {{-- Deleted by an admin or by the panel itself: the last copy stays for a few days. --}}
                 <section class="section-deleted">
-                    <h2 class="section-title">Deleted servers</h2>
-                    <p class="section-text">These servers were deleted by plugged.host. Their last off-site copy is kept until the date shown, in case that was a mistake, and then removed.</p>
+                    <h2 class="section-title">{{ $t('deleted_title') }}</h2>
+                    <p class="section-text">{{ $t('deleted_text') }}</p>
 
                     <div class="server-list">
                         @foreach ($deletedServers as $srv)
@@ -628,15 +642,15 @@
                                         <span class="sep" aria-hidden="true">&middot;</span>
                                         <span>{{ $srv['node'] }}</span>
                                         <span class="sep" aria-hidden="true">&middot;</span>
-                                        <button type="button" class="server-id" onclick="copyId('{{ $srv['uuid_short'] }}')" title="Copy server ID">#{{ $srv['uuid_short'] }}</button>
+                                        <button type="button" class="server-id" onclick="copyId('{{ $srv['uuid_short'] }}')" title="{{ $t('copy_id') }}">#{{ $srv['uuid_short'] }}</button>
                                     </div>
 
                                     <div class="server-status">
                                         @if ($srv['has_backup'])
                                             <span class="dot dot-ok" aria-hidden="true"></span>
-                                            <span>Deleted {{ $srv['deleted_at']?->diffForHumans() }}</span>
+                                            <span>{{ $t('deleted_ago', ['ago' => $srv['deleted_at']?->diffForHumans()]) }}</span>
                                             <span class="sep" aria-hidden="true">&middot;</span>
-                                            <span>Kept until {{ $srv['keep_until']?->format('j M') }}</span>
+                                            <span>{{ $t('kept_until', ['date' => $srv['keep_until']?->translatedFormat('j M')]) }}</span>
                                             @php
                                                 $size = $srv['archive_bytes'] ?: $srv['bytes'];
                                                 $sizeText = $size >= 1073741824
@@ -645,18 +659,18 @@
                                             @endphp
                                             @if ($size)
                                                 <span class="sep" aria-hidden="true">&middot;</span>
-                                                <span>{{ $srv['archive_bytes'] ? $sizeText : 'about ' . $sizeText }}</span>
+                                                <span>{{ $srv['archive_bytes'] ? $sizeText : $t('about_size', ['size' => $sizeText]) }}</span>
                                             @endif
                                         @else
                                             <span class="dot" aria-hidden="true"></span>
-                                            <span>Backup storage is unreachable right now, try again in a few minutes</span>
+                                            <span>{{ $t('unreachable') }}</span>
                                         @endif
                                     </div>
                                 </div>
 
                                 @if ($srv['has_backup'])
                                     <div class="server-actions">
-                                        <a href="{{ $srv['download_url'] }}" class="btn btn-secondary btn-sm" data-download>Download</a>
+                                        <a href="{{ $srv['download_url'] }}" class="btn btn-secondary btn-sm" data-download>{{ $t('download') }}</a>
                                     </div>
                                 @endif
                             </div>
@@ -669,20 +683,28 @@
 
     <footer class="footer">
         <div class="container">
-            &copy; {{ date('Y') }} plugged.host &middot; <a href="{{ $panelUrl }}" target="_blank">Panel</a> &middot; <a href="https://status.plugged.host" target="_blank">Status</a> &middot; <a href="https://discord.gg/plugged-host-1502647500295635085" target="_blank">Discord support</a>
+            &copy; {{ date('Y') }} {{ $appName }} &middot; <a href="{{ $panelUrl }}" target="_blank">{{ $t('panel') }}</a>
+            @if (filled($statusUrl))
+                &middot; <a href="{{ $statusUrl }}" target="_blank">{{ $t('nav_status') }}</a>
+            @endif
+            @if (filled($discordUrl))
+                &middot; <a href="{{ $discordUrl }}" target="_blank">{{ $t('discord_support') }}</a>
+            @endif
             &middot; {{ \PluggedHost\Core\Support\Release::full() }}
         </div>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite">
-        <span id="toastMsg">Copied to clipboard!</span>
+        <span id="toastMsg">{{ $t('copied') }}</span>
     </div>
 
     <script>
+        const portalText = @js(['idCopied' => $t('id_copied'), 'starting' => $t('starting'), 'downloading' => $t('downloading'), 'download' => $t('download')]);
+
         function copyId(id) {
             navigator.clipboard.writeText(id).then(() => {
                 const toast = document.getElementById('toast');
-                document.getElementById('toastMsg').textContent = 'Server ID #' + id + ' copied!';
+                document.getElementById('toastMsg').textContent = portalText.idCopied.replace(':id', id);
                 toast.style.display = 'flex';
                 setTimeout(() => { toast.style.display = 'none'; }, 2000);
             });
@@ -696,10 +718,10 @@
             if (!link) return;
             if (link.dataset.started === '1') { event.preventDefault(); return; }
             link.dataset.started = '1';
-            link.textContent = 'Starting…';
+            link.textContent = portalText.starting;
             link.setAttribute('aria-disabled', 'true');
-            setTimeout(() => { link.textContent = 'Downloading, see your browser'; }, 2500);
-            setTimeout(() => { link.textContent = 'Download'; link.dataset.started = ''; link.removeAttribute('aria-disabled'); }, 30000);
+            setTimeout(() => { link.textContent = portalText.downloading; }, 2500);
+            setTimeout(() => { link.textContent = portalText.download; link.dataset.started = ''; link.removeAttribute('aria-disabled'); }, 30000);
         });
 
         // Deep-linking handler

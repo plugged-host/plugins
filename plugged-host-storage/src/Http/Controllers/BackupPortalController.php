@@ -7,6 +7,7 @@ use App\Models\Server;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use PluggedHost\Core\Support\Plugins;
@@ -14,6 +15,7 @@ use PluggedHost\Discord\Models\DiscordLink;
 use PluggedHost\Storage\Models\DeletedServer;
 use PluggedHost\Storage\Services\DeletedServers;
 use PluggedHost\Storage\Services\StorageService;
+use PluggedHost\Storage\Support\BackupsPortal;
 
 class BackupPortalController extends Controller
 {
@@ -28,15 +30,15 @@ class BackupPortalController extends Controller
      */
     protected function panelBaseUrl(): string
     {
-        return rtrim(config('app.url', 'https://panel.plugged.host'), '/');
+        return rtrim((string) (config('app.url') ?: url('/')), '/');
     }
 
     /**
-     * Resolve the base URL of the backups portal.
+     * Resolve the base URL of the backups portal: its own host, or /backups on the panel.
      */
     protected function portalBaseUrl(): string
     {
-        return rtrim(env('BACKUPS_PORTAL_URL', 'https://backups.plugged.host'), '/');
+        return BackupsPortal::url();
     }
 
     /**
@@ -72,8 +74,9 @@ class BackupPortalController extends Controller
         $initialServerId = preg_replace('/[^a-f0-9]/', '', strtolower(trim((string) ($request->query('server') ?? $request->query('s') ?? ''))));
 
         // Auto-SSO handshake: if not logged in on backups and hasn't checked panel yet in this browser session,
-        // do a fast silent handshake with the panel to auto-get panel session.
-        if (!$user && !$request->has('guest') && !$request->session()->has('sso_checked')) {
+        // do a fast silent handshake with the panel to auto-get panel session. On the panel itself
+        // the session is the panel's: nothing to ask.
+        if (!$user && !BackupsPortal::onPanel() && !$request->has('guest') && !$request->session()->has('sso_checked')) {
             $request->session()->put('sso_checked', true);
 
             return redirect($this->ssoStartUrl($request, ['server' => $initialServerId]));
@@ -174,6 +177,13 @@ class BackupPortalController extends Controller
             'panelUrl' => $panelUrl,
             'portalUrl' => $portalUrl,
             'initialServerId' => $initialServerId,
+            'appName' => (string) config('app.name'),
+            // Each link is left out while its address is not set.
+            'statusUrl' => (string) config('plugged-host-core.status_url', ''),
+            'discordUrl' => (string) config('plugged-host-discord.invite_url', ''),
+            'discordSignIn' => Plugins::enabled('plugged-host-discord'),
+            // On the panel's host, whichever host this page is on.
+            'storeUrl' => Route::has('filament.app.pages.store') ? $panelUrl . route('filament.app.pages.store', [], false) : null,
         ]);
     }
 
@@ -272,6 +282,13 @@ class BackupPortalController extends Controller
     public function authRedirect(Request $request): RedirectResponse
     {
         $server = $request->query('server');
+
+        // On the panel itself the panel's sign-in is the portal's: back here once it is done.
+        if (BackupsPortal::onPanel()) {
+            $request->session()->put('url.intended', BackupsPortal::forServer($server ? (string) $server : null));
+
+            return redirect('/login');
+        }
 
         return redirect($this->ssoStartUrl($request, ['prompt' => '1', 'server' => $server ? (string) $server : null]));
     }

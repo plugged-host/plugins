@@ -20,11 +20,13 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Doctor\Doctor;
+use PluggedHost\Storage\Http\Controllers\BackupPortalController;
 use PluggedHost\Storage\Models\DeletedServer;
 use PluggedHost\Storage\Services\DeletedServers;
 use PluggedHost\Storage\Services\FailoverService;
 use PluggedHost\Storage\Services\StorageService;
 use PluggedHost\Storage\Services\StorageSetup;
+use PluggedHost\Storage\Support\BackupsPortal;
 use PluggedHost\Storage\Support\StorageBox;
 use Throwable;
 
@@ -107,12 +109,7 @@ class StoragePluginProvider extends ServiceProvider
                     Action::make('offsite_storage_backups')
                         ->label('Off-site Backups')
                         ->color('gray')
-                        ->url(function () {
-                            $server = Filament::getTenant();
-                            $portalBaseUrl = env('BACKUPS_PORTAL_URL', 'https://backups.plugged.host');
-
-                            return $server ? "{$portalBaseUrl}/?server={$server->uuid_short}" : $portalBaseUrl;
-                        })
+                        ->url(fn () => BackupsPortal::forServer(Filament::getTenant()?->uuid_short))
                         ->openUrlInNewTab(true)
                 );
             } catch (Throwable) {
@@ -457,30 +454,36 @@ class StoragePluginProvider extends ServiceProvider
         ]);
     }
 
+    /**
+     * The backups portal. With its own host (BACKUPS_PORTAL_URL) it answers there and, as the page
+     * alone, on the panel's /backups too; without one it lives on the panel under /backups, with
+     * the same route names, so every link (route() or BackupsPortal::url()) points at it.
+     */
     private function registerBackupPortalRoutes(): void
     {
-        // 1. SSO Handshake Route on panel.plugged.host (accessible from main panel domain)
+        // The panel's half of the SSO handshake, on the panel's own host.
         Route::middleware(['web'])
-            ->get('/auth/backups-sso', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'panelSso'])
+            ->get('/auth/backups-sso', [BackupPortalController::class, 'panelSso'])
             ->name('backups.panel.sso');
 
-        // 2. Backups Portal Routes on backups.plugged.host
-        Route::domain('backups.plugged.host')
+        $host = BackupsPortal::host();
+
+        ($host !== '' ? Route::domain($host) : Route::prefix('/backups'))
             ->middleware(['web'])
             ->group(function (): void {
-                Route::get('/', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'index'])->name('backups.portal.index');
-                Route::get('/auth/sso', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'portalSsoCallback'])->name('backups.portal.sso');
-                Route::get('/auth/discord', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'authRedirect'])->name('backups.portal.discord');
-                Route::get('/auth/discord/callback', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'authCallback'])->name('backups.portal.discord.callback');
-                Route::get('/auth/logout', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'logout'])->name('backups.portal.logout');
+                Route::get('/', [BackupPortalController::class, 'index'])->name('backups.portal.index');
+                Route::get('/auth/sso', [BackupPortalController::class, 'portalSsoCallback'])->name('backups.portal.sso');
+                Route::get('/auth/discord', [BackupPortalController::class, 'authRedirect'])->name('backups.portal.discord');
+                Route::get('/auth/discord/callback', [BackupPortalController::class, 'authCallback'])->name('backups.portal.discord.callback');
+                Route::get('/auth/logout', [BackupPortalController::class, 'logout'])->name('backups.portal.logout');
             });
 
-        Route::prefix('/backups')
-            ->middleware(['web'])
-            ->group(function (): void {
-                Route::get('/', [\PluggedHost\Storage\Http\Controllers\BackupPortalController::class, 'index'])->name('backups.fallback.index');
-            });
+        if ($host !== '') {
+            Route::prefix('/backups')
+                ->middleware(['web'])
+                ->group(function (): void {
+                    Route::get('/', [BackupPortalController::class, 'index'])->name('backups.fallback.index');
+                });
+        }
     }
 }
-
-

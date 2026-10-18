@@ -4,8 +4,7 @@
         return;
     }
 
-    $portalBaseUrl = env('BACKUPS_PORTAL_URL', 'https://backups.plugged.host');
-    $portalUrl = "{$portalBaseUrl}/?server={$server->uuid_short}";
+    $portalUrl = \PluggedHost\Storage\Support\BackupsPortal::forServer($server->uuid_short);
 
     $storageService = app(\PluggedHost\Storage\Services\StorageService::class);
     $backupInfo = null;
