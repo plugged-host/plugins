@@ -1,6 +1,6 @@
 # plugged.host Queue
 
-Puts every server **start** (and restart) of a user who is not exempt on a short waiting page,
+Puts every server **start** (and, with `START_QUEUE_INCLUDE_RESTART`, restart) of a user who is not exempt on a short waiting page,
 and dispatches it for them: after at least `START_QUEUE_MIN_WAIT`, one release per node every
 `START_QUEUE_RELEASE_INTERVAL`, once the node is under the busy line — or when the hard cap runs
 out, whichever comes first. The node's load is checked when an entry is released, not on the

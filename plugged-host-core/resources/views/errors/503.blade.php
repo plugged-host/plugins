@@ -24,7 +24,9 @@
     $statusUrl = (string) config('plugged-host-core.status_url', '');
 
     $adUnitId = trim((string) config('plugged-host-ads.maintenance.aads_unit', ''));
-    $adIframeWidth = (string) config('plugged-host-ads.maintenance.width', '70%') ?: '70%';
+    // The width goes into a style attribute, so only the shape the ads settings accept passes.
+    $adIframeWidth = trim((string) config('plugged-host-ads.maintenance.width', '70%'));
+    $adIframeWidth = preg_match('/^[0-9]{1,4}(\.[0-9]{1,2})?(%|px|vw)$/', $adIframeWidth) === 1 ? $adIframeWidth : '70%';
     $adsEnabled = $adUnitId !== ''
         && (bool) config('plugged-host-ads.enabled', false)
         && rescue(fn () => \PluggedHost\Core\Support\Plugins::enabled('plugged-host-ads'), false, false);

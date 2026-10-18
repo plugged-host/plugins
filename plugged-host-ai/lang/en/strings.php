@@ -180,7 +180,7 @@ return [
         'always_confirm_destructive_hint' => 'Overrides a user\'s "without asking" choice for deletes and kill.',
         'retention_days' => 'Keep conversations (days)',
         'support_url' => 'Human support link',
-        'support_url_hint' => 'Where neo sends people for human help. Empty: the Discord plugin\'s invite, if one is set.',
+        'support_url_hint' => 'Where neo sends people for human help, used while the Discord plugin has no invite URL (its invite wins when set).',
         'legal_email' => 'Legal contact email',
         'legal_email_hint' => 'neo gives it for legal complaints (abuse, copyright, illegal content). Empty: neo names none.',
         'privacy_email' => 'Privacy contact email',

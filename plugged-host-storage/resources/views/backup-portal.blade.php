@@ -529,11 +529,14 @@
 
                     <a href="{{ $panelUrl }}/" class="btn btn-secondary btn-sm" title="{{ $t('panel_hint') }}">{{ $t('panel') }}</a>
 
-                    <a href="{{ route('backups.portal.logout') }}" class="icon-btn" title="{{ $t('log_out') }}" aria-label="{{ $t('log_out') }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-                        </svg>
-                    </a>
+                    {{-- On the panel the portal shares the panel's session: signing out is the panel's own. --}}
+                    @unless (\PluggedHost\Storage\Support\BackupsPortal::onPanel())
+                        <a href="{{ route('backups.portal.logout') }}" class="icon-btn" title="{{ $t('log_out') }}" aria-label="{{ $t('log_out') }}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                            </svg>
+                        </a>
+                    @endunless
                 @else
                     <a href="{{ route('backups.portal.discord') }}" class="btn btn-secondary btn-sm">{{ $t('log_in') }}</a>
                 @endif

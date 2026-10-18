@@ -33,8 +33,8 @@ return [
     'always_confirm_destructive' => (bool) env('NEO_ALWAYS_CONFIRM_DESTRUCTIVE', true),
     'retention_days' => (int) env('NEO_RETENTION_DAYS', 30),
 
-    // Where neo sends people for human help: this URL, else the Discord plugin's invite
-    // (DISCORD_INVITE_URL); with neither, neo names no link.
+    // Where neo sends people for human help when the Discord plugin has no invite
+    // (DISCORD_INVITE_URL wins while it is set); with neither, neo names no link.
     'support_url' => (string) env('NEO_SUPPORT_URL', ''),
 
     // Contact addresses neo gives for legal complaints (abuse, copyright, illegal content) and

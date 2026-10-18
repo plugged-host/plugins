@@ -48,8 +48,9 @@ it in `/etc/nftables.conf` with `nftables.service`: Debian's file starts with `f
 which wipes Docker's rules whenever it is reloaded.
 
 Read the values from the node's `/etc/pelican/config.yml` (`docker.network`; Wings' defaults
-are shown), the node's allocation port range(s) and its Daemon Port (the port the panel reaches
-Wings on: `api.port`, unless a proxy on the node sits in front of Wings) from the panel:
+are shown), the node's allocation port range(s) and its Wings port from the panel: the node's
+**Port**, or its **Connection Port** when the node lists a Connection and a Listening Port (the
+port `ph`'s websocket reaches Wings on):
 
 ```bash
 sudo install -d /etc/nftables.d
@@ -61,7 +62,7 @@ define WINGS_BRIDGE = "pelican0"             # docker.network: Wings' bridge nam
 define WINGS_V4 = 172.18.0.0/16              # docker.network.interfaces.v4.subnet
 define WINGS_V6 = fdba:17c8:6c94::/64        # docker.network.interfaces.v6.subnet
 define GAME_PORTS = { <FIRST_PORT>-<LAST_PORT> }   # the node's allocation range(s)
-define WINGS_API_PORT = 8080                 # the node's Daemon Port in the panel
+define WINGS_API_PORT = 8080                 # the node's (Connection) Port in the panel
 
 table inet ph_node_guard
 delete table inet ph_node_guard
