@@ -2,6 +2,14 @@
 
 ## 2.2.0 (unreleased)
 
+- The Plus page's PlusPlus term ("a week, or credits for two weeks") and the credits FAQ ("credits
+  buy two weeks at a time") are built from `PLUSPLUS_TOKEN_DAYS`/`PLUSPLUS_CREDIT_DAYS` instead of
+  being written out, so they stay right when the days change (whole weeks read as weeks, anything
+  else as days; just the token term when credits are off).
+- Self-hosting: "Plus"/"PlusPlus" on the Plus page, its notifications and ledger lines, the Tokens
+  page, the admin Economy tab and the settings are named after the panel (`APP_NAME`), not a fixed
+  "plugged.host Plus".
+
 - `Events\AccountLimitsLowered`: part of an account's limits was taken away (its base went down
   on noprofit.space) and its servers have to give it back (plugged-host-servers' `AllowanceTrim`
   listens).

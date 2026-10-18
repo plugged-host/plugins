@@ -157,7 +157,7 @@ class PluggedHostEconomyPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-economy.credits.reclaim_resources', true)),
                 ]),
             Section::make('Tokens')
-                ->description('Tokens are the membership currency: earned by completing a sponsored link (plugged.host Ads), spent on plugged.host Plus and PlusPlus. They are deliberately not interchangeable with credits — credits grow the Discord, tokens pay for hardware.')
+                ->description('Tokens are the membership currency: earned by completing a sponsored link (plugged.host Ads), spent on ' . config('app.name') . ' Plus and PlusPlus. They are deliberately not interchangeable with credits — credits grow the Discord, tokens pay for hardware.')
                 ->columns(2)
                 ->schema([
                     Toggle::make('tokens_enabled')
@@ -175,7 +175,7 @@ class PluggedHostEconomyPlugin implements HasPluginSettings, Plugin
                         ->helperText('Handed out lazily the first time a balance is read each day. 0 means tokens must be earned. At 1/day a month buys Plus.')
                         ->default(fn () => config('plugged-host-economy.tokens.daily_grant', 0)),
                 ]),
-            Section::make('plugged.host Plus & PlusPlus')
+            Section::make(config('app.name') . ' Plus & PlusPlus')
                 ->description('Plus is bought once with tokens: Plus locations, priority in the start queue, no in-game ads. PlusPlus needs Plus and is bought for days at a time with tokens or credits: Premium locations, no ads anywhere, the front of the queue, extra CPU and more neo (AI) usage. When it runs out, servers leave Premium locations and CPU over the allowance comes off evenly.')
                 ->columns(2)
                 ->schema([

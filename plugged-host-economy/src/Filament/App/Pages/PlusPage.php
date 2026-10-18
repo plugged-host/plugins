@@ -14,7 +14,7 @@ use PluggedHost\Economy\Services\TokenService;
 use Throwable;
 
 /**
- * plugged.host Plus: the page that sells it, and nothing else. Plus is bought once with tokens
+ * Plus ("<APP_NAME> Plus"): the page that sells it, and nothing else. Plus is bought once with tokens
  * (the Plus locations, priority in the start queue, no in-game ads); PlusPlus is its add-on,
  * bought for a few days at a time with tokens or credits (the Premium locations, no ads
  * anywhere, the front of the queue, more CPU). MembershipService does the selling.
@@ -34,12 +34,12 @@ class PlusPage extends Page
 
     public function getTitle(): string
     {
-        return trans('plugged-host-economy::strings.plus_page.title');
+        return trans('plugged-host-economy::strings.plus_page.title', ['app' => config('app.name')]);
     }
 
     public static function getNavigationLabel(): string
     {
-        return trans('plugged-host-economy::strings.plus_page.nav_label');
+        return trans('plugged-host-economy::strings.plus_page.nav_label', ['app' => config('app.name')]);
     }
 
     public function getSubheading(): ?string
@@ -125,7 +125,7 @@ class PlusPage extends Page
      */
     protected function notice(string $key, string $type, array $replace = []): void
     {
-        $notification = Notification::make()->title(trans("plugged-host-economy::strings.{$key}", $replace));
+        $notification = Notification::make()->title(trans("plugged-host-economy::strings.{$key}", $replace + ['app' => config('app.name')]));
 
         match ($type) {
             'warning' => $notification->warning(),
@@ -167,6 +167,7 @@ class PlusPage extends Page
         $until = $membership->plusPlusUntil($user);
         $plusCost = $membership->plusCost();
         $offers = [];
+        $durations = [];
 
         foreach ([MembershipService::PAY_TOKENS, MembershipService::PAY_CREDITS] as $pay) {
             if ($pay === MembershipService::PAY_CREDITS && !config('plugged-host-economy.credits.enabled', true)) {
@@ -174,11 +175,20 @@ class PlusPage extends Page
             }
 
             $offer = $membership->plusPlusOffer($pay);
+            $durations[$pay] = $this->duration($offer['days']);
             $offers[] = $offer + [
                 'pay' => $pay,
                 'unaffordable' => ($pay === MembershipService::PAY_CREDITS ? $credits : $tokens) < $offer['cost'],
             ];
         }
+
+        // "a week, or credits for two weeks", from the day settings rather than written out.
+        $plusPlusTerm = isset($durations[MembershipService::PAY_CREDITS])
+            ? trans('plugged-host-economy::strings.plus_page.plusplus_term', [
+                'tokens' => $durations[MembershipService::PAY_TOKENS],
+                'credits' => $durations[MembershipService::PAY_CREDITS],
+            ])
+            : trans('plugged-host-economy::strings.plus_page.plusplus_term_tokens', ['tokens' => $durations[MembershipService::PAY_TOKENS]]);
 
         return [
             'hasPlus' => $hasPlus,
@@ -193,6 +203,8 @@ class PlusPage extends Page
             'aiPlusPlus' => max(0, (int) config('plugged-host-economy.membership.plusplus_ai_percent', 125) - 100),
             'aiPlusPlusTotal' => max(0, intdiv(max(100, (int) config('plugged-host-economy.membership.plus_ai_percent', 125)) * max(100, (int) config('plugged-host-economy.membership.plusplus_ai_percent', 125)), 100) - 100),
             'offers' => $offers,
+            'plusPlusTerm' => $plusPlusTerm,
+            'creditDuration' => $this->duration($membership->plusPlusOffer(MembershipService::PAY_CREDITS)['days']),
             'credits' => $credits,
             'devbox' => $this->devboxPerk(),
         ];
@@ -224,6 +236,14 @@ class PlusPage extends Page
         }
 
         return $perk;
+    }
+
+    /** "a week", "two weeks", "10 days": whole weeks as weeks, anything else in days. */
+    private function duration(int $days): string
+    {
+        return $days % 7 === 0
+            ? trans_choice('plugged-host-economy::strings.plus_page.duration_weeks', intdiv($days, 7))
+            : trans_choice('plugged-host-economy::strings.plus_page.duration_days', $days);
     }
 
     /** Like PerkDiscovery: whole GiB/GB when it divides, else MiB/MB. */

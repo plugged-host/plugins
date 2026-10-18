@@ -184,7 +184,7 @@ class EconomyAdminPluginProvider extends ServiceProvider
     protected function tokensSection(): Section
     {
         return Section::make(fn (): string => trans('plugged-host-economy::strings.admin.tokens_heading'))
-            ->description(fn (): string => trans('plugged-host-economy::strings.admin.tokens_hint'))
+            ->description(fn (): string => trans('plugged-host-economy::strings.admin.tokens_hint', ['app' => config('app.name')]))
             ->schema([
                 Text::make(fn (?Model $record): string => $this->balanceLabel(
                     $this->tokensEnabled() ? $this->readTokens($record) : null,

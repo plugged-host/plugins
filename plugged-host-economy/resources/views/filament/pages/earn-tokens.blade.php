@@ -40,7 +40,7 @@
                 <span class="ph-earn-value">
                     {{ trans('plugged-host-economy::strings.tokens_balance', ['count' => $balance]) }}
                 </span>
-                <p class="ph-earn-muted">{{ trans('plugged-host-economy::strings.tokens_explainer') }}</p>
+                <p class="ph-earn-muted">{{ trans('plugged-host-economy::strings.tokens_explainer', ['app' => config('app.name')]) }}</p>
             </div>
         </x-filament::section>
 

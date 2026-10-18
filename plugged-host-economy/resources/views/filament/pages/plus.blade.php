@@ -41,7 +41,7 @@
             @elseif ($membership['hasPlus'])
                 <x-filament::callout
                     color="success"
-                    :heading="trans('plugged-host-economy::strings.plus_page.owned_heading')"
+                    :heading="trans('plugged-host-economy::strings.plus_page.owned_heading', ['app' => config('app.name')])"
                     :description="trans('plugged-host-economy::strings.plus_page.owned_body')"
                 />
             @endif
@@ -50,7 +50,7 @@
                 {{-- plugged.host Plus --}}
                 <section class="ph-eco-card ph-plus-plan">
                     <div class="flex flex-col gap-1">
-                        <h3 class="ph-eco-heading">{{ trans('plugged-host-economy::strings.membership.plus_title') }}</h3>
+                        <h3 class="ph-eco-heading">{{ trans('plugged-host-economy::strings.membership.plus_title', ['app' => config('app.name')]) }}</h3>
                         <p class="ph-eco-muted">{{ trans('plugged-host-economy::strings.plus_page.plus_pitch') }}</p>
                     </div>
 
@@ -82,7 +82,7 @@
                             <x-filament::button
                                 wire:click="buyPlus"
                                 wire:loading.attr="disabled"
-                                wire:confirm="{{ trans('plugged-host-economy::strings.membership.plus_confirm', ['cost' => number_format($membership['plusCost'])]) }}"
+                                wire:confirm="{{ trans('plugged-host-economy::strings.membership.plus_confirm', ['cost' => number_format($membership['plusCost']), 'app' => config('app.name')]) }}"
                                 :disabled="$membership['plusUnaffordable']"
                                 color="primary"
                                 class="w-full justify-center"
@@ -105,13 +105,13 @@
                 {{-- plugged.host PlusPlus, the add-on --}}
                 <section class="ph-eco-card ph-plus-plan">
                     <div class="flex flex-col gap-1">
-                        <h3 class="ph-eco-heading">{{ trans('plugged-host-economy::strings.membership.plusplus_title') }}</h3>
+                        <h3 class="ph-eco-heading">{{ trans('plugged-host-economy::strings.membership.plusplus_title', ['app' => config('app.name')]) }}</h3>
                         <p class="ph-eco-muted">{{ trans('plugged-host-economy::strings.plus_page.plusplus_pitch') }}</p>
                     </div>
 
                     <div class="flex flex-col gap-0.5">
                         <span class="ph-plus-price">{{ trans('plugged-host-economy::strings.plus_page.price_tokens', ['cost' => number_format($membership['plusPlusTokenCost'])]) }}</span>
-                        <span class="ph-eco-small">{{ trans('plugged-host-economy::strings.plus_page.plusplus_term') }}</span>
+                        <span class="ph-eco-small">{{ $membership['plusPlusTerm'] }}</span>
                     </div>
 
                     <div class="ph-plus-plan-body">
@@ -136,7 +136,7 @@
                             <x-filament::button
                                 wire:click="buyPlusPlus('{{ $offer['pay'] }}')"
                                 wire:loading.attr="disabled"
-                                wire:confirm="{{ trans($credits ? 'plugged-host-economy::strings.membership.plusplus_confirm_credits' : 'plugged-host-economy::strings.membership.plusplus_confirm_tokens', ['cost' => number_format($offer['cost']), 'days' => $offer['days']]) }}"
+                                wire:confirm="{{ trans($credits ? 'plugged-host-economy::strings.membership.plusplus_confirm_credits' : 'plugged-host-economy::strings.membership.plusplus_confirm_tokens', ['cost' => number_format($offer['cost']), 'days' => $offer['days'], 'app' => config('app.name')]) }}"
                                 :disabled="!$membership['hasPlus'] || $offer['unaffordable']"
                                 :color="(!$credits && $membership['hasPlus']) ? 'primary' : 'gray'"
                                 class="w-full"
@@ -150,7 +150,7 @@
 
                         <p class="ph-eco-small">
                             @if (!$membership['hasPlus'])
-                                {{ trans('plugged-host-economy::strings.membership.needs_plus') }}
+                                {{ trans('plugged-host-economy::strings.membership.needs_plus', ['app' => config('app.name')]) }}
                             @else
                                 {{ trans('plugged-host-economy::strings.plus_page.extend_hint') }}
                             @endif
@@ -195,7 +195,7 @@
                     @foreach (['once', 'expiry', 'tokens', 'credits'] as $question)
                         <details>
                             <summary>{{ trans("plugged-host-economy::strings.plus_page.faq_{$question}_q") }}</summary>
-                            <p class="ph-eco-text">{{ trans("plugged-host-economy::strings.plus_page.faq_{$question}_a") }}</p>
+                            <p class="ph-eco-text">{{ trans("plugged-host-economy::strings.plus_page.faq_{$question}_a", ['duration' => $membership['creditDuration']]) }}</p>
                         </details>
                     @endforeach
                 </div>
