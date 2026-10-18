@@ -152,7 +152,7 @@ class PriorityPassService
                         $user,
                         $tokens,
                         'queue:priority-refund',
-                        trans('plugged-host-queue::strings.tokens_tx_priority_replaced'),
+                        trans('plugged-host-queue::strings.tokens_tx_priority_replaced', ['app' => (string) config('app.name')]),
                         ['refund' => true, 'reason' => 'replaced_by_plus'],
                     );
                 }

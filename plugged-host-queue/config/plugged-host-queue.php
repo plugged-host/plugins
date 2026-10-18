@@ -6,14 +6,15 @@ return [
     | The start queue
     |--------------------------------------------------------------------------
     |
-    | When a node is genuinely out of headroom, letting another container come up
-    | on it makes every server already on it worse. This plugin holds the start
-    | back instead: the user lands on a waiting page, and the start is dispatched
-    | for them when the node has room or when the hard cap runs out — whichever
-    | comes first.
+    | Every start (and restart) of a user who is not exempt and holds no pass
+    | goes through a waiting page: the start is dispatched for them after at
+    | least `min_wait`, one release per node every `release_interval`, once the
+    | node is under the line — or when the hard cap runs out, whichever comes
+    | first. A node over the line holds its line until it has room, so another
+    | container never makes every server already on it worse.
     |
-    | On by default once installed. It only ever acts on a node measured over the
-    | pressure line, so on a healthy fleet it is invisible.
+    | On by default once installed. The node is measured when an entry is
+    | released, not on the click.
     |
     | include_restart — a restart brings a container up, so it queues too. Unlike
     | the ad gate, nothing is taken down first: the Livewire call is cancelled
@@ -33,15 +34,16 @@ return [
     | What counts as "no room"
     |--------------------------------------------------------------------------
     |
-    | The thresholds themselves live in plugged-host-core (`nodes.hot_percent`,
-    | `nodes.storage_percent`) and are read through its NodeCapacity service, so
-    | the queue and the allocator cannot disagree about how full a node is.
+    | The line is `threshold_percent` below, measured live through
+    | plugged-host-servers' NodeCapacity. servers' deployment pause reads the
+    | same setting (ten points lower on small nodes), so the queue and the
+    | allocator cannot disagree about which nodes are busy.
     |
-    | Only memory and CPU queue a start. Disk deliberately does not: a full disk
-    | does not empty itself while somebody waits, so queueing on it would be a
-    | line that never moves. Disk pressure is a *placement* rule instead — core
-    | keeps new servers off a node over storage_percent, and the transfer offer
-    | below moves an existing one away.
+    | Only memory and CPU hold a release back. Disk deliberately does not: a full
+    | disk does not empty itself while somebody waits, so waiting on it would be
+    | a line that never moves. Disk pressure is a *placement* rule instead —
+    | servers keeps new servers off a node over NODES_STORAGE_PERCENT, and the
+    | transfer offer below moves an existing one away.
     |
     */
     'pressure' => [
@@ -53,18 +55,17 @@ return [
     | Timing
     |--------------------------------------------------------------------------
     |
-    | min_wait — the floor, in seconds. A node that cools between the click and
-    | the first poll would otherwise produce a waiting page that flashes past
-    | before a single ad has rendered.
+    | min_wait — the floor, in seconds: every queued start waits at least this
+    | long, so the waiting page never flashes past before a single ad has
+    | rendered.
     |
     | max_wait — the ceiling, in seconds. Past this the start goes out whatever
     | the node looks like. Capacity pressure is our problem, not the customer's,
     | and a queue with no ceiling is an outage with a progress bar.
     |
-    | release_interval — seconds between two releases on the same node. A node
-    | that has just dropped under the line has not got room for everything that
-    | was waiting on it, and releasing the whole line at once puts it straight
-    | back over. Entries past max_wait ignore this.
+    | release_interval — seconds between two releases on the same node. Starts
+    | come up one at a time instead of all at once, so a node that just took one
+    | is measured again before the next. Entries past max_wait ignore this.
     |
     | stale_after — seconds of silence after which a waiting entry is dropped by
     | the sweep. Only for entries that never became releasable; a tab that was
@@ -80,19 +81,16 @@ return [
     'max_wait' => (int) env('START_QUEUE_MAX_WAIT', 600),
     'release_interval' => (int) env('START_QUEUE_RELEASE_INTERVAL', 20),
 
-    // WP11: the queue's own busy threshold, decoupled from the allocator's 95% ceiling. A node
-    // over this (on the pressure dimensions) sends new starts through the queue.
+    // The busy line. A node over this (on the pressure dimensions) releases nobody but
+    // entries at max_wait, and servers' DeploymentPause takes it out of new servers (ten
+    // points lower on small nodes).
     'threshold_percent' => (float) env('START_QUEUE_THRESHOLD_PERCENT', 85),
 
-    // WP11: when a node's wings utilisation cannot be read, do not fail fully open — still pace
-    // starts one-per-release_interval rather than allowing an unbounded stampede on a struggling
-    // daemon. The pass-through slot stamp does this; set false to let unmeasurable nodes run free.
-    'paced_on_unavailable' => (bool) env('START_QUEUE_PACED_ON_UNAVAILABLE', true),
     'stale_after' => (int) env('START_QUEUE_STALE_AFTER', 180),
     'pass_minutes' => (int) env('START_QUEUE_PASS_MINUTES', 10),
 
     /*
-    | Priority is no longer sold here: plugged.host Plus puts its holders ahead of
+    | Priority is no longer sold here: Plus puts its holders ahead of
     | everyone without it (level 1), PlusPlus at the very front (level 2). Both are
     | sold and kept by plugged-host-economy (MembershipService); PriorityPassService
     | reads the level. The old passes were refunded (queue-refund-priority-passes).
@@ -118,7 +116,7 @@ return [
     | one. Off, the pool widens to every viable node, which can silently move
     | somebody to another continent.
     |
-    | require_priority — whether the offer needs plugged.host Plus. On, it is
+    | require_priority — whether the offer needs Plus. On, it is
     | part of what Plus buys. Off, anyone stuck in the queue can move.
     |
     */

@@ -186,7 +186,7 @@ class NodeTransferService
      * `FindViableNodesService` is upstream's own answer to "can this node hold a
      * server this size", overallocation included, so the pool starts there rather
      * than from a hand-rolled sum. What this adds is the queue's own two rules: not
-     * a node that is itself over the line, and not one whose disk is over core's
+     * a node that is itself over the line, and not one whose disk is over servers'
      * placement threshold — moving somebody from a busy node to a full one is not a
      * fix, it is the next ticket. Nor one servers' DeploymentPause has taken out of
      * the pool (a small node's line is lower than the queue's).

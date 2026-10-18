@@ -271,14 +271,14 @@
         @if ($priorityActive)
             <x-filament::callout
                 color="success"
-                :heading="trans($priorityLevel >= 2 ? 'plugged-host-queue::strings.priority_plusplus_heading' : 'plugged-host-queue::strings.priority_plus_heading')"
+                :heading="trans($priorityLevel >= 2 ? 'plugged-host-queue::strings.priority_plusplus_heading' : 'plugged-host-queue::strings.priority_plus_heading', ['app' => config('app.name')])"
                 :description="trans($priorityLevel >= 2 ? 'plugged-host-queue::strings.priority_plusplus_body' : 'plugged-host-queue::strings.priority_plus_body')"
             />
         @elseif ($offerShown)
             <x-filament::section>
                 <div class="ph-queue-row">
                     <div class="flex min-w-0 flex-col gap-1">
-                        <span class="ph-queue-heading">{{ trans('plugged-host-queue::strings.plus_offer_heading') }}</span>
+                        <span class="ph-queue-heading">{{ trans('plugged-host-queue::strings.plus_offer_heading', ['app' => config('app.name')]) }}</span>
                         <p class="ph-queue-muted">{{ trans('plugged-host-queue::strings.plus_offer_body', ['cost' => number_format($plusCost)]) }}</p>
                     </div>
 

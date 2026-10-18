@@ -3,7 +3,7 @@
     "name": "plugged.host Queue",
     "author": "plugged.host",
     "version": "2.2.0",
-    "description": "Holds a server start back while its node is genuinely over capacity and parks the user on a waiting page for as long as that lasts; plugged.host Plus members go first.",
+    "description": "Every server start waits briefly on a waiting page and is released one at a time per node, only while the node is under the busy line (or when the wait runs out); Plus members go first.",
     "category": "plugin",
     "url": null,
     "update_url": null,
