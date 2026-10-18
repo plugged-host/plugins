@@ -65,11 +65,13 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             // Backup server (optional). Its secret, like the storage box's, is never loaded.
             'backup_agent_url' => (string) config('plugged-host-storage.backup_agent_url', ''),
             'backup_mirror_public_key' => (string) config('plugged-host-storage.backup_mirror_public_key', ''),
+            'backup_mirror_from' => (string) config('plugged-host-storage.backup_mirror_from', ''),
             'backup_agent_secret' => '',
 
             // Agent connection.
             'agent_url' => (string) config('plugged-host-storage.agent_url', ''),
             'mirror_public_key' => (string) config('plugged-host-storage.mirror_public_key', ''),
+            'mirror_from' => (string) config('plugged-host-storage.mirror_from', ''),
             // Secret: never surface the stored value. Empty means "unchanged" on save.
             'agent_secret' => '',
             'signed_ttl' => (int) config('plugged-host-storage.signed_ttl', 900),
@@ -130,6 +132,11 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                         ->helperText(fn () => trans('plugged-host-storage::strings.settings.mirror_public_key_hint', ['url' => url('/plugged-host/storage/node/install.sh')]))
                         ->rules(['nullable', 'regex:' . StoragePluginProvider::PUBLIC_KEY_PATTERN])
                         ->maxLength(1024),
+                    TextInput::make('mirror_from')
+                        ->label(trans('plugged-host-storage::strings.settings.mirror_from'))
+                        ->helperText(trans('plugged-host-storage::strings.settings.mirror_from_hint'))
+                        ->rules(['nullable', 'regex:' . StorageBox::FROM_PATTERN])
+                        ->maxLength(255),
                     TextInput::make('signed_ttl')
                         ->label(trans('plugged-host-storage::strings.settings.signed_ttl'))
                         ->helperText(trans('plugged-host-storage::strings.settings.signed_ttl_hint'))
@@ -169,6 +176,11 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                         ->helperText(fn () => trans('plugged-host-storage::strings.settings.mirror_public_key_hint', ['url' => url('/plugged-host/storage/node/install.sh')]))
                         ->rules(['nullable', 'regex:' . StoragePluginProvider::PUBLIC_KEY_PATTERN])
                         ->maxLength(1024),
+                    TextInput::make('backup_mirror_from')
+                        ->label(trans('plugged-host-storage::strings.settings.mirror_from'))
+                        ->helperText(trans('plugged-host-storage::strings.settings.mirror_from_hint'))
+                        ->rules(['nullable', 'regex:' . StorageBox::FROM_PATTERN])
+                        ->maxLength(255),
                 ]),
 
             Section::make(trans('plugged-host-storage::strings.settings.section_replication'))
@@ -261,11 +273,13 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             // Agent connection.
             'STORAGE_AGENT_URL' => (string) ($data['agent_url'] ?? ''),
             'STORAGE_MIRROR_PUBLIC_KEY' => trim((string) ($data['mirror_public_key'] ?? '')),
+            'STORAGE_MIRROR_FROM' => str_replace(' ', '', (string) ($data['mirror_from'] ?? '')),
             'STORAGE_SIGNED_TTL' => (string) max(60, min(86400, (int) ($data['signed_ttl'] ?? 900))),
 
             // Backup server.
             'STORAGE_BACKUP_AGENT_URL' => rtrim((string) ($data['backup_agent_url'] ?? ''), '/'),
             'STORAGE_BACKUP_MIRROR_PUBLIC_KEY' => trim((string) ($data['backup_mirror_public_key'] ?? '')),
+            'STORAGE_BACKUP_MIRROR_FROM' => str_replace(' ', '', (string) ($data['backup_mirror_from'] ?? '')),
 
             // Replication.
             'STORAGE_MIRROR_INTERVAL_MIN' => (string) max(1, min(1440, (int) ($data['mirror_interval_min'] ?? 30))),

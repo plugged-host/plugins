@@ -12,6 +12,8 @@ return [
         'agent_url_hint' => 'Base URL the agent inbound listener is reachable at, e.g. http://10.0.0.9:8687. Used for signed archive URLs and reachability probes.',
         'mirror_public_key' => 'Mirror SSH public key',
         'mirror_public_key_hint' => 'The storage box\'s ph-mirror key, printed by its install.sh. Every Wings node authorizes it with: curl -fsSL :url | sudo bash',
+        'mirror_from' => 'Mirror key\'s addresses',
+        'mirror_from_hint' => 'The IPs this box reaches the nodes from, comma-separated. Nodes then accept its key only from there (re-run the node install.sh after a change). Empty: from anywhere.',
         'agent_secret' => 'Agent Secret (HMAC)',
         'signed_ttl' => 'Signed URL TTL (seconds)',
         'signed_ttl_hint' => 'Lifetime of signed archive-fetch and probe URLs, in seconds.',

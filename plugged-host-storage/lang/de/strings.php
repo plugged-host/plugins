@@ -12,6 +12,8 @@ return [
         'agent_url_hint' => 'Basis-URL, unter der der eingehende Listener des Agenten erreichbar ist, z. B. http://10.0.0.9:8687. Wird für signierte Archiv-URLs und Erreichbarkeitsprüfungen verwendet.',
         'mirror_public_key' => 'Öffentlicher SSH-Schlüssel für die Spiegelung',
         'mirror_public_key_hint' => 'Der ph-mirror-Schlüssel der Storage-Box, den ihr install.sh ausgibt. Jeder Wings-Node erlaubt ihn mit: curl -fsSL :url | sudo bash',
+        'mirror_from' => 'Adressen des Spiegel-Schlüssels',
+        'mirror_from_hint' => 'Die IPs, von denen diese Box die Nodes erreicht, durch Kommas getrennt. Die Nodes nehmen ihren Schlüssel dann nur von dort an (nach einer Änderung das install.sh der Nodes erneut ausführen). Leer: von überall.',
         'agent_secret' => 'Agent-Secret (HMAC)',
         'signed_ttl' => 'Gültigkeit signierter URLs (Sekunden)',
         'signed_ttl_hint' => 'Lebensdauer signierter URLs für Archivabruf und Prüfungen, in Sekunden.',

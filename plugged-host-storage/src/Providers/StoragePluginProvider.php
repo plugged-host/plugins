@@ -157,17 +157,19 @@ class StoragePluginProvider extends ServiceProvider
     /**
      * The script every Wings node runs once so the storage agents may pull its server files:
      * agent/node-install.sh with the mirror keys of the storage box and the backup server filled
-     * in. Public like the abuse agent's installer: a public key is no secret, and each key is
-     * checked against PUBLIC_KEY_PATTERN before it goes into a script nodes pipe into a root shell.
+     * in, each pinned to its box's addresses when they are set (StorageBox::authorizedKey()). Public
+     * like the abuse agent's installer: a public key is no secret, and each key and address list is
+     * checked (PUBLIC_KEY_PATTERN, StorageBox::FROM_PATTERN) before it goes into a script nodes pipe
+     * into a root shell.
      */
     private function registerNodeInstaller(): void
     {
         Route::get('/plugged-host/storage/node/install.sh', function () {
             $keys = [];
             foreach (StorageBox::names() as $name) {
-                $key = StorageBox::named($name)->mirrorKey();
-                if (preg_match(self::PUBLIC_KEY_PATTERN, $key) === 1) {
-                    $keys[] = $key;
+                $box = StorageBox::named($name);
+                if (preg_match(self::PUBLIC_KEY_PATTERN, $box->mirrorKey()) === 1) {
+                    $keys[] = $box->authorizedKey();
                 }
             }
             $script = (string) @file_get_contents(plugin_path('plugged-host-storage', 'agent/node-install.sh'));
