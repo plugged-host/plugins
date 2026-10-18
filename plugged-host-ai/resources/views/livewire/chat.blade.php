@@ -395,7 +395,7 @@
                                     </details>
                                 @endif
                                 @if(filled($message->content))
-                                    <div class="neo-msg-ai">{!! \PluggedHost\Ai\Livewire\NeoChat::markdown($message->content) !!}</div>
+                                    <div class="neo-msg-ai">{!! \PluggedHost\Ai\Livewire\NeoChat::markdown($message->content, (string) $message->id) !!}</div>
                                 @endif
                             @elseif($message->role === 'tool')
                                 @php

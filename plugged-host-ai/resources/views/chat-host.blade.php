@@ -83,9 +83,14 @@
     .neo-msg-ai li > ul, .neo-msg-ai li > ol { margin-top: .125rem; margin-bottom: .125rem; }
     .neo-msg-ai blockquote { margin: .5rem 0; padding-left: .75rem; border-left: 2px solid var(--neo-raise-3); color: var(--neo-muted); }
     .neo-msg-ai hr { margin: .75rem 0; border: 0; border-top: 1px solid var(--neo-line); }
-    .neo-msg-ai table { display: block; max-width: 100%; overflow-x: auto; margin: .5rem 0; border-collapse: collapse; font-size: .8125rem; }
-    .neo-msg-ai th, .neo-msg-ai td { padding: .25rem .625rem; border-bottom: 1px solid var(--neo-line); text-align: left; white-space: nowrap; }
-    .neo-msg-ai th { font-weight: 600; color: var(--neo-text); }
+    .neo-msg-ai table { display: block; width: max-content; max-width: 100%; overflow-x: auto; margin: .5rem 0; border: 1px solid var(--neo-line); border-radius: .5rem; border-collapse: separate; border-spacing: 0; font-size: .8125rem; }
+    .neo-msg-ai th, .neo-msg-ai td { padding: .375rem .625rem; min-width: 4rem; max-width: 16rem; text-align: left; vertical-align: top; }
+    .neo-msg-ai th { font-weight: 600; color: var(--neo-text); background: var(--neo-raise); }
+    .neo-msg-ai tr + tr td, .neo-msg-ai tbody tr:first-child td { border-top: 1px solid var(--neo-line); }
+    .neo-msg-ai mark { padding: 0 .1875rem; border-radius: .25rem; background: var(--neo-accent-soft); color: var(--neo-text); }
+    .neo-msg-ai .footnotes { margin-top: .75rem; padding-top: .5rem; border-top: 1px solid var(--neo-line); font-size: .75rem; color: var(--neo-muted); }
+    .neo-msg-ai .footnotes ol { margin-bottom: 0; }
+    .neo-msg-ai sup a { text-decoration: none; font-size: .6875rem; }
 
     .neo-tile { display: flex; align-items: center; gap: .5rem; padding: .375rem .625rem; border-radius: .5rem; background: var(--neo-raise); font-size: .75rem; color: var(--neo-muted); }
     .neo-tile-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--neo-nav); }

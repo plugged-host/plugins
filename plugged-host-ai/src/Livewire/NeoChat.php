@@ -9,6 +9,8 @@ use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
+use League\CommonMark\Extension\Footnote\FootnoteExtension;
+use League\CommonMark\Extension\Highlight\HighlightExtension;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -560,11 +562,21 @@ class NeoChat extends Component
     }
 
     /**
-     * A message's markdown as the chat shows it (chat.blade.php renders finished messages the same way).
+     * A message's markdown as the chat shows it (chat.blade.php renders finished messages the same
+     * way): GitHub's flavour plus footnotes and ==highlights==. $id keeps each message's footnote
+     * anchors apart.
      */
-    public static function markdown(string $text): string
+    public static function markdown(string $text, string $id = 'live'): string
     {
-        return Str::markdown($text, ['html_input' => 'escape', 'allow_unsafe_links' => false], [new ImagesAsTextExtension()]);
+        return Str::markdown($text, [
+            'html_input' => 'escape',
+            'allow_unsafe_links' => false,
+            'footnote' => [
+                'footnote_id_prefix' => "neo-fn-{$id}-",
+                'ref_id_prefix' => "neo-fnref-{$id}-",
+                'container_add_hr' => false,
+            ],
+        ], [new ImagesAsTextExtension(), new FootnoteExtension(), new HighlightExtension()]);
     }
 
     /**
