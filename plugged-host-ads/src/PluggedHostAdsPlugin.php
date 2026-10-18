@@ -90,7 +90,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 
             'z_index' => (int) config('plugged-host-ads.z_index', 0),
             'in_game_enabled' => (bool) config('plugged-host-ads.in_game.enabled', true),
-            'in_game_message' => (string) config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host'),
+            'in_game_message' => app(AdDisplayService::class)->inGameMessage(),
             'in_game_interval' => (int) config('plugged-host-ads.in_game.interval_minutes', 60),
             'exempt_roles' => $exemptRoles,
             'antiblock_enabled' => (bool) config('plugged-host-ads.antiblock.enabled', false),
@@ -100,6 +100,9 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'antiblock_probe' => (bool) config('plugged-host-ads.antiblock.probe', true),
             'antiblock_skip_console' => (bool) config('plugged-host-ads.antiblock.skip_console', true),
             'antiblock_message' => (string) config('plugged-host-ads.antiblock.message', ''),
+
+            'maintenance_aads_unit' => (string) config('plugged-host-ads.maintenance.aads_unit', ''),
+            'maintenance_aads_width' => (string) config('plugged-host-ads.maintenance.width', '70%'),
 
             'start_enabled' => (bool) config('plugged-host-ads.start_credits.enabled', false),
             'start_cpu' => (int) config('plugged-host-ads.start_credits.cpu', 100),
@@ -343,7 +346,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->default(fn () => config('plugged-host-ads.refresh.seconds', 5)),
                     TextInput::make('refresh_plus_seconds')
-                        ->label(trans('plugged-host-ads::strings.refresh_plus_seconds'))
+                        ->label(trans('plugged-host-ads::strings.refresh_plus_seconds', ['app' => config('app.name')]))
                         ->helperText(trans('plugged-host-ads::strings.refresh_plus_seconds_helper'))
                         ->numeric()
                         ->minValue(5)
@@ -364,7 +367,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                 ]),
 
             Section::make(trans('plugged-host-ads::strings.section_in_game'))
-                ->description(trans('plugged-host-ads::strings.section_in_game_desc'))
+                ->description(trans('plugged-host-ads::strings.section_in_game_desc', ['app' => config('app.name')]))
                 ->columns(2)
                 ->schema([
                     Toggle::make('in_game_enabled')
@@ -377,7 +380,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-ads::strings.in_game_message_helper'))
                         ->maxLength(200)
                         ->required()
-                        ->default(fn () => config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host')),
+                        ->default(fn () => app(AdDisplayService::class)->inGameMessage()),
                     TextInput::make('in_game_interval')
                         ->label(trans('plugged-host-ads::strings.in_game_interval'))
                         ->numeric()
@@ -466,6 +469,24 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-ads.antiblock.message', '')),
                 ]),
 
+            Section::make(trans('plugged-host-ads::strings.section_maintenance'))
+                ->description(trans('plugged-host-ads::strings.section_maintenance_desc'))
+                ->columns(2)
+                ->schema([
+                    TextInput::make('maintenance_aads_unit')
+                        ->label(trans('plugged-host-ads::strings.maintenance_aads_unit'))
+                        ->helperText(trans('plugged-host-ads::strings.maintenance_aads_unit_helper'))
+                        ->placeholder('1234567')
+                        ->rules(['nullable', 'regex:/^[0-9]{1,12}$/'])
+                        ->default(fn () => config('plugged-host-ads.maintenance.aads_unit', '')),
+                    TextInput::make('maintenance_aads_width')
+                        ->label(trans('plugged-host-ads::strings.maintenance_aads_width'))
+                        ->helperText(trans('plugged-host-ads::strings.maintenance_aads_width_helper'))
+                        ->placeholder('70%')
+                        ->rules(['nullable', 'regex:/^[0-9]{1,4}(\.[0-9]{1,2})?(%|px|vw)$/'])
+                        ->default(fn () => config('plugged-host-ads.maintenance.width', '70%')),
+                ]),
+
             Section::make(trans('plugged-host-ads::strings.section_start'))
                 ->description(trans('plugged-host-ads::strings.section_start_desc'))
                 ->columns(3)
@@ -527,20 +548,13 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->maxValue(1440)
                         ->visible(fn (Get $get): bool => (bool) $get('start_enabled'))
                         ->default(fn () => config('plugged-host-ads.start_credits.pass_minutes', 10)),
-                    TextInput::make('start_claim_ttl')
-                        ->label(trans('plugged-host-ads::strings.start_claim_ttl'))
-                        ->helperText(trans('plugged-host-ads::strings.start_claim_ttl_helper'))
-                        ->numeric()
-                        ->minValue(1)
-                        ->maxValue(1440)
-                        ->visible(fn (Get $get): bool => (bool) $get('start_enabled'))
-                        ->default(fn () => config('plugged-host-ads.start_credits.claim_ttl_minutes', 30)),
                 ]),
 
+            // Earning tokens does not depend on the start gate (TokenEarnService is never gated
+            // on start_credits.enabled), so this section shows whether the gate is on or not.
             Section::make(trans('plugged-host-ads::strings.section_start_earn'))
-                ->description(trans('plugged-host-ads::strings.section_start_earn_desc'))
+                ->description(trans('plugged-host-ads::strings.section_start_earn_desc', ['app' => config('app.name')]))
                 ->columns(3)
-                ->visible(fn (Get $get): bool => (bool) $get('start_enabled'))
                 ->schema([
                     Toggle::make('start_linkvertise_enabled')
                         ->label(trans('plugged-host-ads::strings.start_provider_enabled', ['provider' => 'Linkvertise']))
@@ -588,7 +602,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->visible(fn (Get $get): bool => (bool) $get('start_linkvertise_enabled')),
                     TextInput::make('start_linkvertise_reward')
                         ->label(trans('plugged-host-ads::strings.start_reward'))
-                        ->helperText(trans('plugged-host-ads::strings.start_reward_helper'))
+                        ->helperText(trans('plugged-host-ads::strings.start_reward_helper', ['app' => config('app.name')]))
                         ->numeric()
                         ->minValue(1)
                         ->maxValue(50)
@@ -602,17 +616,26 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->maxValue(100)
                         ->visible(fn (Get $get): bool => (bool) $get('start_linkvertise_enabled'))
                         ->default(fn () => config('plugged-host-ads.start_credits.linkvertise.daily_cap', 5)),
+                    TextInput::make('start_claim_ttl')
+                        ->label(trans('plugged-host-ads::strings.start_claim_ttl'))
+                        ->helperText(trans('plugged-host-ads::strings.start_claim_ttl_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(1440)
+                        ->visible(fn (Get $get): bool => (bool) $get('start_linkvertise_enabled'))
+                        ->default(fn () => config('plugged-host-ads.start_credits.claim_ttl_minutes', 30)),
                 ]),
 
-            // The waiting room is the only surface in this plugin that carries more
+            // The waiting rooms are the only surfaces in this plugin that carry more
             // than one unit, so every format gets its own switch rather than a
             // single "lots of ads" toggle. The two URL fields stay visible even when
             // their own toggle is off: hiding a text input behind a toggle means a
             // pasted URL disappears the moment the admin flips the toggle back.
+            // The start queue's waiting page uses these switches too, so the section
+            // shows with the gate off; only the navigation toggle is the gate's alone.
             Section::make(trans('plugged-host-ads::strings.section_start_gate'))
                 ->description(trans('plugged-host-ads::strings.section_start_gate_desc'))
                 ->columns(3)
-                ->visible(fn (Get $get): bool => (bool) $get('start_enabled'))
                 ->schema([
                     Toggle::make('start_gate_navigation')
                         ->label(trans('plugged-host-ads::strings.start_gate_navigation'))
@@ -621,6 +644,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->onIcon(TablerIcon::Check)
                         ->offIcon(TablerIcon::X)
                         ->columnSpanFull()
+                        ->visible(fn (Get $get): bool => (bool) $get('start_enabled'))
                         ->default(fn () => config('plugged-host-ads.start_credits.gate_on_navigation', false)),
                     Toggle::make('start_gate_ad_banner')
                         ->label(trans('plugged-host-ads::strings.start_gate_ad_banner'))
@@ -682,6 +706,13 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 
     public function saveSettings(array $data): void
     {
+        // Filament leaves a hidden field out of the submitted state (the ad-block fields while
+        // detection is off, the start gate's while the gate is off, the Linkvertise fields while
+        // it is off, ...). Without this every one of them would be written back as false or
+        // empty — a cleared publisher id, switched-off waiting-room formats — so a field that
+        // was not on screen keeps its current value, normalised the same way as a visible one.
+        $data += $this->getSettingsFormData();
+
         $exemptRoles = $data['exempt_roles'] ?? [];
         if (is_array($exemptRoles)) {
             $exemptRoles = implode(',', array_filter($exemptRoles));
@@ -722,7 +753,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 
             'ADS_Z_INDEX' => (string) ($data['z_index'] ?? 0),
             'ADS_IN_GAME_ENABLED' => !empty($data['in_game_enabled']) ? 'true' : 'false',
-            'ADS_IN_GAME_MESSAGE' => $this->envText($data['in_game_message'] ?? '') ?: 'This server is powered by plugged.host',
+            'ADS_IN_GAME_MESSAGE' => $this->envInGameMessage($data['in_game_message'] ?? ''),
             'ADS_IN_GAME_INTERVAL' => (string) $this->clamp($data['in_game_interval'] ?? 60, 5, 1440),
             'ADS_EXEMPT_ROLES' => (string) $exemptRoles,
 
@@ -753,6 +784,14 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_ANTIBLOCK_PROBE' => !empty($data['antiblock_probe']) ? 'true' : 'false',
             'ADS_ANTIBLOCK_SKIP_CONSOLE' => !empty($data['antiblock_skip_console']) ? 'true' : 'false',
             'ADS_ANTIBLOCK_MESSAGE' => $this->envText($data['antiblock_message'] ?? ''),
+
+            'ADS_MAINTENANCE_AADS_UNIT' => preg_match('/^[0-9]{1,12}$/', trim((string) ($data['maintenance_aads_unit'] ?? ''))) === 1
+                ? trim((string) $data['maintenance_aads_unit'])
+                : '',
+            // Core prints the width into the frame's style attribute: only a plain length.
+            'ADS_MAINTENANCE_AADS_WIDTH' => preg_match('/^[0-9]{1,4}(\.[0-9]{1,2})?(%|px|vw)$/', trim((string) ($data['maintenance_aads_width'] ?? ''))) === 1
+                ? trim((string) $data['maintenance_aads_width'])
+                : '70%',
 
             'ADS_START_ENABLED' => !empty($data['start_enabled']) ? 'true' : 'false',
             'ADS_START_CPU' => (string) $this->clamp($data['start_cpu'] ?? 100, 0, 100000),
@@ -813,6 +852,17 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
     protected function clamp(mixed $value, int $min, int $max): int
     {
         return max($min, min($max, (int) $value));
+    }
+
+    /**
+     * The in-game message as typed, or empty when it is the default ("This server is powered
+     * by <APP_NAME>") or blank, so the default keeps following the panel's name.
+     */
+    protected function envInGameMessage(mixed $value): string
+    {
+        $message = $this->envText($value);
+
+        return $message === $this->envText(app(AdDisplayService::class)->defaultInGameMessage()) ? '' : $message;
     }
 
     /**

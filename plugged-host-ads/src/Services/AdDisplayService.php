@@ -354,6 +354,27 @@ class AdDisplayService
         return $seconds;
     }
 
+    /**
+     * The in-game `say` text: ADS_IN_GAME_MESSAGE, or the default built from the panel's name
+     * when that is empty, flattened to one line.
+     */
+    public function inGameMessage(): string
+    {
+        $message = trim((string) config('plugged-host-ads.in_game.message', ''));
+
+        if ($message === '') {
+            $message = $this->defaultInGameMessage();
+        }
+
+        return trim(preg_replace('/[\r\n\0]+/', ' ', $message) ?? '');
+    }
+
+    /** "This server is powered by <APP_NAME>". */
+    public function defaultInGameMessage(): string
+    {
+        return 'This server is powered by ' . config('app.name');
+    }
+
     public function antiBlockEnabled(): bool
     {
         return (bool) config('plugged-host-ads.antiblock.enabled', false);
@@ -403,14 +424,21 @@ class AdDisplayService
     {
         $custom = trim((string) config('plugged-host-ads.antiblock.message', ''));
 
+        // The default text names the panel and the host to allow ads on (APP_NAME, APP_URL).
+        $url = (string) config('app.url');
+        $brand = [
+            'app' => (string) config('app.name'),
+            'host' => (string) (parse_url($url, PHP_URL_HOST) ?: $url),
+        ];
+
         return [
             'mode' => $this->antiBlockMode(),
             'grace' => max(0, (int) config('plugged-host-ads.antiblock.grace', 4)),
             'dismissHours' => max(0, (int) config('plugged-host-ads.antiblock.dismiss_hours', 12)),
             'probes' => config('plugged-host-ads.antiblock.probe', true) ? $this->probeUrls() : [],
             'strings' => [
-                'heading' => (string) trans('plugged-host-ads::strings.antiblock_heading'),
-                'body' => $custom !== '' ? $custom : (string) trans('plugged-host-ads::strings.antiblock_body'),
+                'heading' => (string) trans('plugged-host-ads::strings.antiblock_heading', $brand),
+                'body' => $custom !== '' ? $custom : (string) trans('plugged-host-ads::strings.antiblock_body', $brand),
                 'reload' => (string) trans('plugged-host-ads::strings.antiblock_reload'),
                 'dismiss' => (string) trans('plugged-host-ads::strings.antiblock_dismiss'),
                 'continue' => (string) trans('plugged-host-ads::strings.antiblock_continue'),
