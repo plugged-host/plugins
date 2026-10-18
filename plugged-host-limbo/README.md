@@ -9,8 +9,8 @@ node capacity that would otherwise be held indefinitely. New in v1.2.0 (WP5). **
 
 | Elapsed since last panel activity | Action |
 |---|---|
-| 48 h | Stop the container; notify the owner |
-| 72 h | Transfer to the limbo node (parked = suspended); notify |
+| 48 h | Stop the container (activity log `server:limbo.stop`) |
+| 72 h | Transfer to the limbo node (parked = suspended; activity log `server:limbo.hibernate`) |
 | Restore ≤ 72 h after entering limbo | 5 tokens |
 | Restore > 72 h after entering limbo | 10 tokens |
 
@@ -53,6 +53,10 @@ limbo's own stop, transfers). Merely opening the console logs nothing and does n
 
 Marker states: `stopped` → `hibernating` → `limbo` → `restoring` → `restored`, plus `failed`.
 
+**Owners are not notified.** Stopping and parking only write activity-log entries on the server
+(`server:limbo.stop`, `server:limbo.hibernate`, and `server:limbo.restore` on a restore), which
+the owner sees in the server's activity; no notification or e-mail is sent.
+
 **Moving limbo to another node.** The limbo node is the node with the `LIMBO_NODE_TAG` tag
 (the first one, by id). Each row records the node its server was parked on (`limbo_node_id`,
 migration 021), so the tag can move: tag the new node and untag the old one, and new servers are
@@ -85,7 +89,7 @@ box, and that agent stops copying when the disk runs low.
   are parked or moving (from where the server is, or its transfer; not from the tag). Until it
   runs, limbo knows only the tagged node, as before: run it before moving the tag.
 
-## Extension points it consumes (all by class-string behind `class_exists()`)
+## Extension points it consumes (all by class-string behind `Plugins::available()`)
 
 - storage `StorageService::limboNodes()` / `limboNode()` (the limbo node lookup),
 - core `NodeTelemetry::latest()` (the limbo node's disk),
