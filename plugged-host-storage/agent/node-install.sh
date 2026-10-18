@@ -6,7 +6,9 @@
 #
 #   curl -fsSL https://<panel>/plugged-host/storage/node/install.sh | sudo bash
 #
-# Safe to run again: each key is only added once. Run it again after setting up a backup server.
+# Safe to run again: each key is only added once, and a line the panel changed (a key pinned to its
+# box's addresses with from=, or a new address) replaces that key's old line. Run it again after
+# setting up a backup server or changing a box's addresses.
 #
 set -euo pipefail
 
@@ -17,7 +19,7 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-if [[ "$KEYS" != ssh-* ]]; then
+if [[ "$KEYS" != *ssh-* ]]; then
   echo "The panel has no mirror key yet: set the storage box up first (php artisan plugged-host:storage-setup)." >&2
   exit 1
 fi
@@ -32,13 +34,22 @@ chmod 700 /root/.ssh
 touch /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
 
-while IFS= read -r key; do
-  [[ "$key" == ssh-* ]] || continue
-  if grep -qF "$key" /root/.ssh/authorized_keys; then
-    echo "Already authorized: ${key##* }"
+# Each line is a key, optionally after from="<addresses>". A key already there under other options
+# has its line replaced (the new file is written next to it, then moved over it in one step).
+while IFS= read -r line; do
+  body="$(awk '{ for (i = 1; i < NF; i++) if ($i ~ /^ssh-/) { print $(i + 1); exit } }' <<< "$line")"
+  [[ -n "$body" ]] || continue
+  if grep -qxF "$line" /root/.ssh/authorized_keys; then
+    echo "Already authorized: ${line##* }"
+  elif grep -qF "$body" /root/.ssh/authorized_keys; then
+    tmp="$(mktemp /root/.ssh/.authorized_keys.XXXXXX)"
+    { grep -vF "$body" /root/.ssh/authorized_keys || true; printf '%s\n' "$line"; } > "$tmp"
+    chmod 600 "$tmp"
+    mv -f "$tmp" /root/.ssh/authorized_keys
+    echo "Updated: ${line##* }"
   else
-    echo "$key" >> /root/.ssh/authorized_keys
-    echo "Authorized: ${key##* }"
+    echo "$line" >> /root/.ssh/authorized_keys
+    echo "Authorized: ${line##* }"
   fi
 done <<< "$KEYS"
 

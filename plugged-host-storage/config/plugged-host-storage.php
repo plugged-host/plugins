@@ -33,6 +33,10 @@ return [
     // with /plugged-host/storage/node/install.sh, so the agent can pull server files over SSH.
     'mirror_public_key' => (string) env('STORAGE_MIRROR_PUBLIC_KEY', ''),
 
+    // The addresses the storage box reaches the nodes from (comma-separated IPs or CIDRs). Set, the
+    // node installer pins its key to them (authorized_keys from=), so the key only works from there.
+    'mirror_from' => (string) env('STORAGE_MIRROR_FROM', ''),
+
     // The backup server (optional): a second box running the same agent, faster than the storage
     // box but less stable. Both copy every server; downloads and failover restores come from the
     // backup server while its copy is as fresh as the storage box's (StorageService::servingBox).
@@ -40,6 +44,7 @@ return [
     'backup_agent_url' => env('STORAGE_BACKUP_AGENT_URL', ''),
     'backup_agent_secret' => env('STORAGE_BACKUP_AGENT_SECRET', ''),
     'backup_mirror_public_key' => (string) env('STORAGE_BACKUP_MIRROR_PUBLIC_KEY', ''),
+    'backup_mirror_from' => (string) env('STORAGE_BACKUP_MIRROR_FROM', ''),
 
     // Signed-URL lifetime (seconds) for archive fetch / reachability probes.
     'signed_ttl' => (int) env('STORAGE_SIGNED_TTL', 900),
