@@ -86,17 +86,20 @@ class StatusExporter
     /** @param Collection<int, StatusNodeSetting> $settings @param Collection<int, StatusIncident> $incidents @return array<string, mixed> */
     private function currentPayload(Collection $settings, Collection $incidents): array
     {
+        // Only the endpoints that are probed (StatusCollector::endpoints): one with a blank
+        // health URL is not monitored, so it is not listed and cannot pull the overall down.
+        $endpoints = StatusCollector::endpoints();
         $latestEndpoints = StatusSnapshot::query()
-            ->whereIn('component_key', ['site', 'panel'])
+            ->whereIn('component_key', array_keys($endpoints))
             ->latest('checked_at')
             ->get()
             ->unique('component_key')
             ->keyBy('component_key');
 
-        $components = [
-            'site' => ['key' => 'site', 'label' => 'Website', 'status' => $latestEndpoints->get('site')?->status ?? 'unknown'],
-            'panel' => ['key' => 'panel', 'label' => 'Panel', 'status' => $latestEndpoints->get('panel')?->status ?? 'unknown'],
-        ];
+        $components = [];
+        foreach ($endpoints as $key => $label) {
+            $components[$key] = ['key' => $key, 'label' => $label, 'status' => $latestEndpoints->get($key)?->status ?? 'unknown'];
+        }
 
         foreach ($settings as $setting) {
             $components["node:{$setting->public_id}"] = [
@@ -168,7 +171,7 @@ class StatusExporter
         $global['cpu_used'] = round($global['cpu_used'], 2);
 
         $componentValues = array_values($components);
-        $overallStatus = $this->overallStatus($componentValues, $settings->count());
+        $overallStatus = $this->overallStatus($components);
 
         return [
             'schema_version' => 1,
@@ -218,7 +221,7 @@ class StatusExporter
             $recent[] = $series;
         }
 
-        $componentLabels = ['site' => 'Website', 'panel' => 'Panel'];
+        $componentLabels = StatusCollector::endpoints();
         foreach ($settings as $setting) {
             $componentLabels[$setting->public_id] = $setting->display_name;
         }
@@ -286,16 +289,21 @@ class StatusExporter
         ];
     }
 
-    /** @param array<int, array<string, mixed>> $components */
-    private function overallStatus(array $components, int $nodeCount): string
+    /**
+     * Keyed like currentPayload's components ('site', 'panel', 'node:<id>'), so an endpoint that
+     * is not probed (and so not listed) simply does not take part.
+     *
+     * @param  array<string, array<string, mixed>>  $components
+     */
+    private function overallStatus(array $components): string
     {
-        $siteOrPanelOffline = collect($components)->take(2)->contains(fn (array $component) => in_array($component['status'], ['offline', 'major_outage'], true));
-        if ($siteOrPanelOffline || collect($components)->contains(fn (array $component) => $component['status'] === 'major_outage')) {
+        $endpointOffline = collect($components)->only(['site', 'panel'])->contains(fn (array $component) => in_array($component['status'], ['offline', 'major_outage'], true));
+        if ($endpointOffline || collect($components)->contains(fn (array $component) => $component['status'] === 'major_outage')) {
             return 'major_outage';
         }
 
-        $nodes = collect($components)->slice(2);
-        if ($nodeCount > 0 && $nodes->every(fn (array $component) => $component['status'] === 'offline')) {
+        $nodes = collect($components)->except(['site', 'panel']);
+        if ($nodes->isNotEmpty() && $nodes->every(fn (array $component) => $component['status'] === 'offline')) {
             return 'major_outage';
         }
         if (collect($components)->contains(fn (array $component) => in_array($component['status'], ['offline', 'partial_outage'], true))) {
@@ -346,7 +354,9 @@ class StatusExporter
             $items .= '<item><title>' . e($incident['title']) . '</title><link>' . e($base) . '</link><guid isPermaLink="false">plugged-host-' . sha1($incident['title'] . $date) . '</guid><pubDate>' . $date . '</pubDate><description>' . e($description) . '</description></item>';
         }
 
-        return '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>plugged.host incidents</title><link>' . e($base) . '</link><description>Operational updates for plugged.host.</description><lastBuildDate>' . now()->toRssString() . '</lastBuildDate>' . $items . '</channel></rss>';
+        $name = e((string) config('app.name'));
+
+        return '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>' . $name . ' incidents</title><link>' . e($base) . '</link><description>Operational updates for ' . $name . '.</description><lastBuildDate>' . now()->toRssString() . '</lastBuildDate>' . $items . '</channel></rss>';
     }
 
     /** @param array<string, mixed> $payload @throws JsonException */

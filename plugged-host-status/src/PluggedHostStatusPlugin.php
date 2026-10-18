@@ -14,9 +14,9 @@ use Filament\Schemas\Components\Section;
  *
  * Only the admin panel carries UI here (the incident and node-settings resources), so
  * plugin.json declares `"panels": ["admin"]` and this plugin is only instantiated there. The
- * collect/prune schedule, models, migration, config and the NodeLatency/NodeHealth seams are
- * wired by convention (StatusPagePluginProvider, database/migrations, config/) regardless of
- * panel, so the pipeline runs even with no admin session open.
+ * collect/prune schedule, models, migrations and config are wired by convention
+ * (StatusPagePluginProvider, database/migrations, config/) regardless of panel, so the pipeline
+ * runs even with no admin session open.
  *
  * The per-panel discovery block mirrors core's, minus `$panel->topbar(true)` — Theme v2 owns
  * the topbar and would override it (WP1/WP2).
@@ -55,7 +55,7 @@ class PluggedHostStatusPlugin implements HasPluginSettings, Plugin
         return [
             'export_path' => (string) config('plugged-host-status.export_path', ''),
             'rss_base_url' => (string) config('plugged-host-status.rss_base_url', ''),
-            'site_health_url' => (string) config('plugged-host-status.site_health_url', 'http://127.0.0.1/healthz'),
+            'site_health_url' => (string) config('plugged-host-status.site_health_url', ''),
             'site_health_host' => (string) config('plugged-host-status.site_health_host', ''),
             'panel_health_url' => (string) config('plugged-host-status.panel_health_url', ''),
             'history_days' => (int) config('plugged-host-status.history_days', 90),
