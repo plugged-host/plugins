@@ -117,7 +117,8 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
 
         $data['remote'] = [
             'gateway_enabled' => (bool) ($config['gateway_enabled'] ?? true),
-            'limits' => ['mode' => 'all'] + (array) ($config['limits'] ?? []),
+            // The saved mode wins; 'all' only for a store that does not have modes.
+            'limits' => (array) ($config['limits'] ?? []) + ['mode' => 'all'],
             'default_model' => (string) (int) ($config['default_model'] ?? 0),
             'failover' => (array) ($config['failover'] ?? []),
             'providers' => $providers,
