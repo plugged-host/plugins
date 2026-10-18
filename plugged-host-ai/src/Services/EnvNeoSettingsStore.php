@@ -402,7 +402,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
 
         if (array_key_exists('model', $fields)) {
             $model = trim((string) $fields['model']);
-            preg_match('/^[A-Za-z0-9._:\/-]{1,128}$/', $model) === 1
+            preg_match('/^[A-Za-z0-9._:\/@-]{1,128}$/', $model) === 1
                 ? $set('model', $model, $model)
                 : $errors[$errorPrefix . 'model'] = 'invalid model id';
         }
