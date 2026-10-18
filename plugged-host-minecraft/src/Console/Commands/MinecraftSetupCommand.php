@@ -62,9 +62,9 @@ class MinecraftSetupCommand extends Command
 
             $this->warn("Replacing egg #{$egg->id} {$egg->name} with the file: its install script, variables, startup commands, images and config become the file's.");
             if ($dropped->isNotEmpty()) {
-                $this->warn('Deleted with it, and every server\'s value for them: the variables ' . $dropped->implode(', ') . ', which the file does not have.');
+                $this->warn('Not in the file, so deleted with every server\'s value for them: ' . $dropped->implode(', ') . '.');
             }
-            $this->line("Its $servers server" . ($servers === 1 ? '' : 's') . ' are not changed: they keep their startup command, image and variable values, and the new install script runs at their next reinstall.');
+            $this->line("Its $servers server" . ($servers === 1 ? ' is' : 's are') . ' not changed: each keeps its startup command, image and variable values, and the new install script runs at its next reinstall.');
         }
 
         if ($dry) {
