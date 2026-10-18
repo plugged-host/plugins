@@ -4,6 +4,7 @@ namespace PluggedHost\Minecraft\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use PluggedHost\Minecraft\Support\UserAgent;
 use Throwable;
 
 /**
@@ -333,7 +334,7 @@ class CurseForgeCatalog
             ->withHeaders([
                 'x-api-key' => $this->apiKey(),
                 'Accept' => 'application/json',
-                'User-Agent' => 'plugged.host-panel/1.2 (support@plugged.host)',
+                'User-Agent' => UserAgent::get(),
             ]);
 
         $response = $method === 'POST'

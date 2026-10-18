@@ -18,6 +18,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use PluggedHost\Minecraft\Services\CurseForgeCatalog;
 use PluggedHost\Minecraft\Services\ServerSoftwareSwitcher;
+use PluggedHost\Minecraft\Support\UserAgent;
 use Throwable;
 use ZipArchive;
 
@@ -208,7 +209,7 @@ class InstallCurseForgeModpackJob implements ShouldQueue
         try {
             $response = Http::timeout(120)
                 ->connectTimeout(10)
-                ->withHeaders(['User-Agent' => 'plugged.host-panel/1.2 (support@plugged.host)'])
+                ->withHeaders(['User-Agent' => UserAgent::get()])
                 ->sink($path)
                 ->get($url);
 

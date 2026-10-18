@@ -3,6 +3,7 @@
 namespace PluggedHost\Minecraft\Providers;
 
 use App\Filament\Server\Pages\Console;
+use App\Models\Egg;
 use App\Repositories\Daemon\DaemonFileRepository;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -11,10 +12,12 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
 use PluggedHost\Minecraft\Models\ServerOnboarding;
 use PluggedHost\Minecraft\Services\MinecraftSoftwareSwitcher;
+use PluggedHost\Minecraft\Support\MinecraftEgg;
 use PluggedHost\Servers\Contracts\SoftwareSwitcher;
 use PluggedHost\Servers\Events\ServerProvisioned;
 use Throwable;
@@ -93,6 +96,34 @@ class MinecraftPluginProvider extends ServiceProvider
 
         $this->registerClientApi();
         $this->registerNeoTools();
+
+        // Core is a hard requirement (plugin.json), so its Doctor is always there.
+        $this->registerDoctorChecks();
+    }
+
+    /**
+     * The Minecraft pages only appear on servers of an egg that servers' catalog lists (by UUID),
+     * so a catalog entry without its egg means no Minecraft pages on this panel.
+     */
+    private function registerDoctorChecks(): void
+    {
+        Doctor::check('plugged-host-minecraft', 'Minecraft egg', function (): array {
+            $uuids = array_map('strval', array_keys((array) config('plugged-host-servers.user-creatable-servers.catalog', [])));
+
+            if ($uuids === []) {
+                return Doctor::warn('servers\' catalog lists no egg: the Minecraft pages only appear on servers of an egg it lists');
+            }
+
+            $eggs = Egg::query()->whereIn('uuid', $uuids)->get(['id', 'name', 'uuid']);
+            $missing = array_values(array_filter($uuids, fn (string $uuid) => !$eggs->contains(fn (Egg $egg) => strcasecmp((string) $egg->uuid, $uuid) === 0)));
+
+            if ($missing === []) {
+                return Doctor::ok($eggs->map(fn (Egg $egg) => "#{$egg->id} {$egg->name}")->implode(', '));
+            }
+
+            return Doctor::warn('no egg with uuid ' . implode(', ', $missing) . ' (servers\' catalog), which the Minecraft pages need'
+                . (in_array(MinecraftEgg::UUID, $missing, true) ? ': php artisan plugged-host:minecraft-setup' : ''));
+        });
     }
 
     /**

@@ -4,6 +4,7 @@ namespace PluggedHost\Minecraft\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use PluggedHost\Minecraft\Support\UserAgent;
 use Throwable;
 
 /**
@@ -200,7 +201,7 @@ class MinecraftVersionCatalog
     {
         $xml = Http::timeout(self::TIMEOUT)
             ->connectTimeout(4)
-            ->withHeaders(['User-Agent' => 'plugged.host-panel/1.0 (support@plugged.host)'])
+            ->withHeaders(['User-Agent' => UserAgent::get()])
             ->get('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml')
             ->throw()
             ->body();
@@ -333,7 +334,7 @@ class MinecraftVersionCatalog
     {
         $response = Http::timeout(self::TIMEOUT)
             ->connectTimeout(4)
-            ->withHeaders(['User-Agent' => 'plugged.host-panel/1.0 (support@plugged.host)'])
+            ->withHeaders(['User-Agent' => UserAgent::get()])
             ->get($url)
             ->throw()
             ->json();
