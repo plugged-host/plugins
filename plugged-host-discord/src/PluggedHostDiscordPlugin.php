@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Models\DiscordInviteBaseline;
 use PluggedHost\Discord\Services\DiscordVerificationService;
 use PluggedHost\Discord\Support\DiscordBotSupervisor;
@@ -50,7 +51,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
             // Secret: never surface the stored key. Empty means "unchanged" on save.
             'public_key' => '',
             'role_name' => config('plugged-host-discord.role_name', 'Discord Linked'),
-            'invite_url' => config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085'),
+            'invite_url' => (string) config('plugged-host-discord.invite_url', ''),
             'sync_on_login' => (bool) config('plugged-host-discord.sync_on_login', true),
             'unlinked_remove_role' => (bool) config('plugged-host-discord.unlinked_remove_role', true),
             'credits_per_invite' => (int) config('plugged-host-discord.credits_per_invite', 50),
@@ -77,12 +78,17 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
     {
         $hasBotToken = filled(config('plugged-host-discord.bot_token'));
         $hasPublicKey = filled(config('plugged-host-discord.public_key'));
+        // With plugged-host-noprofit, noprofit.space links Discord and sets the Discord tier;
+        // standalone the panel links it and the tier is economy's (COMPUTE_DISCORD_*).
+        $noprofit = Plugins::enabled('plugged-host-noprofit');
 
         return [
             $this->inviteTrackingCallout(),
             $this->gatewayDaemonCallout(),
             Section::make('Discord Server Connection')
-                ->description('Your Discord server. Accounts link Discord on noprofit.space; the bot checks who is in the server, and members get the Discord tier set on noprofit.space.')
+                ->description($noprofit
+                    ? 'Your Discord server. Accounts link Discord on noprofit.space; the bot checks who is in the server, and members get the Discord tier set on noprofit.space.'
+                    : 'Your Discord server. Accounts link Discord on their profile page; the bot checks who is in the server, and members get the Discord tier set in the economy plugin\'s settings (Plans & store prices).')
                 ->columns(2)
                 ->schema([
                     TextInput::make('guild_id')
@@ -94,10 +100,10 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                     TextInput::make('invite_url')
                         ->label('Discord Server Invite URL')
                         ->url()
-                        ->required()
+                        ->nullable()
                         ->placeholder('https://discord.gg/yourinvite')
-                        ->helperText('Presented to users who linked their Discord but haven\'t joined the server yet.')
-                        ->default(fn () => config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085')),
+                        ->helperText('Presented to users who linked their Discord but haven\'t joined the server yet. Empty: no invite link is shown.')
+                        ->default(fn () => (string) config('plugged-host-discord.invite_url', '')),
                     TextInput::make('bot_token')
                         ->label('Discord Bot Token')
                         ->password()
@@ -118,7 +124,9 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-discord::strings.settings.' . ($hasPublicKey ? 'public_key_set_help' : 'public_key_unset_help'))),
                 ]),
             Section::make('Role & Membership Automation')
-                ->description('The panel role given to members of your Discord server, so admins can see who is in it. What members get in CPU, memory and disk is the Discord tier on noprofit.space (Admin › Settings), not this role.')
+                ->description($noprofit
+                    ? 'The panel role given to members of your Discord server, so admins can see who is in it. What members get in CPU, memory and disk is the Discord tier on noprofit.space (Admin › Settings), not this role.'
+                    : 'The panel role given to members of your Discord server, so admins can see who is in it. What members get in CPU, memory and disk is the Discord tier in the economy plugin\'s settings, not this role.')
                 ->columns(2)
                 ->schema([
                     Select::make('role_name')
@@ -137,7 +145,9 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-discord.sync_on_login', true)),
                     Toggle::make('unlinked_remove_role')
                         ->label('Remove role if not in server')
-                        ->helperText('Remove the panel role when the user leaves the Discord server or unlinks Discord on noprofit.space.')
+                        ->helperText($noprofit
+                            ? 'Remove the panel role when the user leaves the Discord server or unlinks Discord on noprofit.space.'
+                            : 'Remove the panel role when the user leaves the Discord server or unlinks Discord.')
                         ->inline(false)
                         ->onIcon(TablerIcon::Check)
                         ->offIcon(TablerIcon::X)
@@ -258,7 +268,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                         ->label(trans('plugged-host-discord::strings.settings.supervisor_heartbeat_timeout'))
                         ->helperText(trans('plugged-host-discord::strings.settings.supervisor_heartbeat_timeout_hint'))
                         ->numeric()
-                        ->minValue(30)
+                        ->minValue(60)
                         ->maxValue(3600)
                         ->suffix('s')
                         ->required()
@@ -441,7 +451,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
         $values = [
             'DISCORD_GUILD_ID' => $newGuildId,
             'DISCORD_LINKED_ROLE_NAME' => $data['role_name'] ?? 'Discord Linked',
-            'DISCORD_INVITE_URL' => $data['invite_url'] ?? '',
+            'DISCORD_INVITE_URL' => trim((string) ($data['invite_url'] ?? '')),
             'DISCORD_SYNC_ON_LOGIN' => !empty($data['sync_on_login']) ? 'true' : 'false',
             'DISCORD_UNLINK_REMOVE_ROLE' => !empty($data['unlinked_remove_role']) ? 'true' : 'false',
             'DISCORD_CREDITS_PER_INVITE' => (string) max(1, (int) ($data['credits_per_invite'] ?? 50)),
@@ -456,7 +466,8 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
             'DISCORD_BOT_SUPERVISOR_ENABLED' => !empty($data['supervisor_enabled']) ? 'true' : 'false',
             'DISCORD_BOT_AUTO_INSTALL_TRIGGER' => !empty($data['supervisor_auto_install_trigger']) ? 'true' : 'false',
             'DISCORD_BOT_HEARTBEAT_INTERVAL' => (string) max(5, min(300, (int) ($data['supervisor_heartbeat_interval'] ?? 15))),
-            'DISCORD_BOT_HEARTBEAT_TIMEOUT' => (string) max(30, min(3600, (int) ($data['supervisor_heartbeat_timeout'] ?? 120))),
+            // DiscordBotSupervisor::isWedged() never waits less than 60 seconds.
+            'DISCORD_BOT_HEARTBEAT_TIMEOUT' => (string) max(60, min(3600, (int) ($data['supervisor_heartbeat_timeout'] ?? 120))),
             'DISCORD_BOT_RESTART_MAX_BACKOFF' => (string) max(10, min(86400, (int) ($data['supervisor_max_backoff'] ?? 900))),
             'DISCORD_BOT_LOG_MAX_BYTES' => (string) max(65536, min(1073741824, (int) ($data['supervisor_log_max_bytes'] ?? 8388608))),
             'DISCORD_BOT_PHP_BINARY' => \PluggedHost\Discord\Support\DiscordBotSupervisor::safePhpBinary((string) ($data['supervisor_php_binary'] ?? '')) ?? '',

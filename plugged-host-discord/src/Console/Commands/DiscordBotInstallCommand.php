@@ -87,7 +87,7 @@ class DiscordBotInstallCommand extends Command
         }
 
         if ($result['status'] === 'present') {
-            $this->line("<info>✔</info> Scheduler already driven from {$user}'s crontab — nothing to add.");
+            $this->line("<info>✔</info> Scheduler already driven from {$user}'s crontab or a system crontab (/etc/crontab, /etc/cron.d) — nothing to add.");
 
             return null;
         }
