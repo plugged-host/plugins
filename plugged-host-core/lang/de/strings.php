@@ -477,6 +477,7 @@ return [
         'findings_label' => 'Was der Scan gefunden hat',
         'more' => 'und :count weitere',
         'help' => 'Wenn du denkst, dass das ein Fehler ist, frag uns auf Discord und nenne den Namen des Servers.',
+        'help_admin' => 'Wenn du denkst, dass das ein Fehler ist, wende dich an die Administratoren dieses Panels und nenne den Namen des Servers.',
         'help_action' => 'Hilfe auf Discord',
         'reason_field' => 'Grund',
         'reason_hint' => 'Wird dem Besitzer des Servers auf seiner Sperrseite angezeigt.',

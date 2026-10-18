@@ -28,13 +28,16 @@
         $status >= 500 => trans("$strings.messages.500"),
         default => trans("$strings.messages.default"),
     };
+
+    // The public status page (STATUS_PAGE_URL, else STATUS_RSS_BASE_URL); no button without one.
+    $statusUrl = (string) config('plugged-host-core.status_url', '');
 @endphp
 
 @section('ph-error-actions')
     <a href="{{ url('/') }}" class="btn-submit">{{ trans("$strings.home") }}</a>
 
-    @if ($status >= 500)
-        <a href="https://status.plugged.host" target="_blank" rel="noopener noreferrer" class="btn-cancel">{{ trans("$strings.status") }}</a>
+    @if ($status >= 500 && filled($statusUrl))
+        <a href="{{ $statusUrl }}" target="_blank" rel="noopener noreferrer" class="btn-cancel">{{ trans("$strings.status") }}</a>
     @endif
 
     <p class="auth-note">{{ trans("$strings.code", ['code' => $status]) }}</p>

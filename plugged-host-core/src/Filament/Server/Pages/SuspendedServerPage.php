@@ -111,10 +111,15 @@ class SuspendedServerPage extends Page
         }
     }
 
+    /**
+     * Where to ask: neo's support link (NEO_SUPPORT_URL), else the Discord invite
+     * (DISCORD_INVITE_URL). Empty while neither is set: no help button then, and the page says
+     * to contact the administrators instead.
+     */
     public function supportUrl(): string
     {
-        return (string) config('plugged-host-ai.support_url', 'https://discord.gg/plugged-host-1502647500295635085')
-            ?: 'https://discord.gg/plugged-host-1502647500295635085';
+        return (string) config('plugged-host-ai.support_url', '')
+            ?: (string) config('plugged-host-discord.invite_url', '');
     }
 
     protected function getHeaderActions(): array
@@ -122,7 +127,8 @@ class SuspendedServerPage extends Page
         return [
             Action::make('help')
                 ->label(trans('plugged-host-core::strings.suspended.help_action'))
-                ->url(fn (): string => $this->supportUrl(), shouldOpenInNewTab: true),
+                ->url(fn (): string => $this->supportUrl(), shouldOpenInNewTab: true)
+                ->visible(fn (): bool => filled($this->supportUrl())),
         ];
     }
 }

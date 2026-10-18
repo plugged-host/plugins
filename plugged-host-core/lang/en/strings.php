@@ -477,6 +477,7 @@ return [
         'findings_label' => 'What the scan found',
         'more' => 'and :count more',
         'help' => 'If you think this is a mistake, ask us on Discord and include the server\'s name.',
+        'help_admin' => 'If you think this is a mistake, contact the administrators of this panel and include the server\'s name.',
         'help_action' => 'Get help on Discord',
         'reason_field' => 'Reason',
         'reason_hint' => 'Shown to the server\'s owner on its suspended page.',

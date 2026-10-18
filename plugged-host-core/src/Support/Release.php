@@ -60,7 +60,7 @@ final class Release
     /** "plugged.host v2.2.0.9b53c14" */
     public static function label(): string
     {
-        return trim((string) config('app.name', 'plugged.host')) . ' ' . self::full();
+        return trim((string) config('app.name', 'Pelican')) . ' ' . self::full();
     }
 
     public static function forget(): void

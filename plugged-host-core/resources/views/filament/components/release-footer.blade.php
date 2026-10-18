@@ -18,5 +18,5 @@
             font-family: var(--mono-font-family, 'JetBrains Mono'), ui-monospace, monospace;
         }
     </style>
-    {{ config('app.name', 'plugged.host') }} <span title="{{ $release }}">{{ $release }}</span>
+    {{ config('app.name', 'Pelican') }} <span title="{{ $release }}">{{ $release }}</span>
 </div>

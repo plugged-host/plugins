@@ -17,11 +17,17 @@
     $retryAfter = isset($exception) && method_exists($exception, 'getHeaders') ? ($exception->getHeaders()['Retry-After'] ?? null) : null;
     $retrySeconds = is_numeric($retryAfter) && (int) $retryAfter > 0 ? (int) $retryAfter : 30;
 
-    $discordUrl = config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085');
+    // Each button and the ad is left out while its setting is empty. Plugin configs load even
+    // while the plugin is off, so the ad also asks whether plugged-host-ads is enabled: Plugins
+    // reads the plugin.json files, not the panel database, and never throws, so it is safe here.
+    $discordUrl = (string) config('plugged-host-discord.invite_url', '');
+    $statusUrl = (string) config('plugged-host-core.status_url', '');
 
-    $adsEnabled = config('plugged-host-ads.enabled', true);
-    $adUnitId = config('plugged-host-ads.unit_id', '2453391');
-    $adIframeWidth = config('plugged-host-ads.iframe_width', '70%');
+    $adUnitId = trim((string) config('plugged-host-ads.maintenance.aads_unit', ''));
+    $adIframeWidth = (string) config('plugged-host-ads.maintenance.width', '70%') ?: '70%';
+    $adsEnabled = $adUnitId !== ''
+        && (bool) config('plugged-host-ads.enabled', false)
+        && rescue(fn () => \PluggedHost\Core\Support\Plugins::enabled('plugged-host-ads'), false, false);
 @endphp
 
 @section('ph-error-actions')
@@ -33,7 +39,9 @@
         <a href="{{ $discordUrl }}" target="_blank" rel="noopener noreferrer" class="btn-cancel">{{ trans("$strings.discord") }}</a>
     @endif
 
-    <a href="https://status.plugged.host" target="_blank" rel="noopener noreferrer" class="btn-cancel">{{ trans("$strings.status_page") }}</a>
+    @if (filled($statusUrl))
+        <a href="{{ $statusUrl }}" target="_blank" rel="noopener noreferrer" class="btn-cancel">{{ trans("$strings.status_page") }}</a>
+    @endif
 
     <p class="auth-note">{{ trans("$strings.refresh_auto", ['seconds' => '']) }}<span id="countdown">{{ $retrySeconds }}</span>s</p>
 @endsection
@@ -44,7 +52,7 @@
             <div id="frame" class="plugged-host-aads-container">
                 <iframe data-aa="{{ $adUnitId }}"
                         data-ph-unit="aads"
-                        src="//acceptable.a-ads.com/{{ $adUnitId }}/?size=Adaptive"
+                        src="//acceptable.a-ads.com/{{ rawurlencode($adUnitId) }}/?size=Adaptive"
                         style="border:0; padding:0; width:{{ $adIframeWidth }}; max-width: 100%; min-height: 90px; height:auto; overflow:hidden; display: block; margin: auto;"
                         title="Advertisement"
                         loading="lazy"></iframe>
