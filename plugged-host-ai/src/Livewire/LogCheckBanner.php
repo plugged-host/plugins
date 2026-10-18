@@ -22,7 +22,8 @@ use Throwable;
  * problems it is one quiet line with the log's link, for sharing with support.
  *
  * The page renders straight away and the check runs after (wire:init), then again every
- * minute while the console is open. Mounted from NeoPluginProvider on the Console page only.
+ * minute while the console is open. Mounted from NeoPluginProvider on the Console page only,
+ * and only while LogCheck::enabled() (its switch and neo's are on).
  */
 class LogCheckBanner extends Component
 {
@@ -37,7 +38,8 @@ class LogCheckBanner extends Component
             $user = Filament::auth()->user();
             $server = Filament::getTenant();
 
-            return $user instanceof User
+            return LogCheck::enabled()
+                && $user instanceof User
                 && $server instanceof Server
                 && self::isMinecraft($server)
                 && !$server->isInConflictState()
@@ -104,7 +106,7 @@ class LogCheckBanner extends Component
         $user = auth()->user();
         $server = Server::query()->find($this->serverId);
 
-        if (!$user instanceof User || !$server instanceof Server || !self::isMinecraft($server) || !self::canCheck($user, $server)) {
+        if (!LogCheck::enabled() || !$user instanceof User || !$server instanceof Server || !self::isMinecraft($server) || !self::canCheck($user, $server)) {
             return null;
         }
 

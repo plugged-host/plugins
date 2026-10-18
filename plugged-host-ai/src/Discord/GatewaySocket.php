@@ -45,7 +45,7 @@ final class GatewaySocket
 
         $key = base64_encode(random_bytes(16));
         fwrite($stream, "GET /?{$query} HTTP/1.1\r\nHost: {$host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-            . "Sec-WebSocket-Key: {$key}\r\nSec-WebSocket-Version: 13\r\nUser-Agent: DiscordBot (https://plugged.host, 1.0) rux\r\n\r\n");
+            . "Sec-WebSocket-Key: {$key}\r\nSec-WebSocket-Version: 13\r\nUser-Agent: DiscordBot (https://github.com/plugged-host/plugins, 1.0) rux\r\n\r\n");
 
         $head = '';
         while (!str_contains($head, "\r\n\r\n")) {

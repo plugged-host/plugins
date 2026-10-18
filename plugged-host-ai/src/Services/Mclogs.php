@@ -54,7 +54,7 @@ final class Mclogs
     {
         $response = Http::asForm()
             ->acceptJson()
-            ->withUserAgent('plugged.host neo')
+            ->withUserAgent(config('app.name') . ' neo')
             ->withoutRedirecting()
             ->connectTimeout(5)
             ->timeout(15)
@@ -151,7 +151,7 @@ final class Mclogs
     private function http(): PendingRequest
     {
         return Http::acceptJson()
-            ->withUserAgent('plugged.host neo')
+            ->withUserAgent(config('app.name') . ' neo')
             ->withoutRedirecting()
             ->connectTimeout(5)
             ->timeout(10);

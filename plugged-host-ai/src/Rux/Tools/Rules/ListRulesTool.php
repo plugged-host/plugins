@@ -41,7 +41,7 @@ final class ListRulesTool extends RuxTool
         return ToolResult::ok([
             'rules' => RuxRule::query()->where('active', true)->orderBy('id')->get()->map(fn (RuxRule $r): array => RuleService::summary($r))->all(),
             'watched_channels' => array_map(static fn (string $id): string => "<#{$id}>", $this->watch->watchedChannelIds(fresh: true)),
-            'watched_channel_guidelines' => config('plugged-host-ai.rux.watch.guidelines', true) ? array_values(WatchService::GUIDELINES) : 'off',
+            'watched_channel_guidelines' => config('plugged-host-ai.rux.watch.guidelines', true) ? array_values(WatchService::guidelines()) : 'off',
             'automatic_spam' => config('plugged-host-ai.rux.spam.enabled', true)
                 ? 'on, in every channel, without AI: ' . self::spamLimits()
                 : 'off',

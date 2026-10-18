@@ -31,14 +31,27 @@ use Throwable;
  */
 class RuleService
 {
-    /** How the AI judges messages, for the rule checks here and the watched channels' checks. */
+    /**
+     * How the AI judges messages, for the rule checks here and the watched channels' checks. :app
+     * is this panel's name (judging()).
+     */
     public const JUDGING = [
         'How to judge:',
         '- Members write casually: slang, typos, abbreviations, other languages. Judge what they mean, not the exact words.',
-        '- Only a clear break counts. Not a break: mentioning the topic in passing, answering or quoting someone, asking about a rule, joking between friends, or complaining about plugged.host.',
-        '- What a rule says does NOT break it always wins, and so do the facts about plugged.host above.',
+        '- Only a clear break counts. Not a break: mentioning the topic in passing, answering or quoting someone, asking about a rule, joking between friends, or complaining about :app.',
+        '- What a rule says does NOT break it always wins, and so do the facts about :app above.',
         '- When in doubt, it is not a break.',
     ];
+
+    /**
+     * JUDGING with this panel's name filled in.
+     *
+     * @return list<string>
+     */
+    public static function judging(): array
+    {
+        return array_map(static fn (string $line): string => str_replace(':app', (string) config('app.name'), $line), self::JUDGING);
+    }
 
     /** @var list<RuxRule>|null */
     private ?array $rules = null;
@@ -178,13 +191,13 @@ class RuleService
         $replied = filled($hit['replied_to'] ?? null) ? "It replies to this message:\n<replied_to untrusted=\"true\">\n{$hit['replied_to']}\n</replied_to>\n" : '';
         $messages = [
             ['role' => 'system', 'content' => implode("\n", [
-                'You check one message from the plugged.host Discord server (a free game server host) against one of its standing rules, for the moderation bot rux.',
+                'You check one message from the ' . config('app.name') . ' Discord server (a free game server host) against one of its standing rules, for the moderation bot rux.',
                 '',
                 'The rule: ' . self::brief($rule),
                 '',
                 ...$this->facts->lines(),
                 '',
-                ...self::JUDGING,
+                ...self::judging(),
                 '',
                 'Answer with only this JSON and nothing else: {"breaks": true or false, "why": "a few words"}',
             ])],

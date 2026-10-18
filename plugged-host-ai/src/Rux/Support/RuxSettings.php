@@ -8,6 +8,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
 use PluggedHost\Ai\Rux\Agent\Ai\RuxAi;
+use PluggedHost\Core\Support\Plugins;
 
 /**
  * rux's part of the plugged.host AI settings (its own tab, form state under "rux"): read from
@@ -38,6 +39,7 @@ final class RuxSettings
             'warn_ban' => (string) config('plugged-host-ai.rux.warnings.ban', '24h'),
             'watch_guidelines' => (bool) config('plugged-host-ai.rux.watch.guidelines', true),
             'spam' => (bool) config('plugged-host-ai.rux.spam.enabled', true),
+            'trusted_domains' => implode(', ', (array) config('plugged-host-ai.rux.trusted_domains', [])),
         ];
     }
 
@@ -47,11 +49,14 @@ final class RuxSettings
     public static function form(): array
     {
         $hasToken = RuxConfig::token() !== '';
+        // Who counts as an admin: noprofit.space's admins with plugged-host-noprofit, else this
+        // panel's root admins (plugged-host-discord's DiscordAccounts), each by their linked Discord.
+        $admins = Plugins::enabled('plugged-host-noprofit') ? 'a noprofit.space admin' : 'an admin of this panel (a root admin who linked Discord)';
 
         return [
             self::statusCallout(),
             Section::make('Bot')
-                ->description('rux is its own Discord application. It takes orders from Discord accounts linked to a noprofit.space admin (and moderation orders from members of the roles they make moderators), by DM, @mention or "hey rux", and only ever runs on the production panel.')
+                ->description("rux is its own Discord application. It takes orders from Discord accounts linked to {$admins} (and moderation orders from members of the roles they make moderators), by DM, @mention or \"hey rux\", and only ever runs on the production panel.")
                 ->columns(2)
                 ->schema([
                     Toggle::make('enabled')
@@ -70,7 +75,7 @@ final class RuxSettings
                         ->label('Discord server id')
                         ->required()
                         ->regex('/^\d{17,20}$/')
-                        ->helperText('Defaults to the plugged.host bot\'s server.'),
+                        ->helperText('Defaults to the Discord plugin\'s server.'),
                     TextInput::make('timezone')
                         ->label('Time zone')
                         ->required()
@@ -135,6 +140,11 @@ final class RuxSettings
                     Toggle::make('spam')
                         ->label('Catch spam automatically, in every channel')
                         ->helperText('Flooding, the same message again and again, mass mentions and emoji walls: deleted and warned, without AI.'),
+                    TextInput::make('trusted_domains')
+                        ->label('Our own sites')
+                        ->nullable()
+                        ->regex('/^\s*[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\s*,\s*[A-Za-z0-9.-]+\.[A-Za-z]{2,})*\s*$/')
+                        ->helperText('Domains the checks treat as this host\'s own, never a scam or an advert, each with its subdomains (comma separated, e.g. example.com). The panel\'s and the status page\'s addresses and the Discord invite always count.'),
                 ]),
         ];
     }
@@ -163,6 +173,7 @@ final class RuxSettings
             'RUX_WARN_BAN' => strtolower(trim((string) ($data['warn_ban'] ?? '24h'))) ?: '24h',
             'RUX_WATCH_GUIDELINES' => !empty($data['watch_guidelines']) ? 'true' : 'false',
             'RUX_SPAM' => !empty($data['spam']) ? 'true' : 'false',
+            'RUX_TRUSTED_DOMAINS' => implode(',', array_values(array_filter(array_map(static fn (string $d): string => strtolower(trim($d)), explode(',', (string) ($data['trusted_domains'] ?? '')))))),
         ];
 
         $token = trim((string) ($data['bot_token'] ?? ''));

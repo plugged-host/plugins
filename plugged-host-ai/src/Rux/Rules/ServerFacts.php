@@ -5,14 +5,19 @@ namespace PluggedHost\Ai\Rux\Rules;
 use App\Models\Node;
 use Illuminate\Support\Facades\Cache;
 use PluggedHost\Core\Support\Countries;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
- * What the AI has to know about plugged.host to judge members' messages fairly, given with every
+ * What the AI has to know about this host to judge members' messages fairly, given with every
  * check (watched channels and standing rules). Without it the checks warned "how to get the fr
  * node" and "PLS ENABLE FR or NL" as requests for new locations, and a link to noprofit.space as
  * a scam. The locations come from the nodes' tags (a country code, plus `plus` / `premium`),
  * read again every 10 minutes.
+ *
+ * Its own sites come from this panel's settings: RUX_TRUSTED_DOMAINS (each with its subdomains),
+ * the panel's and the status page's host names, the Discord invite, and noprofit.space with
+ * plugged-host-noprofit.
  */
 final class ServerFacts
 {
@@ -21,10 +26,13 @@ final class ServerFacts
      */
     public function lines(): array
     {
-        $lines = [
-            'Facts about plugged.host:',
-            '- Its own sites and links, never a scam or an advert: plugged.host and its subdomains (panel.plugged.host, status.plugged.host, …), noprofit.space and accounts.noprofit.space (plugged.host accounts, credits and sign-in), and its Discord invite discord.gg/plugged-host-1502647500295635085.',
-        ];
+        $app = (string) config('app.name');
+        $lines = ['Facts about ' . $app . ':'];
+        $sites = $this->ownSites($app);
+
+        if ($sites !== []) {
+            $lines[] = '- Its own sites and links, never a scam or an advert: ' . self::listing($sites) . '.';
+        }
 
         $locations = $this->locations();
 
@@ -33,6 +41,67 @@ final class ServerFacts
         }
 
         return $lines;
+    }
+
+    /**
+     * "example.com and its subdomains (panel.example.com, status.example.com, …)", other host names
+     * as they are, noprofit.space with plugged-host-noprofit, and the Discord invite.
+     *
+     * @return list<string>
+     */
+    private function ownSites(string $app): array
+    {
+        $domains = [];
+        foreach ((array) config('plugged-host-ai.rux.trusted_domains', []) as $domain) {
+            $domain = self::host((string) $domain);
+            if ($domain !== '' && !in_array($domain, $domains, true)) {
+                $domains[] = $domain;
+            }
+        }
+
+        $hosts = [];
+        foreach ([(string) config('app.url', ''), (string) config('plugged-host-core.status_url', '')] as $url) {
+            $host = self::host($url);
+            if ($host !== '' && !in_array($host, $hosts, true) && !in_array($host, $domains, true)) {
+                $hosts[] = $host;
+            }
+        }
+
+        $sites = [];
+        foreach ($domains as $domain) {
+            $under = array_values(array_filter($hosts, static fn (string $host): bool => str_ends_with($host, '.' . $domain)));
+            $hosts = array_values(array_diff($hosts, $under));
+            $sites[] = $domain . ' and its subdomains' . ($under !== [] ? ' (' . implode(', ', $under) . ', …)' : '');
+        }
+        array_push($sites, ...$hosts);
+
+        if (Plugins::enabled('plugged-host-noprofit')) {
+            $sites[] = 'noprofit.space and accounts.noprofit.space (' . $app . ' accounts, credits and sign-in)';
+        }
+
+        $invite = (string) preg_replace('#^https?://#i', '', rtrim(trim((string) config('plugged-host-discord.invite_url', '')), '/'));
+        if ($invite !== '') {
+            $sites[] = 'its Discord invite ' . $invite;
+        }
+
+        return $sites;
+    }
+
+    /** "a", "a and b", "a, b, and c". */
+    private static function listing(array $items): string
+    {
+        return count($items) > 2
+            ? implode(', ', array_slice($items, 0, -1)) . ', and ' . end($items)
+            : implode(' and ', $items);
+    }
+
+    /** The host name of a URL or bare domain, lowercase: "https://Panel.example.com/x" → "panel.example.com". */
+    private static function host(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = (string) preg_replace('#^\*\.#', '', (string) preg_replace('#^[a-z][a-z0-9+.-]*://#', '', $value));
+
+        return rtrim((string) strtok($value, '/:?#'), '.');
     }
 
     /**

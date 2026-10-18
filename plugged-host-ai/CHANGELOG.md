@@ -2,6 +2,29 @@
 
 ## 2.2.0 (unreleased)
 
+- **Neutral defaults for other installs** (plugged.host's own values move to its `.env`):
+  - neo's prompts (panel and Discord) name the panel (`APP_NAME`) instead of plugged.host, the
+    status page from `plugged-host-core.status_url`, the backups site from
+    `plugged-host-storage.portal_url`, human help from the Discord invite or `NEO_SUPPORT_URL`
+    (now empty by default), and the new `NEO_LEGAL_EMAIL` / `NEO_PRIVACY_EMAIL` (empty: no
+    contact named). Plus/PlusPlus, credits and tokens only with plugged-host-economy,
+    noprofit.space's terms only with plugged-host-noprofit, the off-site mirror only with
+    plugged-host-storage, subdomains only with that plugin (its Discord server rule only with
+    plugged-host-discord). With plugged.host's settings the prompts are unchanged, byte for byte.
+  - rux's own sites (never a scam or an advert) are the panel's and the status page's hosts, the
+    Discord invite, noprofit.space with plugged-host-noprofit and the new `RUX_TRUSTED_DOMAINS`
+    (each with its subdomains; rux tab › "Our own sites"); its prompts, guidelines and tool
+    texts name the panel and the account portal.
+  - neo's consent notice and settings note name the providers from the new
+    `NEO_PROVIDER_DISCLOSURE` (free text); without it the original Groq/Anthropic wording stays
+    while plugged-host-noprofit runs neo, and a generic sentence is used otherwise.
+  - The rux tab says who its admins are (noprofit.space admins, or this panel's root admins);
+    the server id hints say "the Discord plugin's server".
+- **Automatic log check switch** (`NEO_LOG_CHECK_ENABLED`, default on): the mclo.gs upload above
+  Minecraft consoles no longer runs while neo is off (`NEO_ENABLED=false`) or the switch is off.
+- The settings form falls back to the config defaults (25 steps, 24,000 context tokens, 30 s
+  provider timeout) instead of 10 / 16,000 / 20.
+
 - **Model picker in neo's chat**: "Other models" (1x usage) or the premium model (the premium
   provider slot, named after its label, e.g. Haiku 5.5; counted at `NEO_PREMIUM_MULTIPLIER`, 2x;
   PlusPlus only via `Support\NeoModel`, a locked option leads to the Plus page). The pick is per

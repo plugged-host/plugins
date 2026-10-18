@@ -13,6 +13,8 @@ uses(IntegrationTestCase::class);
 
 beforeEach(function () {
     loadPluginForTest('plugged-host-ai');
+    config()->set('plugged-host-ai.enabled', true);
+    config()->set('plugged-host-ai.log_check.enabled', true);
     Filament::setCurrentPanel('server');
 });
 
@@ -63,4 +65,29 @@ it('shows the log check to the server owner', function () {
     Filament::setTenant($server);
 
     expect(LogCheckBanner::shouldMount())->toBeTrue();
+});
+
+it('runs no log check while neo is off', function () {
+    config()->set('plugged-host-ai.enabled', false);
+    [$user, $server] = minecraftServerFor([]);
+
+    $this->actingAs($user);
+    Filament::setTenant($server);
+    Http::fake();
+
+    expect(LogCheckBanner::shouldMount())->toBeFalse();
+
+    Livewire::test(LogCheckBanner::class)->call('check');
+
+    Http::assertNothingSent();
+});
+
+it('runs no log check while the log check is switched off', function () {
+    config()->set('plugged-host-ai.log_check.enabled', false);
+    [$user, $server] = minecraftServerFor([]);
+
+    $this->actingAs($user);
+    Filament::setTenant($server);
+
+    expect(LogCheckBanner::shouldMount())->toBeFalse();
 });

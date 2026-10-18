@@ -342,7 +342,7 @@ class NeoChat extends Component
         $user = $this->user();
 
         if ($model === NeoModel::PREMIUM && !NeoModel::premiumAllowed($user)) {
-            Notification::make()->title(trans('plugged-host-ai::strings.chat.model_plusplus_only'))->warning()->send();
+            Notification::make()->title(trans('plugged-host-ai::strings.chat.model_plusplus_only', ['app' => config('app.name')]))->warning()->send();
 
             return;
         }

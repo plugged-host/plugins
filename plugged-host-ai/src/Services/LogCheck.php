@@ -41,6 +41,15 @@ final class LogCheck
     ) {}
 
     /**
+     * Whether logs are checked at all: the switch is on (NEO_LOG_CHECK_ENABLED) and so is neo
+     * (NEO_ENABLED). With neo off nothing is uploaded to mclo.gs.
+     */
+    public static function enabled(): bool
+    {
+        return (bool) config('plugged-host-ai.enabled', false) && (bool) config('plugged-host-ai.log_check.enabled', true);
+    }
+
+    /**
      * The last check's result, without checking again.
      *
      * @return array{id: string, url: string, errors: int, problems: list<array{message: string, solution: ?string}>, checked_at: int, hash: string}|null
@@ -60,6 +69,10 @@ final class LogCheck
     public function check(Server $server, bool $running): ?array
     {
         $last = $this->last($server);
+
+        if (!self::enabled()) {
+            return $last;
+        }
 
         if ($running && $last !== null && time() - (int) $last['checked_at'] < self::UPLOAD_EVERY) {
             return $last;

@@ -300,7 +300,7 @@ abstract class GatewayDaemon extends Command
             'token' => $this->token(),
             'intents' => $this->intents(),
             'properties' => ['os' => 'linux', 'browser' => $this->bot(), 'device' => $this->bot()],
-            'presence' => ['status' => 'online', 'afk' => false, 'since' => null, 'activities' => [['name' => 'plugged.host', 'type' => 3]]],
+            'presence' => ['status' => 'online', 'afk' => false, 'since' => null, 'activities' => [['name' => (string) config('app.name'), 'type' => 3]]],
         ]]);
     }
 

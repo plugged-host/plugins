@@ -33,7 +33,7 @@ final class PowerChain
 
             if (is_string($url) && $url !== '') {
                 return ToolResult::redirect(
-                    "The {$action} was handed to plugged.host's start flow (start queue, waiting room or hibernation restore). The user is being taken to that page now; tell them it continues there.",
+                    "The {$action} was handed to " . config('app.name') . "'s start flow (start queue, waiting room or hibernation restore). The user is being taken to that page now; tell them it continues there.",
                     $url,
                 );
             }

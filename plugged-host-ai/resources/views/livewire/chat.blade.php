@@ -1,6 +1,7 @@
 @php
-    // :portal in the strings: where accounts live (AccountPortal: noprofit.space, or this panel).
-    $portal = ['portal' => app(\PluggedHost\Core\Contracts\AccountPortal::class)->name()];
+    // :portal in the strings: where accounts live (AccountPortal: noprofit.space, or this panel);
+    // :app: this panel's name.
+    $portal = ['portal' => app(\PluggedHost\Core\Contracts\AccountPortal::class)->name(), 'app' => config('app.name')];
     $s = fn (string $key, array $replace = []) => trans('plugged-host-ai::strings.' . $key, $replace + $portal);
     // Where a user the backend does not know yet connects their account; null when there is nothing to connect.
     $activationUrl = fn (): ?string => app(\PluggedHost\Ai\Contracts\NeoBackend::class)->activationUrl();
@@ -313,7 +314,7 @@
                     </div>
                 </div>
 
-                <p class="neo-small">{{ $s('profile.privacy') }}</p>
+                <p class="neo-small">{{ \PluggedHost\Ai\Support\ProviderDisclosure::privacy() }}</p>
             </div>
         @elseif($conversation)
             <div class="neo-head">
@@ -331,7 +332,7 @@
                 <div class="neo-consent">
                     <h3>{{ $s('consent.title') }}</h3>
                     <ul>
-                        <li>{{ $s('consent.body') }}</li>
+                        <li>{{ \PluggedHost\Ai\Support\ProviderDisclosure::consent() }}</li>
                         <li>{{ $s('consent.approvals') }}</li>
                     </ul>
                     <button type="button" class="neo-btn neo-btn-primary" x-on:click="acknowledge()">{{ $s('consent.accept') }}</button>

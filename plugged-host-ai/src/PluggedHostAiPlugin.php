@@ -67,12 +67,16 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
     {
         $data = [
             'enabled' => (bool) config('plugged-host-ai.enabled', false),
-            'max_steps' => (int) config('plugged-host-ai.max_steps', 10),
-            'context_tokens' => (int) config('plugged-host-ai.context_tokens', 16000),
+            'max_steps' => (int) config('plugged-host-ai.max_steps', 25),
+            'context_tokens' => (int) config('plugged-host-ai.context_tokens', 24000),
             'redact_secrets' => (bool) config('plugged-host-ai.redact_secrets', true),
             'always_confirm_destructive' => (bool) config('plugged-host-ai.always_confirm_destructive', true),
             'retention_days' => (int) config('plugged-host-ai.retention_days', 30),
             'support_url' => (string) config('plugged-host-ai.support_url', ''),
+            'legal_email' => (string) config('plugged-host-ai.legal_email', ''),
+            'privacy_email' => (string) config('plugged-host-ai.privacy_email', ''),
+            'provider_disclosure' => (string) config('plugged-host-ai.provider_disclosure', ''),
+            'log_check_enabled' => (bool) config('plugged-host-ai.log_check.enabled', true),
         ];
 
         $data['neo_bot'] = NeoBotSettings::data();
@@ -149,10 +153,14 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                         TextInput::make('max_steps')->label($t('max_steps'))->helperText($t('max_steps_hint'))->numeric()->minValue(1)->maxValue(30)->required(),
                         TextInput::make('context_tokens')->label($t('context_tokens'))->helperText($t('context_tokens_hint'))->numeric()->minValue(4000)->maxValue(200000)->required(),
                         TextInput::make('retention_days')->label($t('retention_days'))->numeric()->minValue(1)->maxValue(365)->required(),
-                        TextInput::make('support_url')->label($t('support_url'))->url()->maxLength(255),
+                        TextInput::make('support_url')->label($t('support_url'))->helperText($t('support_url_hint'))->url()->maxLength(255),
+                        TextInput::make('legal_email')->label($t('legal_email'))->helperText($t('legal_email_hint'))->email()->maxLength(255),
+                        TextInput::make('privacy_email')->label($t('privacy_email'))->helperText($t('privacy_email_hint'))->email()->maxLength(255),
                     ]),
+                    TextInput::make('provider_disclosure')->label($t('provider_disclosure'))->helperText($t('provider_disclosure_hint'))->maxLength(255),
                     Toggle::make('redact_secrets')->label($t('redact_secrets'))->helperText($t('redact_secrets_hint')),
                     Toggle::make('always_confirm_destructive')->label($t('always_confirm_destructive'))->helperText($t('always_confirm_destructive_hint')),
+                    Toggle::make('log_check_enabled')->label($t('log_check_enabled'))->helperText($t('log_check_enabled_hint')),
                 ]),
             Section::make($t('section_status'))->schema([
                 Text::make(match (true) {
@@ -198,16 +206,26 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
     {
         $local = [
             'NEO_ENABLED' => !empty($data['enabled']) ? 'true' : 'false',
-            'NEO_MAX_STEPS' => (string) max(1, min(30, (int) ($data['max_steps'] ?? 10))),
-            'NEO_CONTEXT_TOKENS' => (string) max(4000, min(200000, (int) ($data['context_tokens'] ?? 16000))),
+            'NEO_MAX_STEPS' => (string) max(1, min(30, (int) ($data['max_steps'] ?? 25))),
+            'NEO_CONTEXT_TOKENS' => (string) max(4000, min(200000, (int) ($data['context_tokens'] ?? 24000))),
             'NEO_REDACT_SECRETS' => !empty($data['redact_secrets']) ? 'true' : 'false',
             'NEO_ALWAYS_CONFIRM_DESTRUCTIVE' => !empty($data['always_confirm_destructive']) ? 'true' : 'false',
             'NEO_RETENTION_DAYS' => (string) max(1, min(365, (int) ($data['retention_days'] ?? 30))),
+            'NEO_LOG_CHECK_ENABLED' => !empty($data['log_check_enabled']) ? 'true' : 'false',
+            // Free text, kept on one line (the .env writer quotes it).
+            'NEO_PROVIDER_DISCLOSURE' => trim((string) preg_replace('/[\r\n\0]+/', ' ', mb_substr((string) ($data['provider_disclosure'] ?? ''), 0, 255))),
         ];
 
         $supportUrl = trim((string) ($data['support_url'] ?? ''));
         if ($supportUrl === '' || filter_var($supportUrl, FILTER_VALIDATE_URL) !== false) {
             $local['NEO_SUPPORT_URL'] = $supportUrl;
+        }
+
+        foreach (['legal_email' => 'NEO_LEGAL_EMAIL', 'privacy_email' => 'NEO_PRIVACY_EMAIL'] as $field => $env) {
+            $email = trim((string) ($data[$field] ?? ''));
+            if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) !== false) {
+                $local[$env] = $email;
+            }
         }
 
         // The two Discord bots' tabs, only when the form sent them (an absent tab must not
@@ -339,7 +357,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'endpoint' => trim((string) ($fields['endpoint'] ?? '')),
                 'model' => trim((string) ($fields['model'] ?? '')),
                 'max_tokens' => (int) ($fields['max_tokens'] ?? 4096),
-                'timeout' => (int) ($fields['timeout'] ?? 20),
+                'timeout' => (int) ($fields['timeout'] ?? 30),
                 'daily_token_cap' => (int) ($fields['daily_token_cap'] ?? 0),
                 'vision' => !empty($fields['vision']),
                 'premium' => !empty($fields['premium']),

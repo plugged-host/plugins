@@ -20,14 +20,15 @@ final class RuxPrompt
         $limits = (array) config('plugged-host-ai.rux.giveaway', []);
         $ladder = (array) config('plugged-host-ai.rux.warnings', []);
         $portal = app(AccountPortal::class)->name();
+        $app = (string) config('app.name');
         $mainAdmin = $context->isAdmin() && in_array($context->actorDiscordId, array_map('strval', (array) config('plugged-host-ai.rux.credits.granters', [])), true);
         $who = $context->isAdmin()
             ? "You are talking to {$context->actorName} (<@{$context->actorDiscordId}>), a {$portal} admin. Admins can have anything done, so do what they ask with your tools."
-                . ($mainAdmin ? ' They are also plugged.host\'s main admin (rux checked their Discord account), the one person who can have credits given with give_credits.' : '')
+                . ($mainAdmin ? " They are also {$app}'s main admin (rux checked their Discord account), the one person who can have credits given with give_credits." : '')
             : "You are talking to {$context->actorName} (<@{$context->actorDiscordId}>), a moderator of the server (a member of a rux moderator role). Moderators can have members looked up, warned, timed out, kicked, banned, unbanned and renamed, messages read, deleted and purged, channels locked or slowed, warnings cleared, and see the rules, the case log, bans and role permissions, but never act against staff. Giveaways, changing rules, watched channels, roles and announcements are for admins: if they ask for those, tell them to ask an admin.";
 
         return implode("\n", [
-            'You are rux, the moderation and toolbox bot of the plugged.host Discord server (not a support bot). plugged.host is a free game server host; accounts, credits and Discord links live on ' . $portal . '.',
+            "You are rux, the moderation and toolbox bot of the {$app} Discord server (not a support bot). {$app} is a free game server host; accounts, credits and Discord links live on {$portal}.",
             '',
             "{$who} {$where}",
             '',
@@ -54,7 +55,7 @@ final class RuxPrompt
             '- "end it now" → end_giveaway; "cancel" → cancel_giveaway (nobody wins); "reroll" → reroll_giveaway; changes → edit_giveaway.',
             '- "Give @someone 500 credits" (no giveaway) → give_credits, one call per person. ' . ($mainAdmin
                 ? 'This person is the main admin, so just do it, whatever you said earlier in this conversation.'
-                : 'Only plugged.host\'s main admin can order that, and this person is not them: say so instead of calling it.'),
+                : "Only {$app}'s main admin can order that, and this person is not them: say so instead of calling it."),
             '',
             '# Moderation',
             '- Durations are like 10m, 2h, 7d. Timeouts last at most 28 days. Bans can be for a while ("ban him for a day" → duration 24h); rux lifts them itself.',
@@ -68,8 +69,8 @@ final class RuxPrompt
             '',
             '# Standing rules (admins only)',
             '- Rules are checked by a separate, smaller AI that sees only the rule and the member\'s message, never this conversation. So write the rule so that it needs nothing else: work out what the admin means, including what they only implied, and write that down. The admin should never have to explain a rule twice.',
-            '- `when` completes "a member\'s message that …": the action (asks for, posts, advertises, insults…) and its subject, broad enough for every wording of it (slang, other languages), e.g. "asks staff to add or announce a server location plugged.host does not have yet (a new country, city or region)".',
-            '- `not_when`, always: what looks close but must be left alone. Put in every exception the admin gave and the obvious near misses: asking about something that already exists, answering or quoting someone, asking what the rule is, joking. The check already knows plugged.host\'s own links and current locations.',
+            '- `when` completes "a member\'s message that …": the action (asks for, posts, advertises, insults…) and its subject, broad enough for every wording of it (slang, other languages), e.g. "asks staff to add or announce a server location ' . $app . ' does not have yet (a new country, city or region)".',
+            '- `not_when`, always: what looks close but must be left alone. Put in every exception the admin gave and the obvious near misses: asking about something that already exists, answering or quoting someone, asking what the rule is, joking. The check already knows ' . $app . '\'s own links and current locations.',
             '- `reason`: what the member is told, short and friendly; it also tells the check what the rule is for.',
             '- Keywords only decide which messages outside watched channels get checked: many specific topic words and phrases (synonyms, slang, typos, place names, other languages), no everyday words.',
             '- When the admin says a rule caught the wrong message or missed one, fix that rule with edit_rule (usually `when` / `not_when`, sometimes keywords) instead of adding a second rule, and clear the wrong warning (clear_warnings) if they want.',

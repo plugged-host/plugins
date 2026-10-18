@@ -345,7 +345,7 @@ final class NeoAgent
     private function callModel(NeoConversation $conversation, User $user): StepResult
     {
         $context = new ToolContext($user, $conversation->server, $conversation);
-        $finalAnswer = $conversation->step_count >= max(1, (int) config('plugged-host-ai.max_steps', 10));
+        $finalAnswer = $conversation->step_count >= max(1, (int) config('plugged-host-ai.max_steps', 25));
         $available = $this->tools->available($context);
 
         try {
