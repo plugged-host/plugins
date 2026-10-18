@@ -116,7 +116,7 @@ class LimboPluginProvider extends ServiceProvider
 
     /**
      * Register the restore page for the waiting-room ad treatment instead of the generic slot.
-     * By class-string behind class_exists so limbo does not hard-depend on ads.
+     * By class-string behind Plugins::available() so limbo does not hard-depend on ads.
      */
     private function registerInterstitial(): void
     {

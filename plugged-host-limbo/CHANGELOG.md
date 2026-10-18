@@ -2,6 +2,9 @@
 
 ## 2.2.0 (unreleased)
 
+- README: owners are not notified when their server is stopped or parked; limbo only writes
+  activity-log entries (the rule table said otherwise). The limbo node's tag is read through
+  `config('plugged-host-limbo.node_tag')` by plugged-host-storage now, not `env()`.
 - **The limbo node can move.** Each row records the node its server was parked on
   (`limbo_node_id`, migration 021, filled in for parked and moving servers from where the server
   is or its transfer). Move the `LIMBO_NODE_TAG` tag to another node and new servers are parked

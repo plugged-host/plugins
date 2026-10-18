@@ -280,8 +280,8 @@ class LimboService implements StartGate
     }
 
     /**
-     * Stop an idle container (48h). Records a `stopped` marker and notifies the owner. Reversible
-     * for free — the server is still on its own node.
+     * Stop an idle container (48h). Records a `stopped` marker and an activity-log entry (the
+     * owner gets no notification). Reversible for free — the server is still on its own node.
      */
     public function stop(Server $server): bool
     {
