@@ -341,7 +341,7 @@ class FailoverService
 
     /**
      * Same location as the old node first, then the same tier anywhere in the deployment pool:
-     * a recovery never lands a server somewhere creation would not have put it. The limbo node
+     * a recovery never lands a server somewhere creation would not have put it. Limbo nodes
      * and nodes that missed their last probe are left out; overloaded ones only when nothing
      * else has room.
      *
@@ -351,11 +351,11 @@ class FailoverService
     {
         $catalog = app('PluggedHost\\Servers\\Services\\LocationCatalog');
         $tier = $catalog->nodeTier((array) ($fromNode->tags ?? []));
-        $limbo = $this->storage->limboNode();
+        $limbo = array_map(fn (Node $n) => (int) $n->getKey(), $this->storage->limboNodes());
 
         $usable = fn (Collection $nodes) => $nodes
             ->reject(fn (Node $n) => (int) $n->getKey() === (int) $fromNode->getKey())
-            ->reject(fn (Node $n) => $limbo !== null && (int) $n->getKey() === (int) $limbo->getKey())
+            ->reject(fn (Node $n) => in_array((int) $n->getKey(), $limbo, true))
             ->filter(fn (Node $n) => $catalog->nodeTier((array) ($n->tags ?? [])) === $tier)
             ->reject(fn (Node $n) => $this->missedLastProbe($n))
             ->values();

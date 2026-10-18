@@ -2,6 +2,14 @@
 
 ## 2.2.0 (unreleased)
 
+- **The backup server as the limbo node.** The backup server no longer copies the servers on the
+  storage box's own node (the old limbo node): they are on the storage box's drive already, and
+  reading them all over that drive was what it is there to spare. The storage box still copies
+  every server, those on the backup server's node included. A server on a box's own node gets its
+  archive from that box (its copy is the volume itself; its copy time is when the files last
+  changed, so the copy-time rule sent every download of a server parked on the backup server to
+  the storage box). `StorageService::limboNodes()` lists every node with the limbo tag;
+  failover leaves all of them out.
 - **Backup server**: an optional second box running the same agent, for a storage box that is
   stable but slow (one thread: packing an archive takes ages). Both copy every server; archives
   for the backups portal, the Backups banner, failover restores and `deleted-servers --url` come

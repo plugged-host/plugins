@@ -34,17 +34,22 @@ recovery starts).
 - **No copy kept twice**: once an hour the agent reports the folders it holds and removes the ones
   the panel names (servers gone, hold over; never one in the plan). A folder the panel has no
   record of is kept 7 days after its last copy and at least a day after it was first reported.
-  Cached archives older than a day go too. A server on the storage box's own wings node (limbo)
-  gets a mirror of hardlinks to its volume instead of a second copy, and the agent removes wings
-  volumes there that belong to no server on that node (a move away that left them behind).
+  Cached archives older than a day go too. A server on a box's own wings node (a limbo node)
+  gets a mirror of hardlinks to its volume on that box instead of a second copy, and the agent
+  removes wings volumes there that belong to no server on that node (a move away that left them
+  behind).
   Snapshots kept per server follow the panel's `STORAGE_MIRROR_SNAPSHOTS`.
 - **Backup server** (optional): a second box running the same agent with its own address, secret
   and mirror key, e.g. a VM with many cores while the storage box is a stable one-thread box.
   Both copy every server (each pulls from the nodes itself; up to `PH_MIRROR_JOBS` passes at once,
-  never two on one node). Archives (backups portal, the server's Backups banner, failover
-  restores, `deleted-servers --url`) come from the backup server while its copy is no more than
-  one mirror interval older than the storage box's, else from the storage box; a box that does
-  not answer is passed over for a minute. Failover counts a node as reachable when either box
+  never two on one node), except that the backup server leaves out the servers on the storage
+  box's own node: they are on the storage box's drive already, and reading them all over that
+  slow drive is what the backup server is there to avoid. The storage box copies the servers on
+  the backup server's node too (the backup server can be the limbo node: its wings node's FQDN is
+  its agent's host). Archives (backups portal, the server's Backups banner, failover restores,
+  `deleted-servers --url`) come from the box whose own node the server is on, else from the
+  backup server while its copy is no more than one mirror interval older than the storage box's,
+  else from the storage box; a box that does not answer is passed over for a minute. Failover counts a node as reachable when either box
   reaches it. The panel tells the boxes apart by whose secret signs a request, and signs the
   update manifest once per box (`X-PH-Signature`, `X-PH-Signature-Backup`).
 - **The agent** (`agent/`): also serves an on-demand tar behind an HMAC-signed URL (wings pulls
@@ -110,7 +115,7 @@ the top of `agent/install.sh`). It sets `PH_MIRROR_JOBS` to half the cores (1 to
 
 ## Extension points it offers / consumes
 
-- Offers: `StorageService::limboNode()` / `archiveUrlFor()` (limbo → storage seam),
+- Offers: `StorageService::limboNode()` / `limboNodes()` / `archiveUrlFor()` (limbo → storage seam),
   `/api/client/servers/{server}/replica`, the agent HTTP surface (`/plugged-host/storage/agent/*`).
 - Consumes: core's `NodeTelemetry::consecutiveFailures()` (failover witness) and
   `SystemServers`; servers' `TransferPlanner`, `LocationCatalog` and `ServerMoved` (failover,

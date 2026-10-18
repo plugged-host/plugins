@@ -19,12 +19,14 @@ use Throwable;
  * The storage plugin's public seam. Limbo and failover reach it by class-string.
  *
  * It owns: the HMAC shared with each agent, the signed archive URL wings restores from, the
- * limbo node lookup, the agent work-plan, the report sink, and the second-witness reachability
- * probe. Everything degrades to a safe null / logged no-op when the plugin is unconfigured, so
- * nothing here can fatal a panel that has not stood the storage box up yet.
+ * limbo node lookup (limboNode(), limboNodes()), the agent work-plan, the report sink, and the
+ * second-witness reachability probe. Everything degrades to a safe null / logged no-op when the
+ * plugin is unconfigured, so nothing here can fatal a panel that has not stood the storage box
+ * up yet.
  *
  * Two boxes can run the agent (StorageBox): the storage box and, optionally, the backup server.
- * Both copy every server. Archives come from whichever servingBox() picks.
+ * Both copy every server, except that the backup server leaves out the storage box's own node
+ * (plan()). Archives come from whichever servingBox() picks.
  */
 class StorageService
 {
@@ -78,14 +80,26 @@ class StorageService
     }
 
     /**
-     * The node reserved for limbo, matched by tag (LIMBO_NODE_TAG, default `limbo`). Owned here
-     * so limbo does not have to know how the storage box is wired.
+     * The node limbo parks idle servers on, matched by tag (LIMBO_NODE_TAG, default `limbo`):
+     * the first tagged one. Owned here so limbo does not have to know how the boxes are wired.
+     * Moving the tag to another node moves limbo there; servers already parked on the old node
+     * stay parked (limbo records each server's node).
      */
     public function limboNode(): ?Node
     {
+        return $this->limboNodes()[0] ?? null;
+    }
+
+    /**
+     * Every node with the limbo tag, in id order.
+     *
+     * @return list<Node>
+     */
+    public function limboNodes(): array
+    {
         $tag = strtolower(trim((string) env('LIMBO_NODE_TAG', 'limbo')));
 
-        return Node::query()->get()->first(function (Node $node) use ($tag) {
+        return Node::query()->orderBy('id')->get()->filter(function (Node $node) use ($tag) {
             foreach ((array) ($node->tags ?? []) as $t) {
                 if (is_string($t) && strtolower(trim($t)) === $tag) {
                     return true;
@@ -93,7 +107,7 @@ class StorageService
             }
 
             return false;
-        });
+        })->values()->all();
     }
 
     /**
@@ -200,10 +214,11 @@ class StorageService
     }
 
     /**
-     * Which box a server's archive comes from. The backup server while it has a copy that is
-     * not older than the storage box's by more than one mirror interval (it packs archives many
-     * times faster); otherwise the storage box. A box that does not answer, or has no copy, is
-     * passed over. Null only when no box is set up.
+     * Which box a server's archive comes from. The box whose own node the server is on (a
+     * parked server: its copy is the volume itself), else the backup server while it has a copy
+     * that is not older than the storage box's by more than one mirror interval (it packs
+     * archives many times faster), otherwise the storage box. A box that does not answer, or has
+     * no copy, is passed over. Null only when no box is set up.
      */
     public function servingBox(string $identifier): ?StorageBox
     {
@@ -213,7 +228,9 @@ class StorageService
             return $boxes === [] ? null : reset($boxes);
         }
 
-        return $boxes[$this->pick($this->boxInfos([$identifier])[$identifier] ?? [], $boxes)];
+        $home = $this->homeBoxes([$identifier], $boxes)[$identifier] ?? null;
+
+        return $boxes[$this->pick($this->boxInfos([$identifier])[$identifier] ?? [], $boxes, $home)];
     }
 
     /**
@@ -245,8 +262,10 @@ class StorageService
             return $results;
         }
 
+        $homes = $this->homeBoxes($identifiers, $boxes);
+
         foreach ($this->boxInfos($identifiers) as $id => $answers) {
-            $name = $this->pick($answers, $boxes);
+            $name = $this->pick($answers, $boxes, $homes[$id] ?? null);
             $results[$id] = isset($answers[$name]) ? $answers[$name] + ['box' => $name] : null;
         }
 
@@ -369,11 +388,16 @@ class StorageService
      * gives only the node address, the volume path and the uuid; the agent builds the rsync
      * source from its own per-node pull credential (PH_RSYNC_TEMPLATE).
      *
-     * Each box gets the same servers. `local` marks a server on that box's own node (the storage
-     * box is the limbo node): its agent links the mirror to the volume. One of those is left out
-     * while it is being moved, as its volume is what wings is sending or receiving. `snapshots`
-     * is the retention set in the plugin settings, and `local_volumes` the box's wings volume
-     * folder, for the agent's cleanup.
+     * Each box gets every server, with one exception: the backup server leaves out the servers
+     * on the storage box's own node (the old limbo node). Their files are on the storage box's
+     * drive already, that drive is the slow part of the storage box, and they are parked, so a
+     * second copy is not worth reading all of them over it. The storage box copies every server,
+     * the ones on the backup server's node included: it is the copy that survives that box.
+     *
+     * `local` marks a server on that box's own node (a limbo node): its agent links the mirror
+     * to the volume. One of those is left out while it is being moved, as its volume is what
+     * wings is sending or receiving. `snapshots` is the retention set in the plugin settings, and
+     * `local_volumes` the box's wings volume folder, for the agent's cleanup.
      *
      * @return array{servers: array<int, array<string, mixed>>, snapshots: int, local_volumes: ?string}
      */
@@ -383,6 +407,9 @@ class StorageService
         $local = $this->localNode($box);
         $localId = $local !== null ? (int) $local->id : null;
         $isLocal = fn (Server $s) => $localId !== null && (int) $s->node_id === $localId;
+        $skipId = $box !== null && $box->name !== StorageBox::STORAGE
+            ? $this->localNode(StorageBox::named(StorageBox::STORAGE))?->id
+            : null;
 
         // System servers (devboxes) are rebuilt from scratch, never mirrored: their homes hold
         // people's logins and tokens, which have no business on the storage box.
@@ -392,6 +419,7 @@ class StorageService
             ->get()
             ->filter(fn (Server $s) => (int) $s->disk !== 0)          // unbounded volumes are unbudgetable
             ->filter(fn (Server $s) => $s->node !== null)
+            ->reject(fn (Server $s) => $skipId !== null && (int) $s->node_id === (int) $skipId && !$isLocal($s))
             ->reject(fn (Server $s) => $isLocal($s) && $s->transfer !== null)
             ->map(function (Server $s) use ($base, $isLocal) {
                 $nodeBase = rtrim((string) ($s->node->daemon_base ?? $base), '/');
@@ -493,14 +521,66 @@ class StorageService
     }
 
     /**
-     * The box whose answer counts, from each box's /info answer (null: no answer).
+     * For each identifier (uuid or short id) of a server on a box's own wings node, that box's
+     * name. Its copy there is a link to the volume itself, so it is as fresh as a copy gets, though
+     * its time is the last time the files changed (a parked server's do not): left to the copy
+     * times, every archive of a server parked on the backup server would come from the slow
+     * storage box, whose rsync passes stamp a new time on an unchanged copy.
+     *
+     * @param  array<int, string>  $identifiers
+     * @param  array<string, StorageBox>  $boxes
+     * @return array<string, string>
+     */
+    private function homeBoxes(array $identifiers, array $boxes): array
+    {
+        $local = [];
+        foreach ($boxes as $name => $box) {
+            if (($node = $this->localNode($box)) !== null) {
+                $local[(int) $node->id] = $name;
+            }
+        }
+
+        $identifiers = array_values(array_filter($identifiers, fn ($id) => is_string($id) && $id !== ''));
+
+        if ($local === [] || $identifiers === []) {
+            return [];
+        }
+
+        try {
+            $servers = Server::query()
+                ->whereIn('node_id', array_keys($local))
+                ->where(fn ($q) => $q->whereIn('uuid', $identifiers)->orWhereIn('uuid_short', $identifiers))
+                ->get(['uuid', 'uuid_short', 'node_id']);
+        } catch (Throwable) {
+            return [];
+        }
+
+        $homes = [];
+        foreach ($servers as $server) {
+            foreach ([(string) $server->uuid, (string) $server->uuid_short] as $id) {
+                if (in_array($id, $identifiers, true)) {
+                    $homes[$id] = $local[(int) $server->node_id];
+                }
+            }
+        }
+
+        return $homes;
+    }
+
+    /**
+     * The box whose answer counts, from each box's /info answer (null: no answer). The box the
+     * server lives on ($home, see homeBoxes()) first, while it has a copy.
      *
      * @param  array<string, ?array<string, mixed>>  $answers
      * @param  array<string, StorageBox>  $boxes
      */
-    private function pick(array $answers, array $boxes): string
+    private function pick(array $answers, array $boxes, ?string $home = null): string
     {
         $has = fn (string $name) => isset($boxes[$name]) && (bool) ($answers[$name]['exists'] ?? false);
+
+        if ($home !== null && $has($home)) {
+            return $home;
+        }
 
         if ($has(StorageBox::BACKUP)) {
             if (!$has(StorageBox::STORAGE)) {
