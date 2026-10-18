@@ -8,7 +8,6 @@ use App\Traits\EnvironmentWriterTrait;
 use Filament\Contracts\Plugin;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use PluggedHost\Storage\Providers\StoragePluginProvider;
@@ -21,8 +20,8 @@ use PluggedHost\Storage\Support\StorageBox;
  * (replica/failover status) are discovered on the admin panel. Minus topbar(true) — theme-v2
  * owns the topbar.
  *
- * Settings tab: the storage box's 13 env knobs (agent connection, replication cadence, daily S3
- * backup and failover), plus the optional backup server's connection over the same EnvironmentWriterTrait every plugged.host plugin uses. The
+ * Settings tab: the storage box's env knobs (agent connection, replication cadence and
+ * failover), plus the optional backup server's connection over the same EnvironmentWriterTrait every plugged.host plugin uses. The
  * agent HMAC secret is handled by the "masked, save-if-changed" convention this plugin set uses
  * everywhere: its real value is NEVER loaded into the form (getSettingsFormData returns '' for
  * it), the field renders masked with helper text saying only whether one is set, and saveSettings
@@ -82,10 +81,6 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'mirror_snapshots' => (int) config('plugged-host-storage.mirror_snapshots', 3),
             'min_free_percent' => (float) config('plugged-host-storage.min_free_percent', 10),
             'daemon_base' => (string) config('plugged-host-storage.daemon_base', '/var/lib/pelican/volumes'),
-
-            // Daily backup.
-            'daily_backup_enabled' => (bool) config('plugged-host-storage.daily_backup_enabled', true),
-            'daily_backup_hour' => (int) config('plugged-host-storage.daily_backup_hour', 4),
 
             // Failover.
             'failover_mode' => (string) config('plugged-host-storage.failover_mode', 'auto'),
@@ -214,21 +209,6 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                         ->required(),
                 ]),
 
-            Section::make(trans('plugged-host-storage::strings.settings.section_backup'))
-                ->description(trans('plugged-host-storage::strings.settings.section_backup_hint'))
-                ->schema([
-                    Toggle::make('daily_backup_enabled')
-                        ->label(trans('plugged-host-storage::strings.settings.daily_backup_enabled'))
-                        ->helperText(trans('plugged-host-storage::strings.settings.daily_backup_enabled_hint')),
-                    TextInput::make('daily_backup_hour')
-                        ->label(trans('plugged-host-storage::strings.settings.daily_backup_hour'))
-                        ->helperText(trans('plugged-host-storage::strings.settings.daily_backup_hour_hint'))
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(23)
-                        ->required(),
-                ]),
-
             Section::make(trans('plugged-host-storage::strings.settings.section_failover'))
                 ->description(trans('plugged-host-storage::strings.settings.section_failover_hint'))
                 ->schema([
@@ -286,10 +266,6 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'STORAGE_MIRROR_SNAPSHOTS' => (string) max(1, min(100, (int) ($data['mirror_snapshots'] ?? 3))),
             'STORAGE_MIN_FREE_PERCENT' => (string) max(0, min(100, (float) ($data['min_free_percent'] ?? 10))),
             'STORAGE_DAEMON_BASE' => (string) ($data['daemon_base'] ?? '/var/lib/pelican/volumes'),
-
-            // Daily backup.
-            'STORAGE_DAILY_BACKUP' => ! empty($data['daily_backup_enabled']) ? 'true' : 'false',
-            'STORAGE_DAILY_BACKUP_HOUR' => (string) max(0, min(23, (int) ($data['daily_backup_hour'] ?? 4))),
 
             // Failover.
             'STORAGE_FAILOVER_MODE' => $failoverMode,

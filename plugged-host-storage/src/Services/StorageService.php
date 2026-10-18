@@ -97,7 +97,8 @@ class StorageService
      */
     public function limboNodes(): array
     {
-        $tag = strtolower(trim((string) env('LIMBO_NODE_TAG', 'limbo')));
+        // Limbo's setting (LIMBO_NODE_TAG); its config is loaded even while limbo is disabled.
+        $tag = strtolower(trim((string) config('plugged-host-limbo.node_tag', 'limbo')));
 
         return Node::query()->orderBy('id')->get()->filter(function (Node $node) use ($tag) {
             foreach ((array) ($node->tags ?? []) as $t) {
