@@ -76,6 +76,16 @@
     .neo-msg-ai a { color: var(--neo-accent-text); text-decoration: underline; }
     .neo-msg-ai a:hover { color: var(--neo-accent-text-hover); }
     .neo-msg-ai strong { color: var(--neo-text); }
+    .neo-msg-ai h1, .neo-msg-ai h2, .neo-msg-ai h3, .neo-msg-ai h4, .neo-msg-ai h5, .neo-msg-ai h6 { margin: .75rem 0 .375rem; font-weight: 600; line-height: 1.3; color: var(--neo-text); }
+    .neo-msg-ai h1 { font-size: 1.0625rem; } .neo-msg-ai h2 { font-size: 1rem; } .neo-msg-ai h3 { font-size: .9375rem; } .neo-msg-ai h4, .neo-msg-ai h5, .neo-msg-ai h6 { font-size: .875rem; }
+    .neo-msg-ai > :first-child { margin-top: 0; }
+    .neo-msg-ai em { font-style: italic; } .neo-msg-ai del { text-decoration: line-through; }
+    .neo-msg-ai li > ul, .neo-msg-ai li > ol { margin-top: .125rem; margin-bottom: .125rem; }
+    .neo-msg-ai blockquote { margin: .5rem 0; padding-left: .75rem; border-left: 2px solid var(--neo-raise-3); color: var(--neo-muted); }
+    .neo-msg-ai hr { margin: .75rem 0; border: 0; border-top: 1px solid var(--neo-line); }
+    .neo-msg-ai table { display: block; max-width: 100%; overflow-x: auto; margin: .5rem 0; border-collapse: collapse; font-size: .8125rem; }
+    .neo-msg-ai th, .neo-msg-ai td { padding: .25rem .625rem; border-bottom: 1px solid var(--neo-line); text-align: left; white-space: nowrap; }
+    .neo-msg-ai th { font-weight: 600; color: var(--neo-text); }
 
     .neo-tile { display: flex; align-items: center; gap: .5rem; padding: .375rem .625rem; border-radius: .5rem; background: var(--neo-raise); font-size: .75rem; color: var(--neo-muted); }
     .neo-tile-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--neo-nav); }
