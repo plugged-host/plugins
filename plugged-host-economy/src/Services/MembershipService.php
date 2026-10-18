@@ -198,7 +198,7 @@ class MembershipService
                     return self::RESULT_OWNED;
                 }
 
-                if (!$this->spendTokens($user, $cost, self::TYPE_PLUS, trans('plugged-host-economy::strings.membership.tx_plus'), [])) {
+                if (!$this->spendTokens($user, $cost, self::TYPE_PLUS, trans('plugged-host-economy::strings.membership.tx_plus', ['app' => config('app.name')]), [])) {
                     return self::RESULT_SHORT;
                 }
 
@@ -207,7 +207,7 @@ class MembershipService
                 return self::RESULT_OK;
             });
         } catch (Throwable $e) {
-            Log::warning('Buying plugged.host Plus failed', ['user_id' => $user->getKey(), 'error' => $e->getMessage()]);
+            Log::warning('Buying Plus failed', ['user_id' => $user->getKey(), 'error' => $e->getMessage()]);
 
             $result = self::RESULT_FAILED;
         }
@@ -245,7 +245,7 @@ class MembershipService
                     return self::RESULT_NEEDS_PLUS;
                 }
 
-                $description = trans('plugged-host-economy::strings.membership.tx_plusplus', ['days' => $days]);
+                $description = trans('plugged-host-economy::strings.membership.tx_plusplus', ['days' => $days, 'app' => config('app.name')]);
                 $metadata = ['days' => $days, 'pay' => $pay];
 
                 $paid = $pay === self::PAY_CREDITS
@@ -266,7 +266,7 @@ class MembershipService
                 return self::RESULT_OK;
             });
         } catch (Throwable $e) {
-            Log::warning('Buying plugged.host PlusPlus failed', ['user_id' => $user->getKey(), 'pay' => $pay, 'error' => $e->getMessage()]);
+            Log::warning('Buying PlusPlus failed', ['user_id' => $user->getKey(), 'pay' => $pay, 'error' => $e->getMessage()]);
 
             $result = self::RESULT_FAILED;
         }

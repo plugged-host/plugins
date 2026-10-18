@@ -49,7 +49,9 @@ ads, more neo usage. PlusPlus: needs Plus, tokens or credits for N days, extende
 Premium locations, no ads anywhere (an ads exemption registered by
 `MembershipServiceProvider`), the front of the queue, `plusplus_cpu_bonus` CPU, and more neo
 usage again (`aiUsagePercent()`, sent to noprofit.space as `usage_percent`). Prices and
-percentages are in the plugin settings (`membership_*`). What happens when PlusPlus ends is
+percentages are in the plugin settings (`membership_*`); the page's "a week, or credits for two
+weeks" line and its FAQ are built from the day settings. Every user-facing "Plus"/"PlusPlus" is
+named after the panel (`APP_NAME` + " Plus"). What happens when PlusPlus ends is
 plugged-host-servers' `PlusPlusExpiry`. The Tokens page (`EarnTokensPage`, `/tokens`) is
 earning and history only.
 
