@@ -2,6 +2,19 @@
 
 ## 2.2.0 (unreleased)
 
+- **Neutral defaults for other installs**: `DISCORD_INVITE_URL` defaults to empty (it was
+  plugged.host's invite) and the invite links and buttons hide while it is empty; the settings
+  form no longer requires it. Embed footers and the rewards tab name the panel (`APP_NAME`). The
+  settings texts about linking Discord and the Discord tier name noprofit.space only with
+  plugged-host-noprofit (standalone: the profile page and economy's `COMPUTE_DISCORD_*`).
+- **Rewards are only marked paid when they were paid**: without plugged-host-economy, matured
+  invites stay pending and `boosts_rewarded` stays put (both used to be marked paid with no
+  credits moved, so nothing was paid when economy was enabled later).
+- **Scheduler line in the system crontab**: the crontab self-repair and
+  `plugged-host:discord-bot-install` recognise a `schedule:run` line for this panel in
+  /etc/crontab or /etc/cron.d too, instead of adding a second one to the web user's crontab.
+- The settings form's heartbeat timeout starts at 60 seconds, the least the supervisor uses.
+
 - **Works without noprofit.space**: `DiscordAccounts` (who a Discord user is) and
   `DiscordCreditPayouts` (giveaway and admin credit payouts). Standalone the panel answers from
   its own discord_links and pays through plugged-host-economy, recording giveaways in

@@ -16,6 +16,12 @@ class DiscordBotService
         protected DiscordVerificationService $verificationService
     ) {}
 
+    /** The name the embeds' footers start with: the panel's name. */
+    protected function brand(): string
+    {
+        return trim((string) config('app.name'));
+    }
+
     /**
      * Build a formatted Discord Embed array for an /invites interaction response.
      */
@@ -117,7 +123,7 @@ class DiscordBotService
             'inline' => false,
         ];
 
-        $footer = "plugged.host • Minimum account age: {$minAgeDays} days";
+        $footer = "{$this->brand()} • Minimum account age: {$minAgeDays} days";
         if ($maturityHours > 0) {
             $footer .= " • Rewards are held {$maturityHours}h and reversed if the member leaves";
         }
@@ -215,9 +221,9 @@ class DiscordBotService
             ];
         }
 
-        $footer = "plugged.host • Top " . count($topList) . " Inviters • Members who left do not count";
+        $footer = $this->brand() . ' • Top ' . count($topList) . ' Inviters • Members who left do not count';
         if ($legacyTotal > 0) {
-            $footer = 'plugged.host • Legacy counts predate join tracking and pay nothing';
+            $footer = $this->brand() . ' • Legacy counts predate join tracking and pay nothing';
         }
 
         return [
@@ -357,7 +363,7 @@ class DiscordBotService
                 ],
             ],
             'footer' => [
-                'text' => 'plugged.host • Admin Action',
+                'text' => $this->brand() . ' • Admin Action',
             ],
             'timestamp' => now()->toIso8601String(),
         ];

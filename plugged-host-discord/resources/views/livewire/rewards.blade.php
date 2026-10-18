@@ -14,7 +14,7 @@
         <div class="ph-eco-card">
             <div class="flex flex-col gap-1">
                 <h3 class="ph-eco-heading">{{ trans('plugged-host-discord::strings.rewards.heading') }}</h3>
-                <p class="ph-eco-text max-w-2xl">{{ trans('plugged-host-discord::strings.rewards.unlinked_body', ['credits' => number_format($perInvite)]) }}</p>
+                <p class="ph-eco-text max-w-2xl">{{ trans('plugged-host-discord::strings.rewards.unlinked_body', ['credits' => number_format($perInvite), 'app' => config('app.name')]) }}</p>
             </div>
 
             <div class="flex flex-wrap gap-3">
@@ -137,7 +137,7 @@
                 @endif
             </div>
 
-            <p class="ph-eco-small max-w-2xl">{{ trans('plugged-host-discord::strings.rewards.invites_how') }}</p>
+            <p class="ph-eco-small max-w-2xl">{{ trans('plugged-host-discord::strings.rewards.invites_how', ['app' => config('app.name')]) }}</p>
         </section>
 
         <section class="flex flex-col gap-3">

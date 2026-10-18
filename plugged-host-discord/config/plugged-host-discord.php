@@ -45,10 +45,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | The invite URL presented to users who have linked their Discord account
-    | but are not yet members of the server.
+    | but are not yet members of the server. Empty: no invite link or button is
+    | shown anywhere.
     |
     */
-    'invite_url' => env('DISCORD_INVITE_URL', 'https://discord.gg/plugged-host-1502647500295635085'),
+    'invite_url' => (string) env('DISCORD_INVITE_URL', ''),
 
     /*
     |--------------------------------------------------------------------------

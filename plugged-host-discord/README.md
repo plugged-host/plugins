@@ -4,14 +4,15 @@ A Pelican Panel plugin providing Discord account linking, guild membership verif
 
 ## Features
 
-- **Linked on noprofit.space**: Discord accounts are linked and unlinked on noprofit.space, which mirrors the link to the panel (`POST /api/noprofit/discord/link`). The panel never links or unlinks one itself, admins included.
-- **Guild Membership Verification**: Uses a Discord Bot Token to check whether a linked user is an active member in your Discord server (`GET /guilds/{guild_id}/members/{user_id}`). Being in the server is what gives an account noprofit.space's Discord tier (more memory); the panel role (e.g. `Discord Linked`) only marks it.
+- **Linked where accounts live**: with plugged-host-noprofit, Discord accounts are linked and unlinked on noprofit.space, which mirrors the link to the panel (`POST /api/noprofit/discord/link`); the panel never links or unlinks one itself, admins included. Standalone, users link Discord on their profile page (Pelican's Discord OAuth).
+- **Guild Membership Verification**: Uses a Discord Bot Token to check whether a linked user is an active member in your Discord server (`GET /guilds/{guild_id}/members/{user_id}`). Being in the server is what gives an account the Discord tier (more memory: noprofit.space's with plugged-host-noprofit, else plugged-host-economy's `COMPUTE_DISCORD_*`); the panel role (e.g. `Discord Linked`) only marks it.
 - **Invite Rewards & 30-Day Anti-Alt Verification**: Tracks invites and verifies joined user account ages via Snowflake timestamps. Only accounts at least 30 days old are rewarded.
 - **Server Boost Rewards**: Detects active Discord server boosters and pays each boost level once (1 boost = 500 credits, 2 boosts = 1,250 in total by default).
-- **Discord rewards tab** on the profile page (`/profile?tab=discord-rewards`, `Livewire\DiscordRewards`): credits earned on Discord, invites paid / waiting (with the next payout time) / left / too new / owed back, both boost levels, the rules, a "Check for new rewards" button (once a minute) and the reward history. The Resource Store and the perk cards link here. Without a linked Discord it points to noprofit.space.
+- **Rewards need plugged-host-economy**: without it no credits can move, so matured invites and boost levels stay unpaid (pending) instead of being marked paid; they are paid, once, as soon as economy is enabled.
+- **Discord rewards tab** on the profile page (`/profile?tab=discord-rewards`, `Livewire\DiscordRewards`): credits earned on Discord, invites paid / waiting (with the next payout time) / left / too new / owed back, both boost levels, the rules, a "Check for new rewards" button (once a minute) and the reward history. The Resource Store and the perk cards link here. Without a linked Discord it points to where Discord is linked (noprofit.space, or the profile page). The "Join the Discord server" buttons only show while `DISCORD_INVITE_URL` is set.
 - **Discord Bot & Slash Commands**: `/invites [user]` and `/topinvites` for everyone; `/setboost` only for members with the Administrator permission (checked server-side). The HTTP interactions endpoint refuses every request without a valid Ed25519 signature, and refuses everything while no public key is set.
 - **Invite Escrow & Clawback**: An invite counts on join but only pays after the invited member has stayed for the hold period, and is uncounted (with credits recovered) if they leave. A departure is only ever recorded on an affirmative Discord `404` — a timeout, a rate limit or a revoked token leaves the row alone and retries, because uncounting on a maybe silently deletes an inviter's credit. `--restore` re-checks rows marked as gone and puts back any member Discord still reports as present.
-- **Giveaways moved to noprofit.space** (Admin › Giveaways, paid in credits). `php artisan plugged-host:discord-giveaways-export <file>` writes the panel's giveaway history for `noprofit:giveaways-import` there; the `discord_giveaways*` tables stay as history.
+- **Giveaways** are rux's (plugged-host-ai). Standalone the panel pays the winners through plugged-host-economy and records them in `discord_giveaways*` (`LocalDiscordCreditPayouts`); with plugged-host-noprofit noprofit.space pays them (Admin › Giveaways there), and that plugin's `plugged-host:discord-giveaways-export <file>` hands the panel's old giveaway history to `noprofit:giveaways-import`.
 - **Sync on Login & Hourly Cron**: Continuously verifies members upon panel login and via scheduled hourly artisan tasks.
 
 ## Installation & Setup
@@ -29,7 +30,7 @@ A Pelican Panel plugin providing Discord account linking, guild membership verif
      - **Discord Guild / Server ID**: Your Discord server snowflake ID.
      - **Discord Bot Token**: Your bot's secret token.
      - **Minimum Account Age for Invites**: Default `30` days.
-     - **Discord Server Invite URL**: e.g., `https://discord.gg/plugged-host-1502647500295635085`.
+     - **Discord Server Invite URL**: e.g. `https://discord.gg/yourinvite` (optional; empty hides every invite link and button).
      - **Assigned Panel Role**: The role to assign (default: `Discord Linked`).
    - Click **Save**.
 
@@ -50,7 +51,9 @@ A Pelican Panel plugin providing Discord account linking, guild membership verif
    rebuilt host, a wiped crontab), the panel notices and reinstalls it by itself.
 
 4. **Discord tier**: what members of the Discord server get in CPU, memory and disk is the
-   Discord tier on noprofit.space (Admin › Settings); there are no role limits on the panel.
+   Discord tier: on noprofit.space (Admin › Settings) with plugged-host-noprofit, otherwise in the
+   economy plugin's settings (`COMPUTE_DISCORD_CPU`, `_MEMORY`, `_DISK`). There are no role limits
+   on the panel.
 
 ## Artisan Commands
 
@@ -105,8 +108,8 @@ Laravel's scheduler needs anyway:
 reinstall:
 
 ```bash
-# idempotent — adds the line only if no schedule:run for this panel is present,
-# then starts the daemon
+# idempotent — adds the line only if no schedule:run for this panel is present
+# (in the web user's crontab, /etc/crontab or /etc/cron.d), then starts the daemon
 sudo -u www-data php /var/www/pelican/artisan plugged-host:discord-bot-install
 
 # same thing, with the host-level checks (PHP path, cron installed, user exists)

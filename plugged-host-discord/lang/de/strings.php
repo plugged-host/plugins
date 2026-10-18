@@ -18,7 +18,7 @@ return [
     'rewards' => [
         'tab' => 'Discord-Belohnungen',
         'heading' => 'Credits auf Discord verdienen',
-        'unlinked_body' => 'Lade Freunde auf den plugged.host-Discord-Server ein und booste ihn, um Credits zu verdienen: :credits für jeden Freund, der bleibt. Verknüpfe dein Discord-Konto, um loszulegen.',
+        'unlinked_body' => 'Lade Freunde auf den :app-Discord-Server ein und booste ihn, um Credits zu verdienen: :credits für jeden Freund, der bleibt. Verknüpfe dein Discord-Konto, um loszulegen.',
         'link_discord' => 'Discord verknüpfen',
         'link_discord_on' => 'Discord auf :portal verknüpfen',
         'join_server' => 'Dem Discord-Server beitreten',
@@ -50,7 +50,7 @@ return [
         'debt_hint' => 'Für Freunde, die nach der Auszahlung gegangen sind. Wird von deinen nächsten Einladungsbelohnungen abgezogen.',
         'legacy' => 'Vor Beginn der Zählung',
         'legacy_hint' => 'Einladungen von vor der Einladungszählung. Gezählt, nicht ausgezahlt.',
-        'invites_how' => 'Nutze auf dem plugged.host-Discord-Server „Leute einladen“ und teile diesen Link. Jeder, der über deinen eigenen Link beitritt, zählt für dich.',
+        'invites_how' => 'Nutze auf dem :app-Discord-Server „Leute einladen“ und teile diesen Link. Jeder, der über deinen eigenen Link beitritt, zählt für dich.',
         'boosts_heading' => 'Den Server boosten',
         'boosting' => '{1} Du boostest den Server. Danke!|[2,*] Du boostest den Server mit :count Boosts. Danke!',
         'not_boosting' => 'Du boostest den Server gerade nicht.',

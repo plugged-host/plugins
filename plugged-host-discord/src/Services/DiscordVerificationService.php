@@ -76,11 +76,11 @@ class DiscordVerificationService
     }
 
     /**
-     * Get the configured Discord server invite URL.
+     * Get the configured Discord server invite URL ('' when none is set).
      */
     public function getInviteUrl(): string
     {
-        return (string) config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085');
+        return trim((string) config('plugged-host-discord.invite_url', ''));
     }
 
     /**
@@ -1071,6 +1071,12 @@ class DiscordVerificationService
 
         $creditsPerInvite = $this->getCreditsPerInvite();
 
+        // Nothing can be paid without plugged-host-economy: leave every matured row pending, so it
+        // is paid (once) when economy is enabled, instead of being marked rewarded for nothing.
+        if ($creditsPerInvite > 0 && !Plugins::available(UserCredits::class)) {
+            return $summary;
+        }
+
         $query = DiscordInvitedMember::query()->matured();
         if ($inviterDiscordId !== null) {
             $query->where('inviter_discord_id', $inviterDiscordId);
@@ -1879,7 +1885,9 @@ class DiscordVerificationService
 
         // noprofit.space pays the boost rewards, for boosts on any of its Discord servers
         // (DiscordServersStatus); then this only keeps plugged.host's own boost state and role.
-        $paysBoosts = !app(DiscordServersStatus::class)->available();
+        // Without plugged-host-economy nothing can be paid: boosts_rewarded stays where it is, so
+        // the levels are paid (once) when economy is enabled instead of being marked paid now.
+        $paysBoosts = !app(DiscordServersStatus::class)->available() && Plugins::available(UserCredits::class);
 
         if ($paysBoosts && $boostCount >= 1 && $previousRewarded < 1) {
             $creditsToAward += $this->getCreditsPerBoost1();

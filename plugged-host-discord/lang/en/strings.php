@@ -18,7 +18,7 @@ return [
     'rewards' => [
         'tab' => 'Discord rewards',
         'heading' => 'Earn credits on Discord',
-        'unlinked_body' => 'Invite friends to the plugged.host Discord server and boost it to earn credits: :credits for every friend who stays. Link your Discord account to start.',
+        'unlinked_body' => 'Invite friends to the :app Discord server and boost it to earn credits: :credits for every friend who stays. Link your Discord account to start.',
         'link_discord' => 'Link Discord',
         'link_discord_on' => 'Link Discord on :portal',
         'join_server' => 'Join the Discord server',
@@ -50,7 +50,7 @@ return [
         'debt_hint' => 'For friends who left after you were paid. Taken from your next invite rewards.',
         'legacy' => 'Before tracking started',
         'legacy_hint' => 'Invites from before invite tracking. Counted, not paid.',
-        'invites_how' => 'In the plugged.host Discord server, use Invite People and share that link. Everyone who joins through your own link counts for you.',
+        'invites_how' => 'In the :app Discord server, use Invite People and share that link. Everyone who joins through your own link counts for you.',
         'boosts_heading' => 'Boost the server',
         'boosting' => '{1} You are boosting the server. Thank you!|[2,*] You are boosting the server with :count boosts. Thank you!',
         'not_boosting' => 'You are not boosting the server right now.',

@@ -411,12 +411,30 @@ class DiscordBotSupervisor
     /**
      * Any `artisan schedule:run` for this panel counts, however it was installed —
      * the point is that something drives the scheduler, not that we wrote the line.
+     * That includes the system crontabs (/etc/crontab, /etc/cron.d), where many
+     * installs put it: adding ours next to one of those would run every task twice.
      */
     public function schedulerTriggerInstalled(): bool
     {
-        $crontab = $this->readCrontab();
+        if ($this->crontabRunsScheduler((string) $this->readCrontab())) {
+            return true;
+        }
 
-        if ($crontab === null || trim($crontab) === '') {
+        foreach ($this->systemCrontabs() as $path) {
+            if ($this->crontabRunsScheduler((string) @file_get_contents($path))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a crontab's text has an uncommented `schedule:run` line for this panel's artisan.
+     */
+    protected function crontabRunsScheduler(string $crontab): bool
+    {
+        if (trim($crontab) === '') {
             return false;
         }
 
@@ -435,6 +453,30 @@ class DiscordBotSupervisor
         }
 
         return false;
+    }
+
+    /**
+     * The readable system crontabs: /etc/crontab and the files in /etc/cron.d that cron reads
+     * (not hidden files, editor backups or package leftovers such as foo.dpkg-old).
+     *
+     * @return list<string>
+     */
+    protected function systemCrontabs(): array
+    {
+        $paths = ['/etc/crontab'];
+
+        foreach (@glob('/etc/cron.d/*') ?: [] as $path) {
+            $name = basename($path);
+
+            if (str_starts_with($name, '.') || str_ends_with($name, '~')
+                || preg_match('/\.(dpkg-[a-z]+|rpm[a-z]+|bak|old|orig|swp)$/i', $name) === 1) {
+                continue;
+            }
+
+            $paths[] = $path;
+        }
+
+        return array_values(array_filter($paths, static fn (string $path): bool => @is_file($path) && @is_readable($path)));
     }
 
     /**
