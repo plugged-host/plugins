@@ -21,10 +21,18 @@ recovery starts).
   creates it with the egg install), *restoring* (wings streams the mirror archive over it, s3
   adapter, a temporary backup row carries the callback), *done* (servers' `ServerMoved`, so
   subdomains repoint; the owner is told the new address). Failures back off for 30 minutes and
-  notify at most once a day; suspended servers and system servers stay put.
+  notify the owner at most once a day (only the log and the `node_failovers` row record them for
+  admins); suspended servers and system servers stay put. A done recovery fences only the outage
+  it answered: if the node the server was recovered to fails later, the server is recovered
+  again. It still fences while the server is back on the node it was recovered off and that node
+  has not answered a probe since (core keeps 30 minutes of probes; older than that counts as the
+  same outage); a done drill never fences.
   `plugged-host:failover-sweep --drill=<server>` rehearses one on a healthy node,
-  `--resume=<record>` retries a failed restore. **Operator override in effect:** fully automatic
-  after ~5 minutes offline (`STORAGE_FAILOVER_MODE=auto`).
+  `--resume=<record>` retries a failed restore, `--dry-run` reports without recovering or
+  notifying. `STORAGE_FAILOVER_MODE=off` stops the sweep entirely: recoveries under way wait until
+  the mode is `notify` or `auto` again, and `--drill` / `--resume` are refused (nothing would carry
+  them past their first step). **Operator override in effect:** fully automatic after ~5 minutes
+  offline (`STORAGE_FAILOVER_MODE=auto`).
 - **Deleted servers**: a server deleted by an admin, or by the panel itself (abuse purge, an
   account deleted through noprofit, ...), keeps its copy on the storage box for
   `STORAGE_DELETED_HOLD_DAYS` (7) days and stays listed, under its ID, for its owner on the backups
@@ -67,6 +75,7 @@ recovery starts).
 | `backup_agent_url` / `backup_agent_secret` / `backup_mirror_public_key` | `STORAGE_BACKUP_AGENT_URL` / `STORAGE_BACKUP_AGENT_SECRET` / `STORAGE_BACKUP_MIRROR_PUBLIC_KEY` | The same three for the backup server (optional; `plugged-host:storage-setup --backup` sets them) |
 | `failover_mode` | `STORAGE_FAILOVER_MODE` (`auto`) | `off` \| `notify` \| `auto` |
 | `failover_after_failures` | `STORAGE_FAILOVER_AFTER_FAILURES` (`5`) | Consecutive minute-probe failures before acting |
+| `failover_max_per_run` | `STORAGE_FAILOVER_MAX_PER_RUN` (`5`) | Servers one sweep starts recovering (or notifies about, in `notify` mode) |
 | `failover_max_in_flight` | `STORAGE_FAILOVER_MAX_IN_FLIGHT` (`3`) | Recoveries installing or restoring at once |
 | `min_free_percent` / `mirror_snapshots` | `STORAGE_*` | Agent free-space floor + snapshot retention (sent to the agent in the plan) |
 | `deleted_hold_days` | `STORAGE_DELETED_HOLD_DAYS` (`7`) | Days an admin-deleted server's copy is kept |
@@ -117,7 +126,8 @@ the top of `agent/install.sh`). It sets `PH_MIRROR_JOBS` to half the cores (1 to
 
 - Offers: `StorageService::limboNode()` / `limboNodes()` / `archiveUrlFor()` (limbo → storage seam),
   `/api/client/servers/{server}/replica`, the agent HTTP surface (`/plugged-host/storage/agent/*`).
-- Consumes: core's `NodeTelemetry::consecutiveFailures()` (failover witness) and
+- Consumes: core's `NodeTelemetry::consecutiveFailures()` (failover witness) / `samples()` (has a
+  node answered since a recovery finished) and
   `SystemServers`; servers' `TransferPlanner`, `LocationCatalog` and `ServerMoved` (failover,
   while plugged-host-servers is enabled); upstream `DaemonServerRepository` /
   `DaemonBackupRepository`.
