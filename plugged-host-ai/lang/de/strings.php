@@ -44,6 +44,7 @@ return [
         'usage_title' => ':window: :percent% genutzt · zurückgesetzt :time',
         'model' => 'Modell',
         'model_multiplier' => ':multiplierx Verbrauch',
+        'no_limit' => 'Kein Nutzungslimit',
         'model_weekly' => 'Wochenlimit',
         'model_plan' => ':plan',
         'model_locked' => ':model gibt es nur mit :app :plan.',

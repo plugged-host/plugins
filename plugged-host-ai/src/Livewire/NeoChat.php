@@ -581,8 +581,12 @@ class NeoChat extends Component
 
         $current = collect($allowed)->contains('key', $picked) ? $picked : $catalog['default'];
 
+        $picked = collect($catalog['models'])->firstWhere('key', $current);
+
         return [
             'current' => $current,
+            // Shown in the bars' place: the picked model is not metered at all (limits by model).
+            'unlimited' => $catalog['mode'] === 'models' && is_array($picked) && empty($picked['limited']),
             'list' => $catalog['models'],
             'mode' => $catalog['mode'],
             'plus_url' => self::plusUrl(),

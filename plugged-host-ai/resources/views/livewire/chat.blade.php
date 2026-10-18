@@ -524,6 +524,10 @@
                                 </div>
                             @endif
 
+                            @if(!$usage && !empty($models['unlimited']))
+                                <div class="neo-meter neo-meter-note">{{ $s('chat.no_limit') }}</div>
+                            @endif
+
                             @if($usage)
                                 <div class="neo-meter">
                                     @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm'], 'week' => [$s('chat.window_long'), 'ddd HH:mm']] as $window => [$windowLabel, $format])

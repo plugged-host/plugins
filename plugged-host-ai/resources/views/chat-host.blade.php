@@ -128,6 +128,7 @@
     .neo-model-hint { font-size: .75rem; color: var(--neo-muted); }
     .neo-model-locked .neo-model-name { color: var(--neo-muted); }
     .neo-model-check { color: var(--neo-accent-text); }
+    .neo-meter-note { justify-content: flex-end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .neo-meter-item { flex: 1; min-width: 0; display: flex; align-items: center; gap: .5rem; }
     .neo-bar { flex: 1; height: .25rem; border-radius: 9999px; background: var(--neo-raise); overflow: hidden; }
     .neo-bar > i { display: block; height: 100%; min-width: .25rem; border-radius: inherit; background: var(--neo-accent-text); }
