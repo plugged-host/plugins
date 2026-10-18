@@ -10,6 +10,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Exceptions\TransferException;
 use PluggedHost\Servers\Models\ServerRelocation;
 use PluggedHost\Servers\Services\Transfers\TransferPlanner;
@@ -29,7 +30,8 @@ use Throwable;
  *     sees it in the server's Transfers tab like any other.
  *  2. The CPU PlusPlus added comes off, but only what the servers use beyond the allowance now,
  *     taken evenly from every server (two servers 25% each, five 10% each), never below
- *     MIN_CPU on any one of them.
+ *     MIN_CPU on any one of them. Under the account's provisioning lock, like AllowanceTrim, so
+ *     a lower base arriving at the same time never takes the same CPU twice.
  *
  * A lapse counts as settled (user_memberships.plusplus_settled_at) once no server is left on a
  * Premium location; until then the sweep comes back, so a full location is retried. Buying
@@ -93,8 +95,10 @@ class PlusPlusExpiry
         $this->forget($user);
 
         [$report['moved'], $report['waiting']] = $this->moveOffPremium($user, $dryRun);
-        $report['trimmed'] = $this->trimCpu($user, $dryRun);
-        $report['settled'] = $report['waiting'] === [];
+        $trimmed = $this->trimCpu($user, $dryRun);
+        $report['trimmed'] = $trimmed ?? [];
+        // A busy account (a create, resize or other trim running) is trimmed on the next sweep.
+        $report['settled'] = $report['waiting'] === [] && $trimmed !== null;
 
         if (!$dryRun) {
             if ($report['settled']) {
@@ -197,25 +201,53 @@ class PlusPlusExpiry
     /**
      * Take what the servers use beyond the allowance off them, evenly.
      *
-     * @return array<string, int> server name => CPU (%) taken off
+     * @return array<string, int>|null server name => CPU (%) taken off; null when the account
+     *                                 was busy and nothing was looked at
      */
-    private function trimCpu(User $user, bool $dryRun): array
+    private function trimCpu(User $user, bool $dryRun): ?array
     {
+        try {
+            [$trimmed, $changed] = ServerProvisioner::oneAtATime($user, fn (): array => $this->cutCpu($user, $dryRun));
+        } catch (ProvisioningException) {
+            return null;
+        }
+
+        foreach ($changed as $server) {
+            try {
+                app(DaemonServerRepository::class)->setServer($server)->sync();
+            } catch (Throwable $e) {
+                // The panel's limit is what counts; wings picks it up on the next start.
+                Log::info('[plugged-host-servers] CPU trim saved, wings not updated live', ['server' => $server->uuid, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * Under the account's provisioning lock: the CPU over the allowance, off the servers evenly.
+     *
+     * @return array{0: array<string, int>, 1: list<Server>} server name => CPU (%) taken off, the servers changed
+     */
+    private function cutCpu(User $user, bool $dryRun): array
+    {
+        $this->forget($user);
         $allowance = AccountAllowance::forUser($user);
 
         if ($allowance === null || $allowance->cpu <= 0) {
-            return [];
+            return [[], []];
         }
 
         $servers = Server::query()->where('owner_id', $user->getKey())->where('cpu', '>', 0)->orderBy('id')->get();
         $over = (int) $servers->sum('cpu') - $allowance->cpu;
 
         if ($over <= 0) {
-            return [];
+            return [[], []];
         }
 
         $cuts = $this->evenCuts($servers->mapWithKeys(fn (Server $server): array => [$server->getKey() => (int) $server->cpu])->all(), $over);
         $trimmed = [];
+        $changed = [];
 
         foreach ($servers as $server) {
             $cut = $cuts[$server->getKey()] ?? 0;
@@ -231,18 +263,12 @@ class PlusPlusExpiry
             }
 
             $server->update(['cpu' => (int) $server->cpu - $cut]);
-
-            try {
-                app(DaemonServerRepository::class)->setServer($server)->sync();
-            } catch (Throwable $e) {
-                // The panel's limit is what counts; wings picks it up on the next start.
-                Log::info('[plugged-host-servers] CPU trim saved, wings not updated live', ['server' => $server->uuid, 'error' => $e->getMessage()]);
-            }
+            $changed[] = $server;
         }
 
         $this->forget($user);
 
-        return $trimmed;
+        return [$trimmed, $changed];
     }
 
     /**
