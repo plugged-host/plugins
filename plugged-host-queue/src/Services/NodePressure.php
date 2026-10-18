@@ -89,7 +89,7 @@ class NodePressure
         return $this->pressure($node) !== null;
     }
 
-    /** Is this node's disk over the placement line? Core's threshold, core's answer. */
+    /** Is this node's disk over the placement line? servers' threshold, servers' answer. */
     public function storagePressured(?Node $node): bool
     {
         $capacity = $this->capacity();
@@ -163,12 +163,6 @@ class NodePressure
         return $configured > 0 && $configured <= 100 ? $configured : 85.0;
     }
 
-    /** Whether the node has a live utilisation reading at all (WP11 paced-fallback decision). */
-    public function measurable(?Node $node): bool
-    {
-        return $this->usage($node) !== null;
-    }
-
     /**
      * Which dimensions queue a start. Config, but filtered against what a reading
      * actually contains — a typo would otherwise silently mean "nothing is ever
@@ -193,7 +187,7 @@ class NodePressure
     }
 
     /**
-     * Core's capacity service, or null when core is not loaded.
+     * servers' capacity service, or null when plugged-host-servers is not loaded.
      *
      * Not memoised: this class is resolved per request and the container already
      * caches nothing here worth keeping — `NodeCapacity` is stateless and its own

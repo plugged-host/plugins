@@ -15,14 +15,14 @@ use Filament\Schemas\Components\Section;
  * The queue's Filament plugin: page discovery per panel, and the settings form.
  *
  * There is almost nothing here, and that is the design. The queue has one page, in one
- * panel, and it is never navigated to — everything else it does happens inside a
- * Livewire interceptor plugged-host-ads owns and inside a scheduled command. What this
- * class contributes is the admin's view of the thresholds, which matter enough to be
- * editable without an SSH session.
+ * panel, and it is never navigated to — everything else it does happens inside core's
+ * StartChain (the one Livewire start hook, where the queue is a StartGate) and inside a
+ * scheduled command. What this class contributes is the admin's view of the timing and
+ * the busy line, which matter enough to be editable without an SSH session.
  *
- * The two capacity thresholds are deliberately *not* here. They live in
- * plugged-host-core's settings, because the allocator uses the same numbers and two
- * forms writing two copies of "how full is too full" is how they drift apart.
+ * The busy line (START_QUEUE_THRESHOLD_PERCENT) is also the line plugged-host-servers'
+ * deployment pause takes nodes out of new servers at, so it is set here once and read
+ * there. The disk line is servers' NODES_STORAGE_PERCENT.
  */
 class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
 {
@@ -56,7 +56,6 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
             'exempt_roles_skip' => (bool) config('plugged-host-queue.exempt_roles_skip', true),
             'pressure_dimensions' => (string) config('plugged-host-queue.pressure.dimensions', 'memory,cpu'),
             'threshold_percent' => (float) config('plugged-host-queue.threshold_percent', 85),
-            'paced_on_unavailable' => (bool) config('plugged-host-queue.paced_on_unavailable', true),
             'min_wait' => (int) config('plugged-host-queue.min_wait', 10),
             'max_wait' => (int) config('plugged-host-queue.max_wait', 600),
             'release_interval' => (int) config('plugged-host-queue.release_interval', 20),
@@ -106,17 +105,10 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
                         ->label(trans('plugged-host-queue::strings.threshold_percent'))
                         ->helperText(trans('plugged-host-queue::strings.threshold_percent_helper'))
                         ->numeric()
-                        ->minValue(0)
+                        ->minValue(1)
                         ->maxValue(100)
                         ->suffix('%')
                         ->default(fn () => config('plugged-host-queue.threshold_percent', 85)),
-                    Toggle::make('paced_on_unavailable')
-                        ->label(trans('plugged-host-queue::strings.paced_on_unavailable'))
-                        ->helperText(trans('plugged-host-queue::strings.paced_on_unavailable_helper'))
-                        ->inline(false)
-                        ->onIcon(TablerIcon::Check)
-                        ->offIcon(TablerIcon::X)
-                        ->default(fn () => config('plugged-host-queue.paced_on_unavailable', true)),
                 ]),
 
             Section::make(trans('plugged-host-queue::strings.section_timing'))
@@ -176,7 +168,7 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
                         ->offIcon(TablerIcon::X)
                         ->default(fn () => config('plugged-host-queue.transfer.enabled', true)),
                     Toggle::make('transfer_require_priority')
-                        ->label(trans('plugged-host-queue::strings.transfer_require_priority'))
+                        ->label(trans('plugged-host-queue::strings.transfer_require_priority', ['app' => config('app.name')]))
                         ->helperText(trans('plugged-host-queue::strings.transfer_require_priority_helper'))
                         ->inline(false)
                         ->onIcon(TablerIcon::Check)
@@ -214,8 +206,7 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
             'START_QUEUE_INCLUDE_RESTART' => !empty($data['include_restart']) ? 'true' : 'false',
             'START_QUEUE_EXEMPT_ROLES_SKIP' => !empty($data['exempt_roles_skip']) ? 'true' : 'false',
             'START_QUEUE_PRESSURE_DIMENSIONS' => $this->dimensions($data['pressure_dimensions'] ?? ''),
-            'START_QUEUE_THRESHOLD_PERCENT' => (string) $this->clampFloat($data['threshold_percent'] ?? 85, 0, 100),
-            'START_QUEUE_PACED_ON_UNAVAILABLE' => !empty($data['paced_on_unavailable']) ? 'true' : 'false',
+            'START_QUEUE_THRESHOLD_PERCENT' => (string) $this->clampFloat($data['threshold_percent'] ?? 85, 1, 100),
 
             'START_QUEUE_MIN_WAIT' => (string) $minWait,
             'START_QUEUE_MAX_WAIT' => (string) $maxWait,
@@ -258,7 +249,7 @@ class PluggedHostQueuePlugin implements HasPluginSettings, Plugin
     /**
      * The busy threshold is a percentage, not a whole count, so it clamps as a float —
      * an admin who wants 82.5% should not have it silently rounded to a different line
-     * than the one the allocator reads back.
+     * than the one the deployment pause reads back.
      */
     protected function clampFloat(mixed $value, float $min, float $max): float
     {

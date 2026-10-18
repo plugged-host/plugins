@@ -109,13 +109,18 @@ class StartQueueService implements StartGate
     }
 
     /**
-     * The contract plugged-host-ads calls. A URL takes the start; null leaves it alone.
+     * The StartGate contract core's StartChain calls. A URL takes the start; null leaves it alone.
+     *
+     * Every start of somebody who is not exempt and holds no pass joins the line — the node is
+     * not measured here. The wait is at least `min_wait`, releases on one node are spaced by
+     * `release_interval`, and the node's load is checked when the entry is released
+     * (`releaseReason()`), never on the click.
      *
      * The order of the refusals is the interesting part. Authorisation comes before
      * anything else because a subuser without ControlStart must get upstream's error
      * and not a waiting page for a start that was never going to happen. The conflict
-     * check comes before the measurement for the same reason: a suspended server's
-     * Start press has a correct answer already, and it is not "please wait".
+     * check comes before the line for the same reason: a suspended server's Start press
+     * has a correct answer already, and it is not "please wait".
      *
      * The URL is built before the row is written, so a page that cannot be routed
      * (panel not registered, plugin half-installed) means the start goes through
@@ -135,9 +140,9 @@ class StartQueueService implements StartGate
             return null;
         }
 
-        // Already in line: hand back the same page rather than judging the node
-        // again. Pressing Start in a second tab must not create a second place, and
-        // the unique index on `server_id` would not let it anyway.
+        // Already in line: hand back the same page rather than taking a second place.
+        // Pressing Start in a second tab must not create one, and the unique index on
+        // `server_id` would not let it anyway.
         $existing = $this->waitingEntry($server);
 
         if ($existing instanceof StartQueueEntry) {
@@ -179,31 +184,6 @@ class StartQueueService implements StartGate
         return $this->enqueue($user, $server, $node, $action) instanceof StartQueueEntry
             ? $url
             : null;
-    }
-
-    /** Whether a start is paced on a node whose utilisation cannot be read (WP11). */
-    public function pacedOnUnavailable(): bool
-    {
-        return (bool) config('plugged-host-queue.paced_on_unavailable', true);
-    }
-
-    /**
-     * Is anyone already waiting in line for this node? (WP11 line preservation.)
-     *
-     * When a line has formed, a fresh non-exempt click joins the back of it rather than being
-     * let straight through on a momentary dip in node load — which is how starts used to jump
-     * ahead of servers already waiting.
-     */
-    public function hasWaitingQueue(Node $node): bool
-    {
-        try {
-            return StartQueueEntry::query()
-                ->where('node_id', $node->getKey())
-                ->where('status', StartQueueEntry::STATUS_WAITING)
-                ->exists();
-        } catch (Throwable) {
-            return false;
-        }
     }
 
     /** This server's live place in a line, or null when it is not standing in one. */

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.0 (unreleased)
+
+- The README, plugin description and settings texts describe what the queue does: every start of
+  a user who is not exempt and holds no pass waits at least `START_QUEUE_MIN_WAIT`, releases on one
+  node are spaced by `START_QUEUE_RELEASE_INTERVAL`, and the node's load is checked at release
+  (they used to say a start is only held on a node over the line). Core's `StartChain` owns the
+  Livewire hook (the queue is gate 20), and the line is `START_QUEUE_THRESHOLD_PERCENT`, which
+  servers' deployment pause reads too. The behaviour is unchanged.
+- Removed the dead `START_QUEUE_PACED_ON_UNAVAILABLE` setting (nothing read it) and the unused
+  `StartQueueService::pacedOnUnavailable()`, `hasWaitingQueue()` and `NodePressure::measurable()`.
+  `NodePressure::limit()` no longer falls back to servers' removed `NODES_HOT_PERCENT`; a busy
+  line outside 1-100 now falls back to 85, as the deployment pause already did.
+- Self-hosting: "Plus"/"PlusPlus" on the waiting page and in the settings are named after the
+  panel (`APP_NAME`).
+
 ## Unreleased (2.1)
 
 - **Priority comes from plugged.host Plus (level 1) and PlusPlus (level 2)**, read through
