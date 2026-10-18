@@ -308,6 +308,12 @@ class BackupPortalController extends Controller
     {
         $portalUrl = $this->portalBaseUrl();
 
+        // On the panel the session is the panel's: a plain GET must not sign people out of it
+        // (any page could embed this URL). The panel's own logout is the way out there.
+        if (BackupsPortal::onPanel()) {
+            return redirect("{$portalUrl}/");
+        }
+
         auth()->guard()->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

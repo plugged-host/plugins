@@ -14,6 +14,7 @@ use App\Repositories\Daemon\DaemonBackupRepository;
 use App\Repositories\Daemon\DaemonServerRepository;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -283,7 +284,17 @@ class FailoverService
             return false;
         }
 
-        return !$this->answeredSince((int) $server->node_id, $last->finished_at ?? $last->started_at);
+        if ($this->answeredSince((int) $server->node_id, $last->finished_at ?? $last->started_at)) {
+            return false;
+        }
+
+        // Held back only by its finished recovery off this node. Said once an hour, so an operator
+        // can drill or move it when the node did come back in between, past core's probe window.
+        if (rescue(fn () => Cache::add("plugged-host-storage:fenced-by-done:{$last->getKey()}", true, now()->addHour()), false, false)) {
+            Log::info("plugged-host-storage: server {$server->id} skipped: it was recovered off node {$server->node_id} (failover #{$last->getKey()}) and that node has not answered a probe since.");
+        }
+
+        return true;
     }
 
     /** Whether one of core's probes reached the node at or after $since (it keeps 30 minutes). */

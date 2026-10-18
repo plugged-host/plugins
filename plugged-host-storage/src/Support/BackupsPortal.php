@@ -48,8 +48,11 @@ final class BackupsPortal
         return filled($uuidShort) ? self::url() . '/?server=' . rawurlencode((string) $uuidShort) : self::url();
     }
 
+    /** BACKUPS_PORTAL_URL, with https:// in front when it was written without a scheme. */
     private static function configured(): string
     {
-        return trim((string) config('plugged-host-storage.portal_url', ''));
+        $url = trim((string) config('plugged-host-storage.portal_url', ''));
+
+        return $url !== '' && !str_contains($url, '://') ? 'https://' . ltrim($url, '/') : $url;
     }
 }

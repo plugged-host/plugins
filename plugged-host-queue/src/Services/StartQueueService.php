@@ -366,7 +366,7 @@ class StartQueueService implements StartGate
      *
      * The status is claimed with a conditional UPDATE before anything else happens,
      * and a claim that changes no rows is a release somebody else already did. That is
-     * not a rare case: the waiting page polls every two seconds and the sweep runs
+     * not a rare case: the waiting page polls every five seconds and the sweep runs
      * every minute, so both can decide the same entry is ready inside the same second.
      * Whoever writes the row first sends the start; the other returns false and does
      * nothing. Without this the user's container gets two power signals.

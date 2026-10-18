@@ -605,14 +605,23 @@ class Subdomain extends Model implements HasLabel
 
     /**
      * Whether a DNS record comment marks the record as created by this plugin for this
-     * subdomain's server (see recordComment()), under any panel name it had: records made before
-     * a rename are still recognised.
+     * subdomain's server (see recordComment()). Only the current panel name's prefix and the one
+     * every record had before comments took the panel's name count, so a record another panel or
+     * tool made in a shared zone is never taken for ours.
      */
     protected function isOwnRecordComment(?string $comment): bool
     {
-        return is_string($comment)
-            && preg_match('/^Created by (.+ )?Subdomains \(/u', $comment) === 1
-            && str_ends_with($comment, "Server #{$this->server_id})");
+        if (!is_string($comment) || !str_ends_with($comment, "Server #{$this->server_id})")) {
+            return false;
+        }
+
+        foreach ([self::recordComment(''), 'Created by plugged.host Subdomains ('] as $prefix) {
+            if (str_starts_with($comment, rtrim($prefix, ')'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function deleteOnCloudflare(): void

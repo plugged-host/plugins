@@ -183,7 +183,7 @@ return [
         'always_confirm_destructive_hint' => 'Überschreibt die „ohne Nachfrage“-Wahl eines Nutzers für Löschen und Kill.',
         'retention_days' => 'Unterhaltungen aufbewahren (Tage)',
         'support_url' => 'Link zum menschlichen Support',
-        'support_url_hint' => 'Wohin neo Leute für menschliche Hilfe schickt. Leer: die Einladung des Discord-Plugins, falls eine gesetzt ist.',
+        'support_url_hint' => 'Wohin neo Leute für menschliche Hilfe schickt, solange das Discord-Plugin keinen Einladungslink hat (ist einer gesetzt, gilt er).',
         'legal_email' => 'E-Mail für rechtliche Anliegen',
         'legal_email_hint' => 'neo nennt sie für rechtliche Beschwerden (Missbrauch, Urheberrecht, illegale Inhalte). Leer: neo nennt keine.',
         'privacy_email' => 'E-Mail für Datenschutz',
