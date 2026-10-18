@@ -28,6 +28,21 @@ integration (`plugged-host-noprofit`).
 Admin › Plugins › plugged.host Core: the welcome tour (`TOUR_ENABLED`, `TOUR_VERSION`) and the
 sidebar entries to hide (`NAV_HIDDEN_ITEMS`).
 
+The error pages (5xx and maintenance) read, from `.env`:
+
+- `STATUS_PAGE_URL`: the public status page behind their "Status page" button. Unset, it is
+  `STATUS_RSS_BASE_URL` (plugged-host-status's public page); with neither, there is no button.
+- The maintenance page's Discord button is `DISCORD_INVITE_URL` (plugged-host-discord), and its
+  A-ADS ad is `ADS_MAINTENANCE_AADS_UNIT` / `ADS_MAINTENANCE_AADS_WIDTH` (plugged-host-ads), shown
+  only while that plugin is enabled with `ADS_ENABLED` on. Each is left out while empty.
+- Name, favicon and logo are the panel's own (`APP_NAME`, `APP_FAVICON`, `APP_LOGO`).
+
+A suspended server's help button links to `NEO_SUPPORT_URL` (plugged-host-ai), else
+`DISCORD_INVITE_URL`; with neither the page tells the owner to contact the administrators. The
+welcome tour calls the panel by `APP_NAME` and only mentions the Resource Store, Plus and tokens
+while plugged-host-economy (and that part of it) is enabled, and Backups while the backups portal
+(`BACKUPS_PORTAL_URL`) is set.
+
 ## Checking an install
 
 ```bash
