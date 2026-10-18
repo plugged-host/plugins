@@ -8,6 +8,7 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -20,6 +21,7 @@ use PluggedHost\Ai\Contracts\NeoBackend;
 use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Models\NeoMessage;
 use PluggedHost\Ai\Support\ImageInput;
+use PluggedHost\Ai\Support\Markdown\ImagesAsTextExtension;
 use PluggedHost\Ai\Support\MclogsHandoff;
 use PluggedHost\Ai\Support\NeoAccess;
 use PluggedHost\Ai\Support\NeoModel;
@@ -69,6 +71,11 @@ class NeoChat extends Component
      * ever gets the small "turn neo back on" view.
      */
     public string $view = 'chat';
+
+    /** The answer streamed so far in this request (live()), and when it was last rendered. */
+    private string $liveText = '';
+
+    private float $liveRenderedAt = 0;
 
     /**
      * Whether the launcher should exist on this page at all.
@@ -532,12 +539,32 @@ class NeoChat extends Component
      */
     private function live(string $kind, string $text): void
     {
+        if ($kind === 'text') {
+            // The answer so far, rendered as markdown like a finished message and sent whole in
+            // place of the last render, a few times a second.
+            $this->liveText .= $text;
+
+            if (microtime(true) - $this->liveRenderedAt >= 0.15) {
+                $this->liveRenderedAt = microtime(true);
+                $this->stream(self::markdown($this->liveText), true, 'neo-live-text');
+            }
+
+            return;
+        }
+
         match ($kind) {
-            'text' => $this->stream(e($text), false, 'neo-live-text'),
             'thinking' => $this->stream(e($text), false, 'neo-live-think'),
-            'reset' => [$this->stream('', true, 'neo-live-text'), $this->stream('', true, 'neo-live-think')],
+            'reset' => [$this->liveText = '', $this->stream('', true, 'neo-live-text'), $this->stream('', true, 'neo-live-think')],
             default => null,
         };
+    }
+
+    /**
+     * A message's markdown as the chat shows it (chat.blade.php renders finished messages the same way).
+     */
+    public static function markdown(string $text): string
+    {
+        return Str::markdown($text, ['html_input' => 'escape', 'allow_unsafe_links' => false], [new ImagesAsTextExtension()]);
     }
 
     /**

@@ -102,7 +102,6 @@
     .neo-notice { display: flex; gap: .5rem; align-items: flex-start; font-size: .8125rem; padding: .625rem .75rem; border-radius: .75rem; background: color-mix(in oklab, var(--neo-warning) 12%, transparent); color: var(--neo-nav); }
     .neo-notice > .neo-i-sm { color: var(--neo-warning-text); margin-top: .1875rem; }
     .neo-notice-body { flex: 1; display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
-    .neo-live-text { white-space: pre-wrap; }
     .neo-live-think { max-height: 4.5rem; overflow: hidden; display: flex; flex-direction: column-reverse; font-size: .75rem; line-height: 1.5; color: var(--neo-faint); white-space: pre-wrap; word-break: break-word; }
     .neo-live-text:empty, .neo-live-think:empty { display: none; }
     .neo-thought pre { font-family: inherit; color: var(--neo-muted); }
