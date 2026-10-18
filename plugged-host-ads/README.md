@@ -21,12 +21,16 @@ optional ad-funded start gate, without modifying a single core panel file.
   payment) lands the user in a short ad-funded waiting room. The container is sent on its way as the
   room opens rather than when the ads finish, so the room is the ad time the start is paid with, not
   a queue. Satisfying the gate once opens a grace window, so restarts inside it are free.
-- **Token earning** (off by default): the panel's tokens are earned here, from Linkvertise, verified
-  server-side against the publisher API and capped per user per day. Tokens themselves live in
-  `plugged-host-economy` and are spent in `plugged-host-queue` on start-queue priority — nothing in this
-  plugin sells a way past the waiting room.
+- **Token earning** (off by default, independent of the start gate): the panel's tokens are earned
+  here, from Linkvertise, verified server-side against the publisher API and capped per user per day.
+  Tokens themselves live in `plugged-host-economy` and are spent in `plugged-host-queue` on start-queue
+  priority — nothing in this plugin sells a way past the waiting room.
+- **Maintenance page ad**: one A-ADS unit (`ADS_MAINTENANCE_AADS_UNIT`) on the page core shows while
+  the panel is down for maintenance; blank = none.
 - **Admin settings GUI**: **Admin Area → Plugins → plugged.host Ads → Settings**. Everything persists
-  to `pelican/.env`, so hand-editing `.env` is an equivalent path.
+  to `pelican/.env`, so hand-editing `.env` is an equivalent path. A field the form is not showing
+  (the ad-block options while detection is off, the start gate's while the gate is off, Linkvertise's
+  while it is off) keeps its current value on save.
 - **Multi-language**: full English (`en`) and German (`de`) localization.
 - **Strictly modular**: 100% contained in the plugin directory; zero core modifications, no Vite
   assets (all CSS/JS is injected at Filament render hooks).
@@ -199,7 +203,7 @@ and clicks.
 On by default (`ADS_REFRESH_ENABLED`). Every sandboxed banner and native frame on a page (the
 in-content slot, the named slots, the start gate and the start queue's waiting room) reloads once it
 has been **in view** for `ADS_REFRESH_SECONDS` (default 5), or `ADS_REFRESH_PLUS_SECONDS` (default 10)
-for plugged.host Plus owners. PlusPlus sees no ads, so nothing to refresh. Settings: *Ad Refresh*.
+for Plus owners. PlusPlus sees no ads, so nothing to refresh. Settings: *Ad Refresh*.
 
 Only time in view counts: at least half the frame on screen, in a visible tab. A unit below the fold
 or in a background tab is never reloaded, so every refresh is an impression someone could see. The
@@ -363,7 +367,8 @@ straight to their console.
 ### Waiting-room ads
 
 The waiting room is the one surface where this mechanic actually earns, so it carries more formats than
-the rest of the panel — and each one is still its own switch, under **Start Gate — Waiting Room Ads**:
+the rest of the panel — and each one is still its own switch, under **Start Gate — Waiting Room Ads**.
+The start queue's waiting page uses the same switches, so the section is there with the gate off too:
 
 | Switch | Default | What it adds to the page |
 |---|---|---|
@@ -508,7 +513,12 @@ keys into `pelican/.env`.
 | `ADS_ANTIBLOCK_DISMISS_HOURS` | `12` | How long a dismissal is remembered (ignored in `block`) |
 | `ADS_ANTIBLOCK_PROBE` | `true` | Also test whether the ad hosts are reachable |
 | `ADS_ANTIBLOCK_SKIP_CONSOLE` | `true` | Never run on the server console |
-| `ADS_ANTIBLOCK_MESSAGE` | `""` | Replaces the default body text |
+| `ADS_ANTIBLOCK_MESSAGE` | `""` | Replaces the default body text (which names `APP_NAME` and the host of `APP_URL`) |
+| `ADS_IN_GAME_ENABLED` | `true` | Send the in-game `say` to Minecraft servers of owners without Plus |
+| `ADS_IN_GAME_MESSAGE` | `""` | The in-game text; empty = "This server is powered by `APP_NAME`" |
+| `ADS_IN_GAME_INTERVAL` | `60` | Minutes between two messages to one server |
+| `ADS_MAINTENANCE_AADS_UNIT` | `""` | A-ADS unit id for the maintenance page (core renders it); empty = no ad there |
+| `ADS_MAINTENANCE_AADS_WIDTH` | `70%` | Width of that frame: a number with `%`, `px` or `vw` |
 | `ADS_START_ENABLED` | `false` | Turn the start gate on. Needs `ADS_ENABLED` and one configured Adsterra unit |
 | `ADS_START_CPU` | `100` | Gate servers above this CPU %. `0` on a server means unlimited and always gates |
 | `ADS_START_MEMORY` | `2048` | Gate servers above this memory in MB |
@@ -562,7 +572,9 @@ allowed to load.
 
 ## Operational notes
 
-- After changing plugin code or `.env`: `sudo -u www-data php artisan optimize:clear`. Do **not** run
+- After changing plugin code or `.env`: `sudo -u www-data php artisan config:clear`, `route:clear`,
+  `view:clear` and `event:clear`. Not `optimize:clear` or `cache:clear`: they also empty the cache store,
+  which can hold sessions, the queue, rate limits and `artisan down` state. Do **not** run
   `config:cache` — plugin configs are read at runtime and settings live in `.env`.
 - Sponsored banners need their table, so a deploy needs `sudo -u www-data php artisan migrate`
   (`2026_10_17_000000_create_plugged_host_ad_banners_table`). Until it has run the admin page stays
@@ -620,10 +632,11 @@ and each unit's own markup is just the frame. Every one of them carries `data-ph
 attribute is what the collapse signal in the ad-block detector counts. Keep it on anything you add,
 or a blocked page will look like a page with no ads on it.
 
-## a-ads is gone
+## a-ads is gone (except on the maintenance page)
 
-Version 1.2.0 removed the a-ads unit; Adsterra is the only network. `ADS_PROVIDER`, `ADS_UNIT_ID` and
-`ADS_IFRAME_WIDTH` are no longer read, so leaving them in `.env` is harmless but pointless — delete
-them. If nothing was ever pasted into the Adsterra fields, removing a-ads means the slot now renders
+Version 1.2.0 removed the a-ads unit from the panel; Adsterra is the only network there. `ADS_PROVIDER`,
+`ADS_UNIT_ID` and `ADS_IFRAME_WIDTH` are no longer read, so leaving them in `.env` is harmless but
+pointless — delete them. The one A-ADS unit left is the maintenance page's, configured as
+`ADS_MAINTENANCE_AADS_UNIT` / `ADS_MAINTENANCE_AADS_WIDTH` and rendered by core's 503 page. If nothing was ever pasted into the Adsterra fields, removing a-ads means the slot now renders
 nothing at all: `hasUnit()` is "Adsterra is configured, or a sponsored banner for the slots is live",
 and with it false the slot and the detector stand down together (the start gate needs Adsterra itself).

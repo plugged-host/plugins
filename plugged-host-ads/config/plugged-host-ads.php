@@ -169,7 +169,7 @@ return [
     | waiting rooms) reloads after it has been on screen for this many seconds. Only time
     | in view counts: at least half the frame visible, in a visible tab, so a unit below
     | the fold or in a background tab is never reloaded. plus_seconds is the interval for
-    | plugged.host Plus owners (PlusPlus sees no ads at all), never faster than seconds.
+    | Plus owners (PlusPlus sees no ads at all), never faster than seconds.
     | Page-level formats (Social Bar, Popunder) and non-isolated units are not refreshed.
     |
     */
@@ -182,12 +182,24 @@ return [
     /*
     | In-game ads: a console `say` on running Minecraft servers (not proxies), each once per
     | interval at its own minute so the panel never sends them all at once. Owners with
-    | plugged.host Plus (or PlusPlus, or an exempt role) do not get it. Needs ADS_ENABLED.
+    | Plus (or PlusPlus, or an exempt role) do not get it. Needs ADS_ENABLED. An empty
+    | message means "This server is powered by <APP_NAME>" (AdDisplayService::inGameMessage()).
     */
     'in_game' => [
         'enabled' => (bool) env('ADS_IN_GAME_ENABLED', true),
-        'message' => (string) env('ADS_IN_GAME_MESSAGE', 'This server is powered by plugged.host'),
+        'message' => (string) env('ADS_IN_GAME_MESSAGE', ''),
         'interval_minutes' => (int) env('ADS_IN_GAME_INTERVAL', 60),
+    ],
+
+    /*
+    | The maintenance page (core's 503 view, while the panel is down for maintenance) can
+    | carry one A-ADS unit: aads_unit is its numeric id from a-ads.com, empty = no ad there.
+    | width is the frame's CSS width (a number with %, px or vw). Core renders it; nothing
+    | here loads on any other page.
+    */
+    'maintenance' => [
+        'aads_unit' => (string) env('ADS_MAINTENANCE_AADS_UNIT', ''),
+        'width' => (string) env('ADS_MAINTENANCE_AADS_WIDTH', '70%'),
     ],
 
     /*

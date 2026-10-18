@@ -11,8 +11,8 @@ use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
- * The in-game ad: `say <message>` on Minecraft servers whose owner has neither plugged.host
- * Plus nor an ad exemption (PlusPlus, exempt roles). Runs every minute and serves the servers
+ * The in-game ad: `say <message>` on Minecraft servers whose owner has neither Plus nor an
+ * ad exemption (PlusPlus, exempt roles). Runs every minute and serves the servers
  * whose turn it is (server id modulo the interval), so each gets it once per interval and the
  * panel never messages every node at once. Stopped servers simply refuse the command.
  */
@@ -32,7 +32,7 @@ class InGameAdCommand extends Command
             return self::SUCCESS;
         }
 
-        $message = trim(preg_replace('/[\r\n\0]+/', ' ', (string) config('plugged-host-ads.in_game.message', 'This server is powered by plugged.host')) ?? '');
+        $message = $display->inGameMessage();
         $interval = max(5, (int) config('plugged-host-ads.in_game.interval_minutes', 60));
         $slot = intdiv(now()->getTimestamp(), 60) % $interval;
 

@@ -2,6 +2,24 @@
 
 ## 2.2.0 (unreleased)
 
+- **Fix: saving the settings no longer wipes fields the form is not showing.** Filament leaves a
+  hidden field out of the submitted data, and `saveSettings()` wrote false/empty for it: with the
+  start gate off a save switched Linkvertise off and cleared its publisher id and link (no more
+  token earning), turned every `ADS_START_GATE_*` waiting-room format off (also on the start queue's
+  waiting page) and cleared the gate script and Direct Link; with ad-block detection off it turned
+  `ADS_ANTIBLOCK_PROBE` and `ADS_ANTIBLOCK_SKIP_CONSOLE` off. A key missing from the form data now
+  keeps its current value. The token-earning section (Linkvertise, with the claim lifetime moved
+  into it) and the waiting-room ads section show whether the start gate is on or not; only "Also
+  gate server navigation" stays with the gate.
+- **Maintenance page ad**: `maintenance.aads_unit` (`ADS_MAINTENANCE_AADS_UNIT`, default empty = no
+  ad) and `maintenance.width` (`ADS_MAINTENANCE_AADS_WIDTH`, `70%`), with a settings section; core's
+  503 page renders the A-ADS unit from them (it used a fixed unit id before).
+- Self-hosting: the in-game message defaults to "This server is powered by `APP_NAME`"
+  (`ADS_IN_GAME_MESSAGE` empty; saving the default keeps it following the name), the ad-block notice
+  names `APP_NAME` and the host of `APP_URL`, and Plus is named after the panel in the settings.
+- README: clear caches with `config:clear`/`route:clear`/`view:clear`/`event:clear`, never
+  `optimize:clear`.
+
 - **Sponsored banners**: banners the owner sells himself, uploaded in **Admin › Panel › Sponsored
   banners** (PNG, JPG, WebP or GIF up to 4 MB on the public disk under `plugged-host-ads/banners/`;
   link, advertiser, placement, optional start/end, active switch; the list shows status and clicks).
