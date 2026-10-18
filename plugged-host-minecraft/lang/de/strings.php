@@ -361,7 +361,7 @@ return [
         'secret_set_help' => 'Ein Schlüssel ist gesetzt. Leer lassen, um ihn zu behalten, oder einen neuen eingeben, um ihn zu ersetzen.',
         'secret_unset_help' => 'Kein Schlüssel gesetzt. CurseForge-Funktionen sind deaktiviert, bis einer hinterlegt wird.',
         'overrides_limit' => 'Dateilimit für Modpack-Overrides',
-        'overrides_limit_hint' => 'Maximale Anzahl an Dateien, die aus dem overrides/-Verzeichnis eines Modpacks extrahiert werden — ein Schutz gegen ein bösartiges Archiv.',
+        'overrides_limit_hint' => 'Maximale Anzahl an Dateien, die aus dem overrides/-Verzeichnis eines CurseForge-Modpacks extrahiert werden — ein Schutz gegen ein bösartiges Archiv. Für Modrinth-Packs gilt stattdessen eine feste Obergrenze von 96 MiB.',
         'spigotmc_enabled' => 'SpigotMC-Plugins',
         'spigotmc_enabled_hint' => 'SpigotMC als Quelle auf Paper-/Purpur-Servern anbieten (gelesen über Spiget, kein Schlüssel nötig). Installiert werden kann nur die jeweils neueste Version; kostenpflichtige Plugins werden ausgeblendet.',
     ],

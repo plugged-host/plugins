@@ -4,6 +4,11 @@
 
 - Binds servers' `SoftwareSwitcher`, sets new servers up from `ServerProvisioned`, and draws the
   console's "not set up yet" callout itself (moved from core).
+- Ships the Minecraft: Java Edition egg (`egg/egg-minecraft-java.json`, the UUID servers' catalog
+  is keyed to) and `php artisan plugged-host:minecraft-setup [--update] [--dry-run]` to import it;
+  the doctor warns while a catalog egg is missing.
+- One User-Agent for every outside API (`MINECRAFT_USER_AGENT`), by default from the app name and
+  `mail.from.address` instead of plugged.host's.
 - From prod (2.1): Geyser's config goes where each platform reads it (`config/Geyser-NeoForge`
   on NeoForge, not `config/Geyser-Fabric`), and its Bedrock port claim skips allocations a server
   create has reserved.

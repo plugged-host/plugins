@@ -21,6 +21,12 @@ return [
     'spigotmc_enabled' => (bool) env('MINECRAFT_SPIGOTMC_ENABLED', true),
 
     // Cap on the number of files extracted from a CurseForge modpack's overrides/ tree,
-    // mirroring InstallModpackJob's own guard against a hostile archive.
+    // mirroring InstallModpackJob's own guard against a hostile archive (Modrinth packs have
+    // a fixed 96 MiB cap on theirs instead).
     'overrides_limit' => (int) env('MINECRAFT_OVERRIDES_LIMIT', 2000),
+
+    // The User-Agent sent to Modrinth, CurseForge, Spiget, Mojang and the loaders' APIs, which
+    // ask for one that names the application and a contact. Empty: "<app name>-panel/<release>
+    // (<mail.from.address, else the panel URL>)", see Support\UserAgent.
+    'user_agent' => (string) env('MINECRAFT_USER_AGENT', ''),
 ];

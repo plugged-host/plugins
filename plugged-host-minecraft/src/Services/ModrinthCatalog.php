@@ -4,6 +4,7 @@ namespace PluggedHost\Minecraft\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use PluggedHost\Minecraft\Support\UserAgent;
 use Throwable;
 
 /**
@@ -519,7 +520,7 @@ class ModrinthCatalog
     {
         $response = Http::timeout(self::TIMEOUT)
             ->connectTimeout(4)
-            ->withHeaders(['User-Agent' => 'plugged.host-panel/1.0 (support@plugged.host)'])
+            ->withHeaders(['User-Agent' => UserAgent::get()])
             ->asJson()
             ->post($url, $body)
             ->throw()
@@ -536,7 +537,7 @@ class ModrinthCatalog
     {
         $response = Http::timeout(self::TIMEOUT)
             ->connectTimeout(4)
-            ->withHeaders(['User-Agent' => 'plugged.host-panel/1.0 (support@plugged.host)'])
+            ->withHeaders(['User-Agent' => UserAgent::get()])
             ->get($url, $parameters)
             ->throw()
             ->json();

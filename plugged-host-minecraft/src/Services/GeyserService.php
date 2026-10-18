@@ -285,9 +285,11 @@ class GeyserService
         $bedrockPort = $this->bedrockPort($server, $this->configuredBedrockPort($files, $configPath));
         $javaPort = (int) ($server->allocation?->port ?? 25565);
         $authType = $floodgate ? 'floodgate' : 'online';
+        // One line of YAML comment, whatever the app name holds.
+        $brand = trim((string) preg_replace('/[\r\n]+/', ' ', (string) config('app.name', ''))) ?: 'the panel';
 
         $yaml = <<<YAML
-        # Managed by plugged.host (WP6). Geyser fills unset keys with its own defaults on start.
+        # Managed by {$brand} (WP6). Geyser fills unset keys with its own defaults on start.
         bedrock:
           port: {$bedrockPort}
         remote:
