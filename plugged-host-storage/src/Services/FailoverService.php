@@ -49,7 +49,13 @@ use Throwable;
  *              a temporary backup row carries the uuid wings reports the result against).
  *   done       wings reported a successful restore: the temporary row goes, servers'
  *              ServerMoved is dispatched (subdomains repoints DNS from it) and the owner is
- *              told the new address.
+ *              told the new address. A done recovery fences only the outage it answered
+ *              (isFenced()): if the node the server was recovered to fails later, it is
+ *              recovered again.
+ *
+ * Mode `off` stops the sweep altogether: no new recoveries, and those under way wait where they
+ * are until the mode is `notify` or `auto` again (the command refuses --drill and --resume then,
+ * as nothing would carry them on).
  *
  * The destination comes from plugged-host-servers (its transfer planner and location catalog):
  * without that plugin enabled no recovery starts. System servers (devboxes) are never
@@ -66,8 +72,12 @@ class FailoverService
 
     public const RESTORING = 'restoring';
 
-    /** States that mean "this server is taken care of": never start another recovery for it. */
-    private const FENCED_STATES = ['running', 'fenced', 'done', self::CREATING, self::RESTORING];
+    /**
+     * States that mean "this server is taken care of": never start another recovery for it. A
+     * recovery under way, the pre-2026-10-10 code's `running`, and `fenced` (no code writes it;
+     * it holds until an operator clears it). `done` is not one of them: see isFenced().
+     */
+    private const FENCED_STATES = ['running', 'fenced', self::CREATING, self::RESTORING];
 
     private const BACKUP_NAME = 'Recovery from the storage mirror';
 
@@ -131,7 +141,9 @@ class FailoverService
 
                 if ($mode === 'notify') {
                     if (!$this->notifiedRecently($server)) {
-                        $this->notifyOnly($server, $node);
+                        if (!$dryRun) {
+                            $this->notifyOnly($server, $node);
+                        }
                         $acted++;
                     }
                     continue;
@@ -162,10 +174,12 @@ class FailoverService
     /**
      * Rehearse a recovery on one server whose node is healthy: the same path a dead node's
      * servers take, plus removing the old copy from its (live) node once the restore is done.
+     * Never while the mode is off: the sweep that carries a recovery past the move does not run
+     * then, and the server would sit on the destination with a fresh install and none of its files.
      */
     public function drill(Server $server): ?NodeFailover
     {
-        if (SystemServers::is($server) || $this->isFenced($server) || $server->transfer !== null) {
+        if ($this->mode() === 'off' || SystemServers::is($server) || $this->isFenced($server) || $server->transfer !== null) {
             return null;
         }
 
@@ -235,12 +249,61 @@ class FailoverService
             ->exists();
     }
 
+    /**
+     * Whether no recovery of this server may start. One under way (FENCED_STATES) always fences.
+     *
+     * A finished one fences only the outage it answered, so a server is not recovered twice for
+     * one outage and its stale copy on the dead node never counts as the live one. That recovery
+     * took the server off `from_node_id`, and the sweep only looks at servers on a down node, so
+     * it matters only once the server is back on that node: it was put back (a transfer, limbo,
+     * an operator). If that node has not answered a single probe since the recovery finished,
+     * this is still the outage it answered, and a second recovery would leave another copy next
+     * to the one on the first recovery's destination. Everywhere else a down node under the
+     * server is a new outage, recovered like any other:
+     *  - the node it was recovered to fails (also after a resumed recovery, which ends on its
+     *    destination like any other);
+     *  - its old node fails again after it came back and the server was moved back onto it;
+     *  - a drill: its source node was never down, so a done drill never fences.
+     * Core keeps the last 30 minutes of probes: a node that answered none of them, with the
+     * recovery finished before that, counts as the same outage (not acting is the safe
+     * direction; an operator can still move the server or use --drill).
+     */
     private function isFenced(Server $server): bool
     {
-        return NodeFailover::query()
-            ->where('server_id', $server->getKey())
-            ->whereIn('state', self::FENCED_STATES)
-            ->exists();
+        $records = NodeFailover::query()->where('server_id', $server->getKey());
+
+        if ((clone $records)->whereIn('state', self::FENCED_STATES)->exists()) {
+            return true;
+        }
+
+        $last = (clone $records)->where('state', 'done')->latest('id')->first();
+
+        if (!$last instanceof NodeFailover || ($last->detail['mode'] ?? null) === 'drill'
+            || (int) $last->from_node_id !== (int) $server->node_id) {
+            return false;
+        }
+
+        return !$this->answeredSince((int) $server->node_id, $last->finished_at ?? $last->started_at);
+    }
+
+    /** Whether one of core's probes reached the node at or after $since (it keeps 30 minutes). */
+    private function answeredSince(int $nodeId, ?\Carbon\CarbonInterface $since): bool
+    {
+        if ($since === null) {
+            return false;
+        }
+
+        try {
+            foreach (app(NodeTelemetry::class)->samples($nodeId) as $sample) {
+                if (($sample['reachable'] ?? false) && (int) ($sample['at'] ?? 0) >= $since->getTimestamp()) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            // No samples to go by: the same outage.
+        }
+
+        return false;
     }
 
     private function notifyOnly(Server $server, Node $node): void
@@ -769,7 +832,9 @@ class FailoverService
         $server = Server::query()->find($record->server_id);
         if ($notify && $server && !$notifiedBefore) {
             $record->update(['detail' => array_merge($record->detail ?? [], ['notified' => true])]);
-            $this->tell($server, false, 'Your server\'s node went offline and recovering it onto a healthy node did not complete. Support has been alerted.');
+            // The failure is only logged and kept on the node_failovers row: nobody is alerted,
+            // so the owner is not told anyone was.
+            $this->tell($server, false, 'Your server\'s node went offline and recovering it onto a healthy node did not complete. Please contact support if your server stays unavailable.');
         }
     }
 

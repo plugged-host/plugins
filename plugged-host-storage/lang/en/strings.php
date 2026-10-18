@@ -63,6 +63,6 @@ return [
         'failover_after_failures' => 'Failover After N Failures',
         'failover_after_failures_hint' => 'Consecutive failed probes before a node is considered failed.',
         'failover_max_per_run' => 'Max Failovers Per Run',
-        'failover_max_per_run_hint' => 'Safety cap on how many nodes may fail over in a single scheduler run.',
+        'failover_max_per_run_hint' => 'Safety cap on how many servers one sweep (once a minute) starts recovering, or notifies about in Notify mode.',
     ],
 ];

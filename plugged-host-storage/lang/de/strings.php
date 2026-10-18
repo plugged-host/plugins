@@ -63,6 +63,6 @@ return [
         'failover_after_failures' => 'Failover nach N Fehlversuchen',
         'failover_after_failures_hint' => 'Aufeinanderfolgende fehlgeschlagene Prüfungen, bevor ein Node als ausgefallen gilt.',
         'failover_max_per_run' => 'Max. Failover pro Lauf',
-        'failover_max_per_run_hint' => 'Sicherheitsgrenze, wie viele Nodes in einem Scheduler-Lauf umschalten dürfen.',
+        'failover_max_per_run_hint' => 'Sicherheitsgrenze, wie viele Server ein Durchlauf (einmal pro Minute) wiederherzustellen beginnt oder im Modus „Nur benachrichtigen“ meldet.',
     ],
 ];

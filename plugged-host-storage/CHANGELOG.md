@@ -2,6 +2,17 @@
 
 ## 2.2.0 (unreleased)
 
+- **A recovered server is recovered again.** A `done` failover fenced its server for good, so a
+  server recovered (or drilled) once was never recovered again, also when the node it was
+  recovered to failed. A done recovery now fences only the outage it answered: while the server
+  is back on the node it was recovered off and that node has not answered a probe since; a done
+  drill never fences.
+- `plugged-host:failover-sweep --dry-run` no longer notifies owners in `notify` mode. `--drill`
+  and `--resume` are refused while the mode is `off`: the sweep that carries them on does not run
+  then, and a drill left its server moved, freshly installed and without its files.
+- The message after a failed recovery no longer says support was alerted (nothing alerts anyone;
+  the failure is logged): it asks the owner to contact support if the server stays unavailable.
+- "Max Failovers Per Run" counts servers, not nodes (settings hint).
 - **The backup server as the limbo node.** The backup server no longer copies the servers on the
   storage box's own node (the old limbo node): they are on the storage box's drive already, and
   reading them all over that drive was what it is there to spare. The storage box still copies

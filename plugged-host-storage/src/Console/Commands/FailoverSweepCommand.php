@@ -9,19 +9,27 @@ use PluggedHost\Storage\Services\FailoverService;
 
 /**
  * Manual entry point to the failover sweep, for operators to watch its verdicts (especially in
- * the first week) without waiting on the schedule. --dry-run detects but never recovers.
- * --drill=<server id> rehearses a recovery on one server whose node is healthy (the scheduled
- * sweep then carries it through install and restore, and removes the old copy at the end).
- * --resume=<node_failovers id> retries the restore of a failed recovery that already moved its server.
+ * the first week) without waiting on the schedule. --dry-run detects but never recovers or
+ * notifies. --drill=<server id> rehearses a recovery on one server whose node is healthy (the
+ * scheduled sweep then carries it through install and restore, and removes the old copy at the
+ * end). --resume=<node_failovers id> retries the restore of a failed recovery that already moved
+ * its server. Both are refused while STORAGE_FAILOVER_MODE is off: the sweep that carries them on
+ * does not run then, and a drill would leave its server moved, installed fresh and without its files.
  */
 class FailoverSweepCommand extends Command
 {
-    protected $signature = 'plugged-host:failover-sweep {--dry-run : Detect and report but never recover} {--status : Alias for --dry-run} {--drill= : Rehearse a recovery on this server id (its node must be healthy)} {--resume= : Pick a failed recovery (node_failovers id) up again at its restore}';
+    protected $signature = 'plugged-host:failover-sweep {--dry-run : Detect and report but never recover or notify} {--status : Alias for --dry-run} {--drill= : Rehearse a recovery on this server id (its node must be healthy)} {--resume= : Pick a failed recovery (node_failovers id) up again at its restore}';
 
     protected $description = 'Detect offline nodes and (in auto mode) recover their servers from the storage mirror.';
 
     public function handle(FailoverService $failover): int
     {
+        if (($this->option('resume') !== null || $this->option('drill') !== null) && $failover->mode() === 'off') {
+            $this->error('Failover is off (STORAGE_FAILOVER_MODE=off), so no sweep would carry this past its first step. Set the mode to notify or auto first.');
+
+            return self::FAILURE;
+        }
+
         if ($this->option('resume') !== null) {
             $record = NodeFailover::query()->find((int) $this->option('resume'));
             $ok = $record instanceof NodeFailover && $failover->resume($record);
