@@ -18,6 +18,7 @@ use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\RuxToolRegistry;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
 use PluggedHost\Ai\Support\ImageInput;
+use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Ai\Support\MessageContent;
 use PluggedHost\Discord\Contracts\DirectoryUnavailable;
 use PluggedHost\Discord\Contracts\DiscordAccounts;
@@ -250,7 +251,7 @@ final class RuxAgent
         $tool = $this->tools->available($context->level)[$name] ?? null;
 
         if ($tool === null) {
-            return ToolResult::error($this->tools->find($name) === null ? "There is no tool called {$name}." : "{$name} is for noprofit.space admins only; this person is a moderator.");
+            return ToolResult::error($this->tools->find($name) === null ? "There is no tool called {$name}." : "{$name} is for " . app(AccountPortal::class)->name() . ' admins only; this person is a moderator.');
         }
 
         try {

@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use PluggedHost\Ai\Rux\Tools\Moderation\ModerationTool;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
+use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
 
 /**
@@ -23,7 +24,10 @@ final class GiveCreditsTool extends ModerationTool
 
     public function description(): string
     {
-        return 'Give credits to one person\'s noprofit.space account (they must have linked Discord there). Only plugged.host\'s main admin can order this; tell anyone else to ask them.';
+        $portal = app(AccountPortal::class)->name();
+        $app = (string) config('app.name');
+
+        return "Give credits to one person's {$portal} account (they must have linked Discord there). Only {$app}'s main admin can order this; tell anyone else to ask them.";
     }
 
     public function parameters(): array
@@ -40,7 +44,7 @@ final class GiveCreditsTool extends ModerationTool
         $granters = array_map('strval', (array) config('plugged-host-ai.rux.credits.granters', []));
 
         if ($context->order === null || $context->actorAccountId === null || !in_array($context->actorDiscordId, $granters, true)) {
-            throw new InvalidArgumentException('Only plugged.host\'s main admin can have rux give credits.');
+            throw new InvalidArgumentException('Only ' . config('app.name') . '\'s main admin can have rux give credits.');
         }
 
         $credits = $this->int($arguments, 'credits') ?? 0;

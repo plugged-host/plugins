@@ -33,6 +33,8 @@ final class SystemPromptBuilder
             'permissions' => in_array('*', $permissions, true) ? ['all (server owner)'] : $permissions,
             'autoApprove' => NeoPreferences::autoApprove($context->user),
             'supportUrl' => (string) config('plugged-host-ai.support_url'),
+            // The host neo speaks for: this panel's name (APP_NAME), never a fixed one.
+            'appName' => (string) config('app.name'),
             'language' => (string) ($context->user->language ?: 'en'),
         ])->render());
     }

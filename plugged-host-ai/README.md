@@ -48,6 +48,22 @@ Admin → Plugins → plugged.host AI → Settings, tab "neo", edits both: panel
 (this panel's `.env`, or noprofit.space). Use "Test provider" after saving to check a slot answers
 and can call tools.
 
+What neo tells users about this host comes from this panel, never from plugged.host's defaults:
+
+| Panel `.env` | Default | |
+|---|---|---|
+| `APP_NAME` | | the host neo speaks for, in its prompts and the chat |
+| `NEO_SUPPORT_URL` | empty | human help; the Discord plugin's `DISCORD_INVITE_URL` wins when set, with neither neo names no link |
+| `NEO_LEGAL_EMAIL`, `NEO_PRIVACY_EMAIL` | empty | contacts for legal complaints and for privacy requests; empty ones are left out |
+| `NEO_PROVIDER_DISCLOSURE` | empty | the AI providers named in the first-use notice and the settings note (free text). Empty: the original wording (Groq, Anthropic through a proxy) while plugged-host-noprofit runs neo, else a generic sentence |
+| `NEO_LOG_CHECK_ENABLED` | true | the automatic mclo.gs log check (below) |
+| `STATUS_PAGE_URL` (core) | `STATUS_RSS_BASE_URL` | the status page neo names; none when unset |
+| `BACKUPS_PORTAL_URL` (storage) | empty | the backups site neo names next to the Backups page |
+
+The prompts only describe what is switched on: Plus/PlusPlus, credits and tokens need
+plugged-host-economy, noprofit.space's terms plugged-host-noprofit, the off-site mirror and node
+failover plugged-host-storage, subdomains the subdomains plugin.
+
 ### Standalone setup
 
 Without plugged-host-noprofit, neo runs on this panel:
@@ -71,8 +87,8 @@ by copying lines. They go in the panel's `.env` (the form writes them; every one
 | `NEO_DEFAULT_COOLDOWN`, `NEO_CHAIN_DEADLINE`, `NEO_MAX_BUSY_WAIT`, `NEO_MAX_CONCURRENT` | 60, 80, 60, 4 | failover: cooldown after a failure, time budget of a turn, longest wait that is "busy", model calls at once |
 | `NEO_GATEWAY_ENABLED`, `NEO_TOOLS_PROBE` | true, true | neo's turns on/off; ask a slot once whether tools get through |
 
-Limits are tokens (input + output) per account and window, scaled by plugged.host Plus and
-PlusPlus (economy), as on noprofit.space. Endpoints must be public `https` URLs
+Limits are tokens (input + output) per account and window, scaled by Plus and PlusPlus
+(plugged-host-economy), as on noprofit.space. Endpoints must be public `https` URLs
 (`Chat\EndpointGuard`, checked on save and test). Every panel user is "linked": there is no
 "Activate neo" step.
 
@@ -90,14 +106,18 @@ not enable neo); permissions re-checked right before each action; secrets masked
 reaches a provider; tool output is treated as untrusted; every change is written to the server's
 activity log as `server:neo.*`.
 
-### mclo.gs logs ("Ask neo")
+### Automatic log check ("Ask neo")
 
-With the upstream `mclogs-uploader` plugin installed, neo watches for its "Upload logs" console
-action (Laravel's HTTP `ResponseReceived` event, so that plugin stays byte-for-byte upstream).
-When mclo.gs finds problems or errors in the upload, the user also gets a notification listing
-them with **Ask neo to fix it**. That opens a new chat which starts with `read_mclogs` already run
-on the upload (fenced as untrusted tool output, never pasted into the user's message). Only
-uploads the user made from that server in the last two hours can be handed over.
+On Minecraft servers (eggs tagged `minecraft`) the console page checks the server log by itself
+(`Livewire\LogCheckBanner`, `Services\LogCheck`): `logs/latest.log` (or the console's last lines)
+is uploaded to mclo.gs with secrets masked, at most every two minutes while the server runs and
+right away once it stopped, and whatever mclo.gs recognises is shown above the console with its
+suggested fix and **Ask neo to fix it**. That opens a new chat which starts with `read_mclogs`
+already run on the log (fenced as untrusted tool output, never pasted into the user's message).
+Only logs the user was shown for that server in the last two hours can be handed over
+(`Support\MclogsHandoff`). It needs console and file-content access on the server, and it never
+runs while neo is off (`NEO_ENABLED`) or `NEO_LOG_CHECK_ENABLED=false`. There is no upload button
+and no hook into the upstream `mclogs-uploader` plugin any more.
 
 ### Extending
 
@@ -112,9 +132,9 @@ from a provider's `boot()`; a tool implements `PluggedHost\Ai\Tools\Tool`.
 
 ## neo on Discord
 
-neo also answers on the plugged.host Discord server, as its own bot. There it is **account
-support**: anyone may ask, linked or not, about their plugged.host account (and noprofit.space
-account, with plugged-host-noprofit) and how plugged.host works (sign-in, linking Discord, the
+neo also answers on your Discord server, as its own bot. There it is **account
+support**: anyone may ask, linked or not, about their account on this panel (and noprofit.space
+account, with plugged-host-noprofit) and how the host works (sign-in, linking Discord, the
 allowance, credits and tokens, stores, rewards, locations, hibernation, deleting an account,
 where to get help). It is **not server support**: for anything about a server itself it sends people to neo
 in the panel (open the server, click neo), which can read the console and files and fix it.
@@ -167,7 +187,7 @@ sudo -u www-data php /var/www/pelican/artisan plugged-host:neo-bot-ask <discord_
 
 ## rux
 
-rux is the plugged.host Discord bot for moderation and credit giveaways. Admins give it orders
+rux is the Discord bot for moderation and credit giveaways. Admins give it orders
 in plain language (slang and typos are fine) in a DM, by @mentioning it, or by starting a
 message with "hey rux":
 
@@ -175,7 +195,7 @@ message with "hey rux":
 > won the last 2 gws join
 
 rux posts the giveaway with an **Enter** button. At 17:00 Paris time it draws the winner and
-noprofit.space pays them. Nobody who won one of the last two giveaways can enter.
+pays them (through `DiscordCreditPayouts`: plugged-host-economy on this panel, or noprofit.space). Nobody who won one of the last two giveaways can enter.
 
 > hey rux, if anyone asks for any new locations can u give them warn
 
@@ -188,20 +208,24 @@ moderation permissions.
 
 ### Who rux listens to
 
-- **Admins**: Discord accounts linked to a **noprofit.space admin** account (`users.is_admin`).
-  They can order everything except giving credits. noprofit.space is asked on every order, before the model is called.
+- **Admins**: Discord accounts linked to an admin of the account system, asked on every order
+  before the model is called (plugged-host-discord's `DiscordAccounts`). With plugged-host-noprofit
+  that is a **noprofit.space admin** (`users.is_admin` there); standalone a **root admin of this
+  panel** who linked Discord on the panel. They can order everything except giving credits.
 - **The main admin** (`RUX_CREDIT_GRANTERS`, Discord ids; Admin → Plugins → plugged.host AI → rux)
   can also have rux give someone credits (`give_credits`, at most `RUX_CREDIT_MAX`, 10,000 by
   default, at once). The tool checks the order's author itself, so other admins, moderators,
-  standing rules and text rux reads cannot make it pay. noprofit.space books the credits as an
-  admin adjustment on the account the person linked Discord to (`POST /api/v1/internal/rux/credits`,
-  idempotent per grant) and the credit sync brings the balance to plugged.host.
+  standing rules and text rux reads cannot make it pay. The credits are booked as an admin
+  adjustment on the account the person linked Discord to, idempotent per grant: by this panel
+  through plugged-host-economy (`LocalDiscordCreditPayouts`), or with plugged-host-noprofit by
+  noprofit.space (`POST /api/v1/internal/rux/credits`), whose credit sync brings the balance to
+  the panel.
 - **Moderators**: members of a role an admin made a rux moderator role (`set_moderator_role`).
   They can order moderation only: look up members, warn, timeout, kick, ban, unban, change
   nicknames, read, delete and purge messages, lock/slowmode, clear warnings, and see the rules,
   giveaways, case log, bans and role permissions. They only read or delete in channels they can
   see on Discord themselves, and never touch the mod log channel. They can never act on staff,
-  noprofit.space admins, other moderators or themselves. Making a role moderators also gives it Discord's Timeout, Kick,
+  admins, other moderators or themselves. Making a role moderators also gives it Discord's Timeout, Kick,
   Ban and Manage Messages permissions, unless the admin says not to. Taking the role back removes
   exactly what rux added.
 - **Everyone else** is ignored. In DMs they are told once an hour that rux only takes orders from
@@ -214,7 +238,7 @@ providers' API keys, never against anyone's neo limits.
 
 | Giveaways | Moderation and server |
 | --- | --- |
-| `create_giveaway`: credits per winner, end time, winners, channel, keep out the winners of the last N giveaways | `lookup_member`: profile, roles, noprofit.space and plugged.host accounts, giveaway wins, past cases |
+| `create_giveaway`: credits per winner, end time, winners, channel, keep out the winners of the last N giveaways | `lookup_member`: profile, roles, linked accounts, giveaway wins, past cases |
 | `edit_giveaway`: end time, credits, winners, headline | `warn_member`, `timeout_member` (up to 28 days, "0" lifts it), `kick_member`, `ban_member`, `unban_user` |
 | `end_giveaway`: draw now | `purge_messages`: the last N messages, optionally from one person |
 | `cancel_giveaway`: nobody wins | `read_messages`: the latest in a channel (or one person's), or one message by link |
@@ -265,8 +289,12 @@ do not. The settings page says so.
   always-on guidelines: scams/phishing, slurs, harassment, sexual content, spam, advertising.
   Breaking a guideline means the message is deleted and its author warned
   (`RUX_WATCH_GUIDELINES=false` turns the guidelines off).
-- **Limits.** Groq's free tier allows about 8,000 tokens a minute per model, shared with neo's
-  own use of the same keys, so limits can be reached. When that happens:
+- **Own sites.** Every check knows the host's own sites, which are never a scam or an advert:
+  the panel's and the status page's host names, the Discord invite, noprofit.space with
+  plugged-host-noprofit, and the domains in `RUX_TRUSTED_DOMAINS` (rux tab › "Our own sites",
+  each with its subdomains), plus the locations from the nodes' tags (`Rules\ServerFacts`).
+- **Limits.** Free provider tiers allow only a few thousand tokens a minute per model, shared
+  with neo's own use of the same keys, so limits can be reached. When that happens:
   - A batch that waits too long for a busy AI is skipped.
   - Messages that waited more than 10 minutes are not checked.
   - When the AI refuses rux outright (a bad key), watching pauses for 10 minutes.
@@ -275,20 +303,23 @@ do not. The settings page says so.
 
 ### Giveaways
 
-- **Entering always needs a Discord account linked to noprofit.space.** noprofit.space is asked
-  on each entry (the panel's own `discord_links` still holds pre-2.1 links, so it is not used).
-  People who are not linked get a button to link on noprofit.space.
-- **"The last N giveaways"** are the newest N giveaways on noprofit.space (rux's own, the ones
-  made in Admin › Giveaways, and the imported ones). The list is taken when the giveaway is
-  created, and rux's reply names those giveaways.
+- **Entering always needs a linked Discord account**, checked on each entry through
+  `DiscordAccounts`: the panel's own `discord_links` standalone, or noprofit.space with
+  plugged-host-noprofit (whose links the panel's copy may lag behind). People who are not linked
+  get a button to link where accounts live.
+- **"The last N giveaways"** are the newest N giveaways of the payouts' record
+  (`DiscordCreditPayouts::recentGiveaways()`: the panel's `discord_giveaways`, or noprofit.space's,
+  which also holds the ones made in its Admin › Giveaways and the imported ones). The list is
+  taken when the giveaway is created, and rux's reply names those giveaways.
 - **The draw** runs at the end time; the daemon checks every 10 seconds, and the scheduler checks
   every minute as a fallback. One process claims the giveaway (`active → drawing`). Winners are
-  picked at random (`random_int`) among entries that are still linked on noprofit.space and
-  still in the server. noprofit.space pays them under the idempotency key `rux:<id>`
-  (`rux:<id>:r<n>` for rerolls), so a retried payout pays nobody twice. The giveaway shows up in
-  noprofit.space's Admin › Giveaways as "Drawn by rux on Discord".
-- If noprofit.space is down at the end time, the draw waits and is retried every minute. If it is
-  down when paying, the payout is retried every minute.
+  picked at random (`random_int`) among entries that are still linked and still in the server.
+  They are paid under the idempotency key `rux:<id>` (`rux:<id>:r<n>` for rerolls), so a retried
+  payout pays nobody twice: by this panel through plugged-host-economy (a winner who has not
+  linked yet is paid once they link; without economy every winner waits), or by noprofit.space,
+  where the giveaway shows up in Admin › Giveaways as "Drawn by rux on Discord".
+- If the account directory (noprofit.space) is down at the end time, the draw waits and is
+  retried every minute. If it is down when paying, the payout is retried every minute.
 - Members see times as Discord timestamps (in their own time zone). rux reads and writes every
   time in `RUX_TIMEZONE` (Europe/Paris).
 
@@ -351,8 +382,8 @@ sudo -u www-data php /var/www/pelican/artisan plugged-host:rux-supervise --resta
 
 ### noprofit.space
 
-rux uses three routes on accounts.noprofit.space, signed with `NOPROFIT_SYNC_SECRET`
-(`App\Http\Controllers\Api\InternalRuxController`):
+With plugged-host-noprofit, rux uses three routes on accounts.noprofit.space, signed with
+`NOPROFIT_SYNC_SECRET` (`App\Http\Controllers\Api\InternalRuxController`):
 
 - `POST /api/v1/internal/rux/accounts`: the linked accounts behind a list of Discord ids, with
   `is_admin`.
@@ -380,8 +411,8 @@ not at all for "request too large". A cooling-down provider is skipped, and each
 token cap holds per day. The drivers are copies of neo's on noprofit.space (`src/Chat`: OpenAI
 chat, Anthropic Messages, and Google AI Studio's Gemini API).
 
-Some gateways drop the tools of a request and put in their own (justwoker since 2026-10-03,
-which even runs them on its side). Before giving a provider tools, rux asks it once with a tiny
+Some gateways drop the tools of a request and put in their own (some even run them on their
+side). Before giving a provider tools, rux asks it once with a tiny
 call whether a tool of rux's gets through, and keeps the answer for 6 hours. For a provider that
 drops them, rux describes its tools in the system prompt (`PromptedTools`, names prefixed
 `rux_`), names the gateway's own tools as off limits, and reads the model's

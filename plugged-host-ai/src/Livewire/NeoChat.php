@@ -353,6 +353,7 @@ class NeoChat extends Component
             if (empty($offered['allowed'])) {
                 Notification::make()->title(trans('plugged-host-ai::strings.chat.model_locked', [
                     'model' => $offered['label'],
+                    'app' => config('app.name'),
                     'plan' => trans('plugged-host-ai::strings.chat.plan_' . (($offered['access'] ?? null) === 'plusplus' ? 'plusplus' : 'plus')),
                 ]))->warning()->send();
 

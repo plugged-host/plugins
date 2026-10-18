@@ -5,6 +5,7 @@ namespace PluggedHost\Ai\Rux\Tools\Giveaways;
 use PluggedHost\Ai\Rux\Models\RuxGiveaway;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
+use PluggedHost\Core\Contracts\AccountPortal;
 
 final class EndGiveawayTool extends GiveawayTool
 {
@@ -28,7 +29,9 @@ final class EndGiveawayTool extends GiveawayTool
         $giveaway = $this->giveaways->endNow($this->giveaway($arguments, [RuxGiveaway::ACTIVE]));
 
         if ($giveaway->status !== RuxGiveaway::ENDED) {
-            return ToolResult::error("Giveaway #{$giveaway->id} could not be drawn yet (noprofit.space did not answer); it will be drawn automatically within a minute or two.");
+            $portal = app(AccountPortal::class)->name();
+
+            return ToolResult::error("Giveaway #{$giveaway->id} could not be drawn yet ({$portal} did not answer); it will be drawn automatically within a minute or two.");
         }
 
         return ToolResult::ok(['ended' => true] + $this->giveaways->summary($giveaway));

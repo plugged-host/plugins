@@ -28,7 +28,7 @@ final class ContextBuilder
      */
     public function build(NeoConversation $conversation, ToolContext $context, bool $finalAnswer): array
     {
-        $budget = max(4000, (int) config('plugged-host-ai.context_tokens', 16000));
+        $budget = max(4000, (int) config('plugged-host-ai.context_tokens', 24000));
         $system = ['role' => 'system', 'content' => $this->prompt->build($context)];
 
         $turns = $this->turns(

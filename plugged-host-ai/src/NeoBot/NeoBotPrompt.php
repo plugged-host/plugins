@@ -5,6 +5,7 @@ namespace PluggedHost\Ai\NeoBot;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use PluggedHost\Core\Contracts\AccountPortal;
+use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
@@ -36,7 +37,12 @@ final class NeoBotPrompt
             'portal' => $portal->name(),
             'accountsUrl' => $portal->manageUrl() ?? rtrim((string) config('app.url'), '/'),
             'linkUrl' => NeoBotConfig::linkUrl(),
-            'supportUrl' => (string) (config('plugged-host-discord.invite_url') ?: config('plugged-host-ai.support_url')),
+            'supportUrl' => trim((string) (config('plugged-host-discord.invite_url') ?: config('plugged-host-ai.support_url'))),
+            // The host neo speaks for (APP_NAME), what it sells and its contacts: this panel's own.
+            'appName' => (string) config('app.name'),
+            'economy' => Plugins::enabled('plugged-host-economy'),
+            'legalEmail' => trim((string) config('plugged-host-ai.legal_email', '')),
+            'privacyEmail' => trim((string) config('plugged-host-ai.privacy_email', '')),
             'resets' => static function (string $iso): string {
                 try {
                     return '<t:' . CarbonImmutable::parse($iso)->getTimestamp() . ':R>';

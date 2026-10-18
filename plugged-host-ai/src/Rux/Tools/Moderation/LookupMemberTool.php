@@ -9,6 +9,7 @@ use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Support\RuxTime;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
+use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Contracts\DirectoryUnavailable;
 use PluggedHost\Discord\Contracts\DiscordAccounts;
@@ -24,7 +25,10 @@ final class LookupMemberTool extends ModerationTool
 
     public function description(): string
     {
-        return 'Who a member is: Discord profile, roles, join date, timeout, their noprofit.space and plugged.host accounts, giveaway wins and past moderation cases. Also finds members by name.';
+        $portal = app(AccountPortal::class);
+        $accounts = $portal->external() ? $portal->name() . ' and ' . config('app.name') . ' accounts' : config('app.name') . ' account';
+
+        return "Who a member is: Discord profile, roles, join date, timeout, their {$accounts}, giveaway wins and past moderation cases. Also finds members by name.";
     }
 
     public function level(): string

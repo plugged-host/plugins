@@ -33,7 +33,25 @@ return [
     'always_confirm_destructive' => (bool) env('NEO_ALWAYS_CONFIRM_DESTRUCTIVE', true),
     'retention_days' => (int) env('NEO_RETENTION_DAYS', 30),
 
-    'support_url' => (string) env('NEO_SUPPORT_URL', 'https://discord.gg/plugged-host-1502647500295635085'),
+    // Where neo sends people for human help: this URL, else the Discord plugin's invite
+    // (DISCORD_INVITE_URL); with neither, neo names no link.
+    'support_url' => (string) env('NEO_SUPPORT_URL', ''),
+
+    // Contact addresses neo gives for legal complaints (abuse, copyright, illegal content) and
+    // for privacy complaints and data requests. Empty: neo names none.
+    'legal_email' => (string) env('NEO_LEGAL_EMAIL', ''),
+    'privacy_email' => (string) env('NEO_PRIVACY_EMAIL', ''),
+
+    // The AI providers named in neo's consent notice and on its settings page, as free text
+    // (e.g. "OpenAI and Anthropic"). Empty: a generic sentence, or with plugged-host-noprofit
+    // the providers noprofit.space's chain uses (Support\ProviderDisclosure).
+    'provider_disclosure' => (string) env('NEO_PROVIDER_DISCLOSURE', ''),
+
+    // The automatic log check above Minecraft consoles (Services\LogCheck): uploads the server
+    // log to mclo.gs and shows what it finds. Never runs while neo is off (NEO_ENABLED).
+    'log_check' => [
+        'enabled' => (bool) env('NEO_LOG_CHECK_ENABLED', true),
+    ],
 
     /*
      * neo's AI on this panel, used without plugged-host-noprofit (with it, noprofit.space holds
@@ -170,7 +188,7 @@ return [
         'bot_token' => (string) env('NEO_BOT_TOKEN', ''),
 
         // The Discord server neo answers on (and DMs from its members). Defaults to the
-        // plugged.host bot's server.
+        // Discord plugin's server (DISCORD_GUILD_ID).
         'guild_id' => (string) env('NEO_BOT_GUILD_ID', env('DISCORD_GUILD_ID', '')),
 
         // The agent loop: only account lookups, so a few steps are plenty.
@@ -214,8 +232,14 @@ return [
         // The rux application's bot token (Discord Developer Portal → rux → Bot).
         'bot_token' => (string) env('RUX_BOT_TOKEN', ''),
 
-        // The Discord server rux moderates. Defaults to the plugged.host bot's server.
+        // The Discord server rux moderates. Defaults to the Discord plugin's server (DISCORD_GUILD_ID).
         'guild_id' => (string) env('RUX_GUILD_ID', env('DISCORD_GUILD_ID', '')),
+
+        // Sites the message checks treat as this host's own (never a scam or an advert), besides
+        // the panel's and the status page's host names, the Discord invite and (with
+        // plugged-host-noprofit) noprofit.space: comma separated domains, each with its subdomains,
+        // e.g. "example.com". Rules\ServerFacts.
+        'trusted_domains' => array_values(array_filter(array_map('trim', explode(',', (string) env('RUX_TRUSTED_DOMAINS', ''))))),
 
         // Where a giveaway goes when the admin names no channel, and where moderation is logged.
         // Both optional.

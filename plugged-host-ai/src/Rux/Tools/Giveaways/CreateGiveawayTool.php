@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\Rux\Tools\Giveaways;
 
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
+use PluggedHost\Core\Contracts\AccountPortal;
 
 final class CreateGiveawayTool extends GiveawayTool
 {
@@ -14,7 +15,7 @@ final class CreateGiveawayTool extends GiveawayTool
 
     public function description(): string
     {
-        return 'Start a credit giveaway: posts it with an Enter button. Entering always requires a Discord account linked to noprofit.space (automatic). At the end rux draws the winners and pays them automatically.';
+        return 'Start a credit giveaway: posts it with an Enter button. Entering always requires a Discord account linked to ' . app(AccountPortal::class)->name() . ' (automatic). At the end rux draws the winners and pays them automatically.';
     }
 
     public function parameters(): array

@@ -261,7 +261,7 @@ class ProviderChain
     public function probe(array $provider, array $messages, array $tools = [], string $toolChoice = 'auto'): array
     {
         $started = microtime(true);
-        $outcome = $this->call($provider, $messages, $tools, $toolChoice, max(5, min(30, (int) ($provider['timeout'] ?? 20))));
+        $outcome = $this->call($provider, $messages, $tools, $toolChoice, max(5, min(30, (int) ($provider['timeout'] ?? 30))));
 
         if (!isset($outcome['message'])) {
             return $outcome;

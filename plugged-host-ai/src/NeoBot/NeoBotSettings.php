@@ -32,7 +32,7 @@ final class NeoBotSettings
      */
     public static function form(): array
     {
-        $t = fn (string $key): string => trans('plugged-host-ai::strings.neo_bot.settings.' . $key);
+        $t = fn (string $key): string => trans('plugged-host-ai::strings.neo_bot.settings.' . $key, ['app' => config('app.name')]);
 
         return [
             self::statusCallout(),

@@ -38,7 +38,8 @@ class DiscordRest
         for ($attempt = 1; ; $attempt++) {
             $request = Http::withHeaders(array_filter([
                 'Authorization' => 'Bot ' . $this->token,
-                'User-Agent' => 'DiscordBot (https://plugged.host, 1.0) ' . $this->bot,
+                // Discord's required "DiscordBot (url, version)": the plugins' source, the same for every panel.
+                'User-Agent' => 'DiscordBot (https://github.com/plugged-host/plugins, 1.0) ' . $this->bot,
                 'X-Audit-Log-Reason' => $reason !== null && $reason !== '' ? rawurlencode(mb_substr($reason, 0, 450)) : null,
             ]))
                 ->acceptJson()

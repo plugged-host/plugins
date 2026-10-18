@@ -578,9 +578,9 @@ class ModerationService
 
         return (string) Cache::remember("plugged-host-ai:rux:guild-name:{$guildId}", 3600, function () use ($guildId): string {
             try {
-                return (string) ($this->discord->json('GET', "guilds/{$guildId}")['name'] ?? 'plugged.host');
+                return (string) ($this->discord->json('GET', "guilds/{$guildId}")['name'] ?? config('app.name'));
             } catch (DiscordException) {
-                return 'plugged.host';
+                return (string) config('app.name');
             }
         });
     }

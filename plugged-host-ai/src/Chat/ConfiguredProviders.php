@@ -79,7 +79,7 @@ final class ConfiguredProviders implements ProviderSource
             'api_key' => (string) ($config['api_key'] ?? ''),
             'model' => (string) ($config['model'] ?? ''),
             'max_tokens' => max(256, (int) ($config['max_tokens'] ?? 4096)),
-            'timeout' => max(1, (int) ($config['timeout'] ?? 20)),
+            'timeout' => max(1, (int) ($config['timeout'] ?? 30)),
             'daily_token_cap' => max(0, (int) ($config['daily_token_cap'] ?? 0)),
             'extra_headers' => array_map('strval', array_filter((array) ($config['extra_headers'] ?? []), 'is_scalar')),
             'extra_body' => (array) ($config['extra_body'] ?? []),
