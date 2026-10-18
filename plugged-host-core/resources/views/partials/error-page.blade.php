@@ -18,8 +18,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <link rel="icon" href="{{ config('app.favicon', '/plugged.host_nobg.png') }}" />
-    <title>{{ $documentTitle ?? $heading }} &bull; {{ config('app.name', 'plugged.host') }}</title>
+    {{-- Favicon, name and logo resolve as Pelican's panels do (PanelProvider). --}}
+    <link rel="icon" href="{{ config('app.favicon', '/pelican.ico') }}" />
+    <title>{{ $documentTitle ?? $heading }} &bull; {{ config('app.name', 'Pelican') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap">
@@ -49,7 +50,7 @@
         <div class="auth-card">
             <div class="auth-header">
                 @if (filled(config('app.logo')))
-                    <img src="{{ config('app.logo') }}" alt="{{ config('app.name', 'plugged.host') }}" class="auth-logo">
+                    <img src="{{ config('app.logo') }}" alt="{{ config('app.name', 'Pelican') }}" class="auth-logo">
                 @endif
                 <h1 class="auth-title">{{ $heading }}</h1>
                 @if (filled($message))
