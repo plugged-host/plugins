@@ -360,19 +360,20 @@ return [
         'menu' => 'Willkommenstour erneut ansehen',
         'panel' => [
             'welcome' => [
-                'heading' => 'Willkommen bei plugged.host',
+                'heading' => 'Willkommen bei :app',
                 'body' => 'Das ist dein Panel für Gameserver: Alles, was du bei uns mietest, findest du hier. Wir heben jeden Bereich hervor und sagen dir, wofür er da ist. Das dauert etwa eine Minute.',
             ],
             'navigation' => [
                 'heading' => 'Die Seitenleiste',
                 'body' => 'Jede Seite deines Kontos ist hier einen Klick entfernt.',
+                // Nach Zeile der Seitenleiste geschlüsselt: PanelTourSteps lässt fehlende Zeilen weg.
                 'bullets' => [
-                    'Startseite — deine Server. Hier bist du gerade.',
-                    'Ressourcen-Shop — mehr CPU, Arbeitsspeicher und Speicherplatz für dein Guthaben.',
-                    'plugged.host Plus — bessere Standorte, Vorrang in der Startwarteschlange und keine Werbung im Spiel.',
-                    'Tokens — Tokens verdienen und sehen, wohin sie gingen.',
-                    'Backups — ein Backup jedes deiner Server herunterladen.',
-                    'Profileinstellungen — Sprache, Zeitzone und dein Konto.',
+                    'home' => 'Startseite — deine Server. Hier bist du gerade.',
+                    'store' => 'Ressourcen-Shop — mehr CPU, Arbeitsspeicher und Speicherplatz für dein Guthaben.',
+                    'plus' => ':app Plus — bessere Standorte, Vorrang in der Startwarteschlange und keine Werbung im Spiel.',
+                    'tokens' => 'Tokens — Tokens verdienen und sehen, wohin sie gingen.',
+                    'backups' => 'Backups — ein Backup jedes deiner Server herunterladen.',
+                    'profile' => 'Profileinstellungen — Sprache, Zeitzone und dein Konto.',
                 ],
             ],
             'balance' => [
@@ -380,7 +381,7 @@ return [
                 'body' => 'Die Balken zeigen, wie viel deines Tarifs deine Server zusammen belegen. Darunter stehen deine Tokens und dein Guthaben.',
                 'bullets' => [
                     'Guthaben kauft mehr Ressourcen im Ressourcen-Shop.',
-                    'Tokens bezahlen plugged.host Plus; verdienen kannst du sie auf der Seite „Tokens“.',
+                    'Tokens bezahlen :app Plus; verdienen kannst du sie auf der Seite „Tokens“.',
                     'Ein Klick auf die Balken oder das Guthaben öffnet den Ressourcen-Shop, ein Klick auf die Tokens die Seite „Tokens“.',
                 ],
             ],

@@ -361,19 +361,20 @@ return [
         'menu' => 'Replay the welcome tour',
         'panel' => [
             'welcome' => [
-                'heading' => 'Welcome to plugged.host',
+                'heading' => 'Welcome to :app',
                 'body' => 'This is your game server panel: everything you rent from us lives here. We\'ll light up each part of it and tell you what it does. It takes about a minute.',
             ],
             'navigation' => [
                 'heading' => 'The sidebar',
                 'body' => 'Every page of your account is one click away here.',
+                // Keyed by sidebar row: PanelTourSteps leaves out the rows that are not there.
                 'bullets' => [
-                    'Home — your servers. You are on it now.',
-                    'Resource Store — more CPU, memory and disk for your credits.',
-                    'plugged.host Plus — better locations, priority in the start queue and no in-game ads.',
-                    'Tokens — earn tokens and see where they went.',
-                    'Backups — download a backup of any of your servers.',
-                    'Profile Settings — your language, time zone and account.',
+                    'home' => 'Home — your servers. You are on it now.',
+                    'store' => 'Resource Store — more CPU, memory and disk for your credits.',
+                    'plus' => ':app Plus — better locations, priority in the start queue and no in-game ads.',
+                    'tokens' => 'Tokens — earn tokens and see where they went.',
+                    'backups' => 'Backups — download a backup of any of your servers.',
+                    'profile' => 'Profile Settings — your language, time zone and account.',
                 ],
             ],
             'balance' => [
@@ -381,7 +382,7 @@ return [
                 'body' => 'The bars show how much of your plan your servers use together. Underneath are your tokens and credits.',
                 'bullets' => [
                     'Credits buy more resources in the Resource Store.',
-                    'Tokens pay for plugged.host Plus; earn them on the Tokens page.',
+                    'Tokens pay for :app Plus; earn them on the Tokens page.',
                     'Click the bars or the credits to open the Resource Store, the tokens to open the Tokens page.',
                 ],
             ],

@@ -18,7 +18,9 @@ use Throwable;
  *
  * Copy lives in lang/{en,de}/strings.php under tour.panel.* and tour.server.*. Every step
  * names the thing by the label it carries on screen -- the point of the tour is that "open
- * Settings" means something afterwards.
+ * Settings" means something afterwards. `:app` in any of it is the panel's name (APP_NAME).
+ * Like a step, a bullet about a sidebar row that is not there (an economy page while
+ * plugged-host-economy is off) is left out here.
  *
  * `final` is set on the last step only and picks its primary button: `open` goes into the
  * person's server so the second part starts right away, `create` goes to Create server
@@ -50,7 +52,7 @@ final class PanelTourSteps
 
         $steps = [
             self::step('panel', 'welcome', []),
-            self::step('panel', 'navigation', ['.fi-sidebar-nav-groups'], sidebar: true),
+            self::step('panel', 'navigation', ['.fi-sidebar-nav-groups'], sidebar: true, without: self::absentRows()),
         ];
 
         if (self::hasBalance()) {
@@ -132,11 +134,13 @@ final class PanelTourSteps
     /**
      * @param  array<int, string>  $targets
      * @param  array<string, string>  $replace
+     * @param  array<int, string>  $without  keys of bullets to leave out
      * @return Step
      */
-    private static function step(string $part, string $key, array $targets, bool $sidebar = false, ?string $final = null, array $replace = []): array
+    private static function step(string $part, string $key, array $targets, bool $sidebar = false, ?string $final = null, array $replace = [], array $without = []): array
     {
         $prefix = "plugged-host-core::strings.tour.{$part}.{$key}";
+        $replace = ['app' => self::appName(), ...$replace];
         $bullets = trans("{$prefix}.bullets", $replace);
 
         return [
@@ -146,9 +150,39 @@ final class PanelTourSteps
             'heading' => trans("{$prefix}.heading", $replace),
             'body' => trans("{$prefix}.body", $replace),
             // Absent in lang => trans() hands back the key it was given, which is not an array.
-            'bullets' => is_array($bullets) ? array_values($bullets) : [],
+            'bullets' => is_array($bullets) ? array_values(array_diff_key($bullets, array_flip($without))) : [],
             'final' => $final,
         ];
+    }
+
+    private static function appName(): string
+    {
+        return trim((string) config('app.name', 'Pelican'));
+    }
+
+    /**
+     * The navigation step's bullets whose sidebar row is not there: the Resource Store, Plus
+     * and Tokens while plugged-host-economy (or that part of it) is off, as the economy pages'
+     * own canAccess() has it, and Backups while no backups portal is set.
+     *
+     * @return list<string>
+     */
+    private static function absentRows(): array
+    {
+        $economy = Plugins::enabled('plugged-host-economy');
+        $absent = [];
+
+        foreach (['store' => 'credits', 'plus' => 'membership', 'tokens' => 'tokens'] as $row => $part) {
+            if (!$economy || !config("plugged-host-economy.{$part}.enabled", true)) {
+                $absent[] = $row;
+            }
+        }
+
+        if (blank(config('plugged-host-storage.portal_url'))) {
+            $absent[] = 'backups';
+        }
+
+        return $absent;
     }
 
     /**
@@ -185,12 +219,13 @@ final class PanelTourSteps
         }
     }
 
+    /** Theme v2's usage card, which shows economy's tokens and credits (the step's whole copy). */
     private static function hasBalance(): bool
     {
         $balance = 'PluggedHost\\ThemeV2\\Livewire\\ThemeV2Balance';
 
         try {
-            return Plugins::available($balance) && $balance::shouldMount();
+            return Plugins::enabled('plugged-host-economy') && Plugins::available($balance) && $balance::shouldMount();
         } catch (Throwable) {
             return false;
         }
@@ -222,9 +257,10 @@ final class PanelTourSteps
         }
     }
 
+    /** A Minecraft server with plugged-host-minecraft's pages (Plugins, Worlds, Game Settings). */
     private static function isMinecraft(Server $server): bool
     {
-        return in_array('minecraft', (array) ($server->egg?->tags ?? []), true);
+        return Plugins::enabled('plugged-host-minecraft') && in_array('minecraft', (array) ($server->egg?->tags ?? []), true);
     }
 
     /**

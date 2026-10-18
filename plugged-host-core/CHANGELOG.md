@@ -2,6 +2,16 @@
 
 ## 2.2.0 (unreleased)
 
+- **No plugged.host defaults for other panels**: the error pages link the status page from
+  `STATUS_PAGE_URL` (falling back to `STATUS_RSS_BASE_URL`; new key `plugged-host-core.status_url`)
+  and hide the button without one; the maintenance page's Discord button has no built-in invite,
+  and its A-ADS ad comes from plugged-host-ads' `maintenance.aads_unit` / `maintenance.width`
+  (`ADS_MAINTENANCE_AADS_UNIT`, `ADS_MAINTENANCE_AADS_WIDTH`), shown only while that plugin is
+  enabled. Name/favicon fall back to Pelican's own. The suspended page's help button is
+  `NEO_SUPPORT_URL`, else `DISCORD_INVITE_URL`, else hidden (with an "ask the administrators"
+  line). The welcome tour says `APP_NAME` instead of plugged.host, mentions the Resource Store,
+  Plus and tokens only with plugged-host-economy, Backups only with a backups portal, and the
+  Minecraft pages only with plugged-host-minecraft.
 - **Two panel boxes**: prod's sessions, cache, queue and maintenance mode can live in the
   (replicated) database, so either box can answer any request. Migration
   `010_create_database_cache_tables` adds Laravel's `cache`/`cache_locks` tables and an index on
