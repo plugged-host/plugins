@@ -99,7 +99,12 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'daily_token_cap' => (int) $provider['daily_token_cap'],
                 // The slot's flag, or until it is saved what its driver suggests (ProviderChain).
                 'vision' => ProviderChain::seesImages((array) $provider),
-                'premium' => (bool) ($provider['premium'] ?? false),
+                'description' => (string) ($provider['description'] ?? ''),
+                'access' => in_array($provider['access'] ?? null, ['everyone', 'plus', 'plusplus'], true) ? $provider['access'] : (!empty($provider['premium']) ? 'plusplus' : 'everyone'),
+                'limited' => (bool) ($provider['limited'] ?? !empty($provider['premium'])),
+                'weekly_tokens' => (int) ($provider['weekly_tokens'] ?? 0),
+                'multiplier' => (int) ($provider['multiplier'] ?? 1),
+                'thinking' => (bool) ($provider['thinking'] ?? true),
                 'extra_headers' => self::prettyJson($provider['extra_headers'] ?? []),
                 'extra_body' => self::prettyJson($provider['extra_body'] ?? []),
             ];
@@ -107,7 +112,8 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
 
         $data['remote'] = [
             'gateway_enabled' => (bool) ($config['gateway_enabled'] ?? true),
-            'limits' => (array) ($config['limits'] ?? []),
+            'limits' => ['mode' => 'all'] + (array) ($config['limits'] ?? []),
+            'default_model' => (string) (int) ($config['default_model'] ?? 0),
             'failover' => (array) ($config['failover'] ?? []),
             'providers' => $providers,
         ];
@@ -167,8 +173,11 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             return $form;
         }
 
+        $models = ['0' => $t('default_model_auto')];
+
         foreach ((array) ($remote['data']['providers'] ?? []) as $provider) {
             $form[] = self::providerSection((int) $provider['slot'], $provider, $t);
+            $models[(string) $provider['slot']] = $t('section_provider', ['slot' => $provider['slot']]) . ' · ' . $provider['label'];
         }
 
         $form[] = Section::make($t('section_limits'))
@@ -176,14 +185,20 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             ->schema([
                 Toggle::make('remote.gateway_enabled')->label($t('gateway_enabled')),
                 Grid::make(2)->schema([
-                    TextInput::make('remote.limits.short_window_hours')->label($t('short_window_hours'))->numeric()->minValue(1)->maxValue(168)->required(),
-                    TextInput::make('remote.limits.short_tokens')->label($t('short_tokens'))->numeric()->minValue(1000)->required(),
-                    TextInput::make('remote.limits.long_window_days')->label($t('long_window_days'))->numeric()->minValue(1)->maxValue(31)->required(),
-                    TextInput::make('remote.limits.long_tokens')->label($t('long_tokens'))->numeric()->minValue(1000)->required(),
+                    // Where to switch every model back to the usage limits (limits mode all).
+                    Select::make('remote.limits.mode')->label($t('limits_mode'))->helperText($t('limits_mode_hint'))->options([
+                        'models' => $t('limits_mode_models'),
+                        'all' => $t('limits_mode_all'),
+                    ])->required()->native(false),
+                    Select::make('remote.default_model')->label($t('default_model'))->helperText($t('default_model_hint'))->options($models)->required()->native(false),
+                    TextInput::make('remote.limits.plusplus_percent')->label($t('plusplus_percent'))->helperText($t('plusplus_percent_hint'))->numeric()->minValue(100)->maxValue(1000)->default(150)->required(),
                     TextInput::make('remote.limits.discord_unlinked_percent')->label($t('discord_unlinked_percent'))->helperText($t('discord_unlinked_percent_hint'))->numeric()->minValue(0)->maxValue(100)->required(),
-                    TextInput::make('remote.limits.premium_multiplier')->label($t('premium_multiplier'))->helperText($t('premium_multiplier_hint'))->numeric()->minValue(1)->maxValue(10)->default(2)->required(),
+                    TextInput::make('remote.limits.short_window_hours')->label($t('short_window_hours'))->helperText($t('all_mode_only'))->numeric()->minValue(1)->maxValue(168)->required(),
+                    TextInput::make('remote.limits.short_tokens')->label($t('short_tokens'))->helperText($t('all_mode_only'))->numeric()->minValue(1000)->required(),
+                    TextInput::make('remote.limits.long_window_days')->label($t('long_window_days'))->helperText($t('long_window_days_hint'))->numeric()->minValue(1)->maxValue(31)->required(),
+                    TextInput::make('remote.limits.long_tokens')->label($t('long_tokens'))->helperText($t('all_mode_only'))->numeric()->minValue(1000)->required(),
                     TextInput::make('remote.failover.default_cooldown')->label($t('default_cooldown'))->numeric()->minValue(1)->maxValue(3600)->required(),
-                    TextInput::make('remote.failover.deadline')->label($t('deadline'))->numeric()->minValue(10)->maxValue(95)->required(),
+                    TextInput::make('remote.failover.deadline')->label($t('deadline'))->helperText($t('deadline_hint'))->numeric()->minValue(10)->maxValue(270)->required(),
                     TextInput::make('remote.failover.max_concurrent')->label($t('max_concurrent'))->numeric()->minValue(1)->maxValue(50)->required(),
                 ]),
             ]);
@@ -251,7 +266,13 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             ->schema([
                 Grid::make(2)->schema([
                     Toggle::make($prefix . 'enabled')->label($t('provider_enabled')),
-                    TextInput::make($prefix . 'label')->label($t('label'))->maxLength(64)->required(),
+                    TextInput::make($prefix . 'label')->label($t('label'))->helperText($t('label_hint'))->maxLength(64)->required(),
+                    TextInput::make($prefix . 'description')->label($t('description'))->helperText($t('description_hint'))->maxLength(120),
+                    Select::make($prefix . 'access')->label($t('access'))->options([
+                        'everyone' => $t('access_everyone'),
+                        'plus' => $t('access_plus'),
+                        'plusplus' => $t('access_plusplus'),
+                    ])->required()->native(false),
                     Select::make($prefix . 'driver')->label($t('driver'))->options([
                         'openai' => $t('driver_openai'),
                         'anthropic' => $t('driver_anthropic'),
@@ -267,10 +288,13 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                         ->placeholder(!empty($provider['api_key_set']) ? '•••••••• ' . ($provider['api_key_hint'] ?? '') . ' · ' . $t('secret_set') : $t('secret_unset')),
                     Toggle::make($prefix . 'clear_api_key')->label($t('clear_api_key'))->visible(!empty($provider['api_key_set'])),
                     TextInput::make($prefix . 'max_tokens')->label($t('max_tokens'))->numeric()->minValue(256)->maxValue(128000)->required(),
-                    TextInput::make($prefix . 'timeout')->label($t('timeout'))->numeric()->minValue(5)->maxValue(90)->required(),
+                    TextInput::make($prefix . 'timeout')->label($t('timeout'))->helperText($t('timeout_hint'))->numeric()->minValue(5)->maxValue(270)->required(),
                     TextInput::make($prefix . 'daily_token_cap')->label($t('daily_token_cap'))->helperText($t('daily_token_cap_hint'))->numeric()->minValue(0)->required(),
                     Toggle::make($prefix . 'vision')->label($t('vision'))->helperText($t('vision_hint')),
-                    Toggle::make($prefix . 'premium')->label($t('premium'))->helperText($t('premium_hint')),
+                    Toggle::make($prefix . 'thinking')->label($t('thinking'))->helperText($t('thinking_hint')),
+                    Toggle::make($prefix . 'limited')->label($t('limited'))->helperText($t('limited_hint')),
+                    TextInput::make($prefix . 'weekly_tokens')->label($t('weekly_tokens'))->helperText($t('weekly_tokens_hint'))->numeric()->minValue(0)->required(),
+                    TextInput::make($prefix . 'multiplier')->label($t('multiplier'))->helperText($t('multiplier_hint'))->numeric()->minValue(1)->maxValue(10)->required(),
                     Textarea::make($prefix . 'extra_headers')->label($t('extra_headers'))->helperText($t('extra_headers_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
                     Textarea::make($prefix . 'extra_body')->label($t('extra_body'))->helperText($t('extra_body_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
                 ]),
@@ -342,7 +366,12 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'timeout' => (int) ($fields['timeout'] ?? 20),
                 'daily_token_cap' => (int) ($fields['daily_token_cap'] ?? 0),
                 'vision' => !empty($fields['vision']),
-                'premium' => !empty($fields['premium']),
+                'description' => trim((string) ($fields['description'] ?? '')),
+                'access' => (string) ($fields['access'] ?? 'everyone'),
+                'limited' => !empty($fields['limited']),
+                'weekly_tokens' => (int) ($fields['weekly_tokens'] ?? 0),
+                'multiplier' => (int) ($fields['multiplier'] ?? 1),
+                'thinking' => !empty($fields['thinking']),
                 'extra_headers' => self::decodeObject((string) ($fields['extra_headers'] ?? '{}')),
                 'extra_body' => self::decodeObject((string) ($fields['extra_body'] ?? '{}')),
             ];
@@ -360,7 +389,9 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         try {
             $result = app(NeoSettingsStore::class)->saveConfig([
                 'gateway_enabled' => !empty($remote['gateway_enabled']),
-                'limits' => array_map('intval', (array) ($remote['limits'] ?? [])),
+                'limits' => ['mode' => ($remote['limits']['mode'] ?? 'all') === 'models' ? 'models' : 'all']
+                    + array_map('intval', array_diff_key((array) ($remote['limits'] ?? []), ['mode' => true, 'premium_multiplier' => true])),
+                'default_model' => (int) ($remote['default_model'] ?? 0),
                 'failover' => array_map('intval', (array) ($remote['failover'] ?? [])),
                 'providers' => $providers,
             ], $actor);

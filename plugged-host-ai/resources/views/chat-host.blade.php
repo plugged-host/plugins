@@ -102,6 +102,10 @@
     .neo-notice { display: flex; gap: .5rem; align-items: flex-start; font-size: .8125rem; padding: .625rem .75rem; border-radius: .75rem; background: color-mix(in oklab, var(--neo-warning) 12%, transparent); color: var(--neo-nav); }
     .neo-notice > .neo-i-sm { color: var(--neo-warning-text); margin-top: .1875rem; }
     .neo-notice-body { flex: 1; display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
+    .neo-live-text { white-space: pre-wrap; }
+    .neo-live-think { max-height: 4.5rem; overflow: hidden; display: flex; flex-direction: column-reverse; font-size: .75rem; line-height: 1.5; color: var(--neo-faint); white-space: pre-wrap; word-break: break-word; }
+    .neo-live-text:empty, .neo-live-think:empty { display: none; }
+    .neo-thought pre { font-family: inherit; color: var(--neo-muted); }
     .neo-typing { display: inline-flex; gap: .25rem; padding: .625rem .75rem; border-radius: .75rem; background: var(--neo-raise); align-self: flex-start; }
     .neo-typing i { width: .375rem; height: .375rem; border-radius: 9999px; background: var(--neo-muted); animation: neo-dot 1.1s infinite ease-in-out; }
     .neo-typing i:nth-child(2) { animation-delay: .15s; } .neo-typing i:nth-child(3) { animation-delay: .3s; }
@@ -115,6 +119,7 @@
     .neo-model-btn:hover, .neo-model-btn[aria-expanded="true"] { background: var(--neo-raise); color: var(--neo-text); }
     .neo-model-btn:disabled { opacity: .45; pointer-events: none; }
     .neo-menu { position: absolute; left: 0; bottom: calc(100% + .375rem); z-index: 3; width: 17rem; max-width: calc(100vw - 2rem); padding: .25rem; display: flex; flex-direction: column; border-radius: .75rem; border: 1px solid var(--neo-line); background: var(--neo-dropdown); box-shadow: 0 20px 25px -5px rgb(0 0 0 / .25), 0 8px 10px -6px rgb(0 0 0 / .25); }
+    .neo-menu { max-height: min(24rem, 60vh); overflow-y: auto; }
     .neo-model-opt { display: flex; align-items: center; gap: .5rem; width: 100%; padding: .5rem .625rem; border-radius: .5rem; text-align: left; color: inherit; text-decoration: none; transition: background-color .15s ease; }
     .neo-model-opt:hover { background: var(--neo-raise); }
     .neo-model-opt:disabled { pointer-events: none; }

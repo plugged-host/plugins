@@ -17,6 +17,7 @@ use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
+use PluggedHost\Ai\Services\Gateway\ModelUnavailableException;
 use PluggedHost\Ai\Support\NeoModel;
 use PluggedHost\Ai\Support\NeoSubject;
 use PluggedHost\Ai\Support\NeoUsagePercent;
@@ -29,9 +30,10 @@ use Throwable;
  * (InternalNeoController) does, here. A turn takes the subject's turn lock and one of the
  * concurrency slots, checks its 5-hour and weekly windows (NeoUsageMeter), calls neo's providers
  * (ProviderChain, 'neo' scope) and charges the windows; the answers have the gateway's shapes and
- * its failures its exceptions. A chat turn asks for the premium slots when its user picked the
- * premium model and has PlusPlus (NeoModel); a turn a premium slot answered counts premium_multiplier
- * times its tokens.
+ * its failures its exceptions. A chat turn runs on the model its user picked (NeoModel), the first
+ * one open to them when none was, and counts its multiplier times its tokens. Here every model is
+ * metered in the shared windows (the gateway's limits mode 'all'), and answers are not streamed:
+ * a turn hands its text on in one piece.
  *
  * The subject is the panel user. On Discord it is the panel user a Discord account is linked to
  * (plugged-host-discord's DiscordAccounts), or the Discord account on its own at a share of the
@@ -57,18 +59,27 @@ final class LocalNeoBackend implements NeoBackend
         return $this->providers->configured();
     }
 
-    public function turn(User $user, NeoConversation $conversation, array $messages, array $tools, string $toolChoice): array
+    public function turn(User $user, NeoConversation $conversation, array $messages, array $tools, string $toolChoice, ?callable $onDelta = null): array
     {
         $subject = NeoSubject::account($user)->withUsagePercent(NeoUsagePercent::for($user));
+        $plan = NeoModel::plan($user);
 
-        return $this->run($subject, 'plugged-host', (string) $conversation->uuid, $messages, $tools, $toolChoice, NeoModel::forTurn($user) === NeoModel::PREMIUM);
+        $result = $this->run($subject, 'plugged-host', (string) $conversation->uuid, $messages, $tools, $toolChoice, $this->slotFor(NeoModel::forTurn($user), $plan), $plan);
+
+        if ($onDelta !== null && is_string($result['message']['content'] ?? null) && $result['message']['content'] !== '') {
+            $onDelta('text', $result['message']['content']);
+        }
+
+        return $result;
     }
 
     public function discordTurn(string $discordId, string $conversation, array $messages, array $tools, string $toolChoice): array
     {
         [$subject] = $this->discordSubject($discordId);
 
-        return $this->run($subject, self::DISCORD_SERVICE, 'discord:' . $conversation, $messages, $tools, $toolChoice);
+        $plan = $subject->user === null ? 'free' : NeoModel::plan($subject->user);
+
+        return $this->run($subject, self::DISCORD_SERVICE, 'discord:' . $conversation, $messages, $tools, $toolChoice, $this->slotFor(null, $plan), $plan);
     }
 
     public function discordUsage(string $discordId): array
@@ -99,8 +110,7 @@ final class LocalNeoBackend implements NeoBackend
             return [
                 'linked' => true,
                 'limits' => $this->meter->snapshot(NeoSubject::account($user)->withUsagePercent(NeoUsagePercent::for($user))),
-                'premium_model' => $this->premiumModel(),
-            ];
+            ] + $this->catalog(NeoModel::plan($user));
         } catch (Throwable $e) {
             report($e);
 
@@ -122,7 +132,7 @@ final class LocalNeoBackend implements NeoBackend
      *
      * @throws LimitReachedException|GatewayBusyException|GatewayUnavailableException
      */
-    private function run(NeoSubject $subject, string $service, string $conversation, array $messages, array $tools, string $toolChoice, bool $premium = false): array
+    private function run(NeoSubject $subject, string $service, string $conversation, array $messages, array $tools, string $toolChoice, int $modelSlot, string $plan): array
     {
         if (!$this->enabled()) {
             throw new GatewayUnavailableException('gateway_disabled');
@@ -159,7 +169,7 @@ final class LocalNeoBackend implements NeoBackend
             ];
 
             try {
-                $result = $this->chain->turn($messages, $tools, $toolChoice, $premium);
+                $result = $this->chain->turn($messages, $tools, $toolChoice, slot: $modelSlot);
             } catch (AiException $e) {
                 $this->meter->recordFailure($subject, $event + ['attempts' => [['reason' => Str::limit($e->getMessage(), 200, ''), 'retry_after' => $e->retryAfter]]]);
 
@@ -177,8 +187,7 @@ final class LocalNeoBackend implements NeoBackend
             $prompt = max(0, (int) ($result['usage']['prompt_tokens'] ?? 0));
             $completion = max(0, (int) ($result['usage']['completion_tokens'] ?? 0));
             $total = $prompt + $completion;
-            $answeredPremium = !empty($result['provider']['premium']);
-            $multiplier = $answeredPremium ? $this->meter->premiumMultiplier() : 1;
+            $multiplier = max(1, (int) ($result['provider']['multiplier'] ?? 1));
             $charged = $total * $multiplier;
             $provider = $this->provider((array) ($result['provider'] ?? []));
             $finishReason = Str::limit((string) ($result['finish_reason'] ?? 'stop'), 24, '');
@@ -198,7 +207,8 @@ final class LocalNeoBackend implements NeoBackend
                 'message' => (array) ($result['message'] ?? []),
                 'finish_reason' => $finishReason,
                 'provider' => $provider,
-                'model' => $answeredPremium ? NeoModel::PREMIUM : NeoModel::STANDARD,
+                'model' => (string) $modelSlot,
+                'thinking' => '',
                 'usage' => [
                     'prompt_tokens' => $prompt,
                     'completion_tokens' => $completion,
@@ -207,10 +217,9 @@ final class LocalNeoBackend implements NeoBackend
                     'charged_tokens' => $charged,
                 ],
                 'limits' => $this->meter->snapshot($subject),
-                'premium_model' => $this->premiumModel(),
                 'account_id' => $subject->user?->id,
                 'linked' => !$subject->isUnlinkedDiscord(),
-            ];
+            ] + $this->catalog($plan);
         } finally {
             $turnLock->release();
         }
@@ -287,19 +296,84 @@ final class LocalNeoBackend implements NeoBackend
     }
 
     /**
-     * The premium model a chat can pick, or null while no premium slot is ready to answer.
+     * The slot a turn runs on: the picked one while it is usable and open to $plan ('premium', from
+     * before models had names: the first one not open to everyone), else the first usable one open
+     * to $plan, preferring ones open to everyone.
      *
-     * @return array{label: string, multiplier: int}|null
+     * @throws ModelUnavailableException
      */
-    private function premiumModel(): ?array
+    private function slotFor(?string $picked, string $plan): int
     {
-        foreach ($this->providers->providers() as $provider) {
-            if (is_array($provider) && !empty($provider['premium']) && ProviderChain::usable($provider)) {
-                return ['label' => (string) $provider['label'], 'multiplier' => $this->meter->premiumMultiplier()];
+        $usable = array_values(array_filter($this->providers->providers(), static fn ($provider): bool => is_array($provider) && ProviderChain::usable($provider)));
+
+        if ($picked !== null && ctype_digit($picked)) {
+            foreach ($usable as $provider) {
+                if ((int) $provider['slot'] === (int) $picked) {
+                    if (!NeoModel::allows($plan, (string) ($provider['access'] ?? 'everyone'))) {
+                        throw new ModelUnavailableException('model_not_allowed', (string) $provider['label'], (string) ($provider['access'] ?? 'everyone'));
+                    }
+
+                    return (int) $provider['slot'];
+                }
+            }
+
+            throw new ModelUnavailableException('model_unavailable');
+        }
+
+        $open = array_values(array_filter($usable, static fn (array $provider): bool => NeoModel::allows($plan, (string) ($provider['access'] ?? 'everyone'))));
+
+        if ($picked === 'premium') {
+            foreach ($open as $provider) {
+                if (($provider['access'] ?? 'everyone') !== 'everyone') {
+                    return (int) $provider['slot'];
+                }
             }
         }
 
-        return null;
+        foreach ($open as $provider) {
+            if (($provider['access'] ?? 'everyone') === 'everyone') {
+                return (int) $provider['slot'];
+            }
+        }
+
+        return isset($open[0]) ? (int) $open[0]['slot'] : throw new ModelUnavailableException('no_model');
+    }
+
+    /**
+     * The limits mode and the model picker, as the gateway answers them.
+     *
+     * @return array{mode: string, default_model: ?string, models: list<array<string, mixed>>}
+     */
+    private function catalog(string $plan): array
+    {
+        $models = [];
+
+        foreach ($this->providers->providers() as $provider) {
+            if (!is_array($provider) || !ProviderChain::usable($provider)) {
+                continue;
+            }
+
+            $models[] = [
+                'key' => (string) $provider['slot'],
+                'label' => (string) $provider['label'],
+                'description' => (string) ($provider['description'] ?? ''),
+                'access' => (string) ($provider['access'] ?? 'everyone'),
+                'allowed' => NeoModel::allows($plan, (string) ($provider['access'] ?? 'everyone')),
+                'limited' => false,
+                'multiplier' => max(1, (int) ($provider['multiplier'] ?? 1)),
+                'vision' => ProviderChain::seesImages($provider),
+                'thinking' => false,
+                'window' => null,
+            ];
+        }
+
+        try {
+            $default = (string) $this->slotFor(null, $plan);
+        } catch (ModelUnavailableException) {
+            $default = null;
+        }
+
+        return ['mode' => 'all', 'default_model' => $default, 'models' => $models];
     }
 
     /**

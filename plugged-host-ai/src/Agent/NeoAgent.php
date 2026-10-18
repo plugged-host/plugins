@@ -17,6 +17,7 @@ use PluggedHost\Ai\Models\NeoMessage;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
+use PluggedHost\Ai\Services\Gateway\ModelUnavailableException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
 use PluggedHost\Ai\Support\ImageInput;
 use PluggedHost\Ai\Support\NeoAccess;
@@ -41,6 +42,9 @@ use Throwable;
  *
  * Every step re-checks that neo is on, that the user still has it on, and that they may still
  * use this server; every tool re-checks its permissions right before it runs.
+ *
+ * A model call can be streamed: step()'s $onDelta gets the answer's text and the model's thinking
+ * while they are written (the chat shows them live); the stored message is the finished answer.
  */
 final class NeoAgent
 {
@@ -187,7 +191,10 @@ final class NeoAgent
         return StepResult::continue();
     }
 
-    public function step(NeoConversation $conversation, User $user): StepResult
+    /**
+     * @param  (callable(string, string): void)|null  $onDelta  The model's answer while it is written ('text', 'thinking', 'reset').
+     */
+    public function step(NeoConversation $conversation, User $user, ?callable $onDelta = null): StepResult
     {
         $lock = Cache::lock('plugged-host-ai:conversation:' . $conversation->id, 120);
         if (!$lock->get()) {
@@ -220,7 +227,7 @@ final class NeoAgent
                 return StepResult::of(StepResult::AWAITING_APPROVAL);
             }
 
-            return $this->callModel($conversation, $user);
+            return $this->callModel($conversation, $user, $onDelta);
         } finally {
             $lock->release();
         }
@@ -342,7 +349,7 @@ final class NeoAgent
         return $result->redirect !== null ? StepResult::redirect($result->redirect) : StepResult::continue();
     }
 
-    private function callModel(NeoConversation $conversation, User $user): StepResult
+    private function callModel(NeoConversation $conversation, User $user, ?callable $onDelta = null): StepResult
     {
         $context = new ToolContext($user, $conversation->server, $conversation);
         $finalAnswer = $conversation->step_count >= max(1, (int) config('plugged-host-ai.max_steps', 10));
@@ -355,11 +362,23 @@ final class NeoAgent
                 $this->context->build($conversation, $context, $finalAnswer),
                 $this->tools->definitions($available),
                 $finalAnswer ? 'none' : 'auto',
+                $onDelta,
             );
         } catch (LimitReachedException $e) {
-            return $this->halt($conversation, NeoConversation::LIMITED, StepResult::LIMITED, trans('plugged-host-ai::strings.errors.limited_' . ($e->window === 'long' ? 'long' : 'short'), [
+            return $this->halt($conversation, NeoConversation::LIMITED, StepResult::LIMITED, trans('plugged-host-ai::strings.errors.limited_' . (in_array($e->window, ['long', 'model'], true) ? $e->window : 'short'), [
                 'time' => $this->localTime($e->retryAt, $user),
             ]), ['window' => $e->window, 'retry_at' => $e->retryAt]);
+        } catch (ModelUnavailableException $e) {
+            $notice = match ($e->reason) {
+                'model_not_allowed' => trans('plugged-host-ai::strings.errors.model_not_allowed', [
+                    'model' => $e->label ?? '?',
+                    'plan' => trans('plugged-host-ai::strings.chat.plan_' . ($e->access === 'plusplus' ? 'plusplus' : 'plus')),
+                ]),
+                'model_unavailable' => trans('plugged-host-ai::strings.errors.model_unavailable'),
+                default => trans('plugged-host-ai::strings.errors.unavailable'),
+            };
+
+            return $this->halt($conversation, NeoConversation::ERROR, StepResult::ERROR, $notice, ['model' => true]);
         } catch (NotLinkedException) {
             return $this->halt($conversation, NeoConversation::UNLINKED, StepResult::UNLINKED, trans('plugged-host-ai::strings.errors.unlinked', ['portal' => app(AccountPortal::class)->name()]));
         } catch (GatewayBusyException $e) {
@@ -373,17 +392,20 @@ final class NeoAgent
         $message = (array) ($response['message'] ?? []);
         $calls = array_values(array_filter((array) ($message['tool_calls'] ?? []), 'is_array'));
         $content = is_string($message['content'] ?? null) && trim($message['content']) !== '' ? trim($message['content']) : null;
+        // What the model thought, for the chat to show folded away; never sent back to a model.
+        $thinking = is_string($response['thinking'] ?? null) && trim($response['thinking']) !== '' ? Str::limit(trim($response['thinking']), 12000) : null;
 
-        DB::transaction(function () use ($conversation, $user, $response, $calls, $content, $available, $finalAnswer): void {
+        DB::transaction(function () use ($conversation, $user, $response, $calls, $content, $thinking, $available, $finalAnswer): void {
             $this->append($conversation, NeoMessage::ASSISTANT, [
                 'content' => $content,
                 'tool_calls' => $calls === [] ? null : $calls,
-                'meta' => [
+                'meta' => array_filter([
                     'provider' => $response['provider']['label'] ?? null,
                     'model' => $response['provider']['model'] ?? null,
                     'finish_reason' => $response['finish_reason'] ?? null,
                     'tokens' => (int) ($response['usage']['charged_tokens'] ?? 0),
-                ],
+                    'thinking' => $thinking,
+                ], static fn (mixed $value): bool => $value !== null),
             ]);
 
             foreach ($calls as $call) {

@@ -65,6 +65,11 @@ final class ConfiguredProviders implements ProviderSource
      */
     public static function provider(int $slot, array $config): array
     {
+        $legacyPremium = (bool) filter_var($config['premium'] ?? false, FILTER_VALIDATE_BOOL);
+        $access = in_array($config['access'] ?? null, ['everyone', 'plus', 'plusplus'], true)
+            ? (string) $config['access']
+            : ($legacyPremium ? 'plusplus' : 'everyone');
+
         return [
             'slot' => $slot,
             'enabled' => (bool) ($config['enabled'] ?? false),
@@ -78,7 +83,17 @@ final class ConfiguredProviders implements ProviderSource
             'daily_token_cap' => max(0, (int) ($config['daily_token_cap'] ?? 0)),
             'extra_headers' => array_map('strval', array_filter((array) ($config['extra_headers'] ?? []), 'is_scalar')),
             'extra_body' => (array) ($config['extra_body'] ?? []),
-            'premium' => (bool) filter_var($config['premium'] ?? false, FILTER_VALIDATE_BOOL),
+            // Not open to everyone (rux keeps these for orders). From noprofit.space it comes derived
+            // from access; set here, from access or the old premium flag.
+            'premium' => $access !== 'everyone',
+            // A model people pick by its label: who may (everyone, plus, plusplus), the line under
+            // its name, how many times its tokens count, whether its thinking is shown.
+            'access' => $access,
+            'description' => (string) ($config['description'] ?? ''),
+            'multiplier' => max(1, min(10, isset($config['multiplier']) && $config['multiplier'] !== null && $config['multiplier'] !== ''
+                ? (int) $config['multiplier']
+                : ($legacyPremium ? (int) config('plugged-host-ai.local.limits.premium_multiplier', 2) : 1))),
+            'thinking' => (bool) filter_var($config['thinking'] ?? true, FILTER_VALIDATE_BOOL),
             // Null until set: ProviderChain::seesImages() then goes by the driver.
             'vision' => isset($config['vision']) && $config['vision'] !== '' ? (bool) filter_var($config['vision'], FILTER_VALIDATE_BOOL) : null,
         ];

@@ -57,7 +57,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
         'limits.discord_unlinked_percent' => ['NEO_DISCORD_UNLINKED_PERCENT', 'limits.discord_unlinked_percent', 0, 100],
         'limits.premium_multiplier' => ['NEO_PREMIUM_MULTIPLIER', 'limits.premium_multiplier', 1, 10],
         'failover.default_cooldown' => ['NEO_DEFAULT_COOLDOWN', 'failover.default_cooldown', 1, 3600],
-        'failover.deadline' => ['NEO_CHAIN_DEADLINE', 'failover.deadline', 10, 95],
+        'failover.deadline' => ['NEO_CHAIN_DEADLINE', 'failover.deadline', 10, 270],
         'failover.max_concurrent' => ['NEO_MAX_CONCURRENT', 'failover.max_concurrent', 1, 50],
     ];
 
@@ -88,8 +88,11 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
                 'long_window_days' => (int) config(self::CONFIG . '.limits.long.days'),
                 'long_tokens' => (int) config(self::CONFIG . '.limits.long.tokens'),
                 'discord_unlinked_percent' => (int) config(self::CONFIG . '.limits.discord_unlinked_percent', 50),
-                'premium_multiplier' => (int) config(self::CONFIG . '.limits.premium_multiplier', 2),
+                // This panel meters every model in the shared windows (the gateway's limits mode all).
+                'mode' => 'all',
+                'plusplus_percent' => 150,
             ],
+            'default_model' => 0,
             'failover' => [
                 'default_cooldown' => (int) config(self::CONFIG . '.failover.default_cooldown'),
                 'deadline' => (int) config(self::CONFIG . '.failover.deadline'),
@@ -255,8 +258,13 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
             'daily_token_cap' => (int) $provider['daily_token_cap'],
             'extra_headers' => (object) $this->maskHeaders((array) $provider['extra_headers']),
             'extra_body' => (object) $provider['extra_body'],
-            'premium' => !empty($provider['premium']),
             'vision' => ProviderChain::seesImages($provider),
+            'description' => (string) ($provider['description'] ?? ''),
+            'access' => (string) ($provider['access'] ?? 'everyone'),
+            'limited' => false,
+            'weekly_tokens' => 0,
+            'multiplier' => (int) ($provider['multiplier'] ?? 1),
+            'thinking' => (bool) ($provider['thinking'] ?? true),
             'usable' => ProviderChain::usable($provider),
             'cooldown_until' => $cooldownUntil === null ? null : gmdate('Y-m-d\TH:i:s\Z', $cooldownUntil),
             'last_error' => $this->chain->lastError($provider),
@@ -352,7 +360,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
             $config[$configPrefix . $field] = $configValue;
         };
 
-        foreach (['enabled', 'premium', 'vision'] as $flag) {
+        foreach (['enabled', 'premium', 'vision', 'thinking'] as $flag) {
             if (!array_key_exists($flag, $fields)) {
                 continue;
             }
@@ -368,6 +376,19 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
             preg_match('/^[\pL\pN ._()\-]{1,64}$/u', $label) === 1
                 ? $set('label', $label, $label)
                 : $errors[$errorPrefix . 'label'] = 'letters, digits, spaces and ._()- only (max 64)';
+        }
+
+        if (array_key_exists('description', $fields)) {
+            $description = trim((string) $fields['description']);
+            preg_match('/^[\pL\pN .,_()!?+%&:\/-]{0,120}$/u', $description) === 1
+                ? $set('description', $description, $description)
+                : $errors[$errorPrefix . 'description'] = 'letters, digits, spaces and .,_()!?+%&:/- only (max 120)';
+        }
+
+        if (array_key_exists('access', $fields)) {
+            in_array($fields['access'], ['everyone', 'plus', 'plusplus'], true)
+                ? $set('access', $fields['access'], $fields['access'])
+                : $errors[$errorPrefix . 'access'] = 'must be everyone, plus or plusplus';
         }
 
         if (array_key_exists('driver', $fields)) {
@@ -407,7 +428,7 @@ final class EnvNeoSettingsStore implements NeoSettingsStore
                 : $errors[$errorPrefix . 'model'] = 'invalid model id';
         }
 
-        foreach (['max_tokens' => [256, 128000], 'timeout' => [5, 90], 'daily_token_cap' => [0, 10_000_000_000]] as $field => [$min, $max]) {
+        foreach (['max_tokens' => [256, 128000], 'timeout' => [5, 270], 'daily_token_cap' => [0, 10_000_000_000], 'multiplier' => [1, 10]] as $field => [$min, $max]) {
             if (!array_key_exists($field, $fields)) {
                 continue;
             }

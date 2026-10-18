@@ -180,7 +180,7 @@ class NeoChat extends Component
      */
     public function step(): array
     {
-        return $this->guarded(fn (): StepResult => $this->agent()->step($this->conversation(), $this->user()));
+        return $this->guarded(fn (): StepResult => $this->agent()->step($this->conversation(), $this->user(), $this->live(...)));
     }
 
     /**
@@ -332,19 +332,32 @@ class NeoChat extends Component
     }
 
     /**
-     * The model picker under the chat. The premium model needs PlusPlus; picking it without
-     * only says so.
+     * The model picker under the chat: any model the backend offers, by its key ('standard' goes
+     * back to the default model). One the account's plan does not open only says so.
      */
     public function setModel(string $model): void
     {
-        abort_unless(in_array($model, [NeoModel::STANDARD, NeoModel::PREMIUM], true), 422);
+        abort_unless($model === 'standard' || preg_match('/^\d{1,3}$/', $model) === 1, 422);
 
         $user = $this->user();
 
-        if ($model === NeoModel::PREMIUM && !NeoModel::premiumAllowed($user)) {
-            Notification::make()->title(trans('plugged-host-ai::strings.chat.model_plusplus_only'))->warning()->send();
+        if ($model !== 'standard') {
+            $offered = collect($this->catalog(app(NeoBackend::class)->usage($user))['models'] ?? [])->firstWhere('key', $model);
 
-            return;
+            if ($offered === null) {
+                Notification::make()->title(trans('plugged-host-ai::strings.errors.model_unavailable'))->warning()->send();
+
+                return;
+            }
+
+            if (empty($offered['allowed'])) {
+                Notification::make()->title(trans('plugged-host-ai::strings.chat.model_locked', [
+                    'model' => $offered['label'],
+                    'plan' => trans('plugged-host-ai::strings.chat.plan_' . (($offered['access'] ?? null) === 'plusplus' ? 'plusplus' : 'plus')),
+                ]))->warning()->send();
+
+                return;
+            }
         }
 
         NeoPreferences::set($user, ['model' => $model]);
@@ -410,14 +423,15 @@ class NeoChat extends Component
         $conversation = $this->conversation();
         $acknowledged = NeoPreferences::acknowledged($user);
         $backend = $acknowledged ? app(NeoBackend::class)->usage($user) : null;
+        $models = $this->models($user, $backend);
 
         return view('plugged-host-ai::livewire.chat', [
             'conversation' => $conversation,
             'messages' => $conversation->messages()->reorder('seq', 'desc')->limit(60)->get()->reverse()->values(),
             'acknowledged' => $acknowledged,
             'autoApprove' => NeoPreferences::autoApprove($user),
-            'usage' => is_array($backend['limits'] ?? null) ? $backend['limits'] : null,
-            'models' => $this->models($user, $backend),
+            'usage' => $this->meter($backend, $models),
+            'models' => $models,
             'serverName' => $conversation->server?->name,
             'pending' => $conversation->messages()->where('role', NeoMessage::TOOL)->where('status', NeoMessage::PENDING_APPROVAL)->count(),
             'enabled' => true,
@@ -460,10 +474,15 @@ class NeoChat extends Component
     {
         $usage = $enabled ? app(NeoBackend::class)->usage($user) : null;
 
+        $catalog = $this->catalog($usage);
+
         return [
             'enabled' => $enabled,
             'auto_approve' => NeoPreferences::autoApprove($user),
             'limits' => is_array($usage['limits'] ?? null) ? $usage['limits'] : null,
+            'mode' => $catalog['mode'],
+            // Limits mode models: the weekly window of every limited model the account may use.
+            'model_windows' => array_values(array_filter($catalog['models'], static fn (array $model): bool => !empty($model['allowed']) && is_array($model['window'] ?? null))),
             // Unknown (backend down) counts as linked: the limits then say "unavailable".
             'linked' => $usage['linked'] ?? true,
             'retention_days' => (int) config('plugged-host-ai.retention_days', 30),
@@ -507,29 +526,92 @@ class NeoChat extends Component
     }
 
     /**
-     * The model picker, or null while the backend offers no premium model (nothing to pick).
+     * Send the model's answer to the chat while it is written (wire:stream targets in the chat
+     * view). The finished message replaces it when the step's response arrives.
+     */
+    private function live(string $kind, string $text): void
+    {
+        match ($kind) {
+            'text' => $this->stream(e($text), false, 'neo-live-text'),
+            'thinking' => $this->stream(e($text), false, 'neo-live-think'),
+            'reset' => [$this->stream('', true, 'neo-live-text'), $this->stream('', true, 'neo-live-think')],
+            default => null,
+        };
+    }
+
+    /**
+     * The backend's limits mode and models, in a shape the view can count on.
      *
      * @param  array<string, mixed>|null  $backend  NeoBackend::usage()
-     * @return array{current: string, premium: array{label: string, multiplier: int}, allowed: bool, plus_url: ?string}|null
+     * @return array{mode: string, default: ?string, models: list<array<string, mixed>>}
+     */
+    private function catalog(?array $backend): array
+    {
+        $models = array_values(array_filter((array) ($backend['models'] ?? []), static fn ($model): bool => is_array($model) && is_string($model['key'] ?? null) && filled($model['label'] ?? null)));
+
+        return [
+            'mode' => ($backend['mode'] ?? 'all') === 'models' ? 'models' : 'all',
+            'default' => isset($backend['default_model']) ? (string) $backend['default_model'] : null,
+            'models' => $models,
+        ];
+    }
+
+    /**
+     * The model picker, or null while there is nothing to pick from (one model or none).
+     *
+     * @param  array<string, mixed>|null  $backend  NeoBackend::usage()
+     * @return array{current: ?string, list: list<array<string, mixed>>, mode: string, plus_url: ?string}|null
      */
     private function models(User $user, ?array $backend): ?array
     {
-        $premium = $backend['premium_model'] ?? null;
+        $catalog = $this->catalog($backend);
 
-        if (!is_array($premium) || !is_string($premium['label'] ?? null) || $premium['label'] === '') {
+        if (count($catalog['models']) < 2) {
             return null;
         }
 
+        $allowed = array_values(array_filter($catalog['models'], static fn (array $model): bool => !empty($model['allowed'])));
+        $picked = NeoModel::forTurn($user);
+
+        // A pick from before models had names ('premium') is the first model not open to everyone.
+        if ($picked === 'premium') {
+            $picked = collect($allowed)->first(static fn (array $model): bool => ($model['access'] ?? 'everyone') !== 'everyone')['key'] ?? null;
+        }
+
+        $current = collect($allowed)->contains('key', $picked) ? $picked : $catalog['default'];
+
         return [
-            'current' => NeoModel::forTurn($user),
-            'premium' => ['label' => $premium['label'], 'multiplier' => max(1, (int) ($premium['multiplier'] ?? 2))],
-            'allowed' => NeoModel::premiumAllowed($user),
+            'current' => $current,
+            'list' => $catalog['models'],
+            'mode' => $catalog['mode'],
             'plus_url' => self::plusUrl(),
         ];
     }
 
     /**
-     * Where PlusPlus is sold (plugged-host-economy's Plus page), for the locked premium model.
+     * The usage bars under the chat: the 5-hour and weekly windows (limits mode all), the
+     * current model's weekly window when it is limited (limits mode models), or nothing.
+     *
+     * @param  array<string, mixed>|null  $backend  NeoBackend::usage()
+     * @param  array<string, mixed>|null  $models  models()
+     * @return array<string, array<string, mixed>>|null Windows by the label kind: short, long, week.
+     */
+    private function meter(?array $backend, ?array $models): ?array
+    {
+        $catalog = $this->catalog($backend);
+
+        if ($catalog['mode'] === 'all') {
+            return is_array($backend['limits'] ?? null) ? $backend['limits'] : null;
+        }
+
+        $current = $models['current'] ?? $catalog['default'];
+        $window = collect($catalog['models'])->firstWhere('key', $current)['window'] ?? null;
+
+        return is_array($window) ? ['week' => $window] : null;
+    }
+
+    /**
+     * Where Plus and PlusPlus are sold (plugged-host-economy's Plus page), for locked models.
      */
     private static function plusUrl(): ?string
     {

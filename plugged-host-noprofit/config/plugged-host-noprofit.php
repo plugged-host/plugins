@@ -47,6 +47,8 @@ return [
      */
     'neo_gateway_secret' => (string) env('NEO_GATEWAY_SECRET', ''),
     'neo_gateway_timeout' => (int) env('NEO_GATEWAY_TIMEOUT', 90),
+    // A streamed chat turn (the gateway pings while the model is quiet, so silence ends it sooner).
+    'neo_gateway_stream_timeout' => (int) env('NEO_GATEWAY_STREAM_TIMEOUT', 290),
     // rux fetches neo's providers again once its copy is this old (seconds).
     'neo_providers_refresh' => 60,
 ];

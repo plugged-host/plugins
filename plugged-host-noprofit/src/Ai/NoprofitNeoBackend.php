@@ -13,6 +13,7 @@ use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
+use PluggedHost\Ai\Services\Gateway\ModelUnavailableException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
 use PluggedHost\Ai\Support\NeoModel;
 use PluggedHost\Ai\Support\NeoUsagePercent;
@@ -29,7 +30,9 @@ use Throwable;
  *
  * The panel chat names its user's account; neo on Discord names a Discord account, which
  * noprofit.space meters as the account it is linked to, or on its own at a share of the limits.
- * A chat turn names the model its user picked (NeoModel); noprofit.space routes and meters by it.
+ * Every call says the account's plan here (NeoModel::plan()); a chat turn names the model its
+ * user picked (NeoModel), and runs on that one only. A chat turn is streamed: its text and thinking
+ * are handed on while the model writes them.
  */
 final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
 {
@@ -46,37 +49,37 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
     }
 
     /**
-     * One model turn in the canonical chat shape.
+     * One model turn in the canonical chat shape. With $onDelta it is streamed: $onDelta('text'
+     * or 'thinking', …) while the model writes, $onDelta('reset', '') when the gateway sends the
+     * call again and what came so far is void.
      *
      * @param  list<array<string, mixed>>  $messages
      * @param  list<array<string, mixed>>  $tools
+     * @param  (callable(string, string): void)|null  $onDelta
      * @return array<string, mixed>
      *
      * @throws LimitReachedException|NotLinkedException|GatewayBusyException|GatewayUnavailableException
      */
-    public function turn(User $user, NeoConversation $conversation, array $messages, array $tools, string $toolChoice): array
+    public function turn(User $user, NeoConversation $conversation, array $messages, array $tools, string $toolChoice, ?callable $onDelta = null): array
     {
-        $response = $this->send('POST', '/turn', NoprofitLink::identity($user) + [
+        $body = NoprofitLink::identity($user) + [
             'service' => 'plugged-host',
             'usage_percent' => NeoUsagePercent::for($user),
+            'plan' => NeoModel::plan($user),
             'model' => NeoModel::forTurn($user),
             'conversation' => $conversation->uuid,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
             'tools' => $tools,
             'tool_choice' => $toolChoice,
-        ], $this->timeout());
+        ];
 
-        $data = (array) $response->json();
+        $data = $onDelta === null ? $this->plainTurn($body) : $this->streamedTurn($body, $onDelta);
 
-        if ($response->successful()) {
-            $this->rememberAccount($user, $data);
-            Cache::put($this->usageKey($user), ['linked' => true, 'limits' => $data['limits'] ?? null, 'premium_model' => $data['premium_model'] ?? null], 30);
+        $this->rememberAccount($user, $data);
+        Cache::put($this->usageKey($user), $this->usageFrom($data), 30);
 
-            return $data;
-        }
-
-        $this->throwFor($response, $data);
+        return $data;
     }
 
     /**
@@ -94,6 +97,7 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
             'discord_id' => $discordId,
             'service' => self::DISCORD_SERVICE,
             'usage_percent' => NeoUsagePercent::for(self::panelUserForDiscord($discordId)),
+            'plan' => NeoModel::plan(self::panelUserForDiscord($discordId)),
             'conversation' => 'discord:' . $conversation,
             'request_id' => (string) Str::uuid(),
             'messages' => $messages,
@@ -109,7 +113,7 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
             return $data;
         }
 
-        $this->throwFor($response, $data);
+        $this->throwFor($response->status(), $data, (int) $response->header('Retry-After'));
     }
 
     /**
@@ -129,10 +133,11 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
             return $this->withPanelUser($cached);
         }
 
-        $response = $this->send('POST', '/usage', [
+        $response = $this->sendTwice('POST', '/usage', [
             'discord_id' => $discordId,
             'service' => self::DISCORD_SERVICE,
             'usage_percent' => NeoUsagePercent::for(self::panelUserForDiscord($discordId)),
+            'plan' => NeoModel::plan(self::panelUserForDiscord($discordId)),
         ], 8);
 
         if (!$response->successful()) {
@@ -146,10 +151,10 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
     }
 
     /**
-     * The account's current windows and the premium model on offer, cached briefly. Null when
-     * unknown (gateway down); ['linked' => false] when noprofit.space does not know the account.
+     * The account's windows, the limits mode and the models it can pick, cached briefly. Null
+     * when unknown (gateway down); ['linked' => false] when noprofit.space does not know the account.
      *
-     * @return array{linked: bool, limits?: array<string, mixed>|null, premium_model?: array{label: string, multiplier: int}|null}|null
+     * @return array<string, mixed>|null
      */
     public function usage(User $user): ?array
     {
@@ -159,13 +164,17 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
         }
 
         try {
-            $response = $this->send('POST', '/usage', NoprofitLink::identity($user) + ['service' => 'plugged-host', 'usage_percent' => NeoUsagePercent::for($user)], 8);
+            $response = $this->sendTwice('POST', '/usage', NoprofitLink::identity($user) + [
+                'service' => 'plugged-host',
+                'usage_percent' => NeoUsagePercent::for($user),
+                'plan' => NeoModel::plan($user),
+            ], 8);
         } catch (Throwable) {
             return null;
         }
 
         $result = match (true) {
-            $response->successful() => ['linked' => true, 'limits' => $response->json('limits'), 'premium_model' => $response->json('premium_model')],
+            $response->successful() => $this->usageFrom((array) $response->json()),
             $response->status() === 404 => ['linked' => false],
             default => null,
         };
@@ -242,11 +251,118 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
     }
 
     /**
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     *
+     * @throws LimitReachedException|NotLinkedException|GatewayBusyException|GatewayUnavailableException
+     */
+    private function plainTurn(array $body): array
+    {
+        $response = $this->send('POST', '/turn', $body, $this->timeout());
+        $data = (array) $response->json();
+
+        if ($response->successful()) {
+            return $data;
+        }
+
+        $this->throwFor($response->status(), $data, (int) $response->header('Retry-After'));
+    }
+
+    /**
+     * A turn whose answer is streamed (InternalNeoController on noprofit.space): deltas go to
+     * $onDelta as they come, the last event is the turn's result or its error.
+     *
+     * @param  array<string, mixed>  $body
+     * @param  callable(string, string): void  $onDelta
+     * @return array<string, mixed>
+     *
+     * @throws LimitReachedException|NotLinkedException|GatewayBusyException|GatewayUnavailableException
+     */
+    private function streamedTurn(array $body, callable $onDelta): array
+    {
+        if (!$this->configured()) {
+            throw new GatewayUnavailableException('not_configured');
+        }
+
+        $final = null;
+
+        try {
+            $answer = $this->client->stream(self::BASE . '/turn', $body + ['stream' => true], $this->secret(), $this->streamTimeout(), 120, static function (string $data) use (&$final, $onDelta): void {
+                $event = json_decode($data, true);
+
+                if (!is_array($event)) {
+                    return;
+                }
+
+                match ($event['type'] ?? null) {
+                    'delta' => $onDelta((string) ($event['kind'] ?? 'text'), (string) ($event['text'] ?? '')),
+                    'result', 'error' => $final = $event,
+                    default => null,
+                };
+            });
+        } catch (Throwable $e) {
+            report($e);
+
+            throw new GatewayUnavailableException('unreachable', 10);
+        }
+
+        if (is_array($final) && ($final['type'] ?? null) === 'result') {
+            unset($final['type']);
+
+            return $final;
+        }
+
+        if (is_array($final)) {
+            $this->throwFor((int) ($final['status'] ?? 503), $final, 0);
+        }
+
+        if ($answer['status'] >= 400) {
+            $this->throwFor($answer['status'], (array) json_decode($answer['body'], true), 0);
+        }
+
+        throw new GatewayUnavailableException($answer['error'] !== null ? 'unreachable' : 'stream_ended', 10);
+    }
+
+    /**
+     * What usage() keeps of an answer from /usage or /turn.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function usageFrom(array $data): array
+    {
+        return [
+            'linked' => true,
+            'limits' => $data['limits'] ?? null,
+            'mode' => $data['mode'] ?? 'all',
+            'models' => array_values(array_filter((array) ($data['models'] ?? []), 'is_array')),
+            'default_model' => isset($data['default_model']) ? (string) $data['default_model'] : null,
+        ];
+    }
+
+    /**
+     * send(), once more when the connection itself failed (the way to noprofit.space runs through
+     * Cloudflare and now and then a request is lost on it). For calls that change nothing.
+     *
      * @param  array<string, mixed>|null  $body
      *
      * @throws GatewayUnavailableException
      */
-    private function send(string $method, string $path, ?array $body, int $timeout): Response
+    private function sendTwice(string $method, string $path, ?array $body, int $timeout): Response
+    {
+        try {
+            return $this->send($method, $path, $body, $timeout, false);
+        } catch (GatewayUnavailableException) {
+            return $this->send($method, $path, $body, $timeout);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $body
+     *
+     * @throws GatewayUnavailableException
+     */
+    private function send(string $method, string $path, ?array $body, int $timeout, bool $report = true): Response
     {
         if (!$this->configured()) {
             throw new GatewayUnavailableException('not_configured');
@@ -255,7 +371,9 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
         try {
             return $this->client->send($method, self::BASE . $path, $body, $this->secret(), $timeout);
         } catch (Throwable $e) {
-            report($e);
+            if ($report) {
+                report($e);
+            }
 
             throw new GatewayUnavailableException('unreachable', 10);
         }
@@ -266,19 +384,24 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
      *
      * @throws LimitReachedException|NotLinkedException|GatewayBusyException|GatewayUnavailableException
      */
-    private function throwFor(Response $response, array $data): never
+    private function throwFor(int $status, array $data, int $retryAfterHeader): never
     {
-        $retryAfter = (int) ($data['retry_after'] ?? $response->header('Retry-After') ?: 0);
+        $retryAfter = (int) ($data['retry_after'] ?? $retryAfterHeader);
 
         throw match (true) {
-            $response->status() === 429 => new LimitReachedException(
+            $status === 429 => new LimitReachedException(
                 (string) ($data['window'] ?? 'short'),
                 is_string($data['retry_at'] ?? null) ? $data['retry_at'] : null,
                 (array) ($data['limits'] ?? []),
             ),
-            $response->status() === 404 => new NotLinkedException('account_not_linked'),
-            $response->status() === 409, ($data['error'] ?? null) === 'busy' => new GatewayBusyException('busy', max(1, $retryAfter)),
-            default => new GatewayUnavailableException((string) ($data['error'] ?? 'http_' . $response->status()), $retryAfter),
+            $status === 404 => new NotLinkedException('account_not_linked'),
+            $status === 422 && str_starts_with((string) ($data['error'] ?? ''), 'model_') || ($data['error'] ?? null) === 'no_model' => new ModelUnavailableException(
+                (string) $data['error'],
+                is_string($data['label'] ?? null) ? $data['label'] : null,
+                is_string($data['access'] ?? null) ? $data['access'] : null,
+            ),
+            $status === 409, ($data['error'] ?? null) === 'busy' => new GatewayBusyException('busy', max(1, $retryAfter)),
+            default => new GatewayUnavailableException((string) ($data['error'] ?? 'http_' . $status), $retryAfter),
         };
     }
 
@@ -350,5 +473,14 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
     private function timeout(): int
     {
         return (int) config('plugged-host-noprofit.neo_gateway_timeout', 90);
+    }
+
+    /**
+     * How long a streamed turn may take in all (the gateway's own deadline is shorter); silence
+     * ends it sooner, since the gateway pings while the model is quiet.
+     */
+    private function streamTimeout(): int
+    {
+        return (int) config('plugged-host-noprofit.neo_gateway_stream_timeout', 290);
     }
 }
