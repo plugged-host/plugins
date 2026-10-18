@@ -37,9 +37,8 @@ use Throwable;
  *    its own, and noprofit:credits-sync pulls whatever changed once a minute in case a push got
  *    lost. Balance and resources are taken on only when the version is newer and the panel has
  *    no unconfirmed changes (their confirmation carries the newest state); the plan and prices
- *    are only ever set there, so they are always taken on. When the plan shows that an admin
- *    lowered the base there (loweredByAdmin), economy's AccountLimitsLowered tells the servers
- *    to give it back.
+ *    are only ever set there, so they are always taken on. When the plan shows that the base went
+ *    down there (lowered()), economy's AccountLimitsLowered tells the servers to give it back.
  *
  * Writes that apply noprofit.space's state go through the normal ledger methods with
  * self::$applying set, so they are recorded but not sent back.
@@ -50,7 +49,7 @@ final class NoprofitCreditSync
 
     public const UNDO_TYPE = 'noprofit_undo';
 
-    /** AccountLimitsLowered's reason when an admin lowered the base on noprofit.space. */
+    /** AccountLimitsLowered's reason when the base went down on noprofit.space. */
     public const BASE_LOWERED = 'noprofit_base_lowered';
 
     private const CURSOR_KEY = 'plugged-host-economy:noprofit-credits-cursor';
@@ -340,7 +339,7 @@ final class NoprofitCreditSync
 
             try {
                 if (is_array($state['plan'] ?? null) && $credits->noprofit_plan !== $state['plan']) {
-                    $lowered = self::loweredByAdmin($credits->noprofit_plan, $state['plan']);
+                    $lowered = self::lowered($credits->noprofit_plan, $state['plan']);
                     $credits->forceFill(['noprofit_plan' => $state['plan']])->saveQuietly();
 
                     // The servers give it back (plugged-host-servers' AllowanceTrim), recorded in
@@ -404,17 +403,19 @@ final class NoprofitCreditSync
     }
 
     /**
-     * What an admin on noprofit.space took off the account's base since the plan this panel
-     * had: per resource the growth of the plan's cut_* totals (noprofit.space's
-     * ComputeQuota::recordBaseCut, they only count up), but no more than the base actually went
-     * down, so lowering and raising it back between two syncs takes nothing. A base that
-     * follows the tier or the Discord servers moves no cut_* total and so cuts nothing. Null
-     * when nothing was taken, or when there is no earlier plan to compare with (a first sync).
+     * What plugged.host's servers have to give back since the plan this panel had: per resource
+     * the growth of the plan's cut_* totals, but no more than the base actually went down, so
+     * lowering and raising it back between two syncs takes nothing. noprofit.space adds to the
+     * totals whenever the base goes down (an admin, a lower tier, a Discord server left: its
+     * PoolCuts), the smaller of what it lost and what all services use beyond the new pool,
+     * split between the services by their servers; cut_* is plugged.host's share. A plan that
+     * is lower only because plugged.cloud uses more moves no total and cuts nothing. Null when
+     * nothing was taken, or when there is no earlier plan to compare with (a first sync).
      *
      * @param  array<string, mixed>  $new
      * @return array{cpu: int, memory: int, disk: int}|null
      */
-    public static function loweredByAdmin(mixed $old, array $new): ?array
+    public static function lowered(mixed $old, array $new): ?array
     {
         if (!is_array($old)) {
             return null;

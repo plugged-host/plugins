@@ -56,7 +56,7 @@ return [
 
     'allowance_trimmed' => [
         'title' => 'Deine Server haben jetzt weniger Ressourcen',
-        'body' => 'Die Basis-Ressourcen deines Kontos wurden auf noprofit.space verringert, und deine Server haben mehr genutzt, als dein Konto jetzt hat. Deshalb wurde der Unterschied gleichmäßig von ihnen abgezogen: :servers.',
+        'body' => 'Die Basis-Ressourcen deines Kontos auf noprofit.space sind gesunken (von einem Admin geändert, eine kleinere kostenlose Stufe oder ein Discord-Server, den du verlassen hast), und deine Server haben mehr genutzt, als dein Konto jetzt hat. Deshalb wurde der Unterschied gleichmäßig von ihnen abgezogen: :servers.',
         'cpu' => '-:amount% CPU',
         'memory' => '-:amount MB RAM',
         'disk' => '-:amount MB Speicherplatz',

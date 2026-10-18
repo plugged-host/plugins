@@ -79,8 +79,8 @@ function accountWithServers(array $servers, array $plan = []): array
     return [$user, $made];
 }
 
-/** noprofit.space sends a new plan: what an admin took off the base (cut_*) and the base now. */
-function adminLowers(User $user, array $by): void
+/** noprofit.space sends a new plan: plugged.host's share of what the lower base took (cut_*) and the base now. */
+function baseLowers(User $user, array $by): void
 {
     $plan = UserCredits::query()->where('user_id', $user->id)->value('noprofit_plan');
     $plan = is_array($plan) ? $plan : json_decode((string) $plan, true);
@@ -101,10 +101,10 @@ function limits(array $servers, string $resource): array
     return array_map(fn (Server $server): int => (int) $server->fresh()->{$resource}, $servers);
 }
 
-it('takes what an admin took off the base off every server evenly, never below the floor', function () {
+it('takes what a lower base took off every server evenly, never below the floor', function () {
     [$user, $servers] = accountWithServers([[200, 4096, 10240], [200, 4096, 10240], [100, 2048, 10240]]);
 
-    adminLowers($user, ['cpu' => 100, 'memory' => 4096]);
+    baseLowers($user, ['cpu' => 100, 'memory' => 4096]);
 
     // 4096 MB over three servers, the small one stops at 1024 MB; 100% CPU, never below 25%.
     expect(limits($servers, 'memory'))->toBe([2560, 2560, 1024])
@@ -123,11 +123,11 @@ it('takes what an admin took off the base off every server evenly, never below t
 it('takes no more than the servers use beyond the allowance', function () {
     // Room to spare: 6 GB used of 10 GB, the base goes down by 2 GB.
     [$roomy, $roomyServers] = accountWithServers([[100, 3072, 5120], [100, 3072, 5120]], ['memory' => 10240, 'base_memory' => 10240]);
-    adminLowers($roomy, ['memory' => 2048]);
+    baseLowers($roomy, ['memory' => 2048]);
 
     // Already 1 GB over before, the base goes down by 2 GB: 2 GB comes off, the 1 GB stays.
     [$over, $overServers] = accountWithServers([[100, 4096, 5120], [100, 4096, 5120]], ['memory' => 7168, 'base_memory' => 7168]);
-    adminLowers($over, ['memory' => 2048]);
+    baseLowers($over, ['memory' => 2048]);
 
     expect(limits($roomyServers, 'memory'))->toBe([3072, 3072])
         ->and($roomy->notifications()->count())->toBe(0)
@@ -135,13 +135,13 @@ it('takes no more than the servers use beyond the allowance', function () {
         ->and(limits($overServers, 'memory'))->toBe([3072, 3072]);
 });
 
-it('cuts nothing for a base that follows the tier, or one lowered and raised back between syncs', function () {
+it('cuts nothing while the totals stay, or for a base lowered and raised back between syncs', function () {
     [$user, $servers] = accountWithServers([[100, 4096, 5120], [100, 4096, 5120]]);
     $plan = UserCredits::forUser($user)->noprofit_plan;
 
-    // An admin lowered by 2 GB and raised it back before the panel heard: the base is where it was.
+    // Lowered by 2 GB and raised back before the panel heard: the base is where it was.
     NoprofitCreditSync::applyBalances([['account_id' => 990000 + $user->id, 'balance' => 0, 'version' => 2, 'plan' => ['cut_memory' => 2048] + $plan]]);
-    // Lower without the cut total moving: the Discord servers or the tier, not an admin.
+    // A lower plan without the totals moving (plugged.cloud uses more of the pool) cuts nothing.
     NoprofitCreditSync::applyBalances([['account_id' => 990000 + $user->id, 'balance' => 0, 'version' => 3, 'plan' => ['memory' => 6144, 'base_memory' => 6144, 'cut_memory' => 2048] + $plan]]);
 
     expect(AllowanceCut::query()->where('user_id', $user->id)->exists())->toBeFalse()
@@ -152,7 +152,7 @@ it('never takes a server\'s disk below what it stores', function () {
     [$user, $servers] = accountWithServers([[100, 2048, 10240], [100, 2048, 10240]]);
     $this->stored = [$servers[0]->uuid => 8192, $servers[1]->uuid => 1024];
 
-    adminLowers($user, ['disk' => 6144]);
+    baseLowers($user, ['disk' => 6144]);
 
     // The full one keeps 8 GB + 1 GB free, the other gives the rest.
     expect(limits($servers, 'disk'))->toBe([9216, 5120]);
@@ -162,7 +162,7 @@ it('leaves a server whose node does not answer with its disk', function () {
     [$user, $servers] = accountWithServers([[100, 2048, 10240], [100, 2048, 10240]]);
     $this->nodeDown = true;
 
-    adminLowers($user, ['disk' => 4096]);
+    baseLowers($user, ['disk' => 4096]);
 
     expect(limits($servers, 'disk'))->toBe([10240, 10240])
         ->and(AllowanceCut::query()->where('user_id', $user->id)->sole()->result['taken']['disk'])->toBe(0);
@@ -173,7 +173,7 @@ it('waits for a busy account and the sweep carries it out', function () {
 
     $held = Cache::lock('plugged-host-servers:provision:' . $user->id, 120);
     expect($held->get())->toBeTrue();
-    adminLowers($user, ['memory' => 2048]);
+    baseLowers($user, ['memory' => 2048]);
 
     expect(limits($servers, 'memory'))->toBe([4096, 4096])
         ->and(AllowanceCut::query()->where('user_id', $user->id)->sole()->settled_at)->toBeNull();
@@ -197,7 +197,7 @@ it('never takes the same overage twice', function () {
 
     // Two decreases waiting together take what is over, not their sum twice over.
     AllowanceCut::query()->create(['user_id' => $user->id, 'reason' => 'test', 'cpu' => 0, 'memory' => 2048, 'disk' => 0]);
-    adminLowers($user, ['memory' => 2048, 'cpu' => 100]);
+    baseLowers($user, ['memory' => 2048, 'cpu' => 100]);
 
     expect(limits($servers, 'memory'))->toBe([3072, 3072])
         ->and(limits($servers, 'cpu'))->toBe([150, 150])
@@ -209,13 +209,13 @@ it('never takes the same overage twice', function () {
         ->and(limits($servers, 'memory'))->toBe([3072, 3072]);
 });
 
-it('reads only an admin\'s cut from the plan', function () {
+it('reads the cut from the plan\'s totals, no more than the base went down', function () {
     $old = ['base_memory' => 8192, 'cut_memory' => 0, 'base_cpu' => 400, 'base_disk' => 51200];
 
-    expect(NoprofitCreditSync::loweredByAdmin(null, ['base_memory' => 4096, 'cut_memory' => 4096]))->toBeNull()
-        ->and(NoprofitCreditSync::loweredByAdmin($old, ['base_memory' => 4096, 'cut_memory' => 4096, 'base_cpu' => 400, 'base_disk' => 51200]))->toBe(['cpu' => 0, 'memory' => 4096, 'disk' => 0])
-        // Discord added 1 GB while the admin took 4: 3 GB less.
-        ->and(NoprofitCreditSync::loweredByAdmin($old, ['base_memory' => 5120, 'cut_memory' => 4096, 'base_cpu' => 400, 'base_disk' => 51200]))->toBe(['cpu' => 0, 'memory' => 3072, 'disk' => 0])
+    expect(NoprofitCreditSync::lowered(null, ['base_memory' => 4096, 'cut_memory' => 4096]))->toBeNull()
+        ->and(NoprofitCreditSync::lowered($old, ['base_memory' => 4096, 'cut_memory' => 4096, 'base_cpu' => 400, 'base_disk' => 51200]))->toBe(['cpu' => 0, 'memory' => 4096, 'disk' => 0])
+        // A Discord server added 1 GB while an admin took 4: 3 GB less.
+        ->and(NoprofitCreditSync::lowered($old, ['base_memory' => 5120, 'cut_memory' => 4096, 'base_cpu' => 400, 'base_disk' => 51200]))->toBe(['cpu' => 0, 'memory' => 3072, 'disk' => 0])
         // A plan from before the totals were sent cuts nothing.
-        ->and(NoprofitCreditSync::loweredByAdmin(['base_memory' => 8192], ['base_memory' => 4096]))->toBeNull();
+        ->and(NoprofitCreditSync::lowered(['base_memory' => 8192], ['base_memory' => 4096]))->toBeNull();
 });

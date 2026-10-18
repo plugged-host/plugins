@@ -2,9 +2,11 @@
 
 ## 2.2.0 (unreleased)
 
-- **A lower base on noprofit.space takes effect on the servers**: when an admin lowers an
-  account's base resources there, what its servers use beyond the new allowance (up to what was
-  taken away) comes off every server evenly, CPU, memory and disk (`AllowanceTrim`, table
+- **A lower base on noprofit.space takes effect on the servers**: whenever an account's base
+  resources go down there (an admin, a lower tier, a Discord server left), what its servers use
+  beyond the new allowance, up to plugged.host's share of what was taken away (noprofit.space
+  splits it between its services by their servers), comes off every server evenly, CPU, memory
+  and disk (`AllowanceTrim`, table
   `allowance_cuts`, migration 022, `plugged-host:allowance-cuts` every 5 min, doctor check
   "Lowered allowances"). `MemoryTrim` (`plugged-host:trim-memory`) and PlusPlusExpiry's CPU trim
   now run under the account's provisioning lock and take no more than is over at that moment, so
