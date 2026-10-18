@@ -99,7 +99,7 @@ final class AbuseAlerts
 
         try {
             Http::timeout(5)->post($url, [
-                'username' => 'plugged.host abuse',
+                'username' => trim((string) config('app.name') . ' abuse'),
                 'allowed_mentions' => ['parse' => []],
                 'embeds' => [$embed],
             ]);

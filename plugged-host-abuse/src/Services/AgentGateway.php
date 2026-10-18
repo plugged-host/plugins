@@ -14,7 +14,9 @@ use Throwable;
  * The node agent's report endpoint (POST /plugged-host/abuse/agent/report).
  *
  * The agent signs with the node's own Wings token, which it reads from /etc/pelican/config.yml:
- * nothing new to provision or rotate, and rotating the Wings token re-keys the agent too.
+ * nothing new to provision. It reads that file only when it starts, so after the node's Wings
+ * token is reset (and Wings' config updated) its reports fail with 403 until the agent is
+ * restarted: `systemctl restart plugged-host-abuse-agent`, or re-run the installer.
  * Headers: X-PH-Node (the token id), X-PH-Timestamp, X-PH-Signature =
  * hex HMAC-SHA256(token, "<timestamp>\n<sha256 hex of the raw body>"). The body is gzipped JSON
  * when X-PH-Encoding: gzip.
