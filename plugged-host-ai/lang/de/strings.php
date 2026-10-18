@@ -83,7 +83,7 @@ return [
 
     'consent' => [
         'title' => 'Bevor es losgeht',
-        'body' => 'neo ist ein agentischer KI-Assistent: Es beantwortet nicht nur Fragen, sondern erledigt Aufgaben auf deinen Servern und in deinem Konto für dich. Dafür wird das, was du schreibst, und das, was neo von deinem Server liest (Konsolenausgabe, Dateiinhalte), an unsere KI-Anbieter gesendet: Groq und, als Ausweichlösung, Claude von Anthropic über einen Drittanbieter-Proxy. Passwörter und Tokens werden vor dem Senden maskiert.',
+        'body' => 'neo ist ein agentischer KI-Assistent: Es beantwortet nicht nur Fragen, sondern erledigt Aufgaben auf deinen Servern und in deinem Konto für dich. Dafür wird das, was du schreibst, und das, was neo von deinem Server liest (Konsolenausgabe, Dateiinhalte), an den KI-Anbieter des gewählten Modells gesendet (zum Beispiel Anthropic für Claude). Passwörter und Tokens werden vor dem Senden maskiert.',
         'approvals' => 'neo fragt, bevor es etwas auf deinem Server ändert. Unter dem Zahnrad kannst du neo ausschalten oder ohne Nachfrage handeln lassen.',
         'accept' => 'Verstanden, los',
         'body_named' => 'neo ist ein agentischer KI-Assistent: Es beantwortet nicht nur Fragen, sondern erledigt Aufgaben auf deinen Servern und in deinem Konto für dich. Dafür wird das, was du schreibst, und das, was neo von deinem Server liest (Konsolenausgabe, Dateiinhalte), an unsere KI-Anbieter gesendet: :providers. Passwörter und Tokens werden vor dem Senden maskiert.',

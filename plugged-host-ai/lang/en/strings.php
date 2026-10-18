@@ -83,7 +83,7 @@ return [
 
     'consent' => [
         'title' => 'Before you start',
-        'body' => 'neo is an agentic AI assistant: it doesn\'t just answer, it carries out tasks on your servers and account for you. To do that, what you type and what neo reads from your server (console output, file contents) is sent to our AI providers: Groq, and Anthropic\'s Claude through a third-party proxy as a fallback. Passwords and tokens are masked before anything is sent.',
+        'body' => 'neo is an agentic AI assistant: it doesn\'t just answer, it carries out tasks on your servers and account for you. To do that, what you type and what neo reads from your server (console output, file contents) is sent to the AI provider of the model you pick (for example Anthropic for Claude). Passwords and tokens are masked before anything is sent.',
         'approvals' => 'neo asks before it changes anything on your server. You can turn neo off, or let it act without asking, under the gear icon.',
         'accept' => 'Got it, start',
         // Instead of body (ProviderDisclosure): the admin named the providers (NEO_PROVIDER_DISCLOSURE),
