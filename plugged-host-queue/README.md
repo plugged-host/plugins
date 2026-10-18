@@ -112,9 +112,9 @@ fails open. The queue works with ads uninstalled; the waiting page is just quiet
 
 ## Two waits never stack
 
-The ad gate still exists and is unchanged: press Start on an ordinary node and you get
-the gate, which starts the container on the click and collects an impression while it
-boots.
+The ad gate still exists and is unchanged: a start the queue does not take (the queue
+switched off, an exempt role, a skip pass) goes on to it, and the gate starts the container
+on the click and collects an impression while it boots.
 
 What must not happen is sitting through the queue and then landing in the gate. Two
 things prevent it:
