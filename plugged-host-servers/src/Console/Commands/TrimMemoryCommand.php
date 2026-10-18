@@ -4,12 +4,15 @@ namespace PluggedHost\Servers\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
+use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Services\MemoryTrim;
 
 /**
  * Carries out plugged.host's part of a memory trim noprofit.space planned
  * (`noprofit:discord-memory-trim --write=<file>` there): per panel user the MB to take off its
- * servers, evenly (MemoryTrim). Without --apply it only shows what would come off.
+ * servers, evenly (MemoryTrim), never more than its servers use beyond the allowance now.
+ * Without --apply it only shows what would come off. An account that is busy (a create or
+ * resize running) is skipped and listed as busy.
  */
 class TrimMemoryCommand extends Command
 {
@@ -43,7 +46,14 @@ class TrimMemoryCommand extends Command
                 continue;
             }
 
-            $trimmed = $trim->trim($user, (int) $memory, $dryRun);
+            try {
+                $trimmed = $trim->trim($user, (int) $memory, $dryRun);
+            } catch (ProvisioningException) {
+                $rows[] = [$userId, (int) $memory, 0, 'busy, skipped'];
+
+                continue;
+            }
+
             $total += array_sum($trimmed);
             $rows[] = [$userId, (int) $memory, array_sum($trimmed), collect($trimmed)->map(fn (int $cut, string $name): string => "{$name} -{$cut}")->implode(', ')];
         }

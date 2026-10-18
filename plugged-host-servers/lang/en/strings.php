@@ -54,6 +54,14 @@ return [
         'body' => 'Our Discord servers now add RAM to your account one by one: 1 GB for each server you are in, and 1 GB more for being in all three. Your servers used more RAM than your account has now, so it came off them evenly: :servers. Join our other Discord servers to get it back (Profile, Discord servers).',
     ],
 
+    'allowance_trimmed' => [
+        'title' => 'Your servers have fewer resources now',
+        'body' => 'Your account\'s base resources were lowered on noprofit.space, and your servers used more than your account has now, so the difference came off them evenly: :servers.',
+        'cpu' => '-:amount% CPU',
+        'memory' => '-:amount MB RAM',
+        'disk' => '-:amount MB disk',
+    ],
+
     'settings' => [
         'section_premium' => 'Plus & Premium locations',
         'section_premium_hint' => 'Nodes tagged with the plus or premium tag form the paid tiers. Plus locations come with plugged.host Plus, Premium locations with PlusPlus (prices: plugged.host Economy settings).',

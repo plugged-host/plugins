@@ -2,6 +2,13 @@
 
 ## 2.2.0 (unreleased)
 
+- **A lower base on noprofit.space takes effect on the servers**: when an admin lowers an
+  account's base resources there, what its servers use beyond the new allowance (up to what was
+  taken away) comes off every server evenly, CPU, memory and disk (`AllowanceTrim`, table
+  `allowance_cuts`, migration 022, `plugged-host:allowance-cuts` every 5 min, doctor check
+  "Lowered allowances"). `MemoryTrim` (`plugged-host:trim-memory`) and PlusPlusExpiry's CPU trim
+  now run under the account's provisioning lock and take no more than is over at that moment, so
+  two decreases at once never take the same overage twice.
 - The server settings' VS Code section (plugged-host-devbox) shows only to people who may have a
   devbox there (`DevboxAccess::isMember()`: owner, or a subuser with VS Code, SFTP and every
   file permission), not to every admin or subuser with the VS Code permission alone, for whom

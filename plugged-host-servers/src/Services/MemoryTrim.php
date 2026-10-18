@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Repositories\Daemon\DaemonServerRepository;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Economy\Models\UserCredits;
+use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Support\AccountAllowance;
 use PluggedHost\Servers\Support\EvenCuts;
 use Throwable;
@@ -15,6 +17,10 @@ use Throwable;
  * Takes memory noprofit.space asked for back off a user's servers, evenly (two servers 512 MB
  * each, four 256 MB each), never below MIN_MEMORY on any one of them. The user is told which
  * servers lost how much. `plugged-host:trim-memory` runs it from noprofit.space's plan.
+ *
+ * It takes no more than the servers use beyond the allowance now, under the account's
+ * provisioning lock (like AllowanceTrim and PlusPlusExpiry): a plan written before another
+ * decrease (an admin lowering the base) was carried out never takes the same memory twice.
  */
 class MemoryTrim
 {
@@ -23,13 +29,49 @@ class MemoryTrim
 
     /**
      * @return array<string, int> server name => MB taken off
+     *
+     * @throws ProvisioningException when the account stays busy (a create or resize running)
      */
     public function trim(User $user, int $memory, bool $dryRun = false): array
     {
+        [$trimmed, $changed] = ServerProvisioner::oneAtATime($user, fn (): array => $this->cut($user, $memory, $dryRun));
+
+        foreach ($changed as $server) {
+            try {
+                app(DaemonServerRepository::class)->setServer($server)->sync();
+            } catch (Throwable $e) {
+                // The panel's limit is what counts; wings picks it up on the next start.
+                Log::info('[plugged-host-servers] Memory trim saved, wings not updated live', ['server' => $server->uuid, 'error' => $e->getMessage()]);
+            }
+        }
+
+        if ($trimmed !== [] && !$dryRun) {
+            $this->notify($user, $trimmed);
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * Under the account's provisioning lock: up to $memory, but no more than is over now.
+     *
+     * @return array{0: array<string, int>, 1: list<Server>} server name => MB taken off, the servers changed
+     */
+    private function cut(User $user, int $memory, bool $dryRun): array
+    {
+        UserCredits::forgetMemo($user);
+        AccountAllowance::forgetMemo($user);
+        $allowance = AccountAllowance::forUser($user);
+
+        if ($allowance !== null && $allowance->memory > 0) {
+            $memory = min($memory, max(0, AccountAllowance::getUsage($user)['memory'] - $allowance->memory));
+        }
+
         $servers = Server::query()->where('owner_id', $user->getKey())->where('memory', '>', self::MIN_MEMORY)->orderBy('id')->get();
 
         $cuts = EvenCuts::split($servers->mapWithKeys(fn (Server $server): array => [$server->getKey() => (int) $server->memory])->all(), $memory, self::MIN_MEMORY);
         $trimmed = [];
+        $changed = [];
 
         foreach ($servers as $server) {
             $cut = $cuts[$server->getKey()] ?? 0;
@@ -45,21 +87,14 @@ class MemoryTrim
             }
 
             $server->update(['memory' => (int) $server->memory - $cut]);
-
-            try {
-                app(DaemonServerRepository::class)->setServer($server)->sync();
-            } catch (Throwable $e) {
-                // The panel's limit is what counts; wings picks it up on the next start.
-                Log::info('[plugged-host-servers] Memory trim saved, wings not updated live', ['server' => $server->uuid, 'error' => $e->getMessage()]);
-            }
+            $changed[] = $server;
         }
 
-        if ($trimmed !== [] && !$dryRun) {
+        if ($changed !== []) {
             AccountAllowance::forgetMemo($user);
-            $this->notify($user, $trimmed);
         }
 
-        return $trimmed;
+        return [$trimmed, $changed];
     }
 
     /**

@@ -2,6 +2,9 @@
 
 ## 2.2.0 (unreleased)
 
+- `Events\AccountLimitsLowered`: part of an account's limits was taken away on purpose (an admin
+  lowered its base on noprofit.space) and its servers have to give it back (plugged-host-servers'
+  `AllowanceTrim` listens).
 - The topbar's `AccountSummary` and the "get more resources" perks (`PerkDiscovery`, its widget
   and view) moved here from core; `AccountLimits` is the one definition of what an account may
   use, read by servers' `AccountAllowance` too.
