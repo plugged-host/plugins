@@ -36,5 +36,9 @@ build runs them too).
 php artisan plugged-host:fivem-setup --servers   # eggs: image, install script, FIVEM_EDITION; servers: image
 ```
 
-Run it again after importing the FiveM egg. `plugged-host:doctor` reports eggs and servers that
-are not on the image.
+Run it again after importing the FiveM egg. The image is listed first in the egg's images, as
+"`<APP_NAME>` FiveM". `plugged-host:doctor` reports eggs and servers that are not on the image.
+
+The pages name the panel by `APP_NAME` (where builds and recipes come from, Enhanced not being
+available yet), and a framework install marks the endpoint lines it writes into server.cfg with
+`# <APP_NAME>: do not modify!`, a note for people only: nothing reads it.

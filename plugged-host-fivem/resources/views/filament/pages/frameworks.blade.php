@@ -127,7 +127,7 @@
                 <div class="phf-empty">{{ $f('index_unreachable') }}</div>
             @endforelse
 
-            <p class="phf-note">{{ $f('source_note') }}</p>
+            <p class="phf-note">{{ $f('source_note', ['app' => config('app.name')]) }}</p>
         @endif
     </div>
 </x-filament-panels::page>

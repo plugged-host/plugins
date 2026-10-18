@@ -152,7 +152,7 @@ return [
         'recipe_gone' => 'This framework is no longer in txAdmin\'s list.',
         'unreachable' => 'The server\'s node is not answering. Try again in a minute.',
         'index_unreachable' => 'txAdmin\'s framework list could not be loaded. Try again in a minute.',
-        'source_note' => 'These are txAdmin\'s official recipes. Every file comes straight from the framework\'s own GitHub; plugged.host does not host or change them.',
+        'source_note' => 'These are txAdmin\'s official recipes. Every file comes straight from the framework\'s own GitHub; :app does not host or change them.',
 
         'installing' => 'Installing :recipe',
         'step_of' => 'Step :step of :total',
@@ -214,7 +214,7 @@ return [
         'supported_until' => 'Supported by Cfx until :date',
         'enhanced_note' => 'This server runs FiveM for GTAV Enhanced, which always runs Cfx\'s current build. Builds here are for FiveM (Legacy).',
         'enhanced_link' => 'Open FiveM for GTAV Enhanced',
-        'source_note' => 'Builds download straight from Cfx (runtime.fivem.net). plugged.host does not host or change them and is not affiliated with Rockstar Games or Cfx.re.',
+        'source_note' => 'Builds download straight from Cfx (runtime.fivem.net). :app does not host or change them and is not affiliated with Rockstar Games or Cfx.re.',
     ],
 
     'enhanced' => [
@@ -222,7 +222,7 @@ return [
         'title' => 'FiveM for GTAV Enhanced',
         'subheading' => 'Run your server on the new GTAV Enhanced edition of FiveM, or switch back at any time.',
         'early_access' => 'FiveM for GTAV Enhanced is in early access at Cfx.re. Expect bugs and missing features, and test it before moving your community over.',
-        'unavailable' => 'FiveM for GTAV Enhanced is not available on plugged.host yet. Cfx.re has it in early access, and it does not run on our servers yet. Here is what will change once it does.',
+        'unavailable' => 'FiveM for GTAV Enhanced is not available on :app yet. Cfx.re has it in early access, and it does not run on our servers yet. Here is what will change once it does.',
         'redm' => 'This is a RedM server. There is no Enhanced edition of RedM.',
         'edition_legacy' => 'FiveM (Legacy)',
         'edition_enhanced' => 'FiveM for GTAV Enhanced',

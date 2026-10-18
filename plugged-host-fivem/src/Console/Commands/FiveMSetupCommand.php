@@ -9,7 +9,8 @@ use Illuminate\Console\Command;
 use PluggedHost\FiveM\Support\FiveM;
 
 /**
- * Put the cfx eggs on the plugged.host FiveM image, and optionally every FiveM server too.
+ * Put the cfx eggs on the FiveM image (plugged-host-fivem/image), and optionally every FiveM
+ * server too.
  *
  * Per egg (any egg tagged `cfx`):
  *  - the image first in docker_images, so new servers get it (servers' provisioning takes the
@@ -36,7 +37,7 @@ class FiveMSetupCommand extends Command
         {--servers : Also move every FiveM server onto the image}
         {--dry-run : Show what would change}';
 
-    protected $description = 'Put the cfx eggs (and with --servers, every FiveM server) on the plugged.host FiveM image';
+    protected $description = 'Put the cfx eggs (and with --servers, every FiveM server) on the FiveM image';
 
     public function handle(): int
     {
@@ -54,7 +55,8 @@ class FiveMSetupCommand extends Command
 
         foreach ($eggs as $egg) {
             $images = (array) $egg->docker_images;
-            $images = ['plugged.host FiveM' => $image] + array_filter($images, fn ($existing) => ltrim((string) $existing, '~') !== ltrim($image, '~'));
+            // Named after the panel in the image picker: "plugged.host FiveM" on plugged.host.
+            $images = [trim((string) config('app.name') . ' FiveM') => $image] + array_filter($images, fn ($existing) => ltrim((string) $existing, '~') !== ltrim($image, '~'));
 
             $this->line("Egg #{$egg->id} {$egg->name}: image $image first, install script in $image, FIVEM_EDITION variable, stop by SIGINT");
 

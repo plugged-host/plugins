@@ -195,7 +195,9 @@ class InstallFrameworkJob implements ShouldQueue
     private function variables(Server $server, array $recipe, TxAdminData $txadmin): array
     {
         $port = (int) ($server->allocation?->port ?? 30120);
-        $endpoint = '"0.0.0.0:' . $port . '" # plugged.host: do not modify!';
+        // A marker for people reading server.cfg; nothing parses it. One line, whatever the name.
+        $brand = trim((string) preg_replace('/[\r\n]+/', ' ', (string) config('app.name', ''))) ?: 'panel';
+        $endpoint = '"0.0.0.0:' . $port . '" # ' . $brand . ': do not modify!';
         $principals = $txadmin->masterPrincipals($server);
 
         return [
