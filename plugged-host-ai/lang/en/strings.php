@@ -233,6 +233,7 @@ return [
         'provider_state' => 'Tokens today: :tokens. :cooldown',
         'cooling_down' => 'Skipped until :time after an error (:error).',
 
+        'one_model_required' => 'Switch on at least one model.',
         'default_model_auto' => 'The first model open to everyone',
         'label_hint' => 'The model\'s name in neo\'s model picker.',
         'description' => 'Description',

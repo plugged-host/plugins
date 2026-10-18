@@ -19,6 +19,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Support\Facades\Cache;
 use PluggedHost\Ai\Chat\ProviderChain;
 use PluggedHost\Ai\Contracts\NeoSettingsStore;
@@ -273,6 +274,8 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
     private static function providerSection(int $slot, array $provider, \Closure $t): Section
     {
         $prefix = "remote.providers.{$slot}.";
+        // A slot that is switched off may stay empty: its fields are only needed once it is on.
+        $enabled = static fn (Get $get): bool => (bool) $get($prefix . 'enabled');
         $cooldown = !empty($provider['cooldown_until'])
             ? $t('cooling_down', ['time' => (string) $provider['cooldown_until'], 'error' => (string) ($provider['last_error']['reason'] ?? '?')])
             : '';
@@ -284,20 +287,20 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             ->schema([
                 Grid::make(2)->schema([
                     Toggle::make($prefix . 'enabled')->label($t('provider_enabled')),
-                    TextInput::make($prefix . 'label')->label($t('label'))->helperText($t('label_hint'))->maxLength(64)->required(),
+                    TextInput::make($prefix . 'label')->label($t('label'))->helperText($t('label_hint'))->maxLength(64)->required($enabled),
                     TextInput::make($prefix . 'description')->label($t('description'))->helperText($t('description_hint'))->maxLength(120),
                     Select::make($prefix . 'access')->label($t('access'))->options([
                         'everyone' => $t('access_everyone'),
                         'plus' => $t('access_plus'),
                         'plusplus' => $t('access_plusplus'),
-                    ])->required()->native(false),
+                    ])->required($enabled)->native(false),
                     Select::make($prefix . 'driver')->label($t('driver'))->options([
                         'openai' => $t('driver_openai'),
                         'anthropic' => $t('driver_anthropic'),
                         'gemini' => $t('driver_gemini'),
-                    ])->required()->native(false),
-                    TextInput::make($prefix . 'model')->label($t('model'))->maxLength(128)->required(),
-                    TextInput::make($prefix . 'endpoint')->label($t('endpoint'))->helperText($t('endpoint_hint'))->url()->maxLength(512)->required()->columnSpanFull(),
+                    ])->required($enabled)->native(false),
+                    TextInput::make($prefix . 'model')->label($t('model'))->maxLength(128)->required($enabled),
+                    TextInput::make($prefix . 'endpoint')->label($t('endpoint'))->helperText($t('endpoint_hint'))->url()->maxLength(512)->required($enabled)->columnSpanFull(),
                     TextInput::make($prefix . 'api_key')
                         ->label($t('api_key'))
                         ->password()
@@ -305,14 +308,14 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                         ->autocomplete(false)
                         ->placeholder(!empty($provider['api_key_set']) ? '•••••••• ' . ($provider['api_key_hint'] ?? '') . ' · ' . $t('secret_set') : $t('secret_unset')),
                     Toggle::make($prefix . 'clear_api_key')->label($t('clear_api_key'))->visible(!empty($provider['api_key_set'])),
-                    TextInput::make($prefix . 'max_tokens')->label($t('max_tokens'))->numeric()->minValue(256)->maxValue(128000)->required(),
-                    TextInput::make($prefix . 'timeout')->label($t('timeout'))->helperText($t('timeout_hint'))->numeric()->minValue(5)->maxValue(270)->required(),
-                    TextInput::make($prefix . 'daily_token_cap')->label($t('daily_token_cap'))->helperText($t('daily_token_cap_hint'))->numeric()->minValue(0)->required(),
+                    TextInput::make($prefix . 'max_tokens')->label($t('max_tokens'))->numeric()->minValue(256)->maxValue(128000)->required($enabled),
+                    TextInput::make($prefix . 'timeout')->label($t('timeout'))->helperText($t('timeout_hint'))->numeric()->minValue(5)->maxValue(270)->required($enabled),
+                    TextInput::make($prefix . 'daily_token_cap')->label($t('daily_token_cap'))->helperText($t('daily_token_cap_hint'))->numeric()->minValue(0)->required($enabled),
                     Toggle::make($prefix . 'vision')->label($t('vision'))->helperText($t('vision_hint')),
                     Toggle::make($prefix . 'thinking')->label($t('thinking'))->helperText($t('thinking_hint')),
                     Toggle::make($prefix . 'limited')->label($t('limited'))->helperText($t('limited_hint')),
-                    TextInput::make($prefix . 'weekly_tokens')->label($t('weekly_tokens'))->helperText($t('weekly_tokens_hint'))->numeric()->minValue(0)->required(),
-                    TextInput::make($prefix . 'multiplier')->label($t('multiplier'))->helperText($t('multiplier_hint'))->numeric()->minValue(1)->maxValue(10)->required(),
+                    TextInput::make($prefix . 'weekly_tokens')->label($t('weekly_tokens'))->helperText($t('weekly_tokens_hint'))->numeric()->minValue(0)->required($enabled),
+                    TextInput::make($prefix . 'multiplier')->label($t('multiplier'))->helperText($t('multiplier_hint'))->numeric()->minValue(1)->maxValue(10)->required($enabled),
                     Textarea::make($prefix . 'extra_headers')->label($t('extra_headers'))->helperText($t('extra_headers_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
                     Textarea::make($prefix . 'extra_body')->label($t('extra_body'))->helperText($t('extra_body_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
                 ]),
@@ -394,6 +397,13 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'extra_body' => self::decodeObject((string) ($fields['extra_body'] ?? '{}')),
             ];
 
+            // An empty slot keeps its name, model and endpoint as they are (a slot that is off may be empty).
+            foreach (['label', 'model', 'endpoint'] as $field) {
+                if ($provider[$field] === '') {
+                    unset($provider[$field]);
+                }
+            }
+
             $key = trim((string) ($fields['api_key'] ?? ''));
             if (!empty($fields['clear_api_key'])) {
                 $provider['clear_api_key'] = true;
@@ -402,6 +412,10 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             }
 
             $providers[(string) $slot] = $provider;
+        }
+
+        if (!collect($providers)->contains(static fn (array $provider): bool => $provider['enabled'])) {
+            return trans('plugged-host-ai::strings.settings.one_model_required');
         }
 
         try {

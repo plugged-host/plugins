@@ -231,6 +231,7 @@ return [
         'provider_state' => 'Tokens heute: :tokens. :cooldown',
         'cooling_down' => 'Übersprungen bis :time nach einem Fehler (:error).',
 
+        'one_model_required' => 'Schalte mindestens ein Modell ein.',
         'default_model_auto' => 'Das erste Modell für alle',
         'label_hint' => 'Der Name des Modells in neos Modellauswahl.',
         'description' => 'Beschreibung',
