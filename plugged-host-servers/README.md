@@ -30,10 +30,12 @@ allocation-safe network-ports action, and paid (Plus/Premium) locations. Extract
   widgets, and `Support/AccountAllowance`: what an account may use is its noprofit.space plan
   (default tier, or the Discord tier while in the server, plus bought resources). There are no
   role limits and no server count.
-- **Lowered allowances**: when an admin lowers an account's base on noprofit.space (economy's
-  `AccountLimitsLowered`, from plugged-host-noprofit), `Services/AllowanceTrim` brings its servers
-  down to fit the way the other decreases do: what they use beyond the allowance, up to what was
-  taken away, comes off every server evenly (`Support/EvenCuts`), CPU never below 25%, memory
+- **Lowered allowances**: when an account's base goes down on noprofit.space (an admin, a lower
+  tier, a Discord server left; noprofit.space splits it between its services by their servers and
+  sends plugged.host its share with the plan: economy's `AccountLimitsLowered`, from
+  plugged-host-noprofit), `Services/AllowanceTrim` brings its servers down to fit the way the
+  other decreases do: what they use beyond the allowance, up to that share, comes off every
+  server evenly (`Support/EvenCuts`), CPU never below 25%, memory
   never below 1024 MB, disk never below what the server stores plus 1 GB (a server whose node
   does not answer keeps its disk). An account that was over before keeps that part. Each one is
   kept in `allowance_cuts` (migration 022) by the sync that took on the lower plan, carried out

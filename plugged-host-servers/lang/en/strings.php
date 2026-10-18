@@ -56,7 +56,7 @@ return [
 
     'allowance_trimmed' => [
         'title' => 'Your servers have fewer resources now',
-        'body' => 'Your account\'s base resources were lowered on noprofit.space, and your servers used more than your account has now, so the difference came off them evenly: :servers.',
+        'body' => 'Your account\'s base resources on noprofit.space went down (changed by an admin, a lower free tier, or a Discord server you left), and your servers used more than your account has now, so the difference came off them evenly: :servers.',
         'cpu' => '-:amount% CPU',
         'memory' => '-:amount MB RAM',
         'disk' => '-:amount MB disk',

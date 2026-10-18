@@ -2,11 +2,12 @@
 
 ## 2.2.0 (unreleased)
 
-- The plan noprofit.space sends carries `cut_cpu` / `cut_memory` / `cut_disk`, what admins took
-  off the account's base so far (only ever counting up). When they grow and the base went down,
-  `NoprofitCreditSync::adopt()` dispatches economy's `AccountLimitsLowered` with the smaller of
-  the two, in the transaction that takes on the plan; plugged-host-servers takes it off the
-  servers. A base that follows the tier or the Discord servers moves no total and cuts nothing.
+- The plan noprofit.space sends carries `cut_cpu` / `cut_memory` / `cut_disk`, plugged.host's
+  share of what lower bases took so far (an admin, a lower tier, a Discord server left; only ever
+  counting up). When they grow and the base went down, `NoprofitCreditSync::adopt()` dispatches
+  economy's `AccountLimitsLowered` with the smaller of the two (`lowered()`), in the transaction
+  that takes on the plan; plugged-host-servers takes it off the servers. A plan that is lower
+  only because plugged.cloud uses more moves no total and cuts nothing.
 - **New plugin**: noprofit.space is optional now. Sign-in, the account link, account sync,
   `/migrate`, the identity lock, the SFTP check and the `/api/noprofit/*` endpoints moved here
   from plugged-host-core with the same URLs, route names, env names, cache keys and migration

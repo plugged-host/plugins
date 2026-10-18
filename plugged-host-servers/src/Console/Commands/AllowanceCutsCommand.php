@@ -17,7 +17,7 @@ class AllowanceCutsCommand extends Command
     protected $signature = 'plugged-host:allowance-cuts
                             {--dry-run : Show what would happen without doing it}';
 
-    protected $description = 'Bring servers down to fit allowances that were lowered (an admin lowered the base on noprofit.space).';
+    protected $description = 'Bring servers down to fit allowances that were lowered (the base went down on noprofit.space).';
 
     public function handle(AllowanceTrim $trim): int
     {

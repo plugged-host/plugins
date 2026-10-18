@@ -20,7 +20,7 @@ use Throwable;
  *
  * It takes no more than the servers use beyond the allowance now, under the account's
  * provisioning lock (like AllowanceTrim and PlusPlusExpiry): a plan written before another
- * decrease (an admin lowering the base) was carried out never takes the same memory twice.
+ * decrease (a lower base on noprofit.space) was carried out never takes the same memory twice.
  */
 class MemoryTrim
 {

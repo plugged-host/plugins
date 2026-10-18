@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * One row per decrease of an account's allowance its servers have to give back
- * (Services\AllowanceTrim): an admin lowered the account's base on noprofit.space. cpu (%),
+ * (Services\AllowanceTrim): the account's base went down on noprofit.space. cpu (%),
  * memory and disk (MB) are the most that comes off; the servers give what they use beyond the
  * allowance, up to that. Written in the transaction that took on the lower limits, settled
  * once carried out, with what came off which server in `result`.

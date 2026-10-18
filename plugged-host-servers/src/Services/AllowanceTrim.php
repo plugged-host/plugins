@@ -20,10 +20,11 @@ use PluggedHost\Servers\Support\EvenCuts;
 use Throwable;
 
 /**
- * Brings an account's servers down to fit after part of its allowance was taken away on purpose
- * (economy's AccountLimitsLowered: an admin lowered the account's base on noprofit.space), the
- * way the other decreases do it (MemoryTrim, PlusPlusExpiry): spread evenly over all its
- * servers (two servers 512 MB each, four 256 MB each, Support\EvenCuts), never below a floor on
+ * Brings an account's servers down to fit after part of its allowance was taken away (economy's
+ * AccountLimitsLowered: the base went down on noprofit.space, by an admin, a lower tier or a
+ * Discord server left; noprofit.space splits it between its services and this is plugged.host's
+ * share), the way the other decreases do it (MemoryTrim, PlusPlusExpiry): spread evenly over all
+ * its servers (two servers 512 MB each, four 256 MB each, Support\EvenCuts), never below a floor on
  * any one of them, and at most what was taken away and what the servers use beyond the allowance
  * now. An account that was over before keeps that part; one with room to spare loses nothing.
  * CPU, memory and disk all come off; disk never below what a server stores plus DISK_HEADROOM,
