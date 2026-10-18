@@ -19,7 +19,7 @@
     "composer_packages": null,
     "plugged_host": {
         "requires": ["plugged-host-core"],
-        "optional": ["plugged-host-economy"]
+        "optional": ["plugged-host-economy", "plugged-host-storage"]
     },
     "meta": {
         "status": "enabled",

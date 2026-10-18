@@ -10,7 +10,9 @@ every panel/user gets Theme v2.
 - **Serves the theme** on all three panels: `PluggedHostThemeV2Plugin::register()` sets
   `theme()` to the v2 stylesheet, `darkMode(true, isForced: true)` / `themeSwitcher(false)` (dark-only,
   no light mode switcher), `topbar(false)` / `topNavigation(false)`, eager database
-  notifications, and the app-panel sidebar navigation.
+  notifications, and the app-panel sidebar navigation (`ThemeV2Navigation`; its Backups row
+  appears only with `plugged-host-storage` enabled and opens that plugin's backups portal, on
+  its own host when `BACKUPS_PORTAL_URL` is set, else at the panel's `/backups`).
 - **`ThemeV2Access`** collapsed to an always-on stub (`canAccess()` / `shouldRenderTheme()` both
   `true`) — the per-user preference, the `admin_only` mode, the identity allowlist, the session
   toggle and the `/theme-v2/toggle` route all went with nord.
@@ -46,5 +48,5 @@ self-host instead). Run `yarn build` after any view/CSS change; the manifest key
 
 ## Requirements
 
-Pelican Panel `1.0.0-beta38`. Pairs with `plugged-host-core` (chips fallback) and
-`plugged-host-economy` (the sidebar balance).
+Pelican Panel `1.0.0-beta38`. Pairs with `plugged-host-core` (chips fallback),
+`plugged-host-economy` (the sidebar balance) and `plugged-host-storage` (the Backups row).
