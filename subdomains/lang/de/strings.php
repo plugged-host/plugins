@@ -27,15 +27,12 @@ return [
     'secret_unchanged' => '(unverändert)',
     'secret_unset' => 'Nicht gesetzt',
 
-    'dual_records' => 'A- und AAAA-Records erstellen',
-    'dual_records_help' => 'Erstellt sowohl A- als auch AAAA-DNS-Records für Subdomains, wenn der Node sowohl IPv4- als auch IPv6-Adressen bereitstellt.',
-
     'srv_service_section' => 'SRV-Diensterkennung',
     'srv_service_section_help' => 'Ordne Egg-IDs Diensttypen zu, damit die passenden SRV-Records (z.B. Minecraft oder FiveM) automatisch erstellt werden.',
     'minecraft_eggs' => 'Minecraft Egg-IDs',
-    'minecraft_eggs_help' => 'Kommagetrennte Liste von Egg-IDs, die für die SRV-Record-Erstellung als Minecraft-Server behandelt werden (Standard: 12).',
+    'minecraft_eggs_help' => 'Kommagetrennte Liste von Egg-IDs, die für die SRV-Record-Erstellung als Minecraft-Server behandelt werden. Leer: Eggs mit dem Tag „minecraft“ (außer Bedrock und Proxys).',
     'fivem_eggs' => 'FiveM Egg-IDs',
-    'fivem_eggs_help' => 'Kommagetrennte Liste von Egg-IDs, die für die SRV-Record-Erstellung als FiveM-Server behandelt werden (Standard: 11).',
+    'fivem_eggs_help' => 'Kommagetrennte Liste von Egg-IDs, die für die SRV-Record-Erstellung als FiveM-Server behandelt werden. Leer: Eggs mit dem Tag „cfx“.',
 
     'subdomain_blacklist' => 'Subdomain Blacklist',
     'subdomain_blacklist_help' => "Mit diesen Einträgen können Benutzer keine Subdomains erstellen. Es werden Pattern mit '*' unterstützt, z.B. 'test*' blockiert alle Subdomains, die mit 'test' beginnen.",

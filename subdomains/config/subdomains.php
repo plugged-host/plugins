@@ -11,13 +11,17 @@ return [
     ],
     'subdomain_blacklist' => filled(env('SUBDOMAINS_BLACKLIST'))
         ? env('SUBDOMAINS_BLACKLIST')
-        : 'www,panel,admin,api,auth,login,billing,client,node*,dash*,status,cp,webmail,mail,email,smtp,pop,imap,ns*,dns*,vpn,ssl,secure,autodiscover,ftp,ssh,sftp,pma,mysql,database,proxy,gateway,cloud*,dev,stage,staging,test,prod,internal,support,help,shop,store,docs,legal,terms,privacy,cdn,assets,static,app,bot,discord,fivem,minecraft,mc,plugged',
+        : 'www,panel,admin,api,auth,login,billing,client,node*,dash*,status,cp,webmail,mail,email,smtp,pop,imap,ns*,dns*,vpn,ssl,secure,autodiscover,ftp,ssh,sftp,pma,mysql,database,proxy,gateway,cloud*,dev,stage,staging,test,prod,internal,support,help,shop,store,docs,legal,terms,privacy,cdn,assets,static,app,bot,discord,fivem,minecraft,mc',
+    // Egg ids per SRV service. Empty: eggs are recognised by their tags and features instead
+    // (SRVServiceType::fromServer(): `minecraft` = Minecraft Java, `cfx` = FiveM / RedM).
     'egg_mappings' => [
-        'minecraft' => array_filter(array_map('intval', explode(',', env('SUBDOMAINS_MINECRAFT_EGGS', '12')))),
-        'fivem' => array_filter(array_map('intval', explode(',', env('SUBDOMAINS_FIVEM_EGGS', '11')))),
+        'minecraft' => array_values(array_filter(array_map('intval', explode(',', (string) env('SUBDOMAINS_MINECRAFT_EGGS', ''))))),
+        'fivem' => array_values(array_filter(array_map('intval', explode(',', (string) env('SUBDOMAINS_FIVEM_EGGS', ''))))),
     ],
-    'supported_eggs' => array_filter(array_map('intval', explode(',', env('SUBDOMAINS_SUPPORTED_EGGS', '11,12')))),
-    'dual_records' => (bool) env('SUBDOMAINS_DUAL_RECORDS', true),
+    // Egg ids that may have subdomains. Empty: every egg recognised as Minecraft Java or
+    // FiveM / RedM (Subdomain::isServerEggSupported()).
+    'supported_eggs' => array_values(array_filter(array_map('intval', explode(',', (string) env('SUBDOMAINS_SUPPORTED_EGGS', ''))))),
     'require_discord' => (bool) env('SUBDOMAINS_REQUIRE_DISCORD', true),
+    // Only applies while plugged-host-discord is enabled (it is the one that knows who is in the server).
     'require_discord_guild' => (bool) env('SUBDOMAINS_REQUIRE_DISCORD_GUILD', true),
 ];

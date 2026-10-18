@@ -41,8 +41,7 @@ class SubdomainService
             }
 
             if (Subdomain::requiresDiscordGuild() && !Subdomain::isUserInDiscordGuild($server->user)) {
-                $invite = Subdomain::getDiscordInviteUrl();
-                throw new Exception("The server owner must be a member of our Discord server ({$invite}) to create subdomains.");
+                throw new Exception('The server owner must be a member of ' . Subdomain::discordServerPhrase() . ' to create subdomains.');
             }
 
             // Limit, price tier and the insert run under a lock on the server row: counted

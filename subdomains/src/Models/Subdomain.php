@@ -173,9 +173,13 @@ class Subdomain extends Model implements HasLabel
         return false;
     }
 
+    /**
+     * The Discord server gate needs plugged-host-discord (its bot knows who is in the server);
+     * without it nobody could pass, so it does not apply.
+     */
     public static function requiresDiscordGuild(): bool
     {
-        return (bool) config('subdomains.require_discord_guild', true);
+        return Plugins::enabled('plugged-host-discord') && (bool) config('subdomains.require_discord_guild', true);
     }
 
     public static function getDiscordInviteUrl(): string
@@ -186,7 +190,17 @@ class Subdomain extends Model implements HasLabel
             } catch (\Throwable) {}
         }
 
-        return (string) config('plugged-host-discord.invite_url', 'https://discord.gg/plugged-host-1502647500295635085');
+        return trim((string) config('plugged-host-discord.invite_url', ''));
+    }
+
+    /**
+     * "Our Discord server" for the guild gate's messages, with the invite when one is set.
+     */
+    public static function discordServerPhrase(): string
+    {
+        $invite = self::getDiscordInviteUrl();
+
+        return 'our Discord server' . ($invite !== '' ? " ({$invite})" : '');
     }
 
     public static function isUserInDiscordGuild(?User $user): bool
@@ -237,9 +251,15 @@ class Subdomain extends Model implements HasLabel
             return false;
         }
 
-        $supportedEggs = config('subdomains.supported_eggs', [11, 12]);
+        $supportedEggs = (array) config('subdomains.supported_eggs', []);
 
-        return in_array((int) $server->egg_id, $supportedEggs, true);
+        if ($supportedEggs !== []) {
+            return in_array((int) $server->egg_id, $supportedEggs, true);
+        }
+
+        // None configured: the game servers SRV records are made for (Minecraft: Java Edition and
+        // FiveM / RedM, recognised by their eggs' ids, features, tags or names).
+        return in_array(SRVServiceType::fromServer($server), [SRVServiceType::Minecraft, SRVServiceType::FiveM], true);
     }
 
     public function domain(): BelongsTo
@@ -452,7 +472,7 @@ class Subdomain extends Model implements HasLabel
                     'proto' => '_udp',
                     'fullName' => "_cfx._udp.{$this->name}",
                     'weight' => 5,
-                    'comment' => "Created by plugged.host Subdomains (FiveM / RedM UDP SRV - Server #{$this->server_id})",
+                    'comment' => self::recordComment("FiveM / RedM UDP SRV - Server #{$this->server_id}"),
                 ];
                 $srvSpecs['srv_tcp'] = [
                     'key' => 'srv_tcp',
@@ -460,7 +480,7 @@ class Subdomain extends Model implements HasLabel
                     'proto' => '_tcp',
                     'fullName' => "_cfx._tcp.{$this->name}",
                     'weight' => 5,
-                    'comment' => "Created by plugged.host Subdomains (FiveM / RedM TCP SRV - Server #{$this->server_id})",
+                    'comment' => self::recordComment("FiveM / RedM TCP SRV - Server #{$this->server_id}"),
                 ];
             } else {
                 $srvSpecs['srv'] = [
@@ -469,7 +489,7 @@ class Subdomain extends Model implements HasLabel
                     'proto' => $srvServiceType->getProto(),
                     'fullName' => "{$srvServiceType->value}.{$this->name}",
                     'weight' => 0,
-                    'comment' => "Created by plugged.host Subdomains ({$srvServiceType->getLabel()} SRV - Server #{$this->server_id})",
+                    'comment' => self::recordComment("{$srvServiceType->getLabel()} SRV - Server #{$this->server_id}"),
                 ];
             }
 
@@ -496,7 +516,7 @@ class Subdomain extends Model implements HasLabel
             'type' => $ipRecordType,
             'content' => $ip,
             'proxied' => false,
-            'comment' => "Created by plugged.host Subdomains (Server #{$this->server_id})",
+            'comment' => self::recordComment("Server #{$this->server_id}"),
         ];
 
         if (!empty($currentIds['a'])) {
@@ -573,13 +593,25 @@ class Subdomain extends Model implements HasLabel
     }
 
     /**
+     * The comment set on every DNS record this plugin creates: "Created by <panel name> Subdomains
+     * (<detail>)". The name is cut short, Cloudflare limits comments to 100 characters.
+     */
+    protected static function recordComment(string $detail): string
+    {
+        $name = mb_substr(trim((string) preg_replace('/[\r\n()]+/', ' ', (string) config('app.name'))), 0, 32);
+
+        return 'Created by ' . ($name !== '' ? $name . ' ' : '') . "Subdomains ({$detail})";
+    }
+
+    /**
      * Whether a DNS record comment marks the record as created by this plugin for this
-     * subdomain's server (see the comments set in upsertOnCloudflare()).
+     * subdomain's server (see recordComment()), under any panel name it had: records made before
+     * a rename are still recognised.
      */
     protected function isOwnRecordComment(?string $comment): bool
     {
         return is_string($comment)
-            && str_starts_with($comment, 'Created by plugged.host Subdomains (')
+            && preg_match('/^Created by (.+ )?Subdomains \(/u', $comment) === 1
             && str_ends_with($comment, "Server #{$this->server_id})");
     }
 

@@ -44,25 +44,23 @@ enum SRVServiceType: string implements HasLabel
         };
     }
 
+    /**
+     * The SRV service for a server's egg: the egg ids configured per service first, then the
+     * egg's `srv-*` features, then its tags (`cfx` = FiveM / RedM; `minecraft` = Minecraft: Java
+     * Edition, unless the egg is Bedrock, which has no SRV lookup, or a proxy, which keeps the
+     * plain record it always had), then its name.
+     */
     public static function fromServer(Server $server): ?self
     {
         $eggId = (int) $server->egg_id;
-        $minecraftEggs = config('subdomains.egg_mappings.minecraft', [12]);
-        $fivemEggs = config('subdomains.egg_mappings.fivem', [11]);
+        $minecraftEggs = (array) config('subdomains.egg_mappings.minecraft', []);
+        $fivemEggs = (array) config('subdomains.egg_mappings.fivem', []);
 
         if (in_array($eggId, $minecraftEggs, true)) {
             return self::Minecraft;
         }
 
         if (in_array($eggId, $fivemEggs, true)) {
-            return self::FiveM;
-        }
-
-        $eggUuid = $server->egg?->uuid;
-        if ($eggUuid === '2f6a1c58-9e4b-4d7a-8c31-5b0e7f9a4d62') {
-            return self::Minecraft;
-        }
-        if ($eggUuid === '238b3cb3-6796-4ba2-8403-5eb30faf1c86') {
             return self::FiveM;
         }
 
@@ -84,6 +82,16 @@ enum SRVServiceType: string implements HasLabel
         }
 
         $eggName = strtolower($server->egg?->name ?? '');
+        $tags = array_map(static fn ($tag): string => strtolower(trim((string) $tag)), array_filter((array) ($server->egg?->tags ?? []), 'is_scalar'));
+
+        if (in_array('cfx', $tags, true)) {
+            return self::FiveM;
+        }
+
+        if (in_array('minecraft', $tags, true) && !in_array('bedrock', $tags, true) && !in_array('proxy', $tags, true) && !str_contains($eggName, 'bedrock')) {
+            return self::Minecraft;
+        }
+
         if (str_contains($eggName, 'minecraft') && !str_contains($eggName, 'bedrock')) {
             return self::Minecraft;
         }
