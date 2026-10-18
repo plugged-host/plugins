@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.0 (unreleased)
+
+- **A blank health URL skips that probe.** `STATUS_SITE_HEALTH_URL` or `STATUS_PANEL_HEALTH_URL`
+  left empty is no longer probed (an empty URL used to fail every minute and turn the overall
+  status into a major outage); the Website or Panel row is left out of `current.json`,
+  `history.json` and the overall status. `overallStatus()` now goes by component key instead of
+  position. `STATUS_SITE_HEALTH_URL` defaults to `''` (was `http://127.0.0.1/healthz`).
+- The RSS channel title/description ("<app name> incidents", "Operational updates for <app
+  name>.") and the probe's User-Agent ("<app name> status monitor") use `APP_NAME` instead of a
+  hardcoded "plugged.host".
+- Node state comes from core's `NodeTelemetry` (one wings probe per node per minute, shared with
+  the other plugins); the `NodeLatency`/`NodeHealth` seams are gone (core owns them). The export
+  adds `data/targets.json` and the panel's `release` in `current.json`.
+- README brought up to date.
+
 ## Unreleased (2.1)
 
 - **A full node is not a degraded one.** Only CPU at or above the threshold (now 95% by

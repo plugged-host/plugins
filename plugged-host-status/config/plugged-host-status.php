@@ -23,8 +23,9 @@ return [
     // Public status site URL, used only in the RSS <link>. Neutral by default.
     'rss_base_url' => env('STATUS_RSS_BASE_URL', ''),
 
-    // Endpoint probes.
-    'site_health_url' => env('STATUS_SITE_HEALTH_URL', 'http://127.0.0.1/healthz'),
+    // Endpoint probes. A blank URL means that endpoint is not probed: it is left out of the
+    // export (current.json, history.json) and does not count towards the overall status.
+    'site_health_url' => env('STATUS_SITE_HEALTH_URL', ''),
     'site_health_host' => env('STATUS_SITE_HEALTH_HOST', ''),
     'panel_health_url' => env('STATUS_PANEL_HEALTH_URL', ''),
 

@@ -12,11 +12,11 @@ return [
         'section_probes' => 'Health-Checks',
         'section_probes_hint' => 'Endpunkte, die jede Minute abgefragt werden, um zu prüfen, ob Website und Panel erreichbar sind.',
         'site_health_url' => 'Health-URL der Website',
-        'site_health_url_hint' => 'Endpunkt, der abgefragt wird, um die öffentliche Website zu prüfen.',
+        'site_health_url_hint' => 'Endpunkt, der abgefragt wird, um die öffentliche Website zu prüfen. Leer lassen, um den Website-Check zu überspringen: Die Zeile „Website“ fehlt dann auf der Statusseite und zählt nicht zum Gesamtstatus.',
         'site_health_host' => 'Host-Header für den Website-Check',
         'site_health_host_hint' => 'Optionaler Host-Header, der mit dem Website-Health-Check gesendet wird, falls der Endpunkt über die IP erreicht wird.',
         'panel_health_url' => 'Health-URL des Panels',
-        'panel_health_url_hint' => 'Endpunkt, der abgefragt wird, um das Panel zu prüfen. Leer lassen, um den Panel-Check zu überspringen.',
+        'panel_health_url_hint' => 'Endpunkt, der abgefragt wird, um das Panel zu prüfen. Leer lassen, um den Panel-Check zu überspringen: Die Zeile „Panel“ fehlt dann auf der Statusseite und zählt nicht zum Gesamtstatus.',
 
         'section_retention' => 'Aufbewahrung & Schwellenwerte',
         'section_retention_hint' => 'Wie lange der Verlauf aufbewahrt wird, bevor er bereinigt wird, und ab wann ein Node als ausgelastet gilt.',

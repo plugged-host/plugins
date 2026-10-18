@@ -19,15 +19,37 @@ class StatusCollector
         private readonly NodeTelemetry $telemetry,
     ) {}
 
+    /**
+     * The HTTP endpoints this panel probes, as key => public label. One whose health URL is
+     * blank is not probed at all: no snapshots, and the exporter leaves it out of the public
+     * files and the overall status (a probe of '' would only ever fail and read as an outage).
+     *
+     * @return array<string, string>
+     */
+    public static function endpoints(): array
+    {
+        return array_filter(
+            ['site' => 'Website', 'panel' => 'Panel'],
+            fn (string $key) => filled(config("plugged-host-status.{$key}_health_url")),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
     public function collect(): void
     {
         $this->syncNodes();
-        $this->collectEndpoint(
-            'site',
-            (string) config('plugged-host-status.site_health_url'),
-            (string) config('plugged-host-status.site_health_host'),
-        );
-        $this->collectEndpoint('panel', (string) config('plugged-host-status.panel_health_url'));
+
+        $endpoints = self::endpoints();
+        if (isset($endpoints['site'])) {
+            $this->collectEndpoint(
+                'site',
+                (string) config('plugged-host-status.site_health_url'),
+                (string) config('plugged-host-status.site_health_host'),
+            );
+        }
+        if (isset($endpoints['panel'])) {
+            $this->collectEndpoint('panel', (string) config('plugged-host-status.panel_health_url'));
+        }
 
         StatusNodeSetting::query()
             ->with('node')
@@ -79,7 +101,7 @@ class StatusCollector
             /** @var Response $response */
             $response = Http::connectTimeout(3)
                 ->timeout(5)
-                ->withUserAgent('plugged.host status monitor')
+                ->withUserAgent((string) config('app.name') . ' status monitor')
                 ->when(filled($host), fn ($request) => $request->withHeaders(['Host' => $host]))
                 ->get($url);
             $httpStatus = $response->status();

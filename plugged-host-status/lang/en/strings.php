@@ -12,11 +12,11 @@ return [
         'section_probes' => 'Health probes',
         'section_probes_hint' => 'Endpoints polled each minute to check that the public site and the panel are reachable.',
         'site_health_url' => 'Site health URL',
-        'site_health_url_hint' => 'Endpoint probed to check the public site.',
+        'site_health_url_hint' => 'Endpoint probed to check the public site. Leave blank to skip the website probe: the Website row is then left off the status page and out of the overall status.',
         'site_health_host' => 'Site health Host header',
         'site_health_host_hint' => 'Optional Host header sent with the site health probe, for when the endpoint is reached by IP.',
         'panel_health_url' => 'Panel health URL',
-        'panel_health_url_hint' => 'Endpoint probed to check the panel. Leave blank to skip the panel probe.',
+        'panel_health_url_hint' => 'Endpoint probed to check the panel. Leave blank to skip the panel probe: the Panel row is then left off the status page and out of the overall status.',
 
         'section_retention' => 'Retention & thresholds',
         'section_retention_hint' => 'How long history is kept before pruning, and when a node counts as under pressure.',
