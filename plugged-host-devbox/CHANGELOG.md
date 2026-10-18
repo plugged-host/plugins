@@ -39,3 +39,16 @@
   - `DEVBOX_ENABLED` is off by default.
   - Migration `020_add_devbox_stopping_and_abuse_blocks` (`stopping_at`, the blocks table).
   - README: production checklist with the node firewall (nftables) for the Wings bridge.
+- For panels other than plugged.host:
+  - The web domain may be anything but the panel's own registrable domain (from `APP_URL`) or
+    `SESSION_DOMAIN`, a name under or above them; it used to refuse only `plugged.host`. The
+    settings form, saving and `plugged-host:devbox-web-setup` check it.
+  - The egg's name, devbox servers' descriptions, new CA and edge certificates' common names and
+    the expired-link page name the panel by `APP_NAME` ("plugged.host Devbox" etc. on
+    plugged.host). The egg and the system user are still found by UUID and username.
+  - Settings, config comments, the doctor and `devbox-web-setup` point at
+    <https://docs.plugged.host/nodes/devboxes/> instead of private scripts; the doctor names each
+    node's data directory to add to Wings' `allowed_mounts`, and `ph` no longer assumes
+    `/var/lib/pelican/volumes`.
+  - README: the node guard lets containers reach Wings' API port, which `ph logs`, `ph cmd` and
+    `ph console` use (the guard as written dropped it).

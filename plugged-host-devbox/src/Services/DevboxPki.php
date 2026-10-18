@@ -50,7 +50,7 @@ final class DevboxPki
 
         if (!is_file("{$dir}/ca.crt") || !is_file("{$dir}/ca.key")) {
             $key = self::newKey();
-            $cert = $this->sign(['commonName' => 'plugged.host devbox CA'], $key, null, null, 'v3_ca', self::CA_DAYS);
+            $cert = $this->sign(['commonName' => self::commonName('devbox CA')], $key, null, null, 'v3_ca', self::CA_DAYS);
             self::write("{$dir}/ca.key", self::exportKey($key));
             self::write("{$dir}/ca.crt", $cert);
             // A new CA invalidates the old edge certificate.
@@ -61,7 +61,7 @@ final class DevboxPki
 
         if (!is_file("{$dir}/edge.crt") || !is_file("{$dir}/edge.key")) {
             $key = self::newKey();
-            $cert = $this->sign(['commonName' => 'plugged.host devbox edge'], $key, $this->caCert(), $this->caKey(), 'v3_edge', self::EDGE_DAYS);
+            $cert = $this->sign(['commonName' => self::commonName('devbox edge')], $key, $this->caCert(), $this->caKey(), 'v3_edge', self::EDGE_DAYS);
             self::write("{$dir}/edge.key", self::exportKey($key));
             self::write("{$dir}/edge.crt", $cert);
             $created = true;
@@ -152,6 +152,17 @@ final class DevboxPki
             CNF);
 
         return $config;
+    }
+
+    /**
+     * "<app name> devbox CA": only a label (nothing checks it), cut to X.509's 64 characters. It
+     * is set when a CA or edge certificate is made, so existing ones keep theirs.
+     */
+    private static function commonName(string $what): string
+    {
+        $name = trim((string) preg_replace('/[\x00-\x1f]+/', ' ', (string) config('app.name')) . ' ' . $what);
+
+        return mb_substr(mb_strlen($name) > 64 ? $what : $name, 0, 64);
     }
 
     private static function newKey(): \OpenSSLAsymmetricKey

@@ -78,8 +78,10 @@ func mountStatus() (string, string) {
 	}
 	defer f.Close()
 
+	// The devbox can't see which host directory that is (the panel's doctor names it, from the
+	// node's Daemon Base Directory): mountinfo shows paths inside the source filesystem only.
 	if !mounted(f, serverDir) {
-		return "mount_missing", serverDir + " is not mounted (is /var/lib/pelican/volumes in this node's Wings allowed_mounts?)"
+		return "mount_missing", serverDir + " is not mounted (is this node's Wings data directory, system.data, in its allowed_mounts?)"
 	}
 
 	entries, err := os.ReadDir(serverDir)
