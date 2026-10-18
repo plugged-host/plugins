@@ -38,3 +38,9 @@ Console text is never critical on its own (chat can be echoed into it).
    if missing, and runs as the hardened `plugged-host-abuse-agent.service` (CPUQuota 25%,
    MemoryMax 256M). No secret to copy: the node signs with its own Wings token.
 4. `php artisan plugged-host:doctor plugged-host-abuse` lists nodes without a reporting agent.
+
+The agent reads the Wings token only when it starts. After a node's Wings token is reset (and
+Wings' `config.yml` updated), its reports are refused (403, `bad signature`) until the agent is
+restarted: `systemctl restart plugged-host-abuse-agent`, or re-run the installer.
+
+Staff alerts are posted to the webhook as "`APP_NAME` abuse".

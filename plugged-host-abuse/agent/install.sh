@@ -2,11 +2,13 @@
 #
 # plugged.host abuse agent installer. Run on each Wings node as root:
 #
-#   curl -fsSL https://panel.plugged.host/plugged-host/abuse/agent/install.sh | sudo bash
+#   curl -fsSL https://panel.example.com/plugged-host/abuse/agent/install.sh | sudo bash
 #
-# Re-running it updates the agent. It needs python3 (installed with apt if missing) and the node's
-# Wings config, whose token signs the reports: nothing else to configure. The panel fills in its
-# own URL below when it serves this file.
+# Re-running it updates and restarts the agent. It needs python3 (installed with apt if missing)
+# and the node's Wings config, whose token signs the reports: nothing else to configure. The agent
+# reads that token only when it starts, so after the node's Wings token is reset, restart it
+# (systemctl restart plugged-host-abuse-agent) or re-run this. The panel fills in its own URL
+# below when it serves this file.
 #
 set -euo pipefail
 
