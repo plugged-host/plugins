@@ -19,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Not covered by this licence: the directories `announcements/`, `mclogs-uploader/` and
-`subdomains/` are third-party Pelican plugins (by Boy132; `subdomains` is modified by
-plugged.host) under the GNU General Public License v3.0, see the LICENSE file in each.
