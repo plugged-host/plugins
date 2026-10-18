@@ -10,13 +10,14 @@ use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Filament\App\Pages\ResourceStorePage;
 use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
 use PluggedHost\Economy\Filament\App\Pages\PlusPage;
+use PluggedHost\Storage\Support\BackupsPortal;
 
 /**
  * The app panel's sidebar. This started out shaped 1:1 after UIExample's
  * `views/components/top.ejs` — an ungrouped "Home" row followed by collapsible,
  * icon-bearing groups whose items carried no icon of their own — and is now **flat by
- * request**: Home, Resource Store, plugged.host Plus, Tokens, Backups, Profile Settings, and Admin Panel
- * for admins. Every
+ * request**: Home, Resource Store, plugged.host Plus, Tokens, Backups (with plugged-host-storage),
+ * Profile Settings, and Admin Panel for admins. Every
  * destination is one top-level row carrying its own icon, with no group headers and nothing
  * indented underneath.
  *
@@ -98,13 +99,15 @@ class ThemeV2Navigation
                 ->isActiveWhen(fn () => request()->is($slug));
         }
 
-        // Storage Backups Portal
-        $backupsPortalUrl = env('BACKUPS_PORTAL_URL', 'https://backups.plugged.host');
-        $items[] = NavigationItem::make(trans('plugged-host-theme-v2::strings.nav.backups'))
-            ->icon(Heroicon::OutlinedArchiveBoxArrowDown)
-            ->url($backupsPortalUrl)
-            ->openUrlInNewTab(false)
-            ->isActiveWhen(fn () => request()->is('backups*'));
+        // The storage plugin's backups portal: its own host (BACKUPS_PORTAL_URL) or the panel's
+        // /backups. Left out without the storage plugin, which is what serves it.
+        if (Plugins::available(BackupsPortal::class)) {
+            $items[] = NavigationItem::make(trans('plugged-host-theme-v2::strings.nav.backups'))
+                ->icon(Heroicon::OutlinedArchiveBoxArrowDown)
+                ->url(BackupsPortal::url())
+                ->openUrlInNewTab(false)
+                ->isActiveWhen(fn () => request()->is('backups*'));
+        }
 
         // Profile Settings inherits the user-circle its Account group used to carry. It is
         // also the only route to the Customization tab now that that row is gone, and the
