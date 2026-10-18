@@ -5,9 +5,9 @@ a free host for game servers, bots and small services. Pelican itself stays unmo
 plugged.host adds lives here and hooks into the panel the way Pelican plugins are meant to.
 
 **Status:** these run plugged.host in production. They are written for plugged.host first, so
-expect opinions (plans, ads, our look) rather than a polished general-purpose product. Full
-documentation is on its way to a docs site; until then, each plugin's README and CHANGELOG say
-what it does and how it is configured.
+expect opinions (plans, ads, our look) rather than a polished general-purpose product. The full
+setup guide and a page per plugin are at **[docs.plugged.host](https://docs.plugged.host)**; each
+plugin's README and CHANGELOG say what changed and why.
 
 ## What's in here
 
@@ -47,6 +47,8 @@ yarn install && yarn build                                     # the plugins add
 ```
 
 Enable the plugins in **Admin › Plugins** (core first), then go through their settings there.
+The step-by-step version, with nginx, the queue worker, nodes and agents, is
+[docs.plugged.host](https://docs.plugged.host/start/install-order/).
 Most settings are plain `.env` keys; each plugin's `config/` file lists them with defaults.
 Nodes run unmodified Wings; the abuse and storage agents come with their own installers.
 
