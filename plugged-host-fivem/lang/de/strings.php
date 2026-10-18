@@ -152,7 +152,7 @@ return [
         'recipe_gone' => 'Dieses Framework steht nicht mehr in der Liste von txAdmin.',
         'unreachable' => 'Die Node des Servers antwortet nicht. Versuch es in einer Minute noch einmal.',
         'index_unreachable' => 'Die Framework-Liste von txAdmin konnte nicht geladen werden. Versuch es in einer Minute noch einmal.',
-        'source_note' => 'Das sind die offiziellen Rezepte von txAdmin. Jede Datei kommt direkt aus dem GitHub des Frameworks; plugged.host hostet oder verändert sie nicht.',
+        'source_note' => 'Das sind die offiziellen Rezepte von txAdmin. Jede Datei kommt direkt aus dem GitHub des Frameworks; :app hostet oder verändert sie nicht.',
 
         'installing' => ':recipe wird installiert',
         'step_of' => 'Schritt :step von :total',
@@ -214,7 +214,7 @@ return [
         'supported_until' => 'Von Cfx unterstützt bis :date',
         'enhanced_note' => 'Dieser Server läuft auf FiveM for GTAV Enhanced, das immer den aktuellen Build von Cfx nutzt. Die Builds hier sind für FiveM (Legacy).',
         'enhanced_link' => 'FiveM for GTAV Enhanced öffnen',
-        'source_note' => 'Builds kommen direkt von Cfx (runtime.fivem.net). plugged.host hostet oder verändert sie nicht und ist nicht mit Rockstar Games oder Cfx.re verbunden.',
+        'source_note' => 'Builds kommen direkt von Cfx (runtime.fivem.net). :app hostet oder verändert sie nicht und ist nicht mit Rockstar Games oder Cfx.re verbunden.',
     ],
 
     'enhanced' => [
@@ -222,7 +222,7 @@ return [
         'title' => 'FiveM for GTAV Enhanced',
         'subheading' => 'Lass deinen Server auf der neuen GTAV-Enhanced-Edition von FiveM laufen, oder wechsle jederzeit zurück.',
         'early_access' => 'FiveM for GTAV Enhanced ist bei Cfx.re im Early Access. Rechne mit Fehlern und fehlenden Funktionen, und teste es, bevor du deine Community umziehst.',
-        'unavailable' => 'FiveM for GTAV Enhanced ist auf plugged.host noch nicht verfügbar. Cfx.re hat es im Early Access, und auf unseren Servern läuft es noch nicht. Das hier ändert sich, sobald es so weit ist.',
+        'unavailable' => 'FiveM for GTAV Enhanced ist auf :app noch nicht verfügbar. Cfx.re hat es im Early Access, und auf unseren Servern läuft es noch nicht. Das hier ändert sich, sobald es so weit ist.',
         'redm' => 'Das ist ein RedM-Server. Von RedM gibt es keine Enhanced-Edition.',
         'edition_legacy' => 'FiveM (Legacy)',
         'edition_enhanced' => 'FiveM for GTAV Enhanced',

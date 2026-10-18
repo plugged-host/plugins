@@ -134,6 +134,6 @@
             @endif
         @endif
 
-        <p class="phf-note">{{ $t('source_note') }}</p>
+        <p class="phf-note">{{ $t('source_note', ['app' => config('app.name')]) }}</p>
     </div>
 </x-filament-panels::page>

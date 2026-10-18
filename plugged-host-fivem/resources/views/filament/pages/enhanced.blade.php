@@ -34,7 +34,7 @@
             @if($this->available())
                 <x-filament::callout color="warning" :description="$t('early_access')" />
             @else
-                <x-filament::callout color="info" :description="$t('unavailable')" />
+                <x-filament::callout color="info" :description="$t('unavailable', ['app' => config('app.name')])" />
             @endif
 
             <div class="phf-now">
