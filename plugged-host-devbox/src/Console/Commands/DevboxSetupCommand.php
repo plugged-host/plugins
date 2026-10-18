@@ -27,9 +27,11 @@ class DevboxSetupCommand extends Command
 
         // The egg lists the image the settings pick (this release's tag, or DEVBOX_IMAGE), not
         // the one the file was written with. Each devbox server carries its own image anyway,
-        // which DevboxPower keeps on the same setting at every start.
+        // which DevboxPower keeps on the same setting at every start. Its name follows the panel
+        // ("plugged.host Devbox" on plugged.host); the egg is found by its UUID, never its name.
         $data = json_decode($json, true);
         if (is_array($data)) {
+            $data['name'] = trim((string) config('app.name') . ' Devbox');
             $data['docker_images'] = ['Devbox' => DevboxProvisioner::image()];
             $json = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }

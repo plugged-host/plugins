@@ -17,7 +17,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 /**
- * VS Code in the browser, the panel's half of the edge (docs/templates/nginx/devbox-web.conf):
+ * VS Code in the browser, the panel's half of the edge (the nginx site in
+ * https://docs.plugged.host/nodes/devboxes/):
  *
  * 1. "Open in browser" in the panel (signed in, 2FA) makes a one-time ticket for that devbox and
  *    sends the browser to https://<slug>.<web_domain>/_ph/login?ticket=…
@@ -162,9 +163,10 @@ final class WebController
     private function denied(string $host): Response
     {
         $panel = rtrim((string) config('app.url'), '/');
+        $name = trim((string) config('app.name') . ' panel');
 
         return response(
-            '<!doctype html><meta charset="utf-8"><title>Devbox</title><p>This link is used up or expired. Open the devbox again from the <a href="' . e($panel) . '">plugged.host panel</a>.</p>',
+            '<!doctype html><meta charset="utf-8"><title>Devbox</title><p>This link is used up or expired. Open the devbox again from the <a href="' . e($panel) . '">' . e($name) . '</a>.</p>',
             401,
             ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store'],
         );

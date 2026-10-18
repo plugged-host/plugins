@@ -28,10 +28,13 @@ Before `DEVBOX_ENABLED=true`:
    pin the build you tested with `DEVBOX_IMAGE=ghcr.io/plugged-host/devbox@sha256:<digest>`
    (the workflow prints it; the doctor warns while it is a tag). Devboxes pick it up at their
    next start.
-4. **Nodes**, one at a time: core's mount guard is live (it is, since 2.2), then
-   `docs/deploy/node-scan/update-nodes.mjs --devbox --only <node>` (Wings `allowed_mounts`),
-   then the **node firewall** below. The firewall applies to every container on the node and
-   is worth having without devboxes too.
+4. **Nodes**, one at a time: core's mount guard is live (it is, since 2.2), then add the node's
+   data directory (Wings' `system.data` in `/etc/pelican/config.yml`, by default
+   `/var/lib/pelican/volumes`; the same path as the node's Daemon Base Directory in the panel) to
+   the top-level `allowed_mounts` list of that file and restart Wings (`systemctl restart wings`;
+   running servers keep running), then the **node firewall** below. Step by step:
+   <https://docs.plugged.host/nodes/devboxes/>. The firewall applies to every container on the
+   node and is worth having without devboxes too.
 5. Switch on (Admin › Plugins › plugged.host Devbox), then `php artisan plugged-host:doctor
    plugged-host-devbox` is clean (egg, system user, reconcile tick, image, mounts).
 
@@ -45,18 +48,20 @@ it in `/etc/nftables.conf` with `nftables.service`: Debian's file starts with `f
 which wipes Docker's rules whenever it is reloaded.
 
 Read the values from the node's `/etc/pelican/config.yml` (`docker.network`; Wings' defaults
-are shown) and the node's allocation port range(s) from the panel:
+are shown), the node's allocation port range(s) and its Daemon Port (the port the panel reaches
+Wings on: `api.port`, unless a proxy on the node sits in front of Wings) from the panel:
 
 ```bash
 sudo install -d /etc/nftables.d
 sudo tee /etc/nftables.d/ph-node-guard.nft >/dev/null <<'EOF'
 #!/usr/sbin/nft -f
-# plugged.host node guard: what containers on the Wings bridge may reach.
+# Node guard: what containers on the Wings bridge may reach.
 
 define WINGS_BRIDGE = "pelican0"             # docker.network: Wings' bridge name
 define WINGS_V4 = 172.18.0.0/16              # docker.network.interfaces.v4.subnet
 define WINGS_V6 = fdba:17c8:6c94::/64        # docker.network.interfaces.v6.subnet
 define GAME_PORTS = { <FIRST_PORT>-<LAST_PORT> }   # the node's allocation range(s)
+define WINGS_API_PORT = 8080                 # the node's Daemon Port in the panel
 
 table inet ph_node_guard
 delete table inet ph_node_guard
@@ -77,8 +82,10 @@ table inet ph_node_guard {
     }
 
     # Containers to this host (the bridge's gateway or any of its addresses): only the game
-    # ports (servers on a 127.0.0.1 allocation are reached at the gateway) and ICMP. Nothing
-    # else: not SSH, the Wings API, Wings' SFTP, a database, Redis or metrics.
+    # ports (servers on a 127.0.0.1 allocation are reached at the gateway), Wings' API and
+    # ICMP. Nothing else: not SSH, Wings' SFTP, a database, Redis or metrics.
+    # Wings' API: a devbox's ph logs, ph cmd and ph console open Wings' websocket at the node's
+    # address, which is this host. It is open to the internet anyway, and needs a token.
     chain input {
         type filter hook input priority -10; policy accept;
         iifname != $WINGS_BRIDGE return
@@ -86,6 +93,7 @@ table inet ph_node_guard {
         meta l4proto { icmp, ipv6-icmp } return
         tcp dport $GAME_PORTS return
         udp dport $GAME_PORTS return
+        tcp dport $WINGS_API_PORT return
         counter drop
     }
 }
@@ -93,7 +101,7 @@ EOF
 
 sudo tee /etc/systemd/system/ph-node-guard.service >/dev/null <<'EOF'
 [Unit]
-Description=plugged.host node guard (nftables rules for the Wings bridge)
+Description=Node guard (nftables rules for the Wings bridge)
 After=network-pre.target
 Before=docker.service wings.service
 
@@ -117,9 +125,9 @@ sudo nft list table inet ph_node_guard
 Servers whose egg has "force outgoing IP" on run on Wings' per-address Docker networks (`ip-…`),
 not on `pelican0`, and are not covered; the devbox egg never has it.
 
-**A node that is also a database host** (Admin › Database Hosts: a host whose address is this node,
-like prod's MySQL on de1) must let its own servers reach that port, or every server database on
-the node stops working: add `tcp dport 3306 return` (the host's port) to `input` before the drop.
+**A node that is also a database host** (Admin › Database Hosts: a host whose address is this node)
+must let its own servers reach that port, or every server database on the node stops working:
+add `tcp dport 3306 return` (the host's port) to `input` before the drop.
 Check Admin › Database Hosts for every node before loading the table there.
 
 If containers must reach something on the host or in a private network (a node whose
@@ -130,9 +138,10 @@ that address before the `drop` in `forward`), add it explicitly. Undo with
 
 Check it from a devbox terminal (or any game server's console tools) on that node:
 `curl -sm5 https://example.com >/dev/null && echo ok` (works),
-`curl -sm5 http://169.254.169.254/` (times out), `timeout 5 bash -c '</dev/tcp/172.18.0.1/<WINGS_API_PORT>'`
-(fails), the same for SSH and Wings' SFTP port (fail), and a game server on the node is still
-reachable from outside. `nft list table inet ph_node_guard` shows the counters going up.
+`curl -sm5 http://169.254.169.254/` (times out), `timeout 5 bash -c '</dev/tcp/172.18.0.1/<SSH_PORT>'`
+(fails), the same for Wings' SFTP port (fails), `ph logs -n 5` prints the game server's last
+console lines (Wings' API passes), and a game server on the node is still reachable from outside.
+`nft list table inet ph_node_guard` shows the counters going up.
 
 ### Lifting an abuse block by hand
 

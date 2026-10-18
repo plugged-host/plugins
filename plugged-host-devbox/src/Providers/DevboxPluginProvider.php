@@ -3,6 +3,7 @@
 namespace PluggedHost\Devbox\Providers;
 
 use App\Enums\TablerIcon;
+use App\Models\Node;
 use App\Models\Server;
 use App\Models\ServerTransfer;
 use App\Models\Subuser;
@@ -305,12 +306,15 @@ class DevboxPluginProvider extends ServiceProvider
                 return Doctor::ok('not in use');
             }
 
+            // Each node with the directory Wings has to allow: its Daemon Base Directory, which the
+            // devbox mounts are made from.
             $missing = Devbox::query()->where('boot_status', 'mount_missing')->with('node')->get()
-                ->map(fn (Devbox $devbox) => $devbox->node?->name)->filter()->unique()->values();
+                ->map(fn (Devbox $devbox) => $devbox->node)->filter()->unique('id')
+                ->map(fn (Node $node) => $node->name . ' (' . rtrim((string) $node->daemon_base, '/') . ')')->values();
 
             return $missing->isEmpty()
                 ? Doctor::ok('no devbox reported a missing /server')
-                : Doctor::fail('/server missing on ' . $missing->implode(', ') . ': run docs/deploy/node-scan/update-nodes.mjs --devbox on them');
+                : Doctor::fail('/server missing on ' . $missing->implode(', ') . ': add that data directory to allowed_mounts in the node\'s Wings config.yml and restart Wings, see https://docs.plugged.host/nodes/devboxes/');
         });
     }
 

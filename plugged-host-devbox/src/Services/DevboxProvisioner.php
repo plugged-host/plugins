@@ -176,7 +176,7 @@ final class DevboxProvisioner
 
             return app(ServerCreationService::class)->handle([
                 'name' => $name,
-                'description' => "plugged.host devbox for {$game->uuid_short} (system server: managed by plugged-host-devbox, do not edit)",
+                'description' => trim((string) config('app.name') . " devbox for {$game->uuid_short} (system server: managed by plugged-host-devbox, do not edit)"),
                 'owner_id' => $owner->id,
                 'egg_id' => $egg->id,
                 'node_id' => $node->id,

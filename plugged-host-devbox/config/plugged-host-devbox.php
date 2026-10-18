@@ -4,8 +4,9 @@ return [
     /*
      * Devboxes: a private Linux box next to a game server for VS Code (Remote-SSH), Plus only.
      * Each is a hidden server Wings runs (egg EGG_UUID, owned by the system user below) with the
-     * game server's volume mounted at /server. Needs `allowed_mounts: [/var/lib/pelican/volumes]`
-     * in the node's Wings config.yml (docs/deploy/node-scan/update-nodes.mjs --devbox), the node
+     * game server's volume mounted at /server. Needs the node's data directory (Wings'
+     * system.data, by default /var/lib/pelican/volumes) in `allowed_mounts` of the node's Wings
+     * config.yml and a Wings restart (https://docs.plugged.host/nodes/devboxes/), the node
      * firewall from the plugin's README, and plugged-host-abuse enabled. Off until switched on.
      */
     'enabled' => (bool) env('DEVBOX_ENABLED', false),
@@ -51,9 +52,9 @@ return [
 
     /*
      * VS Code in the browser. Each devbox answers at https://<slug>.<web_domain> through the edge
-     * (nginx on the panel box, docs/templates/nginx/devbox-web.conf), which asks this panel who
-     * may in. Empty switches the web version off. Keep it off plugged.host: the panels' session
-     * cookie is shared with every *.plugged.host host.
+     * (nginx on the panel box, see https://docs.plugged.host/nodes/devboxes/), which asks this
+     * panel who may in. Empty switches the web version off. Never the panel's own domain or one
+     * under it (DevboxWeb::allowedDomain()): the panel's session cookie reaches those hosts.
      */
     'web_domain' => strtolower(trim((string) env('DEVBOX_WEB_DOMAIN', ''), '. ')),
 

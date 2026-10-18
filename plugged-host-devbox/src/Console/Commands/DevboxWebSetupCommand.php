@@ -16,8 +16,8 @@ use Throwable;
  * - the DNS record of every running devbox (<slug>.<web_domain>, proxied; DevboxDns). New ones get
  *   theirs when they start, and lose it when they are deleted. No wildcard on the domain.
  *
- * nginx (docs/templates/nginx/devbox-web.conf) and its origin certificate for *.<web_domain> are
- * set up by hand once; the command prints the paths nginx needs.
+ * nginx (the site in https://docs.plugged.host/nodes/devboxes/) and its origin certificate for
+ * *.<web_domain> are set up by hand once; the command prints the paths nginx needs.
  */
 class DevboxWebSetupCommand extends Command
 {
@@ -29,7 +29,13 @@ class DevboxWebSetupCommand extends Command
     {
         $domain = DevboxWeb::domain();
         if ($domain === '') {
-            $this->error('Set DEVBOX_WEB_DOMAIN first (e.g. onplugged.host), in .env or the plugin settings.');
+            $this->error('Set DEVBOX_WEB_DOMAIN first (e.g. example.net), in .env or the plugin settings.');
+
+            return self::FAILURE;
+        }
+
+        if (!DevboxWeb::allowedDomain($domain)) {
+            $this->error("DEVBOX_WEB_DOMAIN={$domain} is the panel's own domain, under it or above it (" . implode(', ', DevboxWeb::panelDomains()) . '): the panel\'s session cookie would reach devboxes. Use a domain of its own.');
 
             return self::FAILURE;
         }
@@ -60,7 +66,7 @@ class DevboxWebSetupCommand extends Command
 
         $dir = $result['dir'];
         $this->line('');
-        $this->line('nginx (docs/templates/nginx/devbox-web.conf) needs:');
+        $this->line('nginx (the devbox site from https://docs.plugged.host/nodes/devboxes/) needs:');
         $this->line("  proxy_ssl_certificate         {$dir}/edge.crt;");
         $this->line("  proxy_ssl_certificate_key     {$dir}/edge.key;");
         $this->line("  proxy_ssl_trusted_certificate {$dir}/ca.crt;");

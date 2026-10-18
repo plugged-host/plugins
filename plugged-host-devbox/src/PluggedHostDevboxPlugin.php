@@ -4,6 +4,7 @@ namespace PluggedHost\Devbox;
 
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Traits\EnvironmentWriterTrait;
+use Closure;
 use Filament\Contracts\Plugin;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -13,6 +14,7 @@ use Filament\Schemas\Components\Section;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Core\Support\Release;
 use PluggedHost\Devbox\Services\DevboxProvisioner;
+use PluggedHost\Devbox\Support\DevboxWeb;
 
 /**
  * Devboxes: VS Code on the server for Plus (see Providers\DevboxPluginProvider). Its UI is the
@@ -76,7 +78,7 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
 
         return [
             Section::make('Devboxes')
-                ->description('VS Code on the server for Plus: a private Linux box next to a game server, with its files at /server. Nodes need the volumes in Wings\' allowed_mounts (update-nodes.mjs --devbox).')
+                ->description('VS Code on the server for Plus: a private Linux box next to a game server, with its files at /server. Each node needs its data directory (Wings\' system.data) in the allowed_mounts of its config.yml, then a Wings restart: https://docs.plugged.host/nodes/devboxes/')
                 ->columns(2)
                 ->schema([
                     Toggle::make('enabled')
@@ -104,14 +106,21 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
                     $number('plusplus_disk', 'Disk', 'MiB'),
                 ]),
             Section::make('In the browser')
-                ->description('VS Code in the browser at https://<devbox>.<domain>, through the edge (nginx on the panel box, docs/templates/nginx/devbox-web.conf). Never a plugged.host domain: the panels\' session cookie covers all of it. After changing it, run php artisan plugged-host:devbox-web-setup.')
+                ->description('VS Code in the browser at https://<devbox>.<domain>, through the edge (nginx on the panel box, set up as in https://docs.plugged.host/nodes/devboxes/). Never the panel\'s own domain or one under it: the panel\'s session cookie reaches all of those. After changing it, run php artisan plugged-host:devbox-web-setup.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('web_domain')
                         ->label('Domain')
-                        ->placeholder('onplugged.host')
+                        ->placeholder('example.net')
                         ->helperText('Empty switches the browser version off.')
-                        ->rules(['nullable', 'regex:/^([a-z0-9-]+\\.)+[a-z]{2,}$/i', 'not_regex:/(^|\\.)plugged\\.host$/i']),
+                        ->rules([
+                            'nullable',
+                            fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                if (filled($value) && !DevboxWeb::allowedDomain((string) $value)) {
+                                    $fail('A domain name of its own: not the panel\'s domain, under it or above it.');
+                                }
+                            },
+                        ]),
                     TextInput::make('web_origin_ip')
                         ->label('Edge IPv4')
                         ->helperText('Public address of the panel box; each devbox\'s DNS record points here.')
@@ -150,7 +159,7 @@ class PluggedHostDevboxPlugin implements HasPluginSettings, Plugin
         }
 
         $domain = strtolower(trim((string) ($data['web_domain'] ?? ''), '. '));
-        if ($domain === '' || (preg_match('/^([a-z0-9-]+\.)+[a-z]{2,}$/', $domain) && $domain !== 'plugged.host' && !str_ends_with($domain, '.plugged.host'))) {
+        if ($domain === '' || DevboxWeb::allowedDomain($domain)) {
             $environment['DEVBOX_WEB_DOMAIN'] = $domain;
         }
         $ip = trim((string) ($data['web_origin_ip'] ?? ''));
