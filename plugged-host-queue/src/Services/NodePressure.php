@@ -9,23 +9,22 @@ use Throwable;
 /**
  * How full a node is, as the queue asks it.
  *
- * A thin adapter over plugged-host-core's `NodeCapacity`, which owns the live
- * measurement (wings' /api/system/utilization, via `Node::statistics()`) and the two
- * thresholds. Reading them from there rather than keeping a second copy is the whole
- * point: the allocator that keeps new servers off a full node and the queue that
- * holds starts back on a busy one have to agree about which nodes those are.
+ * A thin adapter over plugged-host-servers' `NodeCapacity`, which owns the live
+ * measurement (wings' /api/system/utilization, via `Node::statistics()`) and the disk
+ * line. The memory/CPU line is the queue's own (`limit()`), and servers' DeploymentPause
+ * reads the same setting, so the allocator that keeps new servers off a busy node and
+ * the queue that holds a start back on one agree about which nodes those are.
  *
- * Resolved by class name rather than imported so the queue does not hard-depend on
- * core being loaded. With core missing there is no measurement, `pressure()` answers
- * null, and every caller treats that as "no reason to make anybody wait" — the same
- * fail-open direction core itself takes for a node that does not answer.
+ * Resolved by class name rather than imported so the queue does not break when servers
+ * is not loaded. With it missing there is no measurement, `pressure()` answers null, and
+ * every caller treats that as "no reason to hold a start back" — the same fail-open
+ * direction `NodeCapacity` itself takes for a node that does not answer.
  *
- * The dimensions are narrower than core's `isHot()`, and deliberately. Memory and CPU
- * come back down on their own, so a line waiting on them moves. Disk does not: a node
- * at 96% full is still at 96% full in ten minutes, so queueing on it would be a line
- * that never advances and a customer who cannot reach their server. Disk pressure is
- * handled by moving servers and new deployments elsewhere instead — core's allocator
- * for new ones, `NodeTransferService` for existing ones.
+ * Memory and CPU by default, and deliberately not disk. Memory and CPU come back down on
+ * their own, so a line waiting on them moves. Disk does not: a node at 96% full is still
+ * at 96% full in ten minutes, so waiting on it would be a line that never advances until
+ * the cap. Disk pressure is handled by moving servers and new deployments elsewhere
+ * instead — the allocator for new ones, `NodeTransferService` for existing ones.
  */
 class NodePressure
 {
@@ -152,31 +151,16 @@ class NodePressure
     /**
      * The percentage above which a node is too busy to take another start.
      *
-     * WP11: this is the queue's OWN threshold (START_QUEUE_THRESHOLD_PERCENT, default 85),
-     * deliberately decoupled from the allocator's emergency placement ceiling (core's
-     * hot_percent, 95). Normal fleet nodes sit under 95 almost always, which is why the old
-     * shared ceiling meant the queue effectively never engaged. Falls back to core's hotPercent
-     * only when the queue threshold is not configured at all.
+     * The queue's own line (START_QUEUE_THRESHOLD_PERCENT, default 85). plugged-host-servers'
+     * DeploymentPause reads the same setting (ten points lower on small nodes) to take a node
+     * out of new servers, so the two agree about which nodes are busy. A value outside 1-100 is
+     * a typo, not an intention, and falls back to 85 there and here alike.
      */
     public function limit(): float
     {
-        $configured = config('plugged-host-queue.threshold_percent', null);
+        $configured = (float) config('plugged-host-queue.threshold_percent', 85);
 
-        if ($configured !== null && $configured !== '') {
-            return (float) $configured;
-        }
-
-        $capacity = $this->capacity();
-
-        if ($capacity === null) {
-            return 85.0;
-        }
-
-        try {
-            return (float) $capacity->hotPercent();
-        } catch (Throwable) {
-            return 85.0;
-        }
+        return $configured > 0 && $configured <= 100 ? $configured : 85.0;
     }
 
     /** Whether the node has a live utilisation reading at all (WP11 paced-fallback decision). */

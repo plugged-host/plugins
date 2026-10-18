@@ -314,7 +314,7 @@ class PlusPlusExpiry
 
         try {
             Notification::make()
-                ->title(trans('plugged-host-servers::strings.plusplus_expired.title', [], $user->language ?? null))
+                ->title(trans('plugged-host-servers::strings.plusplus_expired.title', ['app' => (string) config('app.name')], $user->language ?? null))
                 ->body(implode(' ', $lines))
                 ->warning()
                 ->sendToDatabase($user);

@@ -44,7 +44,7 @@ return [
 
 
     'plusplus_expired' => [
-        'title' => 'plugged.host PlusPlus ist abgelaufen',
+        'title' => ':app PlusPlus ist abgelaufen',
         'moved' => 'Server auf Premium-Standorten ziehen an einen anderen Standort um: :servers. Den Fortschritt siehst du im Tab „Umzüge“ des jeweiligen Servers.',
         'trimmed' => 'Die zusätzliche CPU von PlusPlus wurde gleichmäßig von deinen Servern abgezogen: :servers.',
     ],
@@ -64,7 +64,7 @@ return [
 
     'settings' => [
         'section_premium' => 'Plus- & Premium-Standorte',
-        'section_premium_hint' => 'Nodes mit dem Plus- oder Premium-Tag bilden die kostenpflichtigen Stufen. Plus-Standorte gibt es mit plugged.host Plus, Premium-Standorte mit PlusPlus (Preise: Einstellungen von plugged.host Economy).',
+        'section_premium_hint' => 'Nodes mit dem Plus- oder Premium-Tag bilden die kostenpflichtigen Stufen. Plus-Standorte gibt es mit :app Plus, Premium-Standorte mit PlusPlus (Preise: Einstellungen von plugged.host Economy).',
         'premium_tag' => 'Premium-Node-Tag',
         'premium_tag_hint' => 'Eine Node mit diesem Tag (zusätzlich zu ihrem Ländercode und einem Deployment-Tag) wird als Premium-Node behandelt.',
         'plus_tag' => 'Plus-Node-Tag',
@@ -303,7 +303,7 @@ return [
             'backup_running' => 'Ein Backup läuft. Versuche es erneut, sobald es fertig ist.',
             'cooldown' => 'Dieser Server wurde kürzlich umgezogen. In :time geht es wieder.',
             'invalid_location' => 'Bitte wähle einen Standort.',
-            'location_locked' => 'Plus-Standorte brauchen plugged.host Plus, Premium-Standorte PlusPlus.',
+            'location_locked' => 'Plus-Standorte brauchen :app Plus, Premium-Standorte PlusPlus.',
             'no_node' => 'An diesem Standort ist gerade kein Platz.',
         ],
         'reasons' => [

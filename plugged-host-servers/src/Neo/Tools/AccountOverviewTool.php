@@ -60,8 +60,8 @@ final class AccountOverviewTool extends AccountTool
             'cpu: ' . $fmt($summary['cpu_used'] ?? 0, $summary['cpu_limit'] ?? 0, '%', (int) ($summary['cpu_elsewhere'] ?? 0)),
             'memory: ' . $fmt($summary['memory_used'] ?? 0, $summary['memory_limit'] ?? 0, ' MB', (int) ($summary['memory_elsewhere'] ?? 0)),
             'disk: ' . $fmt($summary['disk_used'] ?? 0, $summary['disk_limit'] ?? 0, ' MB', (int) ($summary['disk_elsewhere'] ?? 0)),
-            'plugged.host Plus: ' . (PremiumAccess::isUnlocked($user, LocationCatalog::PLUS) ? 'yes (Plus locations, queue priority, no in-game ads)' : 'no'),
-            'plugged.host PlusPlus: ' . $this->plusPlus($user),
+            config('app.name') . ' Plus: ' . (PremiumAccess::isUnlocked($user, LocationCatalog::PLUS) ? 'yes (Plus locations, queue priority, no in-game ads)' : 'no'),
+            config('app.name') . ' PlusPlus: ' . $this->plusPlus($user),
         ];
 
         if (array_filter($overage) !== []) {

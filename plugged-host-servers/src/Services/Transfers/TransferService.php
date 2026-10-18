@@ -206,7 +206,7 @@ class TransferService
 
             // The paid-tier unlock is the owner's to buy; an admin may place a server anywhere.
             if ($origin !== ServerRelocation::ORIGIN_ADMIN && ($offer['tier'] ?? LocationCatalog::FREE) !== LocationCatalog::FREE && !($offer['unlocked'] ?? false)) {
-                throw new TransferException('location_locked');
+                throw new TransferException('location_locked', ['app' => (string) config('app.name')]);
             }
         }
 

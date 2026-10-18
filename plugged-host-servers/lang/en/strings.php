@@ -44,7 +44,7 @@ return [
 
 
     'plusplus_expired' => [
-        'title' => 'plugged.host PlusPlus has ended',
+        'title' => ':app PlusPlus has ended',
         'moved' => 'Servers on Premium locations are moving to another location: :servers. Follow it in each server\'s Transfers tab.',
         'trimmed' => 'The extra CPU PlusPlus gave has come off your servers evenly: :servers.',
     ],
@@ -64,7 +64,7 @@ return [
 
     'settings' => [
         'section_premium' => 'Plus & Premium locations',
-        'section_premium_hint' => 'Nodes tagged with the plus or premium tag form the paid tiers. Plus locations come with plugged.host Plus, Premium locations with PlusPlus (prices: plugged.host Economy settings).',
+        'section_premium_hint' => 'Nodes tagged with the plus or premium tag form the paid tiers. Plus locations come with :app Plus, Premium locations with PlusPlus (prices: plugged.host Economy settings).',
         'premium_tag' => 'Premium node tag',
         'premium_tag_hint' => 'A node carrying this tag (alongside its country code and a deployment tag) is treated as a premium node.',
         'plus_tag' => 'Plus node tag',
@@ -303,7 +303,7 @@ return [
             'backup_running' => 'A backup is running. Try again once it is done.',
             'cooldown' => 'This server was moved recently. You can move it again in :time.',
             'invalid_location' => 'Please pick a location.',
-            'location_locked' => 'Plus locations need plugged.host Plus, Premium locations PlusPlus.',
+            'location_locked' => 'Plus locations need :app Plus, Premium locations PlusPlus.',
             'no_node' => 'There is no room in that location right now.',
         ],
         'reasons' => [

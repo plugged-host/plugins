@@ -30,24 +30,14 @@ use Throwable;
  * over nodes costs one HTTP round trip per node at most every 5 seconds — cheap
  * enough to use inside a deployment path, which is why there is no second cache here.
  *
- * Thresholds live in config rather than as constants because two plugins ask these
- * questions for different reasons (the start queue asks "is this node hot", the
- * allocator asks "is this node nearly full") and they must agree on the answer.
+ * The storage line lives in config rather than as a constant because several plugins
+ * ask the same question (the allocator, transfers, the start queue's move offer, the
+ * devbox) and they must agree on the answer. Memory and CPU are judged elsewhere: the
+ * start queue reads `usage()` against its own line, and DeploymentPause against the
+ * same line from core's telemetry.
  */
 class NodeCapacity
 {
-    /**
-     * Percentage of memory, CPU or disk above which a node counts as hot.
-     *
-     * "95% full" in the product sense: any one of the three over the line is enough,
-     * because a node pinned on CPU is just as bad to start a server on as one out of
-     * memory.
-     */
-    public function hotPercent(): float
-    {
-        return $this->percentSetting('hot_percent', 95.0);
-    }
-
     /** Percentage of disk above which a node stops accepting new servers. */
     public function storagePercent(): float
     {
@@ -66,31 +56,6 @@ class NodeCapacity
         return (bool) config('plugged-host-servers.nodes.storage_guard_strict', false);
     }
 
-    /**
-     * Is this node over the hot line on memory, CPU or disk?
-     *
-     * False for a node that cannot be measured — see the class docblock on why the
-     * guards fail open.
-     */
-    public function isHot(?Node $node): bool
-    {
-        $usage = $this->usage($node);
-
-        if ($usage === null) {
-            return false;
-        }
-
-        $limit = $this->hotPercent();
-
-        foreach (['memory', 'cpu', 'disk'] as $dimension) {
-            if ($usage[$dimension] !== null && $usage[$dimension] > $limit) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /** Is this node's disk over the storage line? */
     public function storagePressured(?Node $node): bool
     {
@@ -99,29 +64,6 @@ class NodeCapacity
         return $usage !== null
             && $usage['disk'] !== null
             && $usage['disk'] > $this->storagePercent();
-    }
-
-    /**
-     * The reason a node is hot, for logging and for the queue's own explanation of
-     * why someone is waiting. Null when the node is not hot or cannot be measured.
-     */
-    public function pressureReason(?Node $node): ?string
-    {
-        $usage = $this->usage($node);
-
-        if ($usage === null) {
-            return null;
-        }
-
-        $limit = $this->hotPercent();
-
-        foreach (['memory', 'cpu', 'disk'] as $dimension) {
-            if ($usage[$dimension] !== null && $usage[$dimension] > $limit) {
-                return $dimension;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -183,7 +125,7 @@ class NodeCapacity
     /**
      * A percentage from config, kept inside 1-100.
      *
-     * 0 would mean "every node is hot" and is far more likely a typo or an empty .env
+     * 0 would mean "every node is full" and is far more likely a typo or an empty .env
      * value than an intention, so it falls back to the default rather than taking the
      * whole fleet out of service.
      */

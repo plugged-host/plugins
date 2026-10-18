@@ -2,6 +2,18 @@
 
 ## 2.2.0 (unreleased)
 
+- Settings cleanup: `NODES_HOT_PERCENT` ("Node is busy above") is gone from the settings and the
+  config. Nothing acted on it any more: the start queue's own line (`START_QUEUE_THRESHOLD_PERCENT`)
+  holds starts back, and the deployment pause takes a node over that line out of new servers.
+  `NodeCapacity::hotPercent()`, `isHot()` and `pressureReason()` went with it. `UCS_PREMIUM_COST`
+  (unread since the one-time unlock was replaced by Plus) is gone from the config;
+  `provision_lock_wait` (`UCS_PROVISION_LOCK_WAIT`, 30 s) is now in it. Leftover `.env` lines are
+  harmless.
+- Self-hosting: "Plus"/"PlusPlus" are named after the panel (`APP_NAME`) in the notifications,
+  settings, transfer refusals and neo's tools, instead of a fixed "plugged.host Plus".
+- The README's latency source (core's `NodeTelemetry`), requirements (Pelican `v1.0.0-rc.1`) and
+  the deployment pause are up to date.
+
 - **A lower base on noprofit.space takes effect on the servers**: whenever an account's base
   resources go down there (an admin, a lower tier, a Discord server left), what its servers use
   beyond the new allowance, up to plugged.host's share of what was taken away (noprofit.space
