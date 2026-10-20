@@ -201,6 +201,16 @@ return [
     | width is the frame's CSS width (a number with %, px or vw). Core renders it; nothing
     | here loads on any other page.
     */
+    /*
+    | Site-verification meta tags for ad networks. Written into the head of every panel page and
+    | into the small page a signed-out visit to `/` gets (Http\Middleware\SiteVerificationPage),
+    | because that visit is otherwise a redirect to the account portal. Empty = no tag.
+    */
+    'verification' => [
+        // Monetag's site check: the `content` of <meta name="monetag" content="…">.
+        'monetag' => (string) env('ADS_MONETAG_VERIFICATION', ''),
+    ],
+
     'maintenance' => [
         'aads_unit' => (string) env('ADS_MAINTENANCE_AADS_UNIT', ''),
         'width' => (string) env('ADS_MAINTENANCE_AADS_WIDTH', '70%'),

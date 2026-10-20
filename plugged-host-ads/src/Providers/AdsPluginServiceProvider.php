@@ -6,6 +6,7 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
@@ -14,10 +15,12 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use PluggedHost\Ads\Filament\Server\Pages\StartGatePage;
 use PluggedHost\Ads\Http\Controllers\AdBannerClickController;
+use PluggedHost\Ads\Http\Middleware\SiteVerificationPage;
 use PluggedHost\Ads\Models\AdBanner;
 use PluggedHost\Ads\Services\AdBannerService;
 use PluggedHost\Ads\Services\AdDisplayService;
 use PluggedHost\Ads\Services\AdsterraService;
+use PluggedHost\Ads\Services\SiteVerification;
 use Throwable;
 
 class AdsPluginServiceProvider extends ServiceProvider
@@ -49,6 +52,37 @@ class AdsPluginServiceProvider extends ServiceProvider
         $this->registerAdBlockResponse();
         $this->registerUnitScript();
         $this->registerBannerClicks();
+        $this->registerSiteVerification();
+    }
+
+    /**
+     * Ad networks' site-verification meta tags: in the head of every panel page, and on the
+     * page a signed-out visit to `/` gets instead of the redirect (SiteVerificationPage).
+     */
+    protected function registerSiteVerification(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::HEAD_END,
+            function (): ?Htmlable {
+                try {
+                    $tags = app(SiteVerification::class)->tags();
+
+                    return $tags === '' ? null : new HtmlString($tags);
+                } catch (Throwable) {
+                    return null;
+                }
+            },
+        );
+
+        if ($this->app->runningInConsole()) {
+            return;
+        }
+
+        $kernel = $this->app->make(Kernel::class);
+
+        if (method_exists($kernel, 'prependMiddleware')) {
+            $kernel->prependMiddleware(SiteVerificationPage::class);
+        }
     }
 
     /**
