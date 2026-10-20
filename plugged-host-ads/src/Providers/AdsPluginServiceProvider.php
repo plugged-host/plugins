@@ -67,36 +67,61 @@ class AdsPluginServiceProvider extends ServiceProvider
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_START,
-            function (array $scopes = []): ?Htmlable {
-                try {
-                    [$user, $panelId, $isAuthPage] = $this->context();
-
-                    if (!in_array($panelId, ['app', 'server'], true)) {
-                        return null;
-                    }
-
-                    $banners = app(AdBannerService::class);
-
-                    // The cache read first: most pages have no top banner, and the audience
-                    // rule can reach the database (roles, memberships).
-                    if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)) {
-                        return $this->renderTopSlot($scopes);
-                    }
-
-                    if (!app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
-                        return null;
-                    }
-
-                    $unit = $banners->top();
-
-                    return $unit === null ? $this->renderTopSlot($scopes) : new HtmlString(view('plugged-host-ads::filament.top-banner', [
-                        'unit' => $unit,
-                    ])->render());
-                } catch (Throwable) {
-                    return null;
-                }
-            },
+            fn (array $scopes = []): ?Htmlable => $this->topOfPage($scopes),
         );
+    }
+
+    /** The top of the page, decided once per request: see topOfPage(). */
+    private ?Htmlable $topOfPage = null;
+
+    private bool $topDecided = false;
+
+    /**
+     * What goes at the top of the page, decided once per request and remembered.
+     *
+     * The page component renders before the layout, so without this the server-tools strip
+     * (inside the page) would take the leaderboard zones before CONTENT_START asks for them,
+     * and the most visible spot would get what is left. The strip asks for the top first
+     * instead, on full page loads and Livewire updates alike (the strip renders on both), so
+     * the two always agree on which zones are on the page.
+     *
+     * @param  array<int, string>  $scopes
+     */
+    protected function topOfPage(array $scopes): ?Htmlable
+    {
+        if ($this->topDecided) {
+            return $this->topOfPage;
+        }
+
+        $this->topDecided = true;
+
+        try {
+            [$user, $panelId, $isAuthPage] = $this->context();
+
+            if (!in_array($panelId, ['app', 'server'], true)) {
+                return null;
+            }
+
+            $banners = app(AdBannerService::class);
+
+            // The cache read first: most pages have no top banner, and the audience
+            // rule can reach the database (roles, memberships).
+            if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)) {
+                return $this->topOfPage = $this->renderTopSlot($scopes);
+            }
+
+            if (!app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
+                return null;
+            }
+
+            $unit = $banners->top();
+
+            return $this->topOfPage = $unit === null ? $this->renderTopSlot($scopes) : new HtmlString(view('plugged-host-ads::filament.top-banner', [
+                'unit' => $unit,
+            ])->render());
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /** Pages the `top` leaderboard stays off: the waiting rooms (own units) and dead ends. */
@@ -214,6 +239,9 @@ class AdsPluginServiceProvider extends ServiceProvider
                 } catch (Throwable) {
                     return null;
                 }
+
+                // The top of the page picks its zones first (see topOfPage()).
+                $this->topOfPage($scopes);
 
                 return $this->renderNamedSlot('server-tools');
             },
