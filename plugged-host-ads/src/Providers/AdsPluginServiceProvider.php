@@ -58,8 +58,8 @@ class AdsPluginServiceProvider extends ServiceProvider
      * is rendered once per page load (wire:navigate included) and never on a Livewire update:
      * a poll cannot swap it, and it rotates per page load, not per tick.
      *
-     * With no top banner live, the `top` named slot (an Adsterra leaderboard) takes the same
-     * place, so the most visible spot on the page is never empty — except on the waiting rooms,
+     * The `top` named slot (an Adsterra leaderboard) sits in the same place, under the top
+     * banner when one is live, so the most visible spot always earns — except on the waiting rooms,
      * which carry their own units, and the suspended page, which is a dead end. Who sees either
      * is the same rule as every other ad (AdDisplayService::showsAdsTo()).
      */
@@ -116,9 +116,16 @@ class AdsPluginServiceProvider extends ServiceProvider
 
             $unit = $banners->top();
 
-            return $this->topOfPage = $unit === null ? $this->renderTopSlot($scopes) : new HtmlString(view('plugged-host-ads::filament.top-banner', [
-                'unit' => $unit,
-            ])->render());
+            if ($unit === null) {
+                return $this->topOfPage = $this->renderTopSlot($scopes);
+            }
+
+            // A live sponsored top banner goes first and the leaderboard right under it, so
+            // selling the top never takes the panel's best Adsterra placement away.
+            $html = view('plugged-host-ads::filament.top-banner', ['unit' => $unit])->render()
+                . $this->renderTopSlot($scopes)?->toHtml();
+
+            return $this->topOfPage = new HtmlString($html);
         } catch (Throwable) {
             return null;
         }

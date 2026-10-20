@@ -132,7 +132,7 @@ return [
     | `native`, a banner size, or sizes joined by `|` for "the widest that fits"), max_height
     | (reserved space so nothing shifts on load). top is the leaderboard above the page heading
     | on every app and server page, console included, waiting rooms and the suspended page
-    | excepted; a live sponsored top banner takes its place. The in-content slot at the foot of
+    | excepted; a live sponsored top banner sits above it. The in-content slot at the foot of
     | every page is AdsterraService::IN_CONTENT (leaderboard + 300x250 + native), and gets
     | whatever the slots above it left. server-tools is a strip under the page header on
     | server-panel pages, console excepted. Page components render before the layout, so the
