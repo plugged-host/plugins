@@ -72,6 +72,8 @@ return [
     'slot_store_helper' => '300x250-Banner auf der Shop-Seite, unterhalb der Transaktionsliste.',
     'slot_server_list' => 'Fußzeile der Serverliste',
     'slot_server_list_helper' => '300x250-Banner am Fuß der Serverliste.',
+    'slot_top' => 'Seitenanfang',
+    'slot_top_helper' => 'Leaderboard über der Seitenüberschrift auf jeder App- und Server-Seite, auch auf der Konsole (468x60 oder 320x50, wenn schmaler). Ein aktives gesponsertes Top-Banner nimmt seinen Platz ein. Nicht in den Warteräumen und nicht auf der Sperrseite.',
     'slot_onboarding' => 'Einrichtungs-/Installationsseite',
     'slot_onboarding_helper' => '300x250-Banner auf der Seite der Server-Installation.',
     'slot_server_tools' => 'Server-Werkzeuge (im Inhalt)',

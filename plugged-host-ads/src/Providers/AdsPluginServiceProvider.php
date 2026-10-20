@@ -58,14 +58,16 @@ class AdsPluginServiceProvider extends ServiceProvider
      * is rendered once per page load (wire:navigate included) and never on a Livewire update:
      * a poll cannot swap it, and it rotates per page load, not per tick.
      *
-     * Nothing renders when no top banner is live, so there is no empty box. Who sees it is the
-     * same rule as every other ad (AdDisplayService::showsAdsTo()); it needs no Adsterra.
+     * With no top banner live, the `top` named slot (an Adsterra leaderboard) takes the same
+     * place, so the most visible spot on the page is never empty — except on the waiting rooms,
+     * which carry their own units, and the suspended page, which is a dead end. Who sees either
+     * is the same rule as every other ad (AdDisplayService::showsAdsTo()).
      */
     protected function registerTopBanner(): void
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_START,
-            function (): ?Htmlable {
+            function (array $scopes = []): ?Htmlable {
                 try {
                     [$user, $panelId, $isAuthPage] = $this->context();
 
@@ -77,14 +79,17 @@ class AdsPluginServiceProvider extends ServiceProvider
 
                     // The cache read first: most pages have no top banner, and the audience
                     // rule can reach the database (roles, memberships).
-                    if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)
-                        || !app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
+                    if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)) {
+                        return $this->renderTopSlot($scopes);
+                    }
+
+                    if (!app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
                         return null;
                     }
 
                     $unit = $banners->top();
 
-                    return $unit === null ? null : new HtmlString(view('plugged-host-ads::filament.top-banner', [
+                    return $unit === null ? $this->renderTopSlot($scopes) : new HtmlString(view('plugged-host-ads::filament.top-banner', [
                         'unit' => $unit,
                     ])->render());
                 } catch (Throwable) {
@@ -92,6 +97,29 @@ class AdsPluginServiceProvider extends ServiceProvider
                 }
             },
         );
+    }
+
+    /** Pages the `top` leaderboard stays off: the waiting rooms (own units) and dead ends. */
+    private const NOT_TOP = [
+        StartGatePage::class,
+        'PluggedHost\\Queue\\Filament\\Server\\Pages\\StartQueuePage',
+        'PluggedHost\\Limbo\\Filament\\Server\\Pages\\RestoreFromLimboPage',
+        'PluggedHost\\Core\\Filament\\Server\\Pages\\SuspendedServerPage',
+    ];
+
+    /**
+     * The `top` named slot, or null on the pages it stays off. The slot's own grant
+     * (AdDisplayService::slot()) applies the audience rule, the interstitial routes and the cap.
+     *
+     * @param  array<int, string>  $scopes
+     */
+    protected function renderTopSlot(array $scopes): ?Htmlable
+    {
+        if (array_intersect($scopes, self::NOT_TOP) !== [] || StartGatePage::isCurrentRoute()) {
+            return null;
+        }
+
+        return $this->renderNamedSlot('top');
     }
 
     /**

@@ -130,15 +130,19 @@ return [
     |
     | Each slot: enabled, zone (logical key), units (specs for AdsterraService::unitsFor():
     | `native`, a banner size, or sizes joined by `|` for "the widest that fits"), max_height
-    | (reserved space so nothing shifts on load). The in-content slot at the foot of every
-    | page is AdsterraService::IN_CONTENT (leaderboard + native); the named slots use other
-    | sizes so no zone is on a page twice. server-tools is a strip under the page header on
-    | server-panel pages, console excepted.
+    | (reserved space so nothing shifts on load). top is the leaderboard above the page heading
+    | on every app and server page, console included, waiting rooms and the suspended page
+    | excepted; a live sponsored top banner takes its place. The in-content slot at the foot of
+    | every page is AdsterraService::IN_CONTENT (leaderboard + 300x250 + native), and gets
+    | whatever the slots above it left. server-tools is a strip under the page header on
+    | server-panel pages, console excepted. Page components render before the layout, so the
+    | page's own slots (server-tools, create, store, …) pick first, then top, then the foot.
     |
     */
     'max_units_per_page' => (int) env('ADS_MAX_UNITS_PER_PAGE', 2),
 
     'placements' => [
+        'top'               => ['enabled' => env('ADS_SLOT_TOP', true),             'zone' => 'top-leaderboard',   'units' => ['728x90|468x60|320x50'], 'max_height' => 0],
         'sidebar-footer'    => ['enabled' => env('ADS_SLOT_SIDEBAR_FOOTER', true),  'zone' => 'sidebar-native',    'units' => ['native'],  'max_height' => 300],
         'create-under-plan' => ['enabled' => env('ADS_SLOT_CREATE', true),          'zone' => 'create-rect',       'units' => ['300x250'], 'max_height' => 250],
         'store-under-tx'    => ['enabled' => env('ADS_SLOT_STORE', true),           'zone' => 'store-rect',        'units' => ['300x250'], 'max_height' => 250],

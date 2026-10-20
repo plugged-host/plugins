@@ -77,6 +77,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 
             // Named slots (WP4): each placement's own on/off, plus the per-page cap.
             'max_units_per_page' => (int) config('plugged-host-ads.max_units_per_page', 2),
+            'slot_top' => (bool) config('plugged-host-ads.placements.top.enabled', true),
             'slot_sidebar_footer' => (bool) config('plugged-host-ads.placements.sidebar-footer.enabled', true),
             'slot_create' => (bool) config('plugged-host-ads.placements.create-under-plan.enabled', true),
             'slot_store' => (bool) config('plugged-host-ads.placements.store-under-tx.enabled', true),
@@ -285,6 +286,13 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->columnSpan(2)
                         ->default(fn () => config('plugged-host-ads.max_units_per_page', 2)),
+                    Toggle::make('slot_top')
+                        ->label(trans('plugged-host-ads::strings.slot_top'))
+                        ->helperText(trans('plugged-host-ads::strings.slot_top_helper'))
+                        ->inline(false)
+                        ->onIcon(TablerIcon::Check)
+                        ->offIcon(TablerIcon::X)
+                        ->default(fn () => config('plugged-host-ads.placements.top.enabled', true)),
                     Toggle::make('slot_sidebar_footer')
                         ->label(trans('plugged-host-ads::strings.slot_sidebar_footer'))
                         ->helperText(trans('plugged-host-ads::strings.slot_sidebar_footer_helper'))
@@ -740,6 +748,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_SHOW_ADMIN_PANEL' => !empty($data['show_admin_panel']) ? 'true' : 'false',
 
             'ADS_MAX_UNITS_PER_PAGE' => (string) $this->clamp($data['max_units_per_page'] ?? 2, 0, 20),
+            'ADS_SLOT_TOP' => !empty($data['slot_top']) ? 'true' : 'false',
             'ADS_SLOT_SIDEBAR_FOOTER' => !empty($data['slot_sidebar_footer']) ? 'true' : 'false',
             'ADS_SLOT_CREATE' => !empty($data['slot_create']) ? 'true' : 'false',
             'ADS_SLOT_STORE' => !empty($data['slot_store']) ? 'true' : 'false',

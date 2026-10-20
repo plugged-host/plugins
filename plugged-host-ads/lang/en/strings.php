@@ -72,6 +72,8 @@ return [
     'slot_store_helper' => '300x250 banner on the store page, below the transaction list.',
     'slot_server_list' => 'Server-list footer',
     'slot_server_list_helper' => '300x250 banner at the foot of the server list.',
+    'slot_top' => 'Top of the page',
+    'slot_top_helper' => 'Leaderboard above the page heading on every app and server page, console included (468x60 or 320x50 when narrower). A live top sponsored banner takes its place. Not on the waiting rooms or the suspended page.',
     'slot_onboarding' => 'Onboarding / install page',
     'slot_onboarding_helper' => '300x250 banner on the server install screen.',
     'slot_server_tools' => 'Server tools (in-content)',
