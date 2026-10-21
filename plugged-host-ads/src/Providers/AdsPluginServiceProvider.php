@@ -20,6 +20,7 @@ use PluggedHost\Ads\Models\AdBanner;
 use PluggedHost\Ads\Services\AdBannerService;
 use PluggedHost\Ads\Services\AdDisplayService;
 use PluggedHost\Ads\Services\AdsterraService;
+use PluggedHost\Ads\Services\MonetagService;
 use PluggedHost\Ads\Services\SiteVerification;
 use Throwable;
 
@@ -30,6 +31,7 @@ class AdsPluginServiceProvider extends ServiceProvider
         $this->app->singleton(AdBannerService::class);
         $this->app->singleton(AdsterraService::class);
         $this->app->singleton(AdDisplayService::class);
+        $this->app->singleton(MonetagService::class);
     }
 
     public function boot(): void
@@ -164,6 +166,8 @@ class AdsPluginServiceProvider extends ServiceProvider
             return null;
         }
     }
+
+    private const CONSOLE = 'App\\Filament\\Server\\Pages\\Console';
 
     /** Pages the `top` leaderboard stays off: the waiting rooms (own units) and dead ends. */
     private const NOT_TOP = [
@@ -398,7 +402,7 @@ class AdsPluginServiceProvider extends ServiceProvider
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::BODY_END,
-            function (): ?Htmlable {
+            function (array $scopes = []): ?Htmlable {
                 try {
                     $ads = app(AdDisplayService::class);
 
@@ -409,17 +413,27 @@ class AdsPluginServiceProvider extends ServiceProvider
                     }
 
                     $adsterra = app(AdsterraService::class);
+                    $waitingRoom = StartGatePage::isCurrentRoute() || $ads->onInterstitialRoute();
 
-                    $scripts = StartGatePage::isCurrentRoute() || $ads->onInterstitialRoute()
-                        ? $adsterra->gateScripts()
-                        : $adsterra->pageScripts();
+                    $scripts = $waitingRoom ? $adsterra->gateScripts() : $adsterra->pageScripts();
 
-                    if ($scripts === []) {
+                    // Monetag: ordinary app and server pages only. Not the waiting rooms (their
+                    // own units), the dead ends, or the console, where a card or a full-screen ad
+                    // would land on top of what someone is typing.
+                    $monetag = $waitingRoom
+                        || !in_array($panelId, ['app', 'server'], true)
+                        || array_intersect($scopes, [...self::NOT_TOP, self::CONSOLE]) !== []
+                        ? []
+                        : app(MonetagService::class)->pageTags($user);
+
+                    if ($scripts === [] && $monetag === []) {
                         return null;
                     }
 
                     return new HtmlString(view('plugged-host-ads::filament.adsterra-page-scripts', [
                         'scripts' => $scripts,
+                    ])->render() . view('plugged-host-ads::filament.monetag-tags', [
+                        'tags' => $monetag,
                     ])->render());
                 } catch (Throwable) {
                     return null;

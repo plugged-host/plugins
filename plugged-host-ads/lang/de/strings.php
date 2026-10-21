@@ -121,6 +121,16 @@ return [
     'antiblock_continue_in' => 'Trotzdem fortfahren (:seconds)',
 
     // Wartungsseite (Core zeigt die Einheit an)
+    'section_monetag' => 'Monetag',
+    'section_monetag_desc' => 'In-Page Push und Vignette. Füge jedes Tag so ein, wie Monetag es zeigt (Get tag). Sie laden auf normalen App- und Server-Seiten, nie auf der Konsole oder in den Warteräumen. Leer = aus. Push Notifications und MultiTag werden nicht unterstützt: Sie brauchen einen Service Worker im Stammverzeichnis der Seite.',
+    'monetag_in_page_push' => 'In-Page-Push-Tag',
+    'monetag_in_page_push_helper' => 'Karten im Stil von Benachrichtigungen innerhalb der Seite, ohne Berechtigungsabfrage.',
+    'monetag_vignette' => 'Vignette-Tag',
+    'monetag_vignette_helper' => 'Eine Vollbild-Anzeige bei manchen Seitenwechseln, mit einem Klick geschlossen.',
+    'monetag_vignette_minutes' => 'Vignette: Minuten zwischen Ladevorgängen',
+    'monetag_vignette_minutes_helper' => 'Pro Sitzung. Einmal geladen bleibt sie bis zum nächsten vollständigen Seitenaufruf aktiv, daher gelten auch die Frequenzeinstellungen in Monetag. 0 = bei jedem Seitenaufruf.',
+    'monetag_vignette_plus' => 'Vignette für Plus',
+    'monetag_vignette_plus_helper' => 'Aus: Plus-Besitzer bekommen die Vignette nie (In-Page Push erscheint weiterhin). PlusPlus sieht ohnehin keine Werbung.',
     'section_maintenance' => 'Wartungsseite',
     'section_maintenance_desc' => 'Eine A-ADS-Einheit auf der Seite, die erscheint, während das Panel wegen Wartung nicht erreichbar ist. Sie lädt nirgends sonst.',
     'maintenance_aads_unit' => 'A-ADS-Einheit auf der Wartungsseite',

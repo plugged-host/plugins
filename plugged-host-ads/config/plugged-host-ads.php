@@ -202,6 +202,21 @@ return [
     | here loads on any other page.
     */
     /*
+    | Monetag (see Services\MonetagService): In-Page Push and Vignette, each a zone id plus the
+    | script URL from the tag Monetag issues. Ordinary app and server pages only, never the
+    | console or the waiting rooms. Vignette loads at most once per vignette_minutes per session
+    | and skips Plus unless vignette_plus is on. Empty zone = that format is off.
+    */
+    'monetag' => [
+        'in_page_push_zone' => (string) env('ADS_MONETAG_IN_PAGE_PUSH_ZONE', ''),
+        'in_page_push_src' => (string) env('ADS_MONETAG_IN_PAGE_PUSH_SRC', ''),
+        'vignette_zone' => (string) env('ADS_MONETAG_VIGNETTE_ZONE', ''),
+        'vignette_src' => (string) env('ADS_MONETAG_VIGNETTE_SRC', ''),
+        'vignette_minutes' => (int) env('ADS_MONETAG_VIGNETTE_MINUTES', 10),
+        'vignette_plus' => (bool) env('ADS_MONETAG_VIGNETTE_PLUS', false),
+    ],
+
+    /*
     | Site-verification meta tags for ad networks. Written into the head of every panel page and
     | into the small page a signed-out visit to `/` gets (Http\Middleware\SiteVerificationPage),
     | because that visit is otherwise a redirect to the account portal. Empty = no tag.

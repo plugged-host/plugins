@@ -18,6 +18,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use PluggedHost\Ads\Http\Middleware\RedirectToStartGatePage;
 use PluggedHost\Ads\Services\AdDisplayService;
 use PluggedHost\Ads\Services\AdsterraService;
+use PluggedHost\Ads\Services\MonetagService;
 
 class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 {
@@ -117,6 +118,11 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'start_linkvertise_enabled' => (bool) config('plugged-host-ads.start_credits.linkvertise.enabled', false),
             'start_linkvertise_user_id' => (string) config('plugged-host-ads.start_credits.linkvertise.user_id', ''),
             'start_linkvertise_whitelist' => (string) config('plugged-host-ads.start_credits.linkvertise.whitelist', 'lvr='),
+            'monetag_in_page_push' => MonetagService::snippet(app(MonetagService::class)->tag('in_page_push')),
+            'monetag_vignette' => MonetagService::snippet(app(MonetagService::class)->tag('vignette')),
+            'monetag_vignette_minutes' => (int) config('plugged-host-ads.monetag.vignette_minutes', 10),
+            'monetag_vignette_plus' => (bool) config('plugged-host-ads.monetag.vignette_plus', false),
+
             'start_linkvertise_link' => (string) config('plugged-host-ads.start_credits.linkvertise.link', ''),
             // Secret (Anti-Bypass verification token): never surface the stored value.
             // Blank means "unchanged" on save.
@@ -249,6 +255,38 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('plugged-host-ads::strings.adsterra_frame_sandbox_helper'))
                         ->placeholder('allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms')
                         ->default(fn () => config('plugged-host-ads.adsterra.frame_sandbox', '')),
+                ]),
+
+            Section::make(trans('plugged-host-ads::strings.section_monetag'))
+                ->description(trans('plugged-host-ads::strings.section_monetag_desc'))
+                ->columns(2)
+                ->schema([
+                    Textarea::make('monetag_in_page_push')
+                        ->label(trans('plugged-host-ads::strings.monetag_in_page_push'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_in_page_push_helper'))
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->default(fn () => MonetagService::snippet(app(MonetagService::class)->tag('in_page_push'))),
+                    Textarea::make('monetag_vignette')
+                        ->label(trans('plugged-host-ads::strings.monetag_vignette'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_vignette_helper'))
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->default(fn () => MonetagService::snippet(app(MonetagService::class)->tag('vignette'))),
+                    TextInput::make('monetag_vignette_minutes')
+                        ->label(trans('plugged-host-ads::strings.monetag_vignette_minutes'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_vignette_minutes_helper'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(1440)
+                        ->default(fn () => config('plugged-host-ads.monetag.vignette_minutes', 10)),
+                    Toggle::make('monetag_vignette_plus')
+                        ->label(trans('plugged-host-ads::strings.monetag_vignette_plus'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_vignette_plus_helper'))
+                        ->inline(false)
+                        ->onIcon(TablerIcon::Check)
+                        ->offIcon(TablerIcon::X)
+                        ->default(fn () => config('plugged-host-ads.monetag.vignette_plus', false)),
                 ]),
 
             Section::make(trans('plugged-host-ads::strings.section_placements'))
@@ -790,8 +828,19 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
         $refreshSeconds = $this->clamp($data['refresh_seconds'] ?? 5, 5, 3600);
         $refreshPlusSeconds = max($refreshSeconds, $this->clamp($data['refresh_plus_seconds'] ?? 10, 5, 3600));
 
+        // A Monetag field that is not a tag is cleared, the way an empty one is.
+        $inPagePush = MonetagService::parse((string) ($data['monetag_in_page_push'] ?? ''));
+        $vignette = MonetagService::parse((string) ($data['monetag_vignette'] ?? ''));
+
         $values = [
             'ADS_ENABLED' => !empty($data['enabled']) ? 'true' : 'false',
+
+            'ADS_MONETAG_IN_PAGE_PUSH_ZONE' => $inPagePush['zone'] ?? '',
+            'ADS_MONETAG_IN_PAGE_PUSH_SRC' => $inPagePush['src'] ?? '',
+            'ADS_MONETAG_VIGNETTE_ZONE' => $vignette['zone'] ?? '',
+            'ADS_MONETAG_VIGNETTE_SRC' => $vignette['src'] ?? '',
+            'ADS_MONETAG_VIGNETTE_MINUTES' => (string) $this->clamp($data['monetag_vignette_minutes'] ?? 10, 0, 1440),
+            'ADS_MONETAG_VIGNETTE_PLUS' => !empty($data['monetag_vignette_plus']) ? 'true' : 'false',
             'ADS_SHOW_APP_PANEL' => !empty($data['show_app_panel']) ? 'true' : 'false',
             'ADS_SHOW_SERVER_PANEL' => !empty($data['show_server_panel']) ? 'true' : 'false',
             'ADS_SHOW_ADMIN_PANEL' => !empty($data['show_admin_panel']) ? 'true' : 'false',

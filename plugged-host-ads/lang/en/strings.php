@@ -121,6 +121,16 @@ return [
     'antiblock_continue_in' => 'Continue anyway (:seconds)',
 
     // Maintenance page (core renders the unit)
+    'section_monetag' => 'Monetag',
+    'section_monetag_desc' => 'In-Page Push and Vignette. Paste each tag as Monetag shows it (Get tag). They load on ordinary app and server pages, never on the console or the waiting rooms. Empty = off. Push Notifications and MultiTag are not supported: they need a service worker at the site root.',
+    'monetag_in_page_push' => 'In-Page Push tag',
+    'monetag_in_page_push_helper' => 'Notification-style cards inside the page, no permission prompt.',
+    'monetag_vignette' => 'Vignette tag',
+    'monetag_vignette_helper' => 'A full-screen ad on some page changes, closed with one click.',
+    'monetag_vignette_minutes' => 'Vignette: minutes between loads',
+    'monetag_vignette_minutes_helper' => 'Per session. Once loaded it stays active until the next full page load, so the frequency settings in Monetag apply too. 0 = every page load.',
+    'monetag_vignette_plus' => 'Vignette for Plus',
+    'monetag_vignette_plus_helper' => 'Off: Plus owners never get the Vignette (In-Page Push still shows). PlusPlus sees no ads either way.',
     'section_maintenance' => 'Maintenance Page',
     'section_maintenance_desc' => 'One A-ADS unit on the page shown while the panel is down for maintenance. It loads nowhere else.',
     'maintenance_aads_unit' => 'A-ADS unit on the maintenance page',
