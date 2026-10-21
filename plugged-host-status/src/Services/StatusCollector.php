@@ -156,7 +156,8 @@ class StatusCollector
         }
 
         $underPressure = $metrics !== null && $this->health->underResourcePressure($metrics);
-        $state = $this->health->node($setting, $reachable, $underPressure, $node->maintenance_mode);
+        $hostUp = !$reachable && (bool) ($sample['refused'] ?? false);
+        $state = $this->health->node($setting, $reachable, $underPressure, $node->maintenance_mode, $hostUp);
         $setting->fill($state);
 
         if ($reachable && $metrics !== null) {
@@ -165,7 +166,7 @@ class StatusCollector
         }
 
         $setting->save();
-        $snapshotMetrics = ['reachable' => $reachable];
+        $snapshotMetrics = ['reachable' => $reachable] + ($hostUp ? ['host_up' => true] : []);
         if ($reachable && $metrics !== null) {
             $snapshotMetrics += $metrics;
         }

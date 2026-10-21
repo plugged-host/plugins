@@ -22,8 +22,12 @@ use Throwable;
  * minutes, not days. An emptied cache restarts the windows; failover then needs its full run
  * of failures again before it acts, which is the safe direction.
  *
- * A sample: at, reachable, response_time_ms, cpu_used, cpu_total (threads x 100), memory_used,
- * memory_total, disk_used, disk_total. The load figures are null when wings did not answer.
+ * A sample: at, reachable, refused, response_time_ms, cpu_used, cpu_total (threads x 100),
+ * memory_used, memory_total, disk_used, disk_total. The load figures are null when wings did not
+ * answer. `refused`: wings did not answer and the node's host refused its port, so the machine is
+ * up and only wings is not listening (stopped, crashed, or still booting: wings opens its API only
+ * after checking every server against Docker, which took ~45 minutes on a loaded pl2 on
+ * 2026-10-21). The servers keep running through that: their containers are Docker's, not wings'.
  */
 final class NodeTelemetry
 {
@@ -41,6 +45,7 @@ final class NodeTelemetry
         $sample = [
             'at' => time(),
             'reachable' => false,
+            'refused' => false,
             'response_time_ms' => null,
             'cpu_used' => null,
             'cpu_total' => null,
@@ -74,7 +79,8 @@ final class NodeTelemetry
                 $sample['disk_total'] = max(0, (int) ($statistics['disk_total'] ?? 0));
             }
         } catch (Throwable) {
-            // Unreachable: recorded as such.
+            // Unreachable: recorded as such, with whether the host itself answered.
+            $sample['refused'] = $this->refused($node);
         }
 
         $samples = $this->samples((int) $node->getKey());
@@ -151,6 +157,27 @@ final class NodeTelemetry
     }
 
     /**
+     * How many of the newest samples in a row found the node itself gone: wings unreachable and
+     * its host not refusing the port either. A refused sample ends the run like a reachable one,
+     * because the machine answered. This is the count for decisions that assume the servers are
+     * down too (failover); consecutiveFailures() is the one for "can the panel manage it".
+     */
+    public function consecutiveOutages(int $nodeId): int
+    {
+        $outages = 0;
+
+        foreach (array_reverse($this->samples($nodeId)) as $sample) {
+            if (($sample['reachable'] ?? false) || ($sample['refused'] ?? false)) {
+                break;
+            }
+
+            $outages++;
+        }
+
+        return $outages;
+    }
+
+    /**
      * Median panel→node response time over the last $count successful probes, per node; null
      * for a node without one.
      *
@@ -182,6 +209,35 @@ final class NodeTelemetry
         }
 
         return $result;
+    }
+
+    /**
+     * Whether the node's host actively refused a TCP connection to wings' port (ECONNREFUSED):
+     * the kernel answered, nothing listens. A connection that opens means wings is there but
+     * did not answer in time (a frozen node still accepts connections into the backlog), and a
+     * timeout or unreachable host says nothing; neither counts.
+     */
+    private function refused(Node $node): bool
+    {
+        $address = parse_url($node->getConnectionAddress());
+        $host = (string) ($address['host'] ?? $node->fqdn);
+        $port = (int) ($address['port'] ?? $node->daemon_listen);
+
+        if ($host === '' || $port <= 0) {
+            return false;
+        }
+
+        $errno = 0;
+        $error = '';
+        $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $error, 2);
+
+        if (is_resource($socket)) {
+            fclose($socket);
+
+            return false;
+        }
+
+        return $errno === (defined('SOCKET_ECONNREFUSED') ? SOCKET_ECONNREFUSED : 111);
     }
 
     /**

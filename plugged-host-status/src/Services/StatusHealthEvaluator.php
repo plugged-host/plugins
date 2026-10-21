@@ -11,18 +11,20 @@ class StatusHealthEvaluator
      * miss is a blip, not an incident), offline from the third. Reachable but with its CPU
      * saturated for five checks in a row: degraded, because servers on it really are slower.
      * A node that is merely full (memory or disk) is working normally and stays operational:
-     * new servers go elsewhere and the start queue handles starts.
+     * new servers go elsewhere and the start queue handles starts. Unreachable with its host up
+     * ($hostUp: it refused wings' port, so wings is down or booting) is at most degraded: its
+     * servers keep running, only the panel cannot manage them.
      *
      * @return array{status: string, failure_count: int, healthy_count: int, resource_pressure_count: int}
      */
-    public function node(StatusNodeSetting $setting, bool $reachable, bool $underPressure, bool $maintenance): array
+    public function node(StatusNodeSetting $setting, bool $reachable, bool $underPressure, bool $maintenance, bool $hostUp = false): array
     {
         if (!$reachable) {
             $failures = $setting->failure_count + 1;
 
             return [
                 'status' => match (true) {
-                    $failures >= 3 => 'offline',
+                    $failures >= 3 && !$hostUp => 'offline',
                     $failures >= 2 => 'degraded',
                     default => $setting->status ?: 'operational',
                 },

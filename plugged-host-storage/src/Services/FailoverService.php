@@ -213,22 +213,31 @@ class FailoverService
     }
 
     /**
-     * Node looks dead to the panel: core's node telemetry has at least `$threshold` consecutive
-     * failed probes in a row (one a minute, every node).
+     * Node looks dead: core's node telemetry has at least `$threshold` probes in a row (one a
+     * minute, every node) that neither reached wings nor had the host refuse its port. Gone,
+     * not just unmanageable: a node whose host refuses wings' port is up with wings stopped or
+     * still booting, and its servers keep running (their containers are Docker's). Recovering
+     * them from their copies then rolls players back and leaves two copies running; on
+     * 2026-10-21 a crashed wings on pl2 took ~45 minutes to reopen its API and 60 live servers
+     * were recovered that way.
      */
     private function looksDown(Node $node, int $threshold): bool
     {
         try {
-            return app(NodeTelemetry::class)->consecutiveFailures((int) $node->getKey()) >= $threshold;
+            return app(NodeTelemetry::class)->consecutiveOutages((int) $node->getKey()) >= $threshold;
         } catch (Throwable) {
             return false;
         }
     }
 
-    /** A node that missed even its latest probe is no place to recover a server to. */
+    /** A node whose wings missed even its latest probe is no place to recover a server to. */
     private function missedLastProbe(Node $node): bool
     {
-        return $this->looksDown($node, 1);
+        try {
+            return app(NodeTelemetry::class)->consecutiveFailures((int) $node->getKey()) >= 1;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function failedRecently(Server $server): bool
