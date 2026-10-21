@@ -409,5 +409,20 @@ return [
             'reward' => env('ADS_START_LINKVERTISE_REWARD', 1),
             'daily_cap' => env('ADS_START_LINKVERTISE_DAILY_CAP', 5),
         ],
+
+        /*
+        | Vylo (vylo.cc), a shortener without an anti-bypass API. Each click shortens
+        | our return URL through `vylo.cc/api` with api_key; the return URL carries
+        | the claim's nonce and an HMAC proof, so only a trip through the short link
+        | can settle it. min_seconds refuses a return faster than any real pass
+        | through the ads. See VyloProvider in plugged-host-economy.
+        */
+        'vylo' => [
+            'enabled' => env('ADS_START_VYLO_ENABLED', false),
+            'api_key' => env('ADS_START_VYLO_API_KEY', ''),
+            'reward' => env('ADS_START_VYLO_REWARD', 1),
+            'daily_cap' => env('ADS_START_VYLO_DAILY_CAP', 5),
+            'min_seconds' => env('ADS_START_VYLO_MIN_SECONDS', 10),
+        ],
     ],
 ];

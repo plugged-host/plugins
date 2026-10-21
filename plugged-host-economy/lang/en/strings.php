@@ -231,6 +231,7 @@ return [
 
     // Tokens — ledger descriptions
     'start_provider_linkvertise' => 'Linkvertise',
+    'start_provider_vylo' => 'Vylo',
     'tokens_tx_earn' => 'Earned with :provider',
 
     // Tokens — results

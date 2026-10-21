@@ -5,10 +5,8 @@ namespace PluggedHost\Economy\Services\Rewards;
 /**
  * The list of ways to earn, in the order they are offered.
  *
- * There is one entry. Work.ink and the rewarded-video surface were both removed —
- * the shape stays a list because `available()`, `find()` and the earn page all read
- * it as one, so adding a second provider is a constructor argument and a config
- * block rather than a rewrite.
+ * Linkvertise, then Vylo (2026-10-21). Work.ink and the rewarded-video surface were
+ * both removed; adding a provider is a constructor argument and a config block.
  *
  * `available()` is what the earn page renders, so an unconfigured provider simply
  * does not exist as far as the UI is concerned — there is no disabled-button state
@@ -19,9 +17,9 @@ class RewardRegistry
     /** @var array<int, RewardProvider> */
     protected array $providers;
 
-    public function __construct(LinkvertiseProvider $linkvertise)
+    public function __construct(LinkvertiseProvider $linkvertise, VyloProvider $vylo)
     {
-        $this->providers = [$linkvertise];
+        $this->providers = [$linkvertise, $vylo];
     }
 
     /**
