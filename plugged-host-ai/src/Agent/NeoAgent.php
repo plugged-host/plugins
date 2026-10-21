@@ -29,6 +29,7 @@ use PluggedHost\Ai\Tools\ToolContext;
 use PluggedHost\Ai\Tools\ToolResult;
 use PluggedHost\Ai\Tools\ToolRisk;
 use PluggedHost\Core\Contracts\AccountPortal;
+use PluggedHost\Core\Support\Tenancy;
 use Throwable;
 
 /**
@@ -325,8 +326,11 @@ final class NeoAgent
                 $result = ToolResult::error("The user does not have permission for {$tool->name()} on this server.");
             } elseif ($context->server !== null && $tool->scope() === Tool::SCOPE_SERVER && $tool->name() !== 'server_status' && ($reason = ServerGuard::blockedReason($context->server)) !== null) {
                 $result = ToolResult::error("This cannot be done right now: {$reason}.");
-            } else {
+            } elseif ($tool->scope() === Tool::SCOPE_SERVER) {
                 $result = $tool->execute($context, $arguments);
+            } else {
+                // Account-level tools act beyond the chat's server: no tenant scope (Support\Tenancy).
+                $result = Tenancy::without(fn (): ToolResult => $tool->execute($context, $arguments));
             }
         } catch (InvalidArgumentException $e) {
             $result = ToolResult::error($e->getMessage());

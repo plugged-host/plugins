@@ -11,6 +11,7 @@ use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Core\Support\Tenancy;
 use PluggedHost\Servers\Events\ServerProvisioned;
 use PluggedHost\Servers\Exceptions\ProvisioningException;
 use PluggedHost\Servers\Support\AccountAllowance;
@@ -79,8 +80,10 @@ class ServerProvisioner
     public static function oneAtATime(User $user, Closure $callback): mixed
     {
         try {
+            // Tenant-free: from a server's page (neo) Filament would scope Allocation to that
+            // server and ServerCreationService could not link the new one's ports.
             return Cache::lock('plugged-host-servers:provision:' . $user->getKey(), 120)
-                ->block((int) config('plugged-host-servers.provision_lock_wait', 30), $callback);
+                ->block((int) config('plugged-host-servers.provision_lock_wait', 30), fn (): mixed => Tenancy::without($callback));
         } catch (LockTimeoutException) {
             throw new ProvisioningException('busy');
         }

@@ -6,12 +6,15 @@ use App\Enums\SubuserPermission;
 use App\Filament\Server\Pages\Console;
 use App\Models\Server;
 use App\Services\Servers\ReinstallServerService;
+use App\Services\Servers\ServerDeletionService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Economy\Services\PerkDiscovery;
+use PluggedHost\Servers\Services\ServerProvisioner;
 use Throwable;
 
 /**
@@ -45,6 +48,12 @@ class ServerInstallingPage extends Page
      * primary-key read per tick.
      */
     public const POLL_INTERVAL = '3s';
+
+    /**
+     * An install still running after this long is stuck (a wings that never reports back, an
+     * install callback the panel refused): the owner may then force a reinstall or delete it.
+     */
+    public const STUCK_AFTER_MINUTES = 30;
 
     /**
      * Access deliberately does not depend on the install state.
@@ -182,6 +191,127 @@ class ServerInstallingPage extends Page
             ->send();
     }
 
+    /**
+     * Start the install over while it hangs. ReinstallServerService flips the status back to
+     * `installing` (so the clock starts again) and asks wings to run the install script anew.
+     */
+    public function forceReinstallAction(): Action
+    {
+        return Action::make('forceReinstall')
+            ->label(trans('plugged-host-minecraft::strings.installing.force_reinstall'))
+            ->color('primary')
+            ->visible(fn (): bool => $this->isStuck() && (bool) user()?->can(SubuserPermission::SettingsReinstall, $this->getServer()))
+            ->requiresConfirmation()
+            ->modalHeading(trans('plugged-host-minecraft::strings.installing.force_reinstall_heading'))
+            ->modalDescription(trans('plugged-host-minecraft::strings.installing.force_reinstall_body'))
+            ->modalSubmitActionLabel(trans('plugged-host-minecraft::strings.installing.force_reinstall'))
+            ->action(function (): void {
+                $server = $this->getServer()->refresh();
+
+                if (!$this->isStuck()) {
+                    return;
+                }
+
+                try {
+                    app(ReinstallServerService::class)->handle($server);
+                } catch (Throwable $e) {
+                    report($e);
+
+                    Notification::make()
+                        ->title(trans('plugged-host-minecraft::strings.installing.retry_failed'))
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title(trans('plugged-host-minecraft::strings.installing.retry_started_title'))
+                    ->body(trans('plugged-host-minecraft::strings.installing.retry_started_body'))
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Delete a server whose install hangs or failed, without waiting for wings to agree: a
+     * stuck install often means wings does not know the server at all.
+     */
+    public function forceDeleteAction(): Action
+    {
+        return Action::make('forceDelete')
+            ->label(trans('plugged-host-minecraft::strings.installing.force_delete'))
+            ->color('gray')
+            ->visible(fn (): bool => ($this->isStuck() || $this->getServer()->isFailedInstall()) && $this->canDelete())
+            ->requiresConfirmation()
+            ->modalHeading(trans('plugged-host-minecraft::strings.installing.force_delete_heading'))
+            ->modalDescription(trans('plugged-host-minecraft::strings.installing.force_delete_body'))
+            ->modalSubmitActionLabel(trans('plugged-host-minecraft::strings.installing.force_delete'))
+            ->modalSubmitAction(fn (Action $action): Action => $action->color('danger'))
+            ->action(function (): void {
+                $server = $this->getServer()->refresh();
+
+                if ($server->isInstalled() || !$this->canDelete()) {
+                    return;
+                }
+
+                $owner = $server->user;
+
+                try {
+                    app(ServerDeletionService::class)->withForce()->handle($server);
+                } catch (Throwable $e) {
+                    report($e);
+
+                    Notification::make()
+                        ->title(trans('plugged-host-minecraft::strings.installing.force_delete_failed'))
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                if ($owner) {
+                    app(ServerProvisioner::class)->forget($owner);
+                }
+
+                Notification::make()
+                    ->title(trans('plugged-host-minecraft::strings.installing.force_delete_done'))
+                    ->success()
+                    ->send();
+
+                $this->redirect(Filament::getPanel('app')->getUrl(), navigate: false);
+            });
+    }
+
+    /**
+     * Still installing (not failed) and running for longer than STUCK_AFTER_MINUTES.
+     */
+    public function isStuck(): bool
+    {
+        $server = $this->getServer();
+        $startedAt = $this->isReinstall() ? $server->updated_at : $server->created_at;
+
+        return !$server->isInstalled()
+            && !$server->isFailedInstall()
+            && $startedAt !== null
+            && $startedAt->lt(now()->subMinutes(self::STUCK_AFTER_MINUTES));
+    }
+
+    /**
+     * The same rule as the server settings' delete: users may delete servers at all, and this
+     * user owns the server or may delete it.
+     */
+    private function canDelete(): bool
+    {
+        $server = $this->getServer();
+        $user = user();
+
+        return (bool) config('plugged-host-servers.user-creatable-servers.can_users_delete_servers')
+            && $user !== null
+            && ((int) $server->owner_id === (int) $user->id || $user->can('delete server', $server));
+    }
+
     public function getServer(): Server
     {
         /** @var Server $server */
@@ -207,6 +337,7 @@ class ServerInstallingPage extends Page
         return [
             'server' => $server,
             'failed' => $server->isFailedInstall(),
+            'stuck' => $this->isStuck(),
             'canReinstall' => (bool) user()?->can(SubuserPermission::SettingsReinstall, $server),
             'reinstall' => $this->isReinstall(),
             // updated_at is the closest thing to an install start for a reinstall; the row
