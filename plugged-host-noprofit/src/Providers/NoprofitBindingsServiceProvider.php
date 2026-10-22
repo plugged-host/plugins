@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use PluggedHost\Ai\Contracts\NeoBackend;
 use PluggedHost\Ai\Contracts\NeoSettingsStore;
 use PluggedHost\Ai\Contracts\ProviderSource;
+use PluggedHost\Ai\Contracts\RuxSettingsSource;
 use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Discord\Contracts\DiscordAccounts;
 use PluggedHost\Discord\Contracts\DiscordCreditPayouts;
@@ -14,6 +15,7 @@ use PluggedHost\Discord\Contracts\DiscordServersStatus;
 use PluggedHost\Economy\Contracts\ComputePlans;
 use PluggedHost\Noprofit\Ai\NoprofitNeoBackend;
 use PluggedHost\Noprofit\Ai\NoprofitNeoProviders;
+use PluggedHost\Noprofit\Ai\NoprofitRuxSettings;
 use PluggedHost\Noprofit\Credits\NoprofitComputePlans;
 use PluggedHost\Noprofit\Discord\NoprofitDiscordStatus;
 use PluggedHost\Noprofit\Discord\NoprofitRuxClient;
@@ -43,6 +45,11 @@ class NoprofitBindingsServiceProvider extends ServiceProvider
         $this->app->singleton(NeoBackend::class, fn ($app) => $app->make(NoprofitNeoBackend::class));
         $this->app->singleton(NeoSettingsStore::class, fn ($app) => $app->make(NoprofitNeoBackend::class));
         $this->app->singleton(ProviderSource::class, NoprofitNeoProviders::class);
+
+        // rux's settings: noprofit.space's (Admin > rux) once it says it keeps them, this panel's
+        // own until then.
+        $this->app->singleton(NoprofitRuxSettings::class);
+        $this->app->singleton(RuxSettingsSource::class, fn ($app) => $app->make(NoprofitRuxSettings::class));
 
         // Subuser invites only reach existing accounts: identities are noprofit.space's.
         $this->app->bind(SubuserCreationService::class, GuardedSubuserCreationService::class);

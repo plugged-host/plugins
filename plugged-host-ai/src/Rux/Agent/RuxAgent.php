@@ -207,8 +207,8 @@ final class RuxAgent
     {
         $messages = $this->messages($order, $context);
         $definitions = $this->tools->definitions($context->level, $context);
-        $maxSteps = max(2, (int) config('plugged-host-ai.rux.agent.max_steps', 8));
-        $busyUntil = time() + max(30, (int) config('plugged-host-ai.rux.agent.busy_wait_seconds', 150));
+        $maxSteps = max(2, (int) RuxConfig::get('agent.max_steps', 8));
+        $busyUntil = time() + max(30, (int) RuxConfig::get('agent.busy_wait_seconds', 150));
 
         for ($step = 1; ; $step++) {
             $final = $step >= $maxSteps;
@@ -245,7 +245,7 @@ final class RuxAgent
                 $arguments = json_decode($call['function']['arguments'] ?: '{}', true);
                 $started = microtime(true);
                 $result = is_array($arguments) ? $this->execute($context, $name, $arguments) : ToolResult::error('The arguments were not valid JSON.');
-                $output = Str::limit($result->content, (int) config('plugged-host-ai.rux.agent.tool_output_chars', 6000), ' …(cut)');
+                $output = Str::limit($result->content, (int) RuxConfig::get('agent.tool_output_chars', 6000), ' …(cut)');
 
                 Log::info('[rux] tool', ['message' => $order->id, 'tool' => $name, 'ok' => $result->ok, 'ms' => (int) ((microtime(true) - $started) * 1000)]);
 
@@ -380,7 +380,7 @@ final class RuxAgent
             ->where('role', RuxMessage::USER)
             ->where('status', RuxMessage::DONE)
             ->where('id', '<', $order->id)
-            ->where('created_at', '>=', now()->subMinutes(max(1, (int) config('plugged-host-ai.rux.agent.history_minutes', 30))))
+            ->where('created_at', '>=', now()->subMinutes(max(1, (int) RuxConfig::get('agent.history_minutes', 30))))
             ->latest('id')
             ->limit(6)
             ->get()
@@ -406,7 +406,7 @@ final class RuxAgent
         }
 
         // Oldest turns go first when the history is long.
-        $budget = max(4, (int) config('plugged-host-ai.rux.agent.history_messages', 24));
+        $budget = max(4, (int) RuxConfig::get('agent.history_messages', 24));
         while ($history !== [] && array_sum(array_map('count', $history)) > $budget) {
             array_shift($history);
         }

@@ -57,7 +57,7 @@ final class ServerFacts
     private function ownSites(string $app, ?RuxGuild $guild): array
     {
         $domains = [];
-        foreach ($guild->trustedDomains ?? (array) config('plugged-host-ai.rux.trusted_domains', []) as $domain) {
+        foreach ($guild->trustedDomains ?? (array) RuxConfig::get('trusted_domains', []) as $domain) {
             $domain = self::host((string) $domain);
             if ($domain !== '' && !in_array($domain, $domains, true)) {
                 $domains[] = $domain;

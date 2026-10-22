@@ -201,6 +201,10 @@ return [
         'env_not_writable' => 'The .env file on :where is not writable, so changes below will not save.',
         'unreachable' => 'Could not reach :where (:reason). Provider settings and limits cannot be edited right now.',
         'this_panel' => 'this panel',
+        'managed_here' => 'Which API and model each slot is (on or off, label, API format, endpoint, key, model, output tokens, timeout, daily cap, images, thinking, extra headers and fields) and the failover timings are set on :where (Admin > AI models) and shown here read-only. What neo offers (which models, to whom, their limits and the default model) is set here.',
+        'managed_open' => 'Open Admin > AI models on :where',
+        'offered' => 'Offered by neo',
+        'offered_hint' => 'Listed in neo\'s model picker (chat, neo on Discord, forms). Off: neo does not offer it; rux still uses it.',
 
         'section_provider' => 'Model :slot',
         'section_provider_hint' => 'People pick it in neo\'s chat by its label. A turn runs on the model it picked only; there is no failover to another model. A model is only skipped while its provider rate-limits it or rejects its key.',

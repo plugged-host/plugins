@@ -5,7 +5,8 @@ namespace PluggedHost\Ai\Rux\Support;
 use PluggedHost\Ai\Contracts\RuxSettingsSource;
 
 /**
- * rux's servers as this panel's settings keep them (config plugged-host-ai.rux, from the .env):
+ * rux's settings as this panel's settings keep them (config plugged-host-ai.rux, from the .env,
+ * edited in the rux tab). The servers:
  *
  *  - the primary server: RUX_GUILD_ID with RUX_GIVEAWAY_CHANNEL_ID and RUX_MOD_LOG_CHANNEL_ID,
  *    named after the panel (APP_NAME), with the server locations of this panel's nodes;
@@ -23,7 +24,28 @@ final class EnvRuxSettingsSource implements RuxSettingsSource
 
     public function guilds(): array
     {
-        $rux = (array) config('plugged-host-ai.rux', []);
+        return self::guildsFrom($this->settings());
+    }
+
+    public function settings(): array
+    {
+        return (array) config('plugged-host-ai.rux', []);
+    }
+
+    public function managedBy(): ?array
+    {
+        return null;
+    }
+
+    /**
+     * The servers in settings of config('plugged-host-ai.rux')'s shape (the primary one, then
+     * slots 2 to 10), for every RuxSettingsSource.
+     *
+     * @param  array<string, mixed>  $rux
+     * @return list<RuxGuild>
+     */
+    public static function guildsFrom(array $rux): array
+    {
         $primary = self::snowflake($rux['guild_id'] ?? null);
 
         if ($primary === null) {

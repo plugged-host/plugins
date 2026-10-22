@@ -119,6 +119,10 @@ class RuxSuperviseCommand extends Command
             $this->line("Heartbeat:  {$age}s ago");
         }
 
+        $managed = RuxConfig::managedBy();
+        $this->line('Settings:   ' . ($managed === null
+            ? 'this panel (the rux tab)'
+            : 'Admin > rux on ' . $managed['by'] . ($managed['fetched_at'] !== null ? ', fetched ' . Carbon::createFromTimestamp($managed['fetched_at'])->diffForHumans() : '')));
         $this->line('Servers:    ' . (implode(', ', array_map(static fn ($guild): string => $guild->label(), RuxConfig::guilds())) ?: 'none'));
         $this->line('Invite:     ' . (RuxConfig::inviteUrl() ?? 'set the bot token first'));
         $this->line('Log:        ' . $supervisor->logPath());

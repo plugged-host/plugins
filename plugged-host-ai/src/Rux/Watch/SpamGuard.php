@@ -63,7 +63,7 @@ final class SpamGuard
         $messageId = (string) ($message['id'] ?? '');
         $guildId = (string) ($message['guild_id'] ?? '');
 
-        if (!config('plugged-host-ai.rux.spam.enabled', true) || $memberId === '' || $messageId === ''
+        if (!RuxConfig::get('spam.enabled', true) || $memberId === '' || $messageId === ''
             || !RuxConfig::serves($guildId)
             || ($author['bot'] ?? false) || isset($message['webhook_id']) || $memberId === $botId) {
             return false;
@@ -71,7 +71,7 @@ final class SpamGuard
 
         $who = "{$guildId}:{$memberId}";
 
-        $config = (array) config('plugged-host-ai.rux.spam', []);
+        $config = (array) RuxConfig::get('spam', []);
         $floodSeconds = max(1, (int) ($config['flood_seconds'] ?? 10));
         $duplicateSeconds = max(1, (int) ($config['duplicate_seconds'] ?? 120));
         $now = microtime(true);
@@ -196,7 +196,7 @@ final class SpamGuard
 
         Log::info('[rux] spam', ['member' => $hit['author_id'], 'server' => $guild->id, 'reason' => $caught['reason'], 'messages' => count($messages) + 1]);
 
-        if (!Cache::add("plugged-host-ai:rux:spam-warned:{$guild->id}:{$hit['author_id']}", true, max(30, (int) config('plugged-host-ai.rux.rules.cooldown_seconds', 300)))) {
+        if (!Cache::add("plugged-host-ai:rux:spam-warned:{$guild->id}:{$hit['author_id']}", true, max(30, (int) RuxConfig::get('rules.cooldown_seconds', 300)))) {
             $this->delete($hit['channel_id'], [$hit['message_id']], $audit);
 
             return;

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Traits\EnvironmentWriterTrait;
 use Filament\Actions\Action;
 use Filament\Contracts\Plugin;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -40,6 +41,12 @@ use Throwable;
  *   - provider slots and usage limits go to the bound NeoSettingsStore: this panel's .env too
  *     (EnvNeoSettingsStore), or noprofit.space over its signed API with plugged-host-noprofit
  *     (whose settings hold the gateway secret), so they never have to be hand-edited.
+ *
+ * When the store reports fields as `managed` (noprofit.space: which API and model each slot is, and
+ * the failover timings, set on its Admin > AI models), the form shows them read-only with a link
+ * there and never sends them; what neo offers (which models, to whom, limits, the default model)
+ * stays editable here. rux's tab is read-only the same way once noprofit.space keeps rux's
+ * settings (RuxSettings::managed()), and saving writes none of rux's settings here then.
  *
  * Secrets follow the "masked, save-if-changed" convention (see PluggedHostMinecraftPlugin):
  * never loaded into the form, written only when a new value is typed. Upstream swallows any
@@ -113,6 +120,11 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'extra_headers' => self::prettyJson($provider['extra_headers'] ?? []),
                 'extra_body' => self::prettyJson($provider['extra_body'] ?? []),
             ];
+
+            // Whether neo offers it in its picker, for stores that have the flag.
+            if (array_key_exists('offered', $provider)) {
+                $providers[(string) $provider['slot']]['offered'] = (bool) $provider['offered'];
+            }
         }
 
         $data['remote'] = [
@@ -151,6 +163,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         $t = fn (string $key, array $replace = []): string => trans('plugged-host-ai::strings.settings.' . $key, $replace);
         $remote = self::remoteConfig();
         $where = ['where' => app(NeoSettingsStore::class)->label()];
+        $managed = self::managed($remote);
 
         $form = [
             Section::make($t('section_panel'))
@@ -170,13 +183,20 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                     Toggle::make('always_confirm_destructive')->label($t('always_confirm_destructive'))->helperText($t('always_confirm_destructive_hint')),
                     Toggle::make('log_check_enabled')->label($t('log_check_enabled'))->helperText($t('log_check_enabled_hint')),
                 ]),
-            Section::make($t('section_status'))->schema([
+            Section::make($t('section_status'))->schema(array_values(array_filter([
                 Text::make(match (true) {
                     !$remote['ok'] => $t('unreachable', $where + ['reason' => $remote['error']]),
                     !($remote['data']['env_writable'] ?? false) => $t('env_not_writable', $where),
                     default => $t('connected', $where),
                 }),
-            ]),
+                $managed === null ? null : Text::make($t('managed_here', ['where' => $managed['by']])),
+                $managed === null ? null : Actions::make([
+                    Action::make('neo_models_elsewhere')
+                        ->label($t('managed_open', ['where' => $managed['by']]))
+                        ->url($managed['url'], shouldOpenInNewTab: true)
+                        ->link(),
+                ]),
+            ]))),
         ];
 
         if (!$remote['ok']) {
@@ -186,9 +206,12 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         $models = ['0' => $t('default_model_auto')];
 
         foreach ((array) ($remote['data']['providers'] ?? []) as $provider) {
-            $form[] = self::providerSection((int) $provider['slot'], $provider, $t);
+            $form[] = self::providerSection((int) $provider['slot'], $provider, $t, $managed['providers'] ?? []);
             $models[(string) $provider['slot']] = $t('section_provider', ['slot' => $provider['slot']]) . ' · ' . $provider['label'];
         }
+
+        // The failover timings, when they are set where the providers are.
+        $failover = static fn (Field $field): Field => ($managed['failover'] ?? false) ? $field->disabled()->validatedWhenNotDehydrated(false) : $field;
 
         $form[] = Section::make($t('section_limits'))
             ->description($t('section_limits_hint'))
@@ -207,9 +230,9 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                     TextInput::make('remote.limits.short_tokens')->label($t('short_tokens'))->helperText($t('all_mode_only'))->numeric()->minValue(1000)->required(),
                     TextInput::make('remote.limits.long_window_days')->label($t('long_window_days'))->helperText($t('long_window_days_hint'))->numeric()->minValue(1)->maxValue(31)->required(),
                     TextInput::make('remote.limits.long_tokens')->label($t('long_tokens'))->helperText($t('all_mode_only'))->numeric()->minValue(1000)->required(),
-                    TextInput::make('remote.failover.default_cooldown')->label($t('default_cooldown'))->numeric()->minValue(1)->maxValue(3600)->required(),
-                    TextInput::make('remote.failover.deadline')->label($t('deadline'))->helperText($t('deadline_hint'))->numeric()->minValue(10)->maxValue(270)->required(),
-                    TextInput::make('remote.failover.max_concurrent')->label($t('max_concurrent'))->numeric()->minValue(1)->maxValue(50)->required(),
+                    $failover(TextInput::make('remote.failover.default_cooldown')->label($t('default_cooldown'))->numeric()->minValue(1)->maxValue(3600)->required()),
+                    $failover(TextInput::make('remote.failover.deadline')->label($t('deadline'))->helperText($t('deadline_hint'))->numeric()->minValue(10)->maxValue(270)->required()),
+                    $failover(TextInput::make('remote.failover.max_concurrent')->label($t('max_concurrent'))->numeric()->minValue(1)->maxValue(50)->required()),
                 ]),
             ]);
 
@@ -246,8 +269,13 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
         }
 
         // The two Discord bots' tabs, only when the form sent them (an absent tab must not
-        // switch a bot off).
+        // switch a bot off). rux's, never while its settings are kept elsewhere (its tab only
+        // shows them then, and an empty form must not overwrite this panel's own).
         foreach (['neo_bot' => NeoBotSettings::class, 'rux' => RuxSettings::class] as $tab => $settings) {
+            if ($tab === 'rux' && RuxSettings::managed() !== null) {
+                continue;
+            }
+
             if (is_array($data[$tab] ?? null)) {
                 $local += $settings::env($data[$tab]);
             }
@@ -261,7 +289,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             return;
         }
 
-        $error = self::saveRemote($data['remote']);
+        $error = self::saveRemote($data['remote'], self::managed(self::remoteConfig()));
         Cache::forget(self::REMOTE_CACHE);
 
         $error === null
@@ -271,12 +299,15 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
 
     /**
      * @param  array<string, mixed>  $provider
+     * @param  list<string>  $locked  Fields the store sets itself (managed): shown, never sent.
      */
-    private static function providerSection(int $slot, array $provider, \Closure $t): Section
+    private static function providerSection(int $slot, array $provider, \Closure $t, array $locked = []): Section
     {
         $prefix = "remote.providers.{$slot}.";
         // A slot that is switched off may stay empty: its fields are only needed once it is on.
         $enabled = static fn (Get $get): bool => (bool) $get($prefix . 'enabled');
+        $isLocked = static fn (string $field): bool => in_array($field, $locked, true);
+        $lock = static fn (Field $field, string $name): Field => $isLocked($name) ? $field->disabled()->validatedWhenNotDehydrated(false) : $field;
         $cooldown = !empty($provider['cooldown_until'])
             ? $t('cooling_down', ['time' => (string) $provider['cooldown_until'], 'error' => (string) ($provider['last_error']['reason'] ?? '?')])
             : '';
@@ -287,38 +318,39 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             ->collapsed($slot !== 1)
             ->schema([
                 Grid::make(2)->schema([
-                    Toggle::make($prefix . 'enabled')->label($t('provider_enabled')),
-                    TextInput::make($prefix . 'label')->label($t('label'))->helperText($t('label_hint'))->maxLength(64)->required($enabled),
+                    $lock(Toggle::make($prefix . 'enabled')->label($t('provider_enabled')), 'enabled'),
+                    ...(array_key_exists('offered', $provider) ? [Toggle::make($prefix . 'offered')->label($t('offered'))->helperText($t('offered_hint'))] : []),
+                    $lock(TextInput::make($prefix . 'label')->label($t('label'))->helperText($t('label_hint'))->maxLength(64)->required($enabled), 'label'),
                     TextInput::make($prefix . 'description')->label($t('description'))->helperText($t('description_hint'))->maxLength(120),
                     Select::make($prefix . 'access')->label($t('access'))->options([
                         'everyone' => $t('access_everyone'),
                         'plus' => $t('access_plus'),
                         'plusplus' => $t('access_plusplus'),
                     ])->required($enabled)->native(false),
-                    Select::make($prefix . 'driver')->label($t('driver'))->options([
+                    $lock(Select::make($prefix . 'driver')->label($t('driver'))->options([
                         'openai' => $t('driver_openai'),
                         'anthropic' => $t('driver_anthropic'),
                         'gemini' => $t('driver_gemini'),
-                    ])->required($enabled)->native(false),
-                    TextInput::make($prefix . 'model')->label($t('model'))->maxLength(128)->required($enabled),
-                    TextInput::make($prefix . 'endpoint')->label($t('endpoint'))->helperText($t('endpoint_hint'))->url()->maxLength(512)->required($enabled)->columnSpanFull(),
-                    TextInput::make($prefix . 'api_key')
+                    ])->required($enabled)->native(false), 'driver'),
+                    $lock(TextInput::make($prefix . 'model')->label($t('model'))->maxLength(128)->required($enabled), 'model'),
+                    $lock(TextInput::make($prefix . 'endpoint')->label($t('endpoint'))->helperText($t('endpoint_hint'))->url()->maxLength(512)->required($enabled)->columnSpanFull(), 'endpoint'),
+                    $lock(TextInput::make($prefix . 'api_key')
                         ->label($t('api_key'))
                         ->password()
                         ->revealable()
                         ->autocomplete(false)
-                        ->placeholder(!empty($provider['api_key_set']) ? '•••••••• ' . ($provider['api_key_hint'] ?? '') . ' · ' . $t('secret_set') : $t('secret_unset')),
-                    Toggle::make($prefix . 'clear_api_key')->label($t('clear_api_key'))->visible(!empty($provider['api_key_set'])),
-                    TextInput::make($prefix . 'max_tokens')->label($t('max_tokens'))->numeric()->minValue(256)->maxValue(128000)->required($enabled),
-                    TextInput::make($prefix . 'timeout')->label($t('timeout'))->helperText($t('timeout_hint'))->numeric()->minValue(5)->maxValue(270)->required($enabled),
-                    TextInput::make($prefix . 'daily_token_cap')->label($t('daily_token_cap'))->helperText($t('daily_token_cap_hint'))->numeric()->minValue(0)->required($enabled),
-                    Toggle::make($prefix . 'vision')->label($t('vision'))->helperText($t('vision_hint')),
-                    Toggle::make($prefix . 'thinking')->label($t('thinking'))->helperText($t('thinking_hint')),
+                        ->placeholder(!empty($provider['api_key_set']) ? '•••••••• ' . ($provider['api_key_hint'] ?? '') . ($isLocked('api_key') ? '' : ' · ' . $t('secret_set')) : $t('secret_unset')), 'api_key'),
+                    Toggle::make($prefix . 'clear_api_key')->label($t('clear_api_key'))->visible(!empty($provider['api_key_set']) && !$isLocked('api_key') && !$isLocked('clear_api_key')),
+                    $lock(TextInput::make($prefix . 'max_tokens')->label($t('max_tokens'))->numeric()->minValue(256)->maxValue(128000)->required($enabled), 'max_tokens'),
+                    $lock(TextInput::make($prefix . 'timeout')->label($t('timeout'))->helperText($t('timeout_hint'))->numeric()->minValue(5)->maxValue(270)->required($enabled), 'timeout'),
+                    $lock(TextInput::make($prefix . 'daily_token_cap')->label($t('daily_token_cap'))->helperText($t('daily_token_cap_hint'))->numeric()->minValue(0)->required($enabled), 'daily_token_cap'),
+                    $lock(Toggle::make($prefix . 'vision')->label($t('vision'))->helperText($t('vision_hint')), 'vision'),
+                    $lock(Toggle::make($prefix . 'thinking')->label($t('thinking'))->helperText($t('thinking_hint')), 'thinking'),
                     Toggle::make($prefix . 'limited')->label($t('limited'))->helperText($t('limited_hint')),
                     TextInput::make($prefix . 'weekly_tokens')->label($t('weekly_tokens'))->helperText($t('weekly_tokens_hint'))->numeric()->minValue(0)->required($enabled),
                     TextInput::make($prefix . 'multiplier')->label($t('multiplier'))->helperText($t('multiplier_hint'))->numeric()->minValue(1)->maxValue(10)->required($enabled),
-                    Textarea::make($prefix . 'extra_headers')->label($t('extra_headers'))->helperText($t('extra_headers_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
-                    Textarea::make($prefix . 'extra_body')->label($t('extra_body'))->helperText($t('extra_body_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(),
+                    $lock(Textarea::make($prefix . 'extra_headers')->label($t('extra_headers'))->helperText($t('extra_headers_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(), 'extra_headers'),
+                    $lock(Textarea::make($prefix . 'extra_body')->label($t('extra_body'))->helperText($t('extra_body_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(), 'extra_body'),
                 ]),
                 Actions::make([
                     Action::make("test_provider_{$slot}")
@@ -365,11 +397,12 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
 
     /**
      * Send the provider and limit part of the form to the NeoSettingsStore. Returns an error
-     * message or null.
+     * message or null. Fields the store manages itself ($managed) are left out.
      *
      * @param  array<string, mixed>  $remote
+     * @param  array{by: string, url: string, providers: list<string>, failover: bool}|null  $managed
      */
-    private static function saveRemote(array $remote): ?string
+    private static function saveRemote(array $remote, ?array $managed = null): ?string
     {
         $actor = auth()->user();
         if (!$actor instanceof User) {
@@ -398,6 +431,11 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'extra_body' => self::decodeObject((string) ($fields['extra_body'] ?? '{}')),
             ];
 
+            // Only stores that have the flag show it.
+            if (array_key_exists('offered', $fields)) {
+                $provider['offered'] = !empty($fields['offered']);
+            }
+
             // An empty slot keeps its name, model and endpoint as they are (a slot that is off may be empty).
             foreach (['label', 'model', 'endpoint'] as $field) {
                 if ($provider[$field] === '') {
@@ -412,10 +450,12 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 $provider['api_key'] = $key;
             }
 
-            $providers[(string) $slot] = $provider;
+            // What the store sets itself is never sent (the form does not even have it then).
+            $providers[(string) $slot] = array_diff_key($provider, array_flip($managed['providers'] ?? []));
         }
 
-        if (!collect($providers)->contains(static fn (array $provider): bool => $provider['enabled'])) {
+        if (!in_array('enabled', $managed['providers'] ?? [], true)
+            && !collect($providers)->contains(static fn (array $provider): bool => !empty($provider['enabled']))) {
             return trans('plugged-host-ai::strings.settings.one_model_required');
         }
 
@@ -425,9 +465,8 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'limits' => ['mode' => ($remote['limits']['mode'] ?? 'all') === 'models' ? 'models' : 'all']
                     + array_map('intval', array_diff_key((array) ($remote['limits'] ?? []), ['mode' => true, 'premium_multiplier' => true])),
                 'default_model' => (int) ($remote['default_model'] ?? 0),
-                'failover' => array_map('intval', (array) ($remote['failover'] ?? [])),
                 'providers' => $providers,
-            ], $actor);
+            ] + (($managed['failover'] ?? false) ? [] : ['failover' => array_map('intval', (array) ($remote['failover'] ?? []))]), $actor);
         } catch (Throwable $e) {
             return $e->getMessage();
         }
@@ -441,6 +480,31 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
             : '';
 
         return (string) $result['error'] . $details;
+    }
+
+    /**
+     * What the store sets itself and this form only shows (GET /neo/config's `managed`):
+     * the provider fields, whether the failover timings are among them, and where they are edited.
+     * Null when the form edits everything (this panel's own store, or an older account system).
+     *
+     * @param  array{ok: bool, data: array<string, mixed>, error: ?string}  $remote
+     * @return array{by: string, url: string, providers: list<string>, failover: bool}|null
+     */
+    private static function managed(array $remote): ?array
+    {
+        $managed = $remote['ok'] ? ($remote['data']['managed'] ?? null) : null;
+        $url = is_array($managed) && is_string($managed['url'] ?? null) ? $managed['url'] : '';
+
+        if (!in_array(parse_url($url, PHP_URL_SCHEME), ['https', 'http'], true)) {
+            return null;
+        }
+
+        return [
+            'by' => is_string($managed['by'] ?? null) && $managed['by'] !== '' ? $managed['by'] : (string) parse_url($url, PHP_URL_HOST),
+            'url' => $url,
+            'providers' => array_values(array_filter((array) ($managed['providers'] ?? []), 'is_string')),
+            'failover' => ($managed['failover'] ?? false) === true,
+        ];
     }
 
     /**

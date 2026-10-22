@@ -199,6 +199,10 @@ return [
         'env_not_writable' => 'Die .env auf :where ist nicht beschreibbar – Änderungen unten werden nicht gespeichert.',
         'unreachable' => 'Keine Verbindung zu :where (:reason). Anbieter und Limits können gerade nicht bearbeitet werden.',
         'this_panel' => 'diesem Panel',
+        'managed_here' => 'Welche API und welches Modell ein Slot ist (an oder aus, Bezeichnung, API-Format, Endpunkt, Schlüssel, Modell, Ausgabe-Tokens, Timeout, Tageslimit, Bilder, Denken, zusätzliche Header und Felder) und die Ausweich-Zeiten werden auf :where eingestellt (Admin > AI models) und hier nur angezeigt. Was neo anbietet (welche Modelle, für wen, ihre Limits und das Standardmodell), wird hier eingestellt.',
+        'managed_open' => 'Admin > AI models auf :where öffnen',
+        'offered' => 'Von neo angeboten',
+        'offered_hint' => 'Steht in neos Modellauswahl (Chat, neo auf Discord, Formulare). Aus: neo bietet es nicht an; rux nutzt es weiterhin.',
 
         'section_provider' => 'Modell :slot',
         'section_provider_hint' => 'Wird in neos Chat über die Bezeichnung gewählt. Ein Schritt läuft nur auf dem gewählten Modell, ohne Ausweichen auf ein anderes. Übersprungen wird ein Modell nur, solange sein Anbieter es limitiert oder den Schlüssel ablehnt.',
