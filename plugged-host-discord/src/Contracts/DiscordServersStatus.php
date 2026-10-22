@@ -7,7 +7,7 @@ use App\Models\User;
 /**
  * Which of a set of Discord servers an account is in and boosts, what being in them adds to its
  * resources, and its boost levels, decided by a system that also pays the boost rewards. With
- * plugged-host-noprofit that is noprofit.space (plugged.host, plugged.cloud, noprofit.space and
+ * plugged-host-noprofit that is noprofit.space (plugged.host, switched.cloud, noprofit.space and
  * partner servers, checked by its own bot). The panel only shows the answer: the Discord servers
  * tab, the boosts on the Discord rewards tab and the Discord perk; while one is available the
  * panel pays no boost rewards itself (DiscordVerificationService::syncBoosts).

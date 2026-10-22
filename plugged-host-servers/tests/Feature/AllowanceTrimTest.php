@@ -141,7 +141,7 @@ it('cuts nothing while the totals stay, or for a base lowered and raised back be
 
     // Lowered by 2 GB and raised back before the panel heard: the base is where it was.
     NoprofitCreditSync::applyBalances([['account_id' => 990000 + $user->id, 'balance' => 0, 'version' => 2, 'plan' => ['cut_memory' => 2048] + $plan]]);
-    // A lower plan without the totals moving (plugged.cloud uses more of the pool) cuts nothing.
+    // A lower plan without the totals moving (switched.cloud uses more of the pool) cuts nothing.
     NoprofitCreditSync::applyBalances([['account_id' => 990000 + $user->id, 'balance' => 0, 'version' => 3, 'plan' => ['memory' => 6144, 'base_memory' => 6144, 'cut_memory' => 2048] + $plan]]);
 
     expect(AllowanceCut::query()->where('user_id', $user->id)->exists())->toBeFalse()

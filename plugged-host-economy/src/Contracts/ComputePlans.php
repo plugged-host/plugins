@@ -32,7 +32,7 @@ interface ComputePlans
 
     /**
      * For display, when the plan is this panel's share of a pool other services use too
-     * (noprofit.space's, which plugged.cloud shares): per resource the whole pool (base plus
+     * (noprofit.space's, which switched.cloud shares): per resource the whole pool (base plus
      * bought), what the other services use of it, and this panel's share (the plan's
      * cpu/memory/disk, the pool less that use, which is what is enforced here). Null when the
      * plan is this panel's alone; then limit and use are the plan's and these servers'.

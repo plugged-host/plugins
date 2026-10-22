@@ -134,7 +134,7 @@ class AccountSummary
             'servers_used' => (int) ($used->servers_used ?? 0),
         ];
 
-        // Where the plan is a pool other services share (noprofit.space: plugged.cloud too),
+        // Where the plan is a pool other services share (noprofit.space: switched.cloud too),
         // shown as they show it: the whole pool (plus what the allowance adds here, PlusPlus
         // CPU) and what every service uses of it. What is left is the same as before (the
         // allowance less these servers): only the enforced share is smaller than the pool by
