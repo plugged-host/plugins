@@ -46,9 +46,9 @@ final class AccountOverviewTool extends AccountTool
             return ToolResult::ok('This account has no server allowance, so it cannot create servers.', 'No allowance');
         }
 
-        // The pool is shared with plugged.cloud: "used" counts its VPSes too.
+        // The pool is shared with switched.cloud: "used" counts its VPSes too.
         $fmt = static fn (?int $used, ?int $limit, string $unit, int $elsewhere = 0): string => ($used ?? 0) . $unit . ' used of ' . (($limit ?? 0) > 0 ? $limit . $unit : 'unlimited')
-            . ($elsewhere > 0 ? " (of which {$elsewhere}{$unit} by plugged.cloud VPSes)" : '');
+            . ($elsewhere > 0 ? " (of which {$elsewhere}{$unit} by switched.cloud VPSes)" : '');
         $limits = AccountAllowance::forUser($user);
         $overage = $limits?->getOverage($user) ?? [];
 

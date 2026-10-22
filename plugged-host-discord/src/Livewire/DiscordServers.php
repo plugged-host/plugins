@@ -14,7 +14,7 @@ use Throwable;
 
 /**
  * The "Discord servers" tab on the profile page: the Discord servers to join for more resources
- * (plugged.host, plugged.cloud, noprofit.space, and partner servers), which ones the account is
+ * (plugged.host, switched.cloud, noprofit.space, and partner servers), which ones the account is
  * in, what each adds to its noprofit.space pool and the credits some pay once for joining.
  * noprofit.space checks membership and decides all of it; this shows its answer
  * (DiscordServersStatus, bound by plugged-host-noprofit), and "Check again" asks it to look

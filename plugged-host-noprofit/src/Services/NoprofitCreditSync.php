@@ -409,7 +409,7 @@ final class NoprofitCreditSync
      * totals whenever the base goes down (an admin, a lower tier, a Discord server left: its
      * PoolCuts), the smaller of what it lost and what all services use beyond the new pool,
      * split between the services by their servers; cut_* is plugged.host's share. A plan that
-     * is lower only because plugged.cloud uses more moves no total and cuts nothing. Null when
+     * is lower only because switched.cloud uses more moves no total and cuts nothing. Null when
      * nothing was taken, or when there is no earlier plan to compare with (a first sync).
      *
      * @param  array<string, mixed>  $new
@@ -481,9 +481,9 @@ final class NoprofitCreditSync
 
     /**
      * The account's whole noprofit.space pool, for display: per resource the pool (base plus
-     * bought), what its other services (plugged.cloud) use of it, and this panel's share (the
+     * bought), what its other services (switched.cloud) use of it, and this panel's share (the
      * plan's cpu/memory/disk: the pool less that use, which is what is enforced here). Shown
-     * as "used of pool" with the other services' use counted in, as plugged.cloud shows it.
+     * as "used of pool" with the other services' use counted in, as switched.cloud shows it.
      * From noprofit.space's total_* / elsewhere_*; a plan sent before those existed is worked
      * out from base_* and the resources bought.
      *

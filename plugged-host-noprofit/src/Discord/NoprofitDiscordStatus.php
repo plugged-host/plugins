@@ -11,7 +11,7 @@ use PluggedHost\Noprofit\Support\NoprofitLink;
 use Throwable;
 
 /**
- * Which Discord servers (plugged.host, plugged.cloud, noprofit.space and the partner servers in
+ * Which Discord servers (plugged.host, switched.cloud, noprofit.space and the partner servers in
  * its Admin › Discord servers) an account is in and boosts, what that adds to its pool, and its
  * boost levels. noprofit.space decides all of it with its own bot and pays the boost rewards;
  * the panel only shows it (the Discord servers and Discord rewards tabs) and pays no boosts
