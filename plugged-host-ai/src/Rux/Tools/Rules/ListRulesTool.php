@@ -5,6 +5,7 @@ namespace PluggedHost\Ai\Rux\Tools\Rules;
 use PluggedHost\Ai\Rux\Models\RuxRule;
 use PluggedHost\Ai\Rux\Rules\RuleService;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
+use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\RuxTool;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
@@ -21,7 +22,7 @@ final class ListRulesTool extends RuxTool
 
     public function description(): string
     {
-        return 'The standing rules rux enforces, the watched channels, and the automatic warning steps.';
+        return 'The standing rules rux enforces on this server, its watched channels, and the automatic warning steps.';
     }
 
     public function level(): string
@@ -39,9 +40,9 @@ final class ListRulesTool extends RuxTool
         $ladder = (array) config('plugged-host-ai.rux.warnings', []);
 
         return ToolResult::ok([
-            'rules' => RuxRule::query()->where('active', true)->orderBy('id')->get()->map(fn (RuxRule $r): array => RuleService::summary($r))->all(),
-            'watched_channels' => array_map(static fn (string $id): string => "<#{$id}>", $this->watch->watchedChannelIds(fresh: true)),
-            'watched_channel_guidelines' => config('plugged-host-ai.rux.watch.guidelines', true) ? array_values(WatchService::guidelines()) : 'off',
+            'rules' => RuxRule::query()->where('active', true)->where('guild_id', $context->guildId)->orderBy('id')->get()->map(fn (RuxRule $r): array => RuleService::summary($r))->all(),
+            'watched_channels' => array_map(static fn (string $id): string => "<#{$id}>", $this->watch->watchedChannelIds($context->guildId, fresh: true)),
+            'watched_channel_guidelines' => config('plugged-host-ai.rux.watch.guidelines', true) ? array_values(WatchService::guidelines(RuxConfig::guild($context->guildId))) : 'off',
             'automatic_spam' => config('plugged-host-ai.rux.spam.enabled', true)
                 ? 'on, in every channel, without AI: ' . self::spamLimits()
                 : 'off',

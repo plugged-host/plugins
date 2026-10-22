@@ -8,6 +8,7 @@ use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxCase;
 use PluggedHost\Ai\Rux\Moderation\ModerationService;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
+use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\RuxTool;
 use PluggedHost\Discord\Contracts\DirectoryUnavailable;
@@ -50,7 +51,7 @@ abstract class ModerationTool extends RuxTool
      */
     protected function isProtected(RuxContext $context, string $discordId, ?array $roles = null): bool
     {
-        if ($discordId === $context->actorDiscordId || $this->access->isStaff($discordId, $roles)) {
+        if ($discordId === $context->actorDiscordId || $this->access->isStaff($context->guildId, $discordId, $roles)) {
             return true;
         }
 
@@ -63,15 +64,15 @@ abstract class ModerationTool extends RuxTool
     }
 
     /**
-     * Moderators may not act on the mod-log channel, where rux records what they do.
+     * Moderators may not act on the server's mod-log channel, where rux records what they do.
      *
      * @param  array{id: string}  $channel
      */
     protected function guardChannel(RuxContext $context, array $channel): void
     {
-        $modLog = trim((string) config('plugged-host-ai.rux.mod_log_channel_id', ''));
+        $modLog = RuxConfig::guild($context->guildId)?->modLogChannelId;
 
-        if (!$context->isAdmin() && $modLog !== '' && (string) $channel['id'] === $modLog) {
+        if (!$context->isAdmin() && $modLog !== null && (string) $channel['id'] === $modLog) {
             throw new InvalidArgumentException('Moderators cannot do this in the mod-log channel. Tell them to ask an admin.');
         }
     }
@@ -84,7 +85,7 @@ abstract class ModerationTool extends RuxTool
      */
     protected function guardVisible(RuxContext $context, array $channel): void
     {
-        if (!$context->isAdmin() && !$this->access->canView($context->actorDiscordId, $channel)) {
+        if (!$context->isAdmin() && !$this->access->canView($context->guildId, $context->actorDiscordId, $channel)) {
             throw new InvalidArgumentException("This moderator cannot see <#{$channel['id']}> on Discord, so rux does not read or delete there for them.");
         }
     }

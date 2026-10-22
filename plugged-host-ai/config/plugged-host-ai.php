@@ -225,19 +225,35 @@ return [
         // The rux application's bot token (Discord Developer Portal → rux → Bot).
         'bot_token' => (string) env('RUX_BOT_TOKEN', ''),
 
-        // The Discord server rux moderates. Defaults to the Discord plugin's server (DISCORD_GUILD_ID).
+        // The primary Discord server rux moderates (a DM acts on it until the admin picks another
+        // server). Defaults to the Discord plugin's server (DISCORD_GUILD_ID).
         'guild_id' => (string) env('RUX_GUILD_ID', env('DISCORD_GUILD_ID', '')),
 
-        // Sites the message checks treat as this host's own (never a scam or an advert), besides
-        // the panel's and the status page's host names, the Discord invite and (with
-        // plugged-host-noprofit) noprofit.space: comma separated domains, each with its subdomains,
-        // e.g. "example.com". Rules\ServerFacts.
+        // Sites the message checks treat as this host's own (never a scam or an advert) on every
+        // server, besides the panel's and the status page's host names, the Discord invite and
+        // (with plugged-host-noprofit) noprofit.space: comma separated domains, each with its
+        // subdomains, e.g. "example.com". Rules\ServerFacts.
         'trusted_domains' => array_values(array_filter(array_map('trim', explode(',', (string) env('RUX_TRUSTED_DOMAINS', ''))))),
 
-        // Where a giveaway goes when the admin names no channel, and where moderation is logged.
-        // Both optional.
+        // On the primary server: where a giveaway goes when the admin names no channel, and where
+        // moderation is logged. Both optional.
         'giveaway_channel_id' => (string) env('RUX_GIVEAWAY_CHANNEL_ID', ''),
         'mod_log_channel_id' => (string) env('RUX_MOD_LOG_CHANNEL_ID', ''),
+
+        // More Discord servers rux works on, in slots 2 to 10 (RUX_GUILD_{n}_*; Rux\Support\
+        // EnvRuxSettingsSource). Each keeps its own rules, watched channels, moderator roles,
+        // warnings, cases and giveaways; admins and the credit granters are the same everywhere.
+        // NAME and ABOUT say who the server belongs to in rux's prompts ("<name> is <about>";
+        // default APP_NAME and "a free game server host"), TRUSTED_DOMAINS are more own sites for
+        // the checks on that server, on top of trusted_domains.
+        'servers' => array_map(static fn (int $slot): array => [
+            'id' => (string) env("RUX_GUILD_{$slot}_ID", ''),
+            'name' => (string) env("RUX_GUILD_{$slot}_NAME", ''),
+            'about' => (string) env("RUX_GUILD_{$slot}_ABOUT", ''),
+            'giveaway_channel_id' => (string) env("RUX_GUILD_{$slot}_GIVEAWAY_CHANNEL_ID", ''),
+            'mod_log_channel_id' => (string) env("RUX_GUILD_{$slot}_MOD_LOG_CHANNEL_ID", ''),
+            'trusted_domains' => array_values(array_filter(array_map('trim', explode(',', (string) env("RUX_GUILD_{$slot}_TRUSTED_DOMAINS", ''))))),
+        ], array_combine(range(2, 10), range(2, 10))),
 
         // rux reads and writes every time in this zone.
         'timezone' => (string) env('RUX_TIMEZONE', 'Europe/Paris'),

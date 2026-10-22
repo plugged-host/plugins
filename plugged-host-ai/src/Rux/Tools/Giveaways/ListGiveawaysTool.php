@@ -16,7 +16,7 @@ final class ListGiveawaysTool extends GiveawayTool
 
     public function description(): string
     {
-        return 'Running giveaways and the most recent ended or cancelled ones, with entries, winners and payout.';
+        return 'This server\'s running giveaways and its most recent ended or cancelled ones, with entries, winners and payout.';
     }
 
     public function level(): string
@@ -34,11 +34,11 @@ final class ListGiveawaysTool extends GiveawayTool
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
         if (($id = $this->int($arguments, 'giveaway_id')) !== null) {
-            return ToolResult::ok($this->giveaways->summary($this->giveaway($arguments, [])));
+            return ToolResult::ok($this->giveaways->summary($this->giveaway($context, $arguments, [])));
         }
 
-        $running = RuxGiveaway::query()->whereIn('status', [RuxGiveaway::ACTIVE, RuxGiveaway::DRAWING])->orderBy('ends_at')->limit(10)->get();
-        $recent = RuxGiveaway::query()->whereIn('status', [RuxGiveaway::ENDED, RuxGiveaway::CANCELLED])->latest('id')->limit(5)->get();
+        $running = RuxGiveaway::query()->where('guild_id', $context->guildId)->whereIn('status', [RuxGiveaway::ACTIVE, RuxGiveaway::DRAWING])->orderBy('ends_at')->limit(10)->get();
+        $recent = RuxGiveaway::query()->where('guild_id', $context->guildId)->whereIn('status', [RuxGiveaway::ENDED, RuxGiveaway::CANCELLED])->latest('id')->limit(5)->get();
 
         return ToolResult::ok([
             'running' => $running->map(fn (RuxGiveaway $g): array => $this->giveaways->summary($g))->all(),

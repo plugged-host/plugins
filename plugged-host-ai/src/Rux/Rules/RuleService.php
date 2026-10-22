@@ -15,6 +15,7 @@ use PluggedHost\Ai\Rux\Models\RuxRule;
 use PluggedHost\Ai\Rux\Moderation\ModerationService;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
+use PluggedHost\Ai\Rux\Support\RuxGuild;
 use PluggedHost\Ai\Rux\Support\RuxTime;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use Throwable;
@@ -27,7 +28,7 @@ use Throwable;
  * keywords (screen(), no network). A hit goes to a worker (check()), which skips staff, asks the
  * model whether the message really breaks the rule, and only then acts. One rule acts on one
  * member at most once per cooldown, so a burst of messages or a wrong answer cannot pile up
- * warnings.
+ * warnings. Rules belong to one server: a rule only ever checks and acts on messages there.
  */
 class RuleService
 {
@@ -44,16 +45,18 @@ class RuleService
     ];
 
     /**
-     * JUDGING with this panel's name filled in.
+     * JUDGING with the name of the server's host filled in (the panel's by default).
      *
      * @return list<string>
      */
-    public static function judging(): array
+    public static function judging(?RuxGuild $guild = null): array
     {
-        return array_map(static fn (string $line): string => str_replace(':app', (string) config('app.name'), $line), self::JUDGING);
+        $name = $guild?->hostName() ?? (string) config('app.name');
+
+        return array_map(static fn (string $line): string => str_replace(':app', $name, $line), self::JUDGING);
     }
 
-    /** @var list<RuxRule>|null */
+    /** @var list<RuxRule>|null every server's active rules */
     private ?array $rules = null;
 
     private float $rulesLoadedAt = 0.0;
@@ -78,15 +81,16 @@ class RuleService
     {
         $author = (array) ($message['author'] ?? []);
         $content = (string) ($message['content'] ?? '');
+        $guildId = (string) ($message['guild_id'] ?? '');
 
-        if ($content === '' || (string) ($message['guild_id'] ?? '') !== RuxConfig::guildId()
+        if ($content === '' || !RuxConfig::serves($guildId)
             || ($author['bot'] ?? false) || isset($message['webhook_id']) || (string) ($author['id'] ?? '') === $botId) {
             return null;
         }
 
         $text = RuxRule::normalize($content);
         $channelId = (string) ($message['channel_id'] ?? '');
-        $hits = array_values(array_filter($this->activeRules(), static fn (RuxRule $rule): bool => $rule->appliesIn($channelId) && $rule->matches($text)));
+        $hits = array_values(array_filter($this->activeRules(), static fn (RuxRule $rule): bool => $rule->guild_id === $guildId && $rule->appliesIn($channelId) && $rule->matches($text)));
 
         if ($hits === []) {
             return null;
@@ -100,6 +104,7 @@ class RuleService
 
         $key = (string) Str::uuid();
         Cache::put("plugged-host-ai:rux:hit:{$key}", [
+            'guild_id' => $guildId,
             'rules' => array_map(static fn (RuxRule $rule): int => $rule->id, $hits),
             'message_id' => (string) $message['id'],
             'channel_id' => $channelId,
@@ -114,7 +119,8 @@ class RuleService
     }
 
     /**
-     * Active rules, reloaded every 30 seconds so new ones apply right away without a restart.
+     * The active rules of every server rux works on, reloaded every 30 seconds so new ones apply
+     * right away without a restart.
      *
      * @return list<RuxRule>
      */
@@ -122,7 +128,7 @@ class RuleService
     {
         if ($this->rules === null || microtime(true) - $this->rulesLoadedAt > 30) {
             try {
-                $this->rules = RuxRule::query()->where('active', true)->where('guild_id', RuxConfig::guildId())->get()->all();
+                $this->rules = RuxRule::query()->where('active', true)->whereIn('guild_id', RuxConfig::guildIds())->get()->all();
             } catch (Throwable $e) {
                 report($e);
                 $this->rules ??= [];
@@ -139,13 +145,17 @@ class RuleService
     public function check(string $key): void
     {
         $hit = Cache::pull("plugged-host-ai:rux:hit:{$key}");
+        $guild = is_array($hit) ? RuxConfig::guildFor($hit['guild_id'] ?? null) : null;
 
-        if (!is_array($hit) || $this->access->isStaff($hit['author_id'], $hit['roles'])) {
+        if ($guild === null || $this->access->isStaff($guild->id, $hit['author_id'], $hit['roles'])) {
             return;
         }
 
+        $hit['guild_id'] = $guild->id;
+
         foreach ($hit['rules'] as $ruleId) {
-            $rule = RuxRule::query()->where('active', true)->find($ruleId);
+            // Only the rules of the server the message was written on.
+            $rule = RuxRule::query()->where('active', true)->where('guild_id', $guild->id)->find($ruleId);
 
             if ($rule === null) {
                 continue;
@@ -158,7 +168,7 @@ class RuleService
                 continue;
             }
 
-            $verdict = $this->judge($rule, $hit);
+            $verdict = $this->judge($rule, $hit, $guild);
 
             Log::info('[rux] rule check', ['rule' => $rule->id, 'member' => $hit['author_id'], 'message' => $hit['message_id'], 'verdict' => $verdict]);
 
@@ -186,18 +196,18 @@ class RuleService
      * @param  array<string, mixed>  $hit
      * @return array{breaks: bool, why: string}|null
      */
-    private function judge(RuxRule $rule, array $hit): ?array
+    private function judge(RuxRule $rule, array $hit, RuxGuild $guild): ?array
     {
         $replied = filled($hit['replied_to'] ?? null) ? "It replies to this message:\n<replied_to untrusted=\"true\">\n{$hit['replied_to']}\n</replied_to>\n" : '';
         $messages = [
             ['role' => 'system', 'content' => implode("\n", [
-                'You check one message from the ' . config('app.name') . ' Discord server (a free game server host) against one of its standing rules, for the moderation bot rux.',
+                'You check one message from the ' . $guild->hostName() . ' Discord server (' . $guild->about() . ') against one of its standing rules, for the moderation bot rux.',
                 '',
                 'The rule: ' . self::brief($rule),
                 '',
-                ...$this->facts->lines(),
+                ...$this->facts->lines($guild),
                 '',
-                ...self::judging(),
+                ...self::judging($guild),
                 '',
                 'Answer with only this JSON and nothing else: {"breaks": true or false, "why": "a few words"}',
             ])],
@@ -223,13 +233,18 @@ class RuleService
 
     /**
      * Act on a message that breaks a rule: what the rule says, plus a short notice in the channel.
+     * The rule acts on its own server, and only on a message from there.
      *
-     * @param  array<string, mixed>  $hit  message_id, channel_id, author_id, author_name, content
+     * @param  array<string, mixed>  $hit  message_id, channel_id, author_id, author_name, content, guild_id
      */
     public function enforce(RuxRule $rule, array $hit): void
     {
+        if ((string) ($hit['guild_id'] ?? $rule->guild_id) !== $rule->guild_id) {
+            throw new InvalidArgumentException("Rule #{$rule->id} belongs to another server than the message.");
+        }
+
         $context = new RuxContext(
-            guildId: RuxConfig::guildId(),
+            guildId: $rule->guild_id,
             actorDiscordId: $rule->created_by_discord_id,
             actorName: "rule #{$rule->id}",
             actorAccountId: $rule->created_by_account_id,
@@ -283,14 +298,18 @@ class RuleService
 
     /**
      * A message in a watched channel that breaks one of the always-on guidelines (scams, slurs,
-     * harassment, sexual content, spam, advertising): it is deleted and its author warned.
+     * harassment, sexual content, spam, advertising): it is deleted and its author warned, on
+     * the message's server.
      *
      * @param  array<string, mixed>  $hit
      */
     public function enforceGuideline(string $guideline, array $hit): void
     {
+        $guild = RuxConfig::guildFor(isset($hit['guild_id']) ? (string) $hit['guild_id'] : null)
+            ?? throw new InvalidArgumentException('rux does not work on the server of this message.');
+
         $context = new RuxContext(
-            guildId: RuxConfig::guildId(),
+            guildId: $guild->id,
             actorDiscordId: RuxConfig::applicationId() ?? '0',
             actorName: 'watched channel',
             actorAccountId: null,

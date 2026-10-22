@@ -31,7 +31,7 @@ final class EditGiveawayTool extends GiveawayTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $giveaway = $this->giveaways->update($this->giveaway($arguments, [RuxGiveaway::ACTIVE]), [
+        $giveaway = $this->giveaways->update($this->giveaway($context, $arguments, [RuxGiveaway::ACTIVE]), [
             'ends_at' => $this->string($arguments, 'ends_at'),
             'credits' => $this->int($arguments, 'credits'),
             'winners' => $this->int($arguments, 'winners'),

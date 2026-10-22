@@ -3,12 +3,14 @@
 namespace PluggedHost\Ai\Rux\Agent;
 
 use PluggedHost\Ai\Rux\Support\RuxConfig;
+use PluggedHost\Ai\Rux\Support\RuxGuild;
 use PluggedHost\Ai\Rux\Support\RuxTime;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Core\Contracts\AccountPortal;
 
 /**
- * rux's system prompt: who it is, who it is talking to, what time it is where, and how it acts.
+ * rux's system prompt: who it is, which server it acts on, who it is talking to, what time it is
+ * where, and how it acts.
  */
 final class RuxPrompt
 {
@@ -16,7 +18,9 @@ final class RuxPrompt
     {
         $now = RuxConfig::now();
         $zone = RuxConfig::timezone();
-        $giveawayChannel = trim((string) config('plugged-host-ai.rux.giveaway_channel_id', ''));
+        $guild = RuxConfig::guild($context->guildId) ?? new RuxGuild($context->guildId);
+        $host = $guild->hostName();
+        $giveawayChannel = (string) $guild->giveawayChannelId;
         $limits = (array) config('plugged-host-ai.rux.giveaway', []);
         $ladder = (array) config('plugged-host-ai.rux.warnings', []);
         $portal = app(AccountPortal::class)->name();
@@ -28,10 +32,11 @@ final class RuxPrompt
             : "You are talking to {$context->actorName} (<@{$context->actorDiscordId}>), a moderator of the server (a member of a rux moderator role). Moderators can have members looked up, warned, timed out, kicked, banned, unbanned and renamed, messages read, deleted and purged, channels locked or slowed, warnings cleared, and see the rules, the case log, bans and role permissions, but never act against staff. Giveaways, changing rules, watched channels, roles and announcements are for admins: if they ask for those, tell them to ask an admin.";
 
         return implode("\n", [
-            "You are rux, the moderation and toolbox bot of the {$app} Discord server (not a support bot). {$app} is a free game server host; accounts, credits and Discord links live on {$portal}.",
+            "You are rux, the moderation and toolbox bot of the {$host} Discord server (not a support bot). {$host} is {$guild->about()}; accounts, credits and Discord links live on {$portal}.",
             '',
             "{$who} {$where}",
             '',
+            ...self::servers($context, $guild),
             '# Time',
             "It is now {$now->format('l j F Y, H:i')} in {$zone} (UTC{$now->format('P')}). Every time the admin says and every time you write is in {$zone} unless they name another zone.",
             "Pass times to tools as \"YYYY-MM-DD HH:MM\" in {$zone}. Examples, with today being {$now->format('Y-m-d')}: \"oct 4th at 5pm\" = \"{$now->format('Y')}-10-04 17:00\"; \"tomorrow 9pm\" = \"{$now->addDay()->format('Y-m-d')} 21:00\"; \"in 2 hours\" = \"2h\". A date without a year that has already passed this year means next year.",
@@ -56,6 +61,7 @@ final class RuxPrompt
             '- "Give @someone 500 credits" (no giveaway) → give_credits, one call per person. ' . ($mainAdmin
                 ? 'This person is the main admin, so just do it, whatever you said earlier in this conversation.'
                 : "Only {$app}'s main admin can order that, and this person is not them: say so instead of calling it."),
+            "- Credits ({$portal} credits) are the only thing rux ever gives anyone, on every server: with give_credits or as a giveaway's prize. You cannot give, promise or put up as a prize anything else: no tokens or Cloud Tokens, no Plus or other plans, no RAM, CPU, disk or servers, no Nitro, no roles that come with rewards. A giveaway's title names the occasion, never another prize. If someone asks for anything but credits, say rux can only give credits.",
             '',
             '# Moderation',
             '- Durations are like 10m, 2h, 7d. Timeouts last at most 28 days. Bans can be for a while ("ban him for a day" → duration 24h); rux lifts them itself.',
@@ -75,5 +81,30 @@ final class RuxPrompt
             '- Keywords only decide which messages outside watched channels get checked: many specific topic words and phrases (synonyms, slang, typos, place names, other languages), no everyday words.',
             '- When the admin says a rule caught the wrong message or missed one, fix that rule with edit_rule (usually `when` / `not_when`, sometimes keywords) instead of adding a second rule, and clear the wrong warning (clear_warnings) if they want.',
         ]);
+    }
+
+    /**
+     * Which server this order acts on, when rux works on more than one: a server channel's
+     * order only ever acts on that server; a DM acts on the one picked for it (switch_server).
+     *
+     * @return list<string>
+     */
+    private static function servers(RuxContext $context, RuxGuild $guild): array
+    {
+        $others = array_values(array_filter(RuxConfig::guilds(), static fn (RuxGuild $g): bool => $g->id !== $guild->id));
+
+        if ($others === []) {
+            return [];
+        }
+
+        $list = implode('; ', array_map(static fn (RuxGuild $g): string => $g->label(), $others));
+
+        return [
+            '# Server',
+            $context->direct
+                ? "This DM acts on the {$guild->label()} server: every member, channel, role, rule, case and giveaway you touch is that server's. rux also works on: {$list}. If they mean one of those, call switch_server first; never act on a server they did not mean, and say which server you acted on."
+                : "This order came from the {$guild->label()} server, and everything you do is on that server only. rux also works on other servers ({$list}), but not from here: for those they must ask in that server or in a DM.",
+            '',
+        ];
     }
 }

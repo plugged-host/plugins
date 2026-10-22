@@ -30,8 +30,8 @@ final class RemoveRuleTool extends RuxTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $rule = RuxRule::query()->where('active', true)->find((int) $this->required($arguments, 'rule_id'))
-            ?? throw new InvalidArgumentException('There is no active rule with that number. Use list_rules.');
+        $rule = RuxRule::query()->where('active', true)->where('guild_id', $context->guildId)->find((int) $this->required($arguments, 'rule_id'))
+            ?? throw new InvalidArgumentException('There is no active rule with that number on this server. Use list_rules.');
 
         $rule->update(['active' => false]);
         $this->moderation->note($context, 'rule_remove', $rule->description, ['rule' => $rule->id]);

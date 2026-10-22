@@ -234,6 +234,44 @@ moderation permissions.
 rux is a moderation and toolbox bot, not a support bot (neo on Discord is the support bot). Its AI use counts directly against the
 providers' API keys, never against anyone's neo limits.
 
+### Several Discord servers
+
+One rux bot can work on several servers: the main one (`RUX_GUILD_ID`) and up to nine more,
+all set up under Admin → Plugins → plugged.host AI → rux › "More Discord servers" (a server id,
+optionally a name and what the host behind it is, a default giveaway channel, a mod log channel
+and more own sites for the message checks). The servers come from `Contracts\RuxSettingsSource`:
+this panel's settings (`Rux\Support\EnvRuxSettingsSource`, `RUX_GUILD_{2..10}_*` in the `.env`
+the settings page writes), or an account system's that keeps rux's settings itself.
+
+- **Everything is per server**: standing rules, watched channels, moderator roles, warnings and
+  the warning steps, timeouts, kicks and bans, the case log and the mod log, and giveaways (only
+  that server's members can enter and win them). Each row keeps its `guild_id`.
+- **Who may order** is decided on the order's server. Admins (the account system's) and the main
+  admin are the same everywhere; a rux moderator role only counts on its own server.
+- **An order written in a server acts on that server only.** A DM acts on the main server, or on
+  the one picked with `switch_server` (offered only in DMs, kept for a day; a moderator can only
+  pick a server where they are a moderator, and a moderator's DM starts on the first server they
+  moderate).
+- The checks name the server's host (its name and what it is, e.g. "a free VPS host") and treat
+  "Our own sites" plus the server's own sites as never a scam or an advert. Only the main server
+  is told the panel's node locations.
+- Adding or removing a server restarts the daemon within a minute (the supervisor compares the
+  server list). The settings page lists an invite link per server.
+
+### Credits are all rux gives
+
+The only things that give anyone anything are `give_credits` (the main admin only) and credit
+giveaways, and both pay credits through `DiscordCreditPayouts`, on every server. rux has no tool
+for tokens, plans, resources or anything else; a giveaway's title cannot promise another prize
+(`GiveawayService::OTHER_PRIZES`: Plus, tokens, RAM, Nitro, roles…); `manage_role` does not give
+roles that come with rewards (managed roles such as Server Booster, roles named like "2x Booster",
+the Discord plugin's 2x boost role); and the prompt tells the model the same.
+`tests/Feature/RuxCreditsOnlyTest.php` lists every tool, so a new one is checked against this.
+
+With plugged-host-noprofit a grant goes to the noprofit.space account the member linked Discord
+to, whether or not they have an account on this panel; without one rux says there is no account
+to give credits to.
+
 ### What rux can do
 
 | Giveaways | Moderation and server |
@@ -250,9 +288,10 @@ providers' API keys, never against anyone's neo limits.
 | | `manage_role`, `role_info` (a role's permissions), `send_message`, `server_overview` |
 | **Rules and access** (admins) | |
 | `add_rule`, `edit_rule`, `remove_rule`, `list_rules` (moderators too) | `watch_channel`, `set_moderator_role` |
+| `switch_server` (in DMs, moderators too) | |
 
-Every moderation action is a case in `rux_cases`. It is posted to the mod log channel when one is
-set, and Discord's audit log shows the order ("rux for <admin>: <reason>"). The member gets a DM
+Every moderation action is a case in `rux_cases`, on its server. It is posted to that server's mod
+log channel when one is set, and Discord's audit log shows the order ("rux for <admin>: <reason>"). The member gets a DM
 with the reason; for kicks and bans the DM goes out before they are removed. When rux acts by
 itself (a rule, a watched channel) or deletes chosen messages, the case keeps what the member
 said (300 characters), so "why was he warned?" has an answer in `list_cases` and the mod log.
@@ -342,8 +381,9 @@ the dev panel never connects a second gateway session.
    copy it, and switch on **Message Content Intent**. Standing rules, watched channels and
    "hey rux" need it; DMs and @mentions work without it.
 2. **Admin → Plugins → plugged.host AI → rux:** paste the token, switch rux on, and optionally set a default
-   giveaway channel and a mod log channel. The supervisor starts the daemon within a minute.
-3. **Invite it** with the link shown on the settings page or by
+   giveaway channel and a mod log channel. More servers go under "More Discord servers". The
+   supervisor starts the daemon within a minute.
+3. **Invite it** to each server with the links shown on the settings page (one per server) or by
    `php artisan plugged-host:rux-supervise --status`. It asks for the permissions rux uses: view
    channels, send messages (also in threads), embed links, read history, manage messages, manage
    channels, kick, ban, manage roles, time out members. Then drag rux's role above the roles of

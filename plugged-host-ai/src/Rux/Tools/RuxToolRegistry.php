@@ -8,6 +8,10 @@ use PluggedHost\Ai\Rux\Support\RuxAccess;
 /**
  * Everything rux can do. Admins get every tool; members of a rux moderator role only the ones
  * whose level() is moderator (RuxAgent never offers, nor runs, the others for them).
+ *
+ * The only tools that give anyone anything are give_credits and the giveaways, and what they
+ * give is credits (DiscordCreditPayouts): a new tool that hands out something else would break
+ * the rule that rux only ever gives credits (tests/Feature/RuxCreditsOnlyTest.php).
  */
 final class RuxToolRegistry
 {
@@ -46,6 +50,7 @@ final class RuxToolRegistry
         Rules\RemoveRuleTool::class,
         Rules\WatchChannelTool::class,
         Rules\ModeratorRoleTool::class,
+        Servers\SwitchServerTool::class,
     ];
 
     /** @var array<string, RuxTool>|null */
@@ -76,19 +81,24 @@ final class RuxToolRegistry
     }
 
     /**
+     * The tools for this level, and of those only the ones offered for this order when it is
+     * given.
+     *
      * @return array<string, RuxTool>
      */
-    public function available(string $level): array
+    public function available(string $level, ?RuxContext $context = null): array
     {
-        return $level === RuxAccess::ADMIN
+        $tools = $level === RuxAccess::ADMIN
             ? $this->all()
             : array_filter($this->all(), static fn (RuxTool $tool): bool => $tool->level() === RuxAccess::MODERATOR);
+
+        return $context === null ? $tools : array_filter($tools, static fn (RuxTool $tool): bool => $tool->offeredIn($context));
     }
 
     /**
      * @return list<array<string, mixed>>
      */
-    public function definitions(string $level = RuxAccess::ADMIN): array
+    public function definitions(string $level = RuxAccess::ADMIN, ?RuxContext $context = null): array
     {
         return array_values(array_map(static fn (RuxTool $tool): array => [
             'type' => 'function',
@@ -97,6 +107,6 @@ final class RuxToolRegistry
                 'description' => $tool->description(),
                 'parameters' => $tool->parameters(),
             ],
-        ], $this->available($level)));
+        ], $this->available($level, $context)));
     }
 }

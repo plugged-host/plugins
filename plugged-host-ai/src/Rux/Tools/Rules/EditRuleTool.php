@@ -46,7 +46,7 @@ final class EditRuleTool extends RuxTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $rule = RuxRule::query()->where('active', true)->find((int) $this->required($arguments, 'rule_id'))
+        $rule = RuxRule::query()->where('active', true)->where('guild_id', $context->guildId)->find((int) $this->required($arguments, 'rule_id'))
             ?? throw new InvalidArgumentException('There is no active rule with that number. Use list_rules.');
 
         $changes = [];

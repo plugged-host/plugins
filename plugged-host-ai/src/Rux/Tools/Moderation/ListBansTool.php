@@ -50,6 +50,7 @@ final class ListBansTool extends ModerationTool
         }
 
         $open = RuxCase::query()
+            ->where('guild_id', $context->guildId)
             ->where('action', 'ban')
             ->whereNull('resolved_at')
             ->whereIn('target_id', array_map(static fn (array $ban): string => (string) $ban['user']['id'], $bans))

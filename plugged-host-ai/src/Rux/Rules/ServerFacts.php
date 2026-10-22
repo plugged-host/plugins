@@ -4,6 +4,8 @@ namespace PluggedHost\Ai\Rux\Rules;
 
 use App\Models\Node;
 use Illuminate\Support\Facades\Cache;
+use PluggedHost\Ai\Rux\Support\RuxConfig;
+use PluggedHost\Ai\Rux\Support\RuxGuild;
 use PluggedHost\Core\Support\Countries;
 use PluggedHost\Core\Support\Plugins;
 use Throwable;
@@ -15,26 +17,29 @@ use Throwable;
  * a scam. The locations come from the nodes' tags (a country code, plus `plus` / `premium`),
  * read again every 10 minutes.
  *
- * Its own sites come from this panel's settings: RUX_TRUSTED_DOMAINS (each with its subdomains),
- * the panel's and the status page's host names, the Discord invite, and noprofit.space with
- * plugged-host-noprofit.
+ * The facts are the server's (RuxGuild): its host's name, its own sites (the server's trusted
+ * domains, each with its subdomains: RUX_TRUSTED_DOMAINS everywhere plus a server's own), the
+ * panel's and the status page's host names, the Discord invite, and noprofit.space with
+ * plugged-host-noprofit; the locations only where the server is this panel's own community.
  */
 final class ServerFacts
 {
     /**
+     * @param  RuxGuild|null  $guild  null: the primary server
      * @return list<string>
      */
-    public function lines(): array
+    public function lines(?RuxGuild $guild = null): array
     {
-        $app = (string) config('app.name');
+        $guild ??= RuxConfig::primary();
+        $app = $guild?->hostName() ?? (string) config('app.name');
         $lines = ['Facts about ' . $app . ':'];
-        $sites = $this->ownSites($app);
+        $sites = $this->ownSites($app, $guild);
 
         if ($sites !== []) {
             $lines[] = '- Its own sites and links, never a scam or an advert: ' . self::listing($sites) . '.';
         }
 
-        $locations = $this->locations();
+        $locations = ($guild->locations ?? true) ? $this->locations() : [];
 
         if ($locations !== []) {
             $lines[] = '- The server locations it already has: ' . implode('; ', $locations) . '. Asking about one of these, which to pick, how to get or move to one, or for one to be opened, enabled or brought back is NOT asking for a new location.';
@@ -49,10 +54,10 @@ final class ServerFacts
      *
      * @return list<string>
      */
-    private function ownSites(string $app): array
+    private function ownSites(string $app, ?RuxGuild $guild): array
     {
         $domains = [];
-        foreach ((array) config('plugged-host-ai.rux.trusted_domains', []) as $domain) {
+        foreach ($guild->trustedDomains ?? (array) config('plugged-host-ai.rux.trusted_domains', []) as $domain) {
             $domain = self::host((string) $domain);
             if ($domain !== '' && !in_array($domain, $domains, true)) {
                 $domains[] = $domain;
@@ -75,7 +80,7 @@ final class ServerFacts
         }
         array_push($sites, ...$hosts);
 
-        if (Plugins::enabled('plugged-host-noprofit')) {
+        if (Plugins::enabled('plugged-host-noprofit') && !in_array('noprofit.space', $domains, true)) {
             $sites[] = 'noprofit.space and accounts.noprofit.space (' . $app . ' accounts, credits and sign-in)';
         }
 

@@ -4,8 +4,10 @@ namespace PluggedHost\Ai\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Ai\Contracts\RuxSettingsSource;
 use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxMessage;
+use PluggedHost\Ai\Rux\Support\EnvRuxSettingsSource;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Support\RuxSupervisor;
 
@@ -16,6 +18,10 @@ class RuxServiceProvider extends ServiceProvider
         // Singleton: the daemon keeps its lock handle on the instance for its whole life.
         $this->app->singleton(RuxSupervisor::class);
         $this->app->singleton(RuxDiscord::class, fn (): RuxDiscord => RuxDiscord::fromConfig());
+
+        // Which servers rux works on: this panel's settings, unless an account system that
+        // keeps rux's settings bound its own (singletonIf: either may register first).
+        $this->app->singletonIf(RuxSettingsSource::class, EnvRuxSettingsSource::class);
     }
 
     public function boot(): void

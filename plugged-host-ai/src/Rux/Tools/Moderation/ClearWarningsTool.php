@@ -38,6 +38,6 @@ final class ClearWarningsTool extends ModerationTool
         $this->guard($context, $target);
         $cleared = $this->moderation->clearWarnings($context, $target, $this->int($arguments, 'count'), $this->string($arguments, 'reason'));
 
-        return ToolResult::ok(['member' => "<@{$target['id']}>", 'cleared' => $cleared, 'warnings_left' => $this->moderation->warningCount($target['id'])]);
+        return ToolResult::ok(['member' => "<@{$target['id']}>", 'cleared' => $cleared, 'warnings_left' => $this->moderation->warningCount($context->guildId, $target['id'])]);
     }
 }

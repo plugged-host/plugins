@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\Rux\Support;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
+use PluggedHost\Ai\Contracts\RuxSettingsSource;
 use PluggedHost\Ai\Rux\Agent\Ai\RuxAi;
 use PluggedHost\Core\Contracts\AccountPortal;
 use PluggedHost\Discord\Contracts\DiscordAccounts;
@@ -29,9 +30,78 @@ final class RuxConfig
         return trim((string) config('plugged-host-ai.rux.bot_token', ''));
     }
 
+    /**
+     * The primary server's id ('' when none is set).
+     */
     public static function guildId(): string
     {
-        return trim((string) config('plugged-host-ai.rux.guild_id', ''));
+        return self::primary()->id ?? '';
+    }
+
+    /**
+     * Every server rux works on, the primary one first (Contracts\RuxSettingsSource).
+     *
+     * @return list<RuxGuild>
+     */
+    public static function guilds(): array
+    {
+        return app(RuxSettingsSource::class)->guilds();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function guildIds(): array
+    {
+        return array_map(static fn (RuxGuild $guild): string => $guild->id, self::guilds());
+    }
+
+    public static function primary(): ?RuxGuild
+    {
+        $guilds = self::guilds();
+
+        foreach ($guilds as $guild) {
+            if ($guild->primary) {
+                return $guild;
+            }
+        }
+
+        return $guilds[0] ?? null;
+    }
+
+    /**
+     * The server with this id, when rux works on it.
+     */
+    public static function guild(?string $guildId): ?RuxGuild
+    {
+        if ($guildId === null || $guildId === '') {
+            return null;
+        }
+
+        foreach (self::guilds() as $guild) {
+            if ($guild->id === $guildId) {
+                return $guild;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether rux works on this server (a DM, null, is no server).
+     */
+    public static function serves(?string $guildId): bool
+    {
+        return self::guild($guildId) !== null;
+    }
+
+    /**
+     * The server a queued check or stored row belongs to: its own, or the primary one for what
+     * was queued before rux knew more than one server (no guild id).
+     */
+    public static function guildFor(?string $guildId): ?RuxGuild
+    {
+        return $guildId === null || $guildId === '' ? self::primary() : self::guild($guildId);
     }
 
     public static function timezone(): string
@@ -153,13 +223,18 @@ final class RuxConfig
         return is_string($decoded) && preg_match('/^\d{17,20}$/', $decoded) === 1 ? $decoded : null;
     }
 
-    public static function inviteUrl(): ?string
+    /**
+     * The link that adds rux to a server with the permissions it needs; with $guildId, Discord
+     * preselects that server.
+     */
+    public static function inviteUrl(?string $guildId = null): ?string
     {
         $id = self::applicationId();
 
         return $id === null
             ? null
-            : 'https://discord.com/oauth2/authorize?client_id=' . $id . '&scope=bot&permissions=' . self::BOT_PERMISSIONS;
+            : 'https://discord.com/oauth2/authorize?client_id=' . $id . '&scope=bot&permissions=' . self::BOT_PERMISSIONS
+                . ($guildId !== null && preg_match('/^\d{17,20}$/', $guildId) === 1 ? '&guild_id=' . $guildId . '&disable_guild_select=true' : '');
     }
 
     /**

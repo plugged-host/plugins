@@ -14,6 +14,7 @@ uses(IntegrationTestCase::class);
 
 beforeEach(function () {
     loadPluginForTest('plugged-host-ai');
+    config()->set('plugged-host-ai.rux.guild_id', '100000000000000001');
     config()->set('plugged-host-ai.rux.watch.guidelines', true);
 
     app()->instance(RuxDiscord::class, Mockery::mock(RuxDiscord::class));

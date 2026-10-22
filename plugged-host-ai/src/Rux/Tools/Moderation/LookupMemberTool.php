@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\Rux\Tools\Moderation;
 
 use Carbon\CarbonImmutable;
 use PluggedHost\Ai\Rux\Models\RuxCase;
+use PluggedHost\Ai\Rux\Models\RuxGiveaway;
 use PluggedHost\Ai\Rux\Models\RuxGiveawayEntry;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Support\RuxTime;
@@ -71,7 +72,7 @@ final class LookupMemberTool extends ModerationTool
             }
         }
 
-        $cases = RuxCase::query()->where('target_id', $target['id'])->latest('id')->limit(8)->get();
+        $cases = $this->moderation->history($context->guildId, $target['id'], 8);
 
         return ToolResult::ok(array_filter([
             'member' => "<@{$target['id']}>",
@@ -85,9 +86,10 @@ final class LookupMemberTool extends ModerationTool
             'timed_out_until' => $timeoutUntil !== null && CarbonImmutable::parse($timeoutUntil)->isFuture() ? RuxTime::human(CarbonImmutable::parse($timeoutUntil)) : null,
             'noprofit_account' => $noprofitInfo,
             'plugged_host_panel_account' => $account,
-            'warnings' => $this->moderation->warningCount($target['id']),
-            'rux_moderator' => $this->access->moderatorRole(array_values(array_map('strval', (array) ($member['roles'] ?? [])))) !== null ?: null,
-            'giveaway_wins' => RuxGiveawayEntry::query()->where('discord_id', $target['id'])->whereNotNull('won_at')->count(),
+            'warnings' => $this->moderation->warningCount($context->guildId, $target['id']),
+            'rux_moderator' => $this->access->moderatorRole($context->guildId, array_values(array_map('strval', (array) ($member['roles'] ?? [])))) !== null ?: null,
+            'giveaway_wins' => RuxGiveawayEntry::query()->where('discord_id', $target['id'])->whereNotNull('won_at')
+                ->whereIn('giveaway_id', RuxGiveaway::query()->where('guild_id', $context->guildId)->select('id'))->count(),
             'cases' => $cases->map(fn (RuxCase $c): string => $c->line())->all(),
         ], static fn ($value): bool => $value !== null));
     }

@@ -4,12 +4,12 @@ namespace PluggedHost\Ai\Rux\Moderation;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use PluggedHost\Ai\Discord\DiscordException;
 use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxCase;
+use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Support\RuxText;
 use PluggedHost\Ai\Rux\Support\RuxTime;
@@ -17,8 +17,10 @@ use PluggedHost\Ai\Rux\Tools\RuxContext;
 
 /**
  * The moderation rux does on an admin's order. Every action is a RuxCase (who ordered it, on
- * whom, why), goes to the mod log channel when one is set, and carries the order in Discord's
- * audit log. The member is told by DM before a kick or ban, while rux can still reach them.
+ * whom, why, on which server), goes to that server's mod log channel when one is set, and
+ * carries the order in Discord's audit log. The member is told by DM before a kick or ban, while
+ * rux can still reach them. Warnings, bans and case history are per server: a warning on one
+ * server does not count on another.
  */
 class ModerationService
 {
@@ -30,7 +32,7 @@ class ModerationService
 
     private const CREATE_THREADS = (1 << 35) | (1 << 36);
 
-    public function __construct(private readonly RuxDiscord $discord) {}
+    public function __construct(private readonly RuxDiscord $discord, private readonly RuxAccess $access) {}
 
     /**
      * A warning, then the step it reaches on the ladder (config warnings): with the defaults the
@@ -42,9 +44,9 @@ class ModerationService
      */
     public function warn(RuxContext $context, array $target, ?string $reason, ?int $ruleId = null, bool $automatic = false): array
     {
-        $told = $this->notify($target['id'], 'notice.warn', $reason);
+        $told = $this->notify($context, $target['id'], 'notice.warn', $reason);
         $case = $this->record($context, 'warn', $target, $reason, meta: ['dm_delivered' => $told], automatic: $automatic || $ruleId !== null, ruleId: $ruleId);
-        $warnings = $this->warningCount($target['id']);
+        $warnings = $this->warningCount($context->guildId, $target['id']);
         $escalation = null;
 
         $ladder = (array) config('plugged-host-ai.rux.warnings', []);
@@ -68,9 +70,12 @@ class ModerationService
         return ['case' => $case, 'warnings' => $warnings, 'escalation' => $escalation];
     }
 
-    public function warningCount(string $discordId): int
+    /**
+     * The warnings that count against someone on one server.
+     */
+    public function warningCount(string $guildId, string $discordId): int
     {
-        return RuxCase::query()->where('target_id', $discordId)->where('action', 'warn')->whereNull('revoked_at')->count();
+        return RuxCase::query()->where('guild_id', $guildId)->where('target_id', $discordId)->where('action', 'warn')->whereNull('revoked_at')->count();
     }
 
     /**
@@ -78,7 +83,7 @@ class ModerationService
      */
     public function clearWarnings(RuxContext $context, array $target, ?int $count, ?string $reason): int
     {
-        $query = RuxCase::query()->where('target_id', $target['id'])->where('action', 'warn')->whereNull('revoked_at')->latest('id');
+        $query = RuxCase::query()->where('guild_id', $context->guildId)->where('target_id', $target['id'])->where('action', 'warn')->whereNull('revoked_at')->latest('id');
 
         if ($count !== null) {
             $query->limit(max(1, $count));
@@ -88,7 +93,7 @@ class ModerationService
         RuxCase::query()->whereIn('id', $ids)->update(['revoked_at' => now()]);
 
         if ($ids->isNotEmpty()) {
-            $this->record($context, 'clear_warnings', $target, $reason, meta: ['cleared' => $ids->count(), 'left' => $this->warningCount($target['id'])]);
+            $this->record($context, 'clear_warnings', $target, $reason, meta: ['cleared' => $ids->count(), 'left' => $this->warningCount($context->guildId, $target['id'])]);
         }
 
         return $ids->count();
@@ -105,7 +110,7 @@ class ModerationService
 
         $until = CarbonImmutable::now()->addSeconds($seconds);
         $this->discord->modifyMember($context->guildId, $target['id'], ['communication_disabled_until' => $until->toIso8601String()], $context->auditReason($reason));
-        $told = $this->notify($target['id'], 'notice.timeout', $reason, ['until' => RuxTime::discord($until, 'f')]);
+        $told = $this->notify($context, $target['id'], 'notice.timeout', $reason, ['until' => RuxTime::discord($until, 'f')]);
 
         return $this->record($context, 'timeout', $target, $reason, $seconds, ['until' => $until->toIso8601String(), 'dm_delivered' => $told], automatic: $automatic, ruleId: $ruleId);
     }
@@ -125,7 +130,7 @@ class ModerationService
      */
     public function kick(RuxContext $context, array $target, ?string $reason, ?int $ruleId = null): RuxCase
     {
-        $told = $this->notify($target['id'], 'notice.kick', $reason);
+        $told = $this->notify($context, $target['id'], 'notice.kick', $reason);
         $this->discord->kick($context->guildId, $target['id'], $context->auditReason($reason));
 
         return $this->record($context, 'kick', $target, $reason, meta: ['dm_delivered' => $told], automatic: $ruleId !== null, ruleId: $ruleId);
@@ -142,10 +147,10 @@ class ModerationService
         $deleteSeconds = max(0, min(604800, $deleteMessageHours * 3600));
         $until = $seconds !== null ? CarbonImmutable::now()->addSeconds($seconds) : null;
 
-        $told = $inServer ? $this->notify($target['id'], $until !== null ? 'notice.ban_for' : 'notice.ban', $reason, $until !== null ? ['until' => RuxTime::discord($until, 'f')] : []) : false;
+        $told = $inServer ? $this->notify($context, $target['id'], $until !== null ? 'notice.ban_for' : 'notice.ban', $reason, $until !== null ? ['until' => RuxTime::discord($until, 'f')] : []) : false;
         $this->discord->ban($context->guildId, $target['id'], $deleteSeconds, $context->auditReason($reason));
 
-        $this->resolveOpenBans($target['id']);
+        $this->resolveOpenBans($context->guildId, $target['id']);
 
         return $this->record($context, 'ban', $target, $reason, $seconds, [
             'deleted_message_hours' => intdiv($deleteSeconds, 3600),
@@ -159,7 +164,7 @@ class ModerationService
     public function unban(RuxContext $context, array $target, ?string $reason): RuxCase
     {
         $this->discord->unban($context->guildId, $target['id'], $context->auditReason($reason));
-        $this->resolveOpenBans($target['id']);
+        $this->resolveOpenBans($context->guildId, $target['id']);
 
         return $this->record($context, 'unban', $target, $reason);
     }
@@ -385,6 +390,11 @@ class ModerationService
             throw new InvalidArgumentException("The role {$role['name']} is managed by Discord or an integration and cannot be given or taken by hand.");
         }
 
+        // Credits are the only thing rux hands out; a role that comes with rewards is not.
+        if ($add && RuxAccess::isRewardRole($role)) {
+            throw new InvalidArgumentException("The role {$role['name']} comes with rewards (a booster role), and rux only ever gives credits: it cannot hand this role out. An admin can give it by hand on Discord.");
+        }
+
         $add
             ? $this->discord->addRole($context->guildId, $target['id'], (string) $role['id'], $context->auditReason($reason))
             : $this->discord->removeRole($context->guildId, $target['id'], (string) $role['id'], $context->auditReason($reason));
@@ -438,9 +448,9 @@ class ModerationService
         return $lifted;
     }
 
-    private function resolveOpenBans(string $discordId): void
+    private function resolveOpenBans(string $guildId, string $discordId): void
     {
-        RuxCase::query()->where('action', 'ban')->where('target_id', $discordId)->whereNull('resolved_at')->update(['resolved_at' => now()]);
+        RuxCase::query()->where('guild_id', $guildId)->where('action', 'ban')->where('target_id', $discordId)->whereNull('resolved_at')->update(['resolved_at' => now()]);
     }
 
     /**
@@ -455,11 +465,13 @@ class ModerationService
     }
 
     /**
+     * Someone's cases on one server, newest first.
+     *
      * @return Collection<int, RuxCase>
      */
-    public function history(string $discordId, int $limit = 10): Collection
+    public function history(string $guildId, string $discordId, int $limit = 10): Collection
     {
-        return RuxCase::query()->where('target_id', $discordId)->latest('id')->limit($limit)->get();
+        return RuxCase::query()->where('guild_id', $guildId)->where('target_id', $discordId)->latest('id')->limit($limit)->get();
     }
 
     /**
@@ -499,9 +511,10 @@ class ModerationService
 
     private function postToModLog(RuxCase $case): void
     {
-        $channel = trim((string) config('plugged-host-ai.rux.mod_log_channel_id', ''));
+        // The mod log of the server the case is on; none for a server rux no longer works on.
+        $channel = RuxConfig::guild($case->guild_id)?->modLogChannelId;
 
-        if ($channel === '') {
+        if ($channel === null) {
             return;
         }
 
@@ -530,7 +543,7 @@ class ModerationService
             $case->action === 'nickname' ? ($case->meta['from'] ?? 'no nickname') . ' → ' . ($case->meta['to'] ?? 'no nickname') : null,
             isset($case->meta['changed']) ? 'changed: ' . implode(', ', (array) $case->meta['changed']) : null,
             isset($case->meta['credits']) ? '+' . number_format((int) $case->meta['credits']) . ' credits' : null,
-            $case->action === 'warn' && $case->target_id !== null ? RuxConfig::say('log.warnings', ['count' => $this->warningCount($case->target_id)]) : null,
+            $case->action === 'warn' && $case->target_id !== null ? RuxConfig::say('log.warnings', ['count' => $this->warningCount($case->guild_id, $case->target_id)]) : null,
         ]);
         if ($details !== []) {
             $fields[] = ['name' => RuxConfig::say('log.details'), 'value' => implode(', ', $details), 'inline' => true];
@@ -562,26 +575,13 @@ class ModerationService
     /**
      * @param  array<string, string>  $replace
      */
-    private function notify(string $userId, string $key, ?string $reason, array $replace = []): bool
+    private function notify(RuxContext $context, string $userId, string $key, ?string $reason, array $replace = []): bool
     {
         $reasonLine = $reason !== null && trim($reason) !== '' ? RuxConfig::say('notice.reason', ['reason' => trim($reason)]) : '';
 
         return $this->discord->sendDm($userId, [
-            'content' => trim(RuxConfig::say($key, $replace + ['server' => $this->serverName(), 'reason' => $reasonLine])),
+            'content' => trim(RuxConfig::say($key, $replace + ['server' => $this->access->serverName($context->guildId), 'reason' => $reasonLine])),
             'allowed_mentions' => ['parse' => []],
         ]);
-    }
-
-    private function serverName(): string
-    {
-        $guildId = RuxConfig::guildId();
-
-        return (string) Cache::remember("plugged-host-ai:rux:guild-name:{$guildId}", 3600, function () use ($guildId): string {
-            try {
-                return (string) ($this->discord->json('GET', "guilds/{$guildId}")['name'] ?? config('app.name'));
-            } catch (DiscordException) {
-                return (string) config('app.name');
-            }
-        });
     }
 }

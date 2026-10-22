@@ -25,6 +25,9 @@ use Throwable;
  * one lookup on noprofit.space). Every 10 seconds it also starts the
  * draw of any giveaway whose time is up, so winners are not left waiting for the next minute.
  * Supervised by plugged-host:rux-supervise, like the plugged.host bot.
+ *
+ * One connection serves every server rux works on (RuxConfig::guilds()); events from servers it
+ * is in but does not work on are dropped, and everything it hands on carries its server.
  */
 class RuxGatewayCommand extends GatewayDaemon
 {
@@ -62,9 +65,13 @@ class RuxGatewayCommand extends GatewayDaemon
         return RuxConfig::token();
     }
 
+    /**
+     * The servers it works on, as the status file keeps them: the supervisor replaces the
+     * daemon when this list changes.
+     */
     protected function guildId(): string
     {
-        return RuxConfig::guildId();
+        return implode(',', RuxConfig::guildIds());
     }
 
     protected function applicationId(): ?string
@@ -147,7 +154,7 @@ class RuxGatewayCommand extends GatewayDaemon
                 break;
 
             case 'INTERACTION_CREATE':
-                if (isset($data['guild_id']) && (string) $data['guild_id'] !== RuxConfig::guildId()) {
+                if (isset($data['guild_id']) && !RuxConfig::serves((string) $data['guild_id'])) {
                     break;
                 }
 

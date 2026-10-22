@@ -14,6 +14,7 @@ use PluggedHost\Ai\Rux\Discord\RuxDiscord;
 use PluggedHost\Ai\Rux\Models\RuxMessage;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
 use PluggedHost\Ai\Rux\Support\RuxConfig;
+use PluggedHost\Ai\Rux\Support\RuxGuild;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\RuxToolRegistry;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
@@ -27,11 +28,14 @@ use Throwable;
 /**
  * One order, start to finish, in its own worker process (plugged-host:rux-handle).
  *
- * First noprofit.space says who wrote it. A noprofit.space admin gets every tool; a member of a
- * rux moderator role gets the moderation tools; anyone else is ignored (and told so once an hour
- * in DMs) before the model is ever called. Then the usual loop: model turn → run its tool calls → feed the results back,
- * until it answers in text or runs out of steps. Everything is kept in rux_messages, so the next
- * order in the same conversation remembers this one.
+ * First noprofit.space says who wrote it, and the order gets its server: the one it was written
+ * in, or for a DM the one picked for that DM (switch_server; the primary server until then, and
+ * for a moderator the first server they moderate). A noprofit.space admin gets every tool; a
+ * member of a rux moderator role of that server gets the moderation tools; anyone else is
+ * ignored (and told so once an hour in DMs) before the model is ever called. Then the usual
+ * loop: model turn → run its tool calls → feed the results back, until it answers in text or
+ * runs out of steps. Everything is kept in rux_messages, so the next order in the same
+ * conversation remembers this one.
  */
 final class RuxAgent
 {
@@ -44,9 +48,19 @@ final class RuxAgent
         private readonly RuxAccess $access,
     ) {}
 
-    public static function deniedKey(string $discordId): string
+    /**
+     * Where the daemon remembers "not allowed" for someone, per server ($guildId null: in DMs),
+     * since a moderator of one server is nobody on another.
+     */
+    public static function deniedKey(string $discordId, ?string $guildId = null): string
     {
-        return 'plugged-host-ai:rux:denied:' . RuxAccess::generation() . ":{$discordId}";
+        return 'plugged-host-ai:rux:denied:' . RuxAccess::generation() . ':' . ($guildId ?? 'dm') . ":{$discordId}";
+    }
+
+    /** Which server someone's DM with rux acts on (switch_server), when they picked one. */
+    public static function dmServerKey(string $discordId): string
+    {
+        return "plugged-host-ai:rux:dm-server:{$discordId}";
     }
 
     /**
@@ -84,29 +98,23 @@ final class RuxAgent
             return;
         }
 
-        $level = $actor !== null && $actor['is_admin'] ? RuxAccess::ADMIN : null;
         $accountId = $actor['account_id'] ?? null;
         $name = $actor !== null && $actor['name'] !== '' ? $actor['name'] : (string) ($order->author_name ?? $order->author_id);
 
-        if ($level === null) {
-            // Not an admin: a member of a rux moderator role still may give moderation orders.
-            try {
-                $roles = $this->access->memberRoles($order->author_id);
-                $moderatorRole = $roles === null ? null : $this->access->moderatorRole($roles);
-            } catch (DiscordException) {
-                $moderatorRole = null;
-            }
+        [$guild, $level] = $this->place($order, $actor !== null && $actor['is_admin']);
 
-            if ($moderatorRole !== null) {
-                $level = RuxAccess::MODERATOR;
-            }
+        if ($guild === null) {
+            // A server rux does not work on (any more), or no server set up at all.
+            $this->finish($order, RuxMessage::IGNORED, ['reason' => 'server_not_served']);
+
+            return;
         }
 
         if ($level === null) {
             $this->finish($order, RuxMessage::IGNORED, ['reason' => $actor === null ? 'not_linked' : 'not_admin']);
 
-            // The daemon drops this person's next messages without starting a worker.
-            Cache::put(self::deniedKey($order->author_id), true, 300);
+            // The daemon drops this person's next messages here without starting a worker.
+            Cache::put(self::deniedKey($order->author_id, $order->guild_id), true, 300);
 
             if ($order->isDirect() && Cache::add("plugged-host-ai:rux:told-not-admin:{$order->author_id}", true, 3600)) {
                 $this->reply($order, RuxConfig::say('reply.not_admin'));
@@ -115,10 +123,10 @@ final class RuxAgent
             return;
         }
 
-        $this->finish($order, RuxMessage::RUNNING, ['level' => $level, 'account_id' => $accountId]);
+        $this->finish($order, RuxMessage::RUNNING, ['level' => $level, 'account_id' => $accountId, 'server' => $guild->id]);
 
         $context = new RuxContext(
-            guildId: RuxConfig::guildId(),
+            guildId: $guild->id,
             actorDiscordId: $order->author_id,
             actorName: $name,
             actorAccountId: $accountId,
@@ -129,7 +137,7 @@ final class RuxAgent
             level: $level,
         );
 
-        Log::info('[rux] order', ['message' => $order->id, 'from' => $order->author_id, 'level' => $level, 'account' => $accountId, 'direct' => $order->isDirect()]);
+        Log::info('[rux] order', ['message' => $order->id, 'from' => $order->author_id, 'level' => $level, 'account' => $accountId, 'direct' => $order->isDirect(), 'server' => $guild->id]);
 
         try {
             $answer = $this->run($order, $context);
@@ -147,12 +155,58 @@ final class RuxAgent
     }
 
     /**
+     * The server an order acts on and the author's level there (null: not allowed).
+     *
+     * An order written in a server acts on that server, and a moderator is one of its moderator
+     * roles there. A DM acts on the server picked for it (switch_server) or the primary one; for
+     * someone who is not an admin, on the first of those they moderate, so a moderator of
+     * another server is heard in DMs without picking it first.
+     *
+     * @return array{0: ?RuxGuild, 1: ?string}
+     */
+    private function place(RuxMessage $order, bool $admin): array
+    {
+        if ($order->guild_id !== null) {
+            $guild = RuxConfig::guild($order->guild_id);
+
+            return match (true) {
+                $guild === null => [null, null],
+                $admin => [$guild, RuxAccess::ADMIN],
+                $this->access->isModerator($guild->id, $order->author_id) => [$guild, RuxAccess::MODERATOR],
+                default => [$guild, null],
+            };
+        }
+
+        $picked = RuxConfig::guild((string) Cache::get(self::dmServerKey($order->author_id), ''));
+        $primary = RuxConfig::primary();
+
+        if ($admin) {
+            return [$picked ?? $primary, RuxAccess::ADMIN];
+        }
+
+        $candidates = [];
+        foreach ([$picked, $primary, ...RuxConfig::guilds()] as $guild) {
+            if ($guild !== null) {
+                $candidates[$guild->id] ??= $guild;
+            }
+        }
+
+        foreach ($candidates as $guild) {
+            if ($this->access->isModerator($guild->id, $order->author_id)) {
+                return [$guild, RuxAccess::MODERATOR];
+            }
+        }
+
+        return [$picked ?? $primary, null];
+    }
+
+    /**
      * @throws AiUnavailableException
      */
     private function run(RuxMessage $order, RuxContext $context): string
     {
         $messages = $this->messages($order, $context);
-        $definitions = $this->tools->definitions($context->level);
+        $definitions = $this->tools->definitions($context->level, $context);
         $maxSteps = max(2, (int) config('plugged-host-ai.rux.agent.max_steps', 8));
         $busyUntil = time() + max(30, (int) config('plugged-host-ai.rux.agent.busy_wait_seconds', 150));
 
@@ -209,6 +263,18 @@ final class RuxAgent
                     'content' => self::fence($name, $output),
                     'is_error' => !$result->ok,
                 ];
+
+                // A DM picked another server: the rest of the order acts there.
+                if ($name === 'switch_server' && $result->ok && $context->direct) {
+                    $picked = RuxConfig::guild((string) Cache::get(self::dmServerKey($context->actorDiscordId), ''));
+
+                    if ($picked !== null && $picked->id !== $context->guildId) {
+                        $context = $context->withGuild($picked->id);
+                        $messages[0] = ['role' => 'system', 'content' => $this->prompt->build($context, $this->where($order))];
+                        $this->finish($order, RuxMessage::RUNNING, ['server' => $picked->id]);
+                        Log::info('[rux] order moved to another server', ['message' => $order->id, 'server' => $picked->id]);
+                    }
+                }
             }
         }
     }
@@ -248,7 +314,7 @@ final class RuxAgent
      */
     private function execute(RuxContext $context, string $name, array $arguments): ToolResult
     {
-        $tool = $this->tools->available($context->level)[$name] ?? null;
+        $tool = $this->tools->available($context->level, $context)[$name] ?? null;
 
         if ($tool === null) {
             return ToolResult::error($this->tools->find($name) === null ? "There is no tool called {$name}." : "{$name} is for " . app(AccountPortal::class)->name() . ' admins only; this person is a moderator.');
@@ -292,6 +358,14 @@ final class RuxAgent
         }
     }
 
+    /** Where the order was written, for the system prompt. */
+    private function where(RuxMessage $order): string
+    {
+        return $order->isDirect()
+            ? 'They are writing to you in a DM, so there is no "this channel": anything that acts on a channel needs one named.'
+            : "They are talking to you in <#{$order->channel_id}> (\"this channel\").";
+    }
+
     /**
      * The system prompt, the last half hour of this conversation, and the new order.
      *
@@ -299,9 +373,7 @@ final class RuxAgent
      */
     private function messages(RuxMessage $order, RuxContext $context): array
     {
-        $where = $order->isDirect()
-            ? 'They are writing to you in a DM, so there is no "this channel": anything that acts on a channel needs one named.'
-            : "They are talking to you in <#{$order->channel_id}> (\"this channel\").";
+        $where = $this->where($order);
 
         $turns = RuxMessage::query()
             ->where('conversation', $order->conversation)

@@ -12,7 +12,8 @@ use PluggedHost\Core\Support\Plugins;
 
 /**
  * rux's part of the plugged.host AI settings (its own tab, form state under "rux"): read from
- * config, written to the panel's .env by PluggedHostAiPlugin.
+ * config, written to the panel's .env by PluggedHostAiPlugin. The servers it works on are
+ * EnvRuxSettingsSource's: the primary one, and more in slots 2 to 10 (RUX_GUILD_{n}_*).
  */
 final class RuxSettings
 {
@@ -40,7 +41,31 @@ final class RuxSettings
             'watch_guidelines' => (bool) config('plugged-host-ai.rux.watch.guidelines', true),
             'spam' => (bool) config('plugged-host-ai.rux.spam.enabled', true),
             'trusted_domains' => implode(', ', (array) config('plugged-host-ai.rux.trusted_domains', [])),
-        ];
+        ] + self::serversData();
+    }
+
+    /**
+     * Form state of the server slots, "server_<n>" => their fields.
+     *
+     * @return array<string, array<string, string>>
+     */
+    private static function serversData(): array
+    {
+        $data = [];
+
+        foreach (EnvRuxSettingsSource::SLOTS as $slot) {
+            $server = (array) config("plugged-host-ai.rux.servers.{$slot}", []);
+            $data["server_{$slot}"] = [
+                'id' => trim((string) ($server['id'] ?? '')),
+                'name' => (string) ($server['name'] ?? ''),
+                'about' => (string) ($server['about'] ?? ''),
+                'giveaway_channel_id' => (string) ($server['giveaway_channel_id'] ?? ''),
+                'mod_log_channel_id' => (string) ($server['mod_log_channel_id'] ?? ''),
+                'trusted_domains' => implode(', ', (array) ($server['trusted_domains'] ?? [])),
+            ];
+        }
+
+        return $data;
     }
 
     /**
@@ -72,10 +97,10 @@ final class RuxSettings
                         ->placeholder($hasToken ? '•••••••• saved, leave empty to keep it' : 'Not set')
                         ->helperText('Discord Developer Portal → rux → Bot → Reset Token.'),
                     TextInput::make('guild_id')
-                        ->label('Discord server id')
+                        ->label('Main Discord server id')
                         ->required()
                         ->regex('/^\d{17,20}$/')
-                        ->helperText('Defaults to the Discord plugin\'s server.'),
+                        ->helperText('Defaults to the Discord plugin\'s server. DMs to rux act on it until an admin picks another server.'),
                     TextInput::make('timezone')
                         ->label('Time zone')
                         ->required()
@@ -89,12 +114,12 @@ final class RuxSettings
                         ->label('Default giveaway channel id')
                         ->nullable()
                         ->regex('/^\d{17,20}$/')
-                        ->helperText('Used when an order names no channel.'),
+                        ->helperText('On the main server. Used when an order names no channel.'),
                     TextInput::make('mod_log_channel_id')
                         ->label('Mod log channel id')
                         ->nullable()
                         ->regex('/^\d{17,20}$/')
-                        ->helperText('Every moderation action is posted here.'),
+                        ->helperText('On the main server. Every moderation action there is posted here.'),
                     TextInput::make('max_credits')
                         ->label('Most credits per winner')
                         ->numeric()
@@ -122,6 +147,7 @@ final class RuxSettings
                         ->maxValue(1000000)
                         ->required(),
                 ]),
+            self::serversSection(),
             Section::make('Warnings')
                 ->description('Warnings add up until an admin clears them. From the first number on, every new warning also times the member out; from the second, it bans them for a while. 0 turns a step off.')
                 ->columns(2)
@@ -144,9 +170,62 @@ final class RuxSettings
                         ->label('Our own sites')
                         ->nullable()
                         ->regex('/^\s*[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\s*,\s*[A-Za-z0-9.-]+\.[A-Za-z]{2,})*\s*$/')
-                        ->helperText('Domains the checks treat as this host\'s own, never a scam or an advert, each with its subdomains (comma separated, e.g. example.com). The panel\'s and the status page\'s addresses and the Discord invite always count.'),
+                        ->helperText('Domains the checks treat as this host\'s own on every server, never a scam or an advert, each with its subdomains (comma separated, e.g. example.com). The panel\'s and the status page\'s addresses and the Discord invite always count.'),
                 ]),
         ];
+    }
+
+    /**
+     * More servers, one part per slot: the used ones and the next two free ones (saving shows
+     * more).
+     */
+    private static function serversSection(): Section
+    {
+        $used = array_values(array_filter(EnvRuxSettingsSource::SLOTS, static fn (int $slot): bool => trim((string) config("plugged-host-ai.rux.servers.{$slot}.id", '')) !== ''));
+        $free = array_values(array_diff(EnvRuxSettingsSource::SLOTS, $used));
+        $shown = array_merge($used, array_slice($free, 0, 2));
+        sort($shown);
+
+        $domain = '/^\s*[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\s*,\s*[A-Za-z0-9.-]+\.[A-Za-z]{2,})*\s*$/';
+
+        return Section::make('More Discord servers')
+            ->description('rux can work on more servers with the same bot (invite it to each, see the invite link above). Each server has its own rules, watched channels, moderator roles, warnings, cases and giveaways; admins, the main admin and credits are the same everywhere. An order in a server acts on that server only; in a DM, an admin or moderator tells rux which server they mean. Clearing a server id stops rux there.')
+            ->schema(array_map(static fn (int $slot): Section => Section::make('Server ' . $slot)
+                ->statePath("server_{$slot}")
+                ->columns(2)
+                ->compact()
+                ->schema([
+                    TextInput::make('id')
+                        ->label('Discord server id')
+                        ->nullable()
+                        ->regex('/^\d{17,20}$/')
+                        ->different('../guild_id'),
+                    TextInput::make('name')
+                        ->label('Name')
+                        ->nullable()
+                        ->maxLength(60)
+                        ->helperText('Who the server belongs to in rux\'s prompts, e.g. example.cloud. Empty: ' . config('app.name') . '.'),
+                    TextInput::make('about')
+                        ->label('What it is')
+                        ->nullable()
+                        ->maxLength(200)
+                        ->columnSpanFull()
+                        ->helperText('Completes "<name> is …", e.g. "a free VPS host". Empty: ' . RuxGuild::DEFAULT_ABOUT . '.'),
+                    TextInput::make('giveaway_channel_id')
+                        ->label('Default giveaway channel id')
+                        ->nullable()
+                        ->regex('/^\d{17,20}$/'),
+                    TextInput::make('mod_log_channel_id')
+                        ->label('Mod log channel id')
+                        ->nullable()
+                        ->regex('/^\d{17,20}$/'),
+                    TextInput::make('trusted_domains')
+                        ->label('Its own sites')
+                        ->nullable()
+                        ->regex($domain)
+                        ->columnSpanFull()
+                        ->helperText('More domains the checks treat as the host\'s own on this server, on top of "Our own sites".'),
+                ]), $shown));
     }
 
     /**
@@ -181,6 +260,47 @@ final class RuxSettings
             $values['RUX_BOT_TOKEN'] = $token;
         }
 
+        return $values + self::serversEnv($data);
+    }
+
+    /**
+     * RUX_GUILD_{n}_* for the slots the form showed (one it did not show is left as it is).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, string>
+     */
+    private static function serversEnv(array $data): array
+    {
+        $values = [];
+        $line = static fn (mixed $value, int $max): string => mb_substr(trim((string) preg_replace('/[\r\n\0]+/', ' ', (string) $value)), 0, $max);
+
+        foreach (EnvRuxSettingsSource::SLOTS as $slot) {
+            $server = $data["server_{$slot}"] ?? null;
+
+            if (!is_array($server)) {
+                continue;
+            }
+
+            $id = trim((string) ($server['id'] ?? ''));
+            $fields = [
+                'ID' => preg_match('/^\d{17,20}$/', $id) === 1 ? $id : '',
+                'NAME' => $line($server['name'] ?? '', 60),
+                'ABOUT' => $line($server['about'] ?? '', 200),
+                'GIVEAWAY_CHANNEL_ID' => trim((string) ($server['giveaway_channel_id'] ?? '')),
+                'MOD_LOG_CHANNEL_ID' => trim((string) ($server['mod_log_channel_id'] ?? '')),
+                'TRUSTED_DOMAINS' => implode(',', array_values(array_filter(array_map(static fn (string $d): string => strtolower(trim($d)), explode(',', (string) ($server['trusted_domains'] ?? '')))))),
+            ];
+
+            // An empty slot that was never used adds nothing to the .env.
+            if (implode('', $fields) === '' && implode('', array_map('strval', array_filter((array) config("plugged-host-ai.rux.servers.{$slot}", []), 'is_string'))) === '') {
+                continue;
+            }
+
+            foreach ($fields as $key => $value) {
+                $values["RUX_GUILD_{$slot}_{$key}"] = $value;
+            }
+        }
+
         return $values;
     }
 
@@ -205,12 +325,12 @@ final class RuxSettings
 
         $supervisor = app(RuxSupervisor::class);
         $status = $supervisor->readStatus();
-        $invite = RuxConfig::inviteUrl();
+        $invite = self::invites();
 
         if (!$supervisor->isRunning()) {
             return Callout::make('rux is starting')
                 ->info()
-                ->description('The supervisor starts it within a minute. If this stays, see storage/logs/rux.log.' . ($invite !== null ? " Invite link: {$invite}" : ''));
+                ->description('The supervisor starts it within a minute. If this stays, see storage/logs/rux.log.' . $invite);
         }
 
         $since = (int) ($status['ready_at'] ?? 0);
@@ -226,7 +346,24 @@ final class RuxSettings
             ->description(
                 'Connected as ' . ($status['bot_username'] ?? 'rux')
                 . ($since > 0 ? ' since ' . Carbon::createFromTimestamp($since)->diffForHumans() : '')
-                . '.' . ($invite !== null ? " Invite link: {$invite}" : '')
+                . '.' . $invite
             );
+    }
+
+    /**
+     * " Invite links: <server>: <link>; …", one per server, each preselecting it ('' without a
+     * bot token).
+     */
+    private static function invites(): string
+    {
+        if (RuxConfig::inviteUrl() === null) {
+            return '';
+        }
+
+        $guilds = RuxConfig::guilds();
+
+        return count($guilds) <= 1
+            ? ' Invite link: ' . RuxConfig::inviteUrl($guilds[0]->id ?? null)
+            : ' Invite links: ' . implode('; ', array_map(static fn (RuxGuild $guild): string => $guild->hostName() . ': ' . RuxConfig::inviteUrl($guild->id), $guilds));
     }
 }

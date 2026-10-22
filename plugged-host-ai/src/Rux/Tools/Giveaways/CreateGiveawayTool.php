@@ -15,7 +15,7 @@ final class CreateGiveawayTool extends GiveawayTool
 
     public function description(): string
     {
-        return 'Start a credit giveaway: posts it with an Enter button. Entering always requires a Discord account linked to ' . app(AccountPortal::class)->name() . ' (automatic). At the end rux draws the winners and pays them automatically.';
+        return 'Start a credit giveaway on this server: posts it with an Enter button. The prize is always credits, nothing else. Entering always requires a Discord account linked to ' . app(AccountPortal::class)->name() . ' (automatic). At the end rux draws the winners and pays them automatically.';
     }
 
     public function parameters(): array
@@ -26,7 +26,7 @@ final class CreateGiveawayTool extends GiveawayTool
             'winners' => ['type' => 'integer', 'description' => 'How many winners. Default 1.'],
             'channel' => ['type' => 'string', 'description' => 'Channel to post in (#name, <#id> or id). Leave out to use the default giveaway channel.'],
             'exclude_recent_winners' => ['type' => 'integer', 'description' => 'Keep out everyone who won one of the last N giveaways. 0 = nobody kept out.'],
-            'title' => ['type' => 'string', 'description' => 'Optional headline, e.g. "Halloween giveaway". Default: "<credits> credits".'],
+            'title' => ['type' => 'string', 'description' => 'Optional headline naming the occasion, e.g. "Halloween giveaway"; never another prize (no Plus, tokens, RAM, Nitro or roles). Default: "<credits> credits".'],
         ], ['credits', 'ends_at']);
     }
 

@@ -2,6 +2,20 @@
 
 ## 2.2.0 (unreleased)
 
+- **rux on several Discord servers**: the main one (`RUX_GUILD_ID`) and up to nine more, set up in
+  the rux tab › "More Discord servers" (`RUX_GUILD_{2..10}_ID`, `_NAME`, `_ABOUT`,
+  `_GIVEAWAY_CHANNEL_ID`, `_MOD_LOG_CHANNEL_ID`, `_TRUSTED_DOMAINS`), behind the new
+  `Contracts\RuxSettingsSource` (standalone `Rux\Support\EnvRuxSettingsSource`). One gateway
+  serves all of them. Rules, watched channels (migration 020: `rux_watches.guild_id`, unique per
+  server, and `rux_watch_queue.guild_id`), moderator roles, warnings and their steps, bans, the
+  case log, the mod log and giveaways are per server; admins and the main admin are global. An
+  order in a server acts on that server only; DMs act on the main server or the one picked with
+  the new `switch_server`. The checks name each server's host and own sites; the denied cache is
+  per server; the supervisor restarts the daemon when the server list changes; the settings page
+  and `rux-supervise --status` list the servers and an invite link per server.
+- **Credits are all rux gives**: giveaway titles cannot promise another prize, `manage_role` does
+  not give reward roles (booster roles), the prompt says so, and a test pins the tool list.
+
 - **Neutral defaults for other installs** (plugged.host's own values move to its `.env`):
   - neo's prompts (panel and Discord) name the panel (`APP_NAME`) instead of plugged.host, the
     status page from `plugged-host-core.status_url`, the backups site from
