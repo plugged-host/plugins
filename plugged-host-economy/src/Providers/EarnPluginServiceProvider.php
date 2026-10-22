@@ -10,6 +10,7 @@ use Illuminate\Support\ServiceProvider;
 use PluggedHost\Economy\Filament\App\Pages\EarnTokensPage;
 use PluggedHost\Economy\Services\Rewards\LinkvertiseProvider;
 use PluggedHost\Economy\Services\Rewards\RewardRegistry;
+use PluggedHost\Economy\Services\Rewards\VyloProvider;
 use PluggedHost\Economy\Services\TokenEarnService;
 use Throwable;
 
@@ -37,6 +38,7 @@ class EarnPluginServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(LinkvertiseProvider::class);
+        $this->app->singleton(VyloProvider::class);
         $this->app->singleton(RewardRegistry::class);
         $this->app->singleton(TokenEarnService::class);
     }

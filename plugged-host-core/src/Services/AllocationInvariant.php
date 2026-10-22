@@ -8,6 +8,7 @@ use App\Models\Server;
 use Closure;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 final class AllocationInvariant
 {
@@ -57,10 +58,37 @@ final class AllocationInvariant
             return;
         }
 
+        if ($allocation->server_id === null && self::claimFreePrimary($server, $allocation)) {
+            return;
+        }
+
         throw_if(
             $allocation->server_id !== $server->id,
             new DisplayException('The primary network allocation must be assigned to this server.')
         );
+    }
+
+    /**
+     * A server whose primary allocation is still free claims it instead of failing every save.
+     *
+     * Happens when a create's allocation link was skipped (see Support\Tenancy): the server
+     * row exists, wings installed it, but the install callback's status update hit the
+     * servers trigger and the server stayed `installing` forever. The claim is conditional,
+     * so a row another server took meanwhile is left alone and the save still fails.
+     */
+    private static function claimFreePrimary(Server $server, Allocation $allocation): bool
+    {
+        $claimed = Allocation::withoutGlobalScopes()
+            ->whereKey($allocation->getKey())
+            ->whereNull('server_id')
+            ->where('node_id', $server->node_id)
+            ->update(['server_id' => $server->getKey(), 'is_locked' => true]);
+
+        if ($claimed === 1) {
+            Log::warning('[plugged-host-core] a server claimed its unlinked primary allocation', ['server' => $server->uuid, 'allocation' => $allocation->getKey()]);
+        }
+
+        return $claimed === 1;
     }
 
     public static function allowPrimaryDetach(Closure $callback): mixed

@@ -17,15 +17,19 @@ use PluggedHost\Ai\Services\Gateway\NotLinkedException;
  * The subject is a panel user (the chat), or a Discord account (neo on Discord): the account it is
  * linked to, or on its own at a share of the limits when nobody linked it.
  *
- * A chat turn asks for the model its user picked (Support\NeoModel): the premium slots, whose
- * tokens count premium_multiplier times, or the others.
+ * Every slot is a model people pick by name (Support\NeoModel); a chat turn runs on the picked one
+ * only (the default model when none was picked), never on another as a fallback. The limits mode
+ * says what is metered: 'models' (only limited models, each in a weekly window of its own) or
+ * 'all' (every model in the shared 5-hour and weekly windows, its multiplier times its tokens).
  *
- * A turn answers ['message' => ['content', 'tool_calls'], 'finish_reason', 'provider' => ['slot',
- * 'label', 'driver', 'model'], 'model' (premium or standard: which kind of slot answered), 'usage' =>
- * ['prompt_tokens', 'completion_tokens', 'total_tokens', 'multiplier', 'charged_tokens'], 'limits',
- * 'premium_model', 'account_id', 'linked']. limits is ['short' => window, 'long' => window], a window
- * ['used', 'limit', 'percent', 'active', 'started_at', 'resets_at', 'window_seconds'].
- * premium_model is ['label', 'multiplier'], or null while no premium slot is ready.
+ * A turn answers ['message' => ['content', 'tool_calls'], 'thinking' (what the model thought, or
+ * ''), 'finish_reason', 'provider' => ['slot', 'label', 'driver', 'model'], 'model' (the key of
+ * the model that answered), 'usage' => ['prompt_tokens', 'completion_tokens', 'total_tokens',
+ * 'multiplier', 'charged_tokens'], 'limits', 'mode', 'models', 'default_model', 'account_id',
+ * 'linked']. limits is ['short' => window, 'long' => window], a window ['used', 'limit', 'percent',
+ * 'active', 'started_at', 'resets_at', 'window_seconds']. models lists the usable models: ['key',
+ * 'label', 'description', 'access' (everyone, plus, plusplus), 'allowed', 'limited', 'multiplier',
+ * 'vision', 'thinking', 'window' (its weekly window when limited, else null)].
  */
 interface NeoBackend
 {
@@ -33,15 +37,18 @@ interface NeoBackend
     public function configured(): bool;
 
     /**
-     * One model turn for a panel user, in the canonical chat shape (OpenAI style).
+     * One model turn for a panel user, in the canonical chat shape (OpenAI style). With $onDelta
+     * the answer is handed on while it is written: $onDelta('text' or 'thinking', …), and
+     * $onDelta('reset', '') when what came so far is void (the call is being sent again).
      *
      * @param  list<array<string, mixed>>  $messages
      * @param  list<array<string, mixed>>  $tools
+     * @param  (callable(string, string): void)|null  $onDelta
      * @return array<string, mixed>
      *
      * @throws LimitReachedException|NotLinkedException|GatewayBusyException|GatewayUnavailableException
      */
-    public function turn(User $user, NeoConversation $conversation, array $messages, array $tools, string $toolChoice): array;
+    public function turn(User $user, NeoConversation $conversation, array $messages, array $tools, string $toolChoice, ?callable $onDelta = null): array;
 
     /**
      * One model turn for neo on Discord, metered against that Discord account.
@@ -66,10 +73,11 @@ interface NeoBackend
     public function discordUsage(string $discordId): array;
 
     /**
-     * The user's current windows and the premium model on offer. Null when unknown (the backend
-     * is down); ['linked' => false] when the backend does not know the user's account.
+     * The user's windows, the limits mode and the models they can pick: ['linked' => true,
+     * 'limits', 'mode', 'models', 'default_model']. Null when unknown (the backend is down);
+     * ['linked' => false] when the backend does not know the user's account.
      *
-     * @return array{linked: bool, limits?: array<string, mixed>|null, premium_model?: array{label: string, multiplier: int}|null}|null
+     * @return array<string, mixed>|null
      */
     public function usage(User $user): ?array;
 

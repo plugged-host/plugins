@@ -37,13 +37,13 @@ final class ListRulesTool extends RuxTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $ladder = (array) config('plugged-host-ai.rux.warnings', []);
+        $ladder = (array) RuxConfig::get('warnings', []);
 
         return ToolResult::ok([
             'rules' => RuxRule::query()->where('active', true)->where('guild_id', $context->guildId)->orderBy('id')->get()->map(fn (RuxRule $r): array => RuleService::summary($r))->all(),
             'watched_channels' => array_map(static fn (string $id): string => "<#{$id}>", $this->watch->watchedChannelIds($context->guildId, fresh: true)),
-            'watched_channel_guidelines' => config('plugged-host-ai.rux.watch.guidelines', true) ? array_values(WatchService::guidelines(RuxConfig::guild($context->guildId))) : 'off',
-            'automatic_spam' => config('plugged-host-ai.rux.spam.enabled', true)
+            'watched_channel_guidelines' => RuxConfig::get('watch.guidelines', true) ? array_values(WatchService::guidelines(RuxConfig::guild($context->guildId))) : 'off',
+            'automatic_spam' => RuxConfig::get('spam.enabled', true)
                 ? 'on, in every channel, without AI: ' . self::spamLimits()
                 : 'off',
             'warning_steps' => [
@@ -56,7 +56,7 @@ final class ListRulesTool extends RuxTool
 
     private static function spamLimits(): string
     {
-        $spam = (array) config('plugged-host-ai.rux.spam', []);
+        $spam = (array) RuxConfig::get('spam', []);
 
         return sprintf(
             '%d messages within %ds, the same message %d times within %ds, %d or more mentions, or %d or more emoji in one message: deleted, and the member warned at most once per %d minutes',
@@ -66,7 +66,7 @@ final class ListRulesTool extends RuxTool
             (int) ($spam['duplicate_seconds'] ?? 120),
             (int) ($spam['mentions'] ?? 6),
             (int) ($spam['emoji'] ?? 25),
-            max(1, intdiv(max(30, (int) config('plugged-host-ai.rux.rules.cooldown_seconds', 300)), 60)),
+            max(1, intdiv(max(30, (int) RuxConfig::get('rules.cooldown_seconds', 300)), 60)),
         );
     }
 }

@@ -97,7 +97,7 @@ class RuleService
         }
 
         $limiter = 'plugged-host-ai:rux:rule-checks:' . $author['id'];
-        if (RateLimiter::tooManyAttempts($limiter, (int) config('plugged-host-ai.rux.rules.checks_per_member_per_minute', 3))) {
+        if (RateLimiter::tooManyAttempts($limiter, (int) RuxConfig::get('rules.checks_per_member_per_minute', 3))) {
             return null;
         }
         RateLimiter::hit($limiter, 60);
@@ -176,7 +176,7 @@ class RuleService
                 continue;
             }
 
-            if (!Cache::add($cooldown, true, max(30, (int) config('plugged-host-ai.rux.rules.cooldown_seconds', 300)))) {
+            if (!Cache::add($cooldown, true, max(30, (int) RuxConfig::get('rules.cooldown_seconds', 300)))) {
                 continue;
             }
 

@@ -285,6 +285,20 @@
                         @endif
                     @elseif(!is_array($settings['limits']))
                         <div class="neo-set-hint">{{ $s('profile.unavailable') }}</div>
+                    @elseif($settings['mode'] === 'models')
+                        {{-- Limits by model: only the limited ones have a (weekly) window. --}}
+                        @forelse($settings['model_windows'] as $model)
+                            @php $percent = max(0, min(100, (int) ($model['window']['percent'] ?? 0))); @endphp
+                            <div class="neo-usage">
+                                <div class="neo-usage-head">
+                                    <span>{{ $model['label'] }} · {{ $s('profile.long_window') }}</span>
+                                    <span>{{ $percent }}% · {{ $s('profile.resets', ['time' => $resetsAt($model['window'], 'ddd HH:mm')]) }}</span>
+                                </div>
+                                <div class="neo-bar neo-bar-lg {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
+                            </div>
+                        @empty
+                        @endforelse
+                        <div class="neo-set-hint">{{ $s('profile.unlimited_models') }}</div>
                     @else
                         @foreach(['short' => [$s('profile.short_window'), 'HH:mm'], 'long' => [$s('profile.long_window'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
                             @php $percent = max(0, min(100, (int) ($settings['limits'][$window]['percent'] ?? 0))); @endphp
@@ -374,8 +388,14 @@
                                     <div class="neo-msg-user">{{ $message->content }}</div>
                                 @endif
                             @elseif($message->role === 'assistant')
+                                @if(filled($message->meta['thinking'] ?? null))
+                                    <details class="neo-preview neo-thought">
+                                        <summary>{{ $s('chat.thought') }}</summary>
+                                        <pre>{{ $message->meta['thinking'] }}</pre>
+                                    </details>
+                                @endif
                                 @if(filled($message->content))
-                                    <div class="neo-msg-ai">{!! \Illuminate\Support\Str::markdown($message->content, ['html_input' => 'escape', 'allow_unsafe_links' => false], [new \PluggedHost\Ai\Support\Markdown\ImagesAsTextExtension()]) !!}</div>
+                                    <div class="neo-msg-ai">{!! \PluggedHost\Ai\Livewire\NeoChat::markdown($message->content, (string) $message->id) !!}</div>
                                 @endif
                             @elseif($message->role === 'tool')
                                 @php
@@ -440,6 +460,11 @@
                         <button type="button" class="neo-btn" x-bind:disabled="working" x-on:click="run(() => $wire.approveAll())">{{ $s('chat.approve_all', ['count' => $pending]) }}</button>
                     @endif
 
+                    {{-- The answer while the model writes it (NeoChat::live()); every response empties it again,
+                         and the finished message takes its place. --}}
+                    <div class="neo-live-think" wire:stream="neo-live-think"></div>
+                    <div class="neo-msg-ai neo-live-text" wire:stream="neo-live-text"></div>
+
                     <div class="neo-typing" x-show="working" aria-label="{{ $s('chat.working') }}"><i></i><i></i><i></i></div>
                 </div>
 
@@ -449,52 +474,64 @@
                     @if($models || $usage)
                         <div class="neo-tools">
                             @if($models)
-                                {{-- The model picker: only there while noprofit.space offers a premium model. --}}
+                                {{-- The model picker: every model there is, by the name it was given. --}}
+                                @php $currentModel = collect($models['list'])->firstWhere('key', $models['current']); @endphp
                                 <div class="neo-model" x-data="{ menu: false }" x-on:click.outside="menu = false" x-on:keydown.escape="menu = false">
                                     <button type="button" class="neo-model-btn" x-on:click="menu = !menu" x-bind:aria-expanded="menu ? 'true' : 'false'" x-bind:disabled="working"
                                             aria-haspopup="menu" title="{{ $s('chat.model') }}">
-                                        <span>{{ $models['current'] === 'premium' ? $models['premium']['label'] : $s('chat.model_standard') }}</span>
+                                        <span>{{ $currentModel['label'] ?? $s('chat.model') }}</span>
                                         {!! $icon('tabler-chevron-up', 'neo-i-sm') !!}
                                     </button>
                                     <div class="neo-menu" role="menu" aria-label="{{ $s('chat.model') }}" x-show="menu" x-cloak>
-                                        @if(!$models['allowed'] && $models['plus_url'])
-                                            {{-- Without PlusPlus the premium model leads to where PlusPlus is sold. --}}
-                                            <a class="neo-model-opt neo-model-locked" role="menuitem" href="{{ $models['plus_url'] }}">
-                                                <span class="neo-model-text">
-                                                    <span class="neo-model-name">{{ $models['premium']['label'] }}</span>
-                                                    <span class="neo-model-hint">{{ $s('chat.model_premium_hint', ['multiplier' => $models['premium']['multiplier']]) }}</span>
-                                                </span>
-                                            </a>
-                                        @else
-                                            <button type="button" class="neo-model-opt {{ $models['allowed'] ? '' : 'neo-model-locked' }}" role="menuitemradio"
-                                                    aria-checked="{{ $models['current'] === 'premium' ? 'true' : 'false' }}" @disabled(!$models['allowed'])
-                                                    x-on:click="menu = false; $wire.setModel('premium')">
-                                                <span class="neo-model-text">
-                                                    <span class="neo-model-name">{{ $models['premium']['label'] }}</span>
-                                                    <span class="neo-model-hint">{{ $s('chat.model_premium_hint', ['multiplier' => $models['premium']['multiplier']]) }}</span>
-                                                </span>
-                                                @if($models['current'] === 'premium')
-                                                    {!! $icon('tabler-check', 'neo-i-sm neo-model-check') !!}
-                                                @endif
-                                            </button>
-                                        @endif
-                                        <button type="button" class="neo-model-opt" role="menuitemradio" aria-checked="{{ $models['current'] === 'standard' ? 'true' : 'false' }}"
-                                                x-on:click="menu = false; $wire.setModel('standard')">
-                                            <span class="neo-model-text">
-                                                <span class="neo-model-name">{{ $s('chat.model_standard') }}</span>
-                                                <span class="neo-model-hint">{{ $s('chat.model_standard_hint') }}</span>
-                                            </span>
-                                            @if($models['current'] === 'standard')
-                                                {!! $icon('tabler-check', 'neo-i-sm neo-model-check') !!}
+                                        @foreach($models['list'] as $option)
+                                            @php
+                                                $locked = empty($option['allowed']);
+                                                $plan = ($option['access'] ?? 'everyone') === 'plusplus' ? $s('chat.plan_plusplus') : $s('chat.plan_plus');
+                                                $hint = collect([
+                                                    $option['description'] ?? null,
+                                                    $models['mode'] === 'all' && (int) ($option['multiplier'] ?? 1) > 1 ? $s('chat.model_multiplier', ['multiplier' => (int) $option['multiplier']]) : null,
+                                                    $models['mode'] === 'models' && !empty($option['limited']) ? $s('chat.model_weekly') : null,
+                                                    ($option['access'] ?? 'everyone') !== 'everyone' ? $s('chat.model_plan', ['plan' => $plan]) : null,
+                                                ])->filter()->implode(' · ');
+                                            @endphp
+                                            @if($locked && $models['plus_url'])
+                                                {{-- A model the plan does not open leads to where Plus is sold. --}}
+                                                <a class="neo-model-opt neo-model-locked" role="menuitem" href="{{ $models['plus_url'] }}">
+                                                    <span class="neo-model-text">
+                                                        <span class="neo-model-name">{{ $option['label'] }}</span>
+                                                        @if($hint !== '')
+                                                            <span class="neo-model-hint">{{ $hint }}</span>
+                                                        @endif
+                                                    </span>
+                                                </a>
+                                            @else
+                                                <button type="button" class="neo-model-opt {{ $locked ? 'neo-model-locked' : '' }}" role="menuitemradio" wire:key="neo-model-{{ $option['key'] }}"
+                                                        aria-checked="{{ $models['current'] === $option['key'] ? 'true' : 'false' }}" @disabled($locked)
+                                                        x-on:click="menu = false; $wire.setModel(@js($option['key']))">
+                                                    <span class="neo-model-text">
+                                                        <span class="neo-model-name">{{ $option['label'] }}</span>
+                                                        @if($hint !== '')
+                                                            <span class="neo-model-hint">{{ $hint }}</span>
+                                                        @endif
+                                                    </span>
+                                                    @if($models['current'] === $option['key'])
+                                                        {!! $icon('tabler-check', 'neo-i-sm neo-model-check') !!}
+                                                    @endif
+                                                </button>
                                             @endif
-                                        </button>
+                                        @endforeach
                                     </div>
                                 </div>
                             @endif
 
+                            @if(!$usage && !empty($models['unlimited']))
+                                <div class="neo-meter neo-meter-note">{{ $s('chat.no_limit') }}</div>
+                            @endif
+
                             @if($usage)
                                 <div class="neo-meter">
-                                    @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
+                                    @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm'], 'week' => [$s('chat.window_long'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
+                                        @continue(!is_array($usage[$window] ?? null))
                                         @php $percent = max(0, min(100, (int) ($usage[$window]['percent'] ?? 0))); @endphp
                                         <div class="neo-meter-item" title="{{ $s('chat.usage_title', ['window' => $windowLabel, 'percent' => $percent, 'time' => $resetsAt($usage[$window] ?? null, $format)]) }}">
                                             <span>{{ $windowLabel }}</span>

@@ -6,6 +6,7 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
@@ -14,10 +15,13 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use PluggedHost\Ads\Filament\Server\Pages\StartGatePage;
 use PluggedHost\Ads\Http\Controllers\AdBannerClickController;
+use PluggedHost\Ads\Http\Middleware\SiteVerificationPage;
 use PluggedHost\Ads\Models\AdBanner;
 use PluggedHost\Ads\Services\AdBannerService;
 use PluggedHost\Ads\Services\AdDisplayService;
 use PluggedHost\Ads\Services\AdsterraService;
+use PluggedHost\Ads\Services\MonetagService;
+use PluggedHost\Ads\Services\SiteVerification;
 use Throwable;
 
 class AdsPluginServiceProvider extends ServiceProvider
@@ -27,6 +31,7 @@ class AdsPluginServiceProvider extends ServiceProvider
         $this->app->singleton(AdBannerService::class);
         $this->app->singleton(AdsterraService::class);
         $this->app->singleton(AdDisplayService::class);
+        $this->app->singleton(MonetagService::class);
     }
 
     public function boot(): void
@@ -49,6 +54,37 @@ class AdsPluginServiceProvider extends ServiceProvider
         $this->registerAdBlockResponse();
         $this->registerUnitScript();
         $this->registerBannerClicks();
+        $this->registerSiteVerification();
+    }
+
+    /**
+     * Ad networks' site-verification meta tags: in the head of every panel page, and on the
+     * page a signed-out visit to `/` gets instead of the redirect (SiteVerificationPage).
+     */
+    protected function registerSiteVerification(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::HEAD_END,
+            function (): ?Htmlable {
+                try {
+                    $tags = app(SiteVerification::class)->tags();
+
+                    return $tags === '' ? null : new HtmlString($tags);
+                } catch (Throwable) {
+                    return null;
+                }
+            },
+        );
+
+        if ($this->app->runningInConsole()) {
+            return;
+        }
+
+        $kernel = $this->app->make(Kernel::class);
+
+        if (method_exists($kernel, 'prependMiddleware')) {
+            $kernel->prependMiddleware(SiteVerificationPage::class);
+        }
     }
 
     /**
@@ -58,40 +94,102 @@ class AdsPluginServiceProvider extends ServiceProvider
      * is rendered once per page load (wire:navigate included) and never on a Livewire update:
      * a poll cannot swap it, and it rotates per page load, not per tick.
      *
-     * Nothing renders when no top banner is live, so there is no empty box. Who sees it is the
-     * same rule as every other ad (AdDisplayService::showsAdsTo()); it needs no Adsterra.
+     * The `top` named slot (an Adsterra leaderboard) sits in the same place, under the top
+     * banner when one is live, so the most visible spot always earns — except on the waiting rooms,
+     * which carry their own units, and the suspended page, which is a dead end. Who sees either
+     * is the same rule as every other ad (AdDisplayService::showsAdsTo()).
      */
     protected function registerTopBanner(): void
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_START,
-            function (): ?Htmlable {
-                try {
-                    [$user, $panelId, $isAuthPage] = $this->context();
-
-                    if (!in_array($panelId, ['app', 'server'], true)) {
-                        return null;
-                    }
-
-                    $banners = app(AdBannerService::class);
-
-                    // The cache read first: most pages have no top banner, and the audience
-                    // rule can reach the database (roles, memberships).
-                    if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)
-                        || !app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
-                        return null;
-                    }
-
-                    $unit = $banners->top();
-
-                    return $unit === null ? null : new HtmlString(view('plugged-host-ads::filament.top-banner', [
-                        'unit' => $unit,
-                    ])->render());
-                } catch (Throwable) {
-                    return null;
-                }
-            },
+            fn (array $scopes = []): ?Htmlable => $this->topOfPage($scopes),
         );
+    }
+
+    /** The top of the page, decided once per request: see topOfPage(). */
+    private ?Htmlable $topOfPage = null;
+
+    private bool $topDecided = false;
+
+    /**
+     * What goes at the top of the page, decided once per request and remembered.
+     *
+     * The page component renders before the layout, so without this the server-tools strip
+     * (inside the page) would take the leaderboard zones before CONTENT_START asks for them,
+     * and the most visible spot would get what is left. The strip asks for the top first
+     * instead, on full page loads and Livewire updates alike (the strip renders on both), so
+     * the two always agree on which zones are on the page.
+     *
+     * @param  array<int, string>  $scopes
+     */
+    protected function topOfPage(array $scopes): ?Htmlable
+    {
+        if ($this->topDecided) {
+            return $this->topOfPage;
+        }
+
+        $this->topDecided = true;
+
+        try {
+            [$user, $panelId, $isAuthPage] = $this->context();
+
+            if (!in_array($panelId, ['app', 'server'], true)) {
+                return null;
+            }
+
+            $banners = app(AdBannerService::class);
+
+            // The cache read first: most pages have no top banner, and the audience
+            // rule can reach the database (roles, memberships).
+            if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)) {
+                return $this->topOfPage = $this->renderTopSlot($scopes);
+            }
+
+            if (!app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
+                return null;
+            }
+
+            $unit = $banners->top();
+
+            if ($unit === null) {
+                return $this->topOfPage = $this->renderTopSlot($scopes);
+            }
+
+            // A live sponsored top banner goes first and the leaderboard right under it, so
+            // selling the top never takes the panel's best Adsterra placement away.
+            $html = view('plugged-host-ads::filament.top-banner', ['unit' => $unit])->render()
+                . $this->renderTopSlot($scopes)?->toHtml();
+
+            return $this->topOfPage = new HtmlString($html);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private const CONSOLE = 'App\\Filament\\Server\\Pages\\Console';
+
+    /** Pages the `top` leaderboard stays off: the waiting rooms (own units) and dead ends. */
+    private const NOT_TOP = [
+        StartGatePage::class,
+        'PluggedHost\\Queue\\Filament\\Server\\Pages\\StartQueuePage',
+        'PluggedHost\\Limbo\\Filament\\Server\\Pages\\RestoreFromLimboPage',
+        'PluggedHost\\Core\\Filament\\Server\\Pages\\SuspendedServerPage',
+    ];
+
+    /**
+     * The `top` named slot, or null on the pages it stays off. The slot's own grant
+     * (AdDisplayService::slot()) applies the audience rule, the interstitial routes and the cap.
+     *
+     * @param  array<int, string>  $scopes
+     */
+    protected function renderTopSlot(array $scopes): ?Htmlable
+    {
+        if (array_intersect($scopes, self::NOT_TOP) !== [] || StartGatePage::isCurrentRoute()) {
+            return null;
+        }
+
+        return $this->renderNamedSlot('top');
     }
 
     /**
@@ -186,6 +284,9 @@ class AdsPluginServiceProvider extends ServiceProvider
                 } catch (Throwable) {
                     return null;
                 }
+
+                // The top of the page picks its zones first (see topOfPage()).
+                $this->topOfPage($scopes);
 
                 return $this->renderNamedSlot('server-tools');
             },
@@ -301,7 +402,7 @@ class AdsPluginServiceProvider extends ServiceProvider
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::BODY_END,
-            function (): ?Htmlable {
+            function (array $scopes = []): ?Htmlable {
                 try {
                     $ads = app(AdDisplayService::class);
 
@@ -312,17 +413,27 @@ class AdsPluginServiceProvider extends ServiceProvider
                     }
 
                     $adsterra = app(AdsterraService::class);
+                    $waitingRoom = StartGatePage::isCurrentRoute() || $ads->onInterstitialRoute();
 
-                    $scripts = StartGatePage::isCurrentRoute() || $ads->onInterstitialRoute()
-                        ? $adsterra->gateScripts()
-                        : $adsterra->pageScripts();
+                    $scripts = $waitingRoom ? $adsterra->gateScripts() : $adsterra->pageScripts();
 
-                    if ($scripts === []) {
+                    // Monetag: ordinary app and server pages only. Not the waiting rooms (their
+                    // own units), the dead ends, or the console, where a card or a full-screen ad
+                    // would land on top of what someone is typing.
+                    $monetag = $waitingRoom
+                        || !in_array($panelId, ['app', 'server'], true)
+                        || array_intersect($scopes, [...self::NOT_TOP, self::CONSOLE]) !== []
+                        ? []
+                        : app(MonetagService::class)->pageTags($user);
+
+                    if ($scripts === [] && $monetag === []) {
                         return null;
                     }
 
                     return new HtmlString(view('plugged-host-ads::filament.adsterra-page-scripts', [
                         'scripts' => $scripts,
+                    ])->render() . view('plugged-host-ads::filament.monetag-tags', [
+                        'tags' => $monetag,
                     ])->render());
                 } catch (Throwable) {
                     return null;

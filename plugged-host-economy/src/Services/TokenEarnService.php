@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use PluggedHost\Economy\Models\TokenClaim;
 use PluggedHost\Economy\Services\Rewards\RewardProvider;
 use PluggedHost\Economy\Services\Rewards\RewardRegistry;
+use PluggedHost\Economy\Services\Rewards\VerifiesClaim;
 use PluggedHost\Economy\Models\TokenTransaction;
 use PluggedHost\Economy\Services\TokenService;
 use RuntimeException;
@@ -321,7 +322,11 @@ class TokenEarnService
                 return $this->result(self::RESULT_CAPPED, 0, $provider->key());
             }
 
-            if (!$provider->verifyToken($token)) {
+            $verified = $provider instanceof VerifiesClaim
+                ? $provider->verifyClaim($claim, $token)
+                : $provider->verifyToken($token);
+
+            if (!$verified) {
                 $claim->markRejected('not_verified');
 
                 return $this->result(self::RESULT_INVALID, 0, $provider->key());

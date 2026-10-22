@@ -49,7 +49,7 @@ class ModerationService
         $warnings = $this->warningCount($context->guildId, $target['id']);
         $escalation = null;
 
-        $ladder = (array) config('plugged-host-ai.rux.warnings', []);
+        $ladder = (array) RuxConfig::get('warnings', []);
         $banAt = (int) ($ladder['ban_at'] ?? 0);
         $timeoutAt = (int) ($ladder['timeout_at'] ?? 0);
         $why = RuxConfig::say('notice.warnings_reached', ['count' => $warnings]);

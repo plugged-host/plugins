@@ -73,7 +73,7 @@ final class RuxInbox
         }
 
         $limiter = "plugged-host-ai:rux:inbox:{$authorId}";
-        if (RateLimiter::tooManyAttempts($limiter, max(1, (int) config('plugged-host-ai.rux.messages_per_minute', 6)))) {
+        if (RateLimiter::tooManyAttempts($limiter, max(1, (int) RuxConfig::get('messages_per_minute', 6)))) {
             return null;
         }
         RateLimiter::hit($limiter, 60);
@@ -98,7 +98,7 @@ final class RuxInbox
             'author_id' => $authorId,
             'author_name' => mb_substr((string) ($message['member']['nick'] ?? $author['global_name'] ?? $author['username'] ?? ''), 0, 100) ?: null,
             'role' => RuxMessage::USER,
-            'content' => mb_substr($content, 0, max(200, (int) config('plugged-host-ai.rux.agent.max_message_chars', 4000))),
+            'content' => mb_substr($content, 0, max(200, (int) RuxConfig::get('agent.max_message_chars', 4000))),
             'status' => RuxMessage::PENDING,
             'meta' => array_filter([
                 'mentions' => $mentions ?: null,

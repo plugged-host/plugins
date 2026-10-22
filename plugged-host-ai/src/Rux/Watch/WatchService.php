@@ -250,7 +250,7 @@ class WatchService
     private function judge(RuxGuild $guild, array $items, float $budget): ?array
     {
         $rules = RuxRule::query()->where('active', true)->where('guild_id', $guild->id)->get();
-        $baseline = (bool) config('plugged-host-ai.rux.watch.guidelines', true);
+        $baseline = (bool) RuxConfig::get('watch.guidelines', true);
 
         $lines = [];
         foreach ($rules as $rule) {
@@ -338,7 +338,7 @@ class WatchService
     {
         $cooldown = "plugged-host-ai:rux:rule-cooldown:{$guild->id}:{$code}:{$item->author_id}";
 
-        if (!Cache::add($cooldown, true, max(30, (int) config('plugged-host-ai.rux.rules.cooldown_seconds', 300)))) {
+        if (!Cache::add($cooldown, true, max(30, (int) RuxConfig::get('rules.cooldown_seconds', 300)))) {
             return;
         }
 

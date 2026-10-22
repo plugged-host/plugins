@@ -18,6 +18,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use PluggedHost\Ads\Http\Middleware\RedirectToStartGatePage;
 use PluggedHost\Ads\Services\AdDisplayService;
 use PluggedHost\Ads\Services\AdsterraService;
+use PluggedHost\Ads\Services\MonetagService;
 
 class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 {
@@ -77,6 +78,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
 
             // Named slots (WP4): each placement's own on/off, plus the per-page cap.
             'max_units_per_page' => (int) config('plugged-host-ads.max_units_per_page', 2),
+            'slot_top' => (bool) config('plugged-host-ads.placements.top.enabled', true),
             'slot_sidebar_footer' => (bool) config('plugged-host-ads.placements.sidebar-footer.enabled', true),
             'slot_create' => (bool) config('plugged-host-ads.placements.create-under-plan.enabled', true),
             'slot_store' => (bool) config('plugged-host-ads.placements.store-under-tx.enabled', true),
@@ -116,12 +118,24 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'start_linkvertise_enabled' => (bool) config('plugged-host-ads.start_credits.linkvertise.enabled', false),
             'start_linkvertise_user_id' => (string) config('plugged-host-ads.start_credits.linkvertise.user_id', ''),
             'start_linkvertise_whitelist' => (string) config('plugged-host-ads.start_credits.linkvertise.whitelist', 'lvr='),
+            'monetag_in_page_push' => MonetagService::snippet(app(MonetagService::class)->tag('in_page_push')),
+            'monetag_vignette' => MonetagService::snippet(app(MonetagService::class)->tag('vignette')),
+            'monetag_vignette_minutes' => (int) config('plugged-host-ads.monetag.vignette_minutes', 10),
+            'monetag_vignette_plus' => (bool) config('plugged-host-ads.monetag.vignette_plus', false),
+
             'start_linkvertise_link' => (string) config('plugged-host-ads.start_credits.linkvertise.link', ''),
             // Secret (Anti-Bypass verification token): never surface the stored value.
             // Blank means "unchanged" on save.
             'start_linkvertise_token' => '',
             'start_linkvertise_reward' => (int) config('plugged-host-ads.start_credits.linkvertise.reward', 1),
             'start_linkvertise_daily_cap' => (int) config('plugged-host-ads.start_credits.linkvertise.daily_cap', 5),
+
+            'start_vylo_enabled' => (bool) config('plugged-host-ads.start_credits.vylo.enabled', false),
+            // Secret: blank means "unchanged" on save, like the Linkvertise token.
+            'start_vylo_api_key' => '',
+            'start_vylo_reward' => (int) config('plugged-host-ads.start_credits.vylo.reward', 1),
+            'start_vylo_daily_cap' => (int) config('plugged-host-ads.start_credits.vylo.daily_cap', 5),
+            'start_vylo_min_seconds' => (int) config('plugged-host-ads.start_credits.vylo.min_seconds', 10),
 
             'start_gate_navigation' => (bool) config('plugged-host-ads.start_credits.gate_on_navigation', false),
             'start_gate_ad_banner' => (bool) config('plugged-host-ads.start_credits.gate_ads.banner', true),
@@ -138,6 +152,7 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
     public function getSettingsForm(): array
     {
         $hasLvToken = filled(config('plugged-host-ads.start_credits.linkvertise.token'));
+        $hasVyloKey = filled(config('plugged-host-ads.start_credits.vylo.api_key'));
 
         return [
             Section::make(trans('plugged-host-ads::strings.section_general'))
@@ -242,6 +257,38 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->default(fn () => config('plugged-host-ads.adsterra.frame_sandbox', '')),
                 ]),
 
+            Section::make(trans('plugged-host-ads::strings.section_monetag'))
+                ->description(trans('plugged-host-ads::strings.section_monetag_desc'))
+                ->columns(2)
+                ->schema([
+                    Textarea::make('monetag_in_page_push')
+                        ->label(trans('plugged-host-ads::strings.monetag_in_page_push'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_in_page_push_helper'))
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->default(fn () => MonetagService::snippet(app(MonetagService::class)->tag('in_page_push'))),
+                    Textarea::make('monetag_vignette')
+                        ->label(trans('plugged-host-ads::strings.monetag_vignette'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_vignette_helper'))
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->default(fn () => MonetagService::snippet(app(MonetagService::class)->tag('vignette'))),
+                    TextInput::make('monetag_vignette_minutes')
+                        ->label(trans('plugged-host-ads::strings.monetag_vignette_minutes'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_vignette_minutes_helper'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(1440)
+                        ->default(fn () => config('plugged-host-ads.monetag.vignette_minutes', 10)),
+                    Toggle::make('monetag_vignette_plus')
+                        ->label(trans('plugged-host-ads::strings.monetag_vignette_plus'))
+                        ->helperText(trans('plugged-host-ads::strings.monetag_vignette_plus_helper'))
+                        ->inline(false)
+                        ->onIcon(TablerIcon::Check)
+                        ->offIcon(TablerIcon::X)
+                        ->default(fn () => config('plugged-host-ads.monetag.vignette_plus', false)),
+                ]),
+
             Section::make(trans('plugged-host-ads::strings.section_placements'))
                 ->description(trans('plugged-host-ads::strings.section_placements_desc'))
                 ->columns(2)
@@ -285,6 +332,13 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->required()
                         ->columnSpan(2)
                         ->default(fn () => config('plugged-host-ads.max_units_per_page', 2)),
+                    Toggle::make('slot_top')
+                        ->label(trans('plugged-host-ads::strings.slot_top'))
+                        ->helperText(trans('plugged-host-ads::strings.slot_top_helper'))
+                        ->inline(false)
+                        ->onIcon(TablerIcon::Check)
+                        ->offIcon(TablerIcon::X)
+                        ->default(fn () => config('plugged-host-ads.placements.top.enabled', true)),
                     Toggle::make('slot_sidebar_footer')
                         ->label(trans('plugged-host-ads::strings.slot_sidebar_footer'))
                         ->helperText(trans('plugged-host-ads::strings.slot_sidebar_footer_helper'))
@@ -624,6 +678,47 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
                         ->maxValue(1440)
                         ->visible(fn (Get $get): bool => (bool) $get('start_linkvertise_enabled'))
                         ->default(fn () => config('plugged-host-ads.start_credits.claim_ttl_minutes', 30)),
+                    Toggle::make('start_vylo_enabled')
+                        ->label(trans('plugged-host-ads::strings.start_provider_enabled', ['provider' => 'Vylo']))
+                        ->inline(false)
+                        ->onIcon(TablerIcon::Check)
+                        ->offIcon(TablerIcon::X)
+                        ->columnSpanFull()
+                        ->live()
+                        ->default(fn () => config('plugged-host-ads.start_credits.vylo.enabled', false)),
+                    TextInput::make('start_vylo_api_key')
+                        ->label(trans('plugged-host-ads::strings.start_vylo_api_key'))
+                        ->helperText(trans('plugged-host-ads::strings.' . ($hasVyloKey ? 'secret_set_help' : 'start_vylo_api_key_helper')))
+                        ->password()
+                        ->revealable()
+                        ->autocomplete(false)
+                        ->columnSpan(3)
+                        ->placeholder($hasVyloKey ? '•••••••• ' . trans('plugged-host-ads::strings.secret_unchanged') : trans('plugged-host-ads::strings.secret_unset'))
+                        ->visible(fn (Get $get): bool => (bool) $get('start_vylo_enabled')),
+                    TextInput::make('start_vylo_reward')
+                        ->label(trans('plugged-host-ads::strings.start_reward'))
+                        ->helperText(trans('plugged-host-ads::strings.start_reward_helper', ['app' => config('app.name')]))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(50)
+                        ->visible(fn (Get $get): bool => (bool) $get('start_vylo_enabled'))
+                        ->default(fn () => config('plugged-host-ads.start_credits.vylo.reward', 1)),
+                    TextInput::make('start_vylo_daily_cap')
+                        ->label(trans('plugged-host-ads::strings.start_daily_cap'))
+                        ->helperText(trans('plugged-host-ads::strings.start_daily_cap_helper'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->visible(fn (Get $get): bool => (bool) $get('start_vylo_enabled'))
+                        ->default(fn () => config('plugged-host-ads.start_credits.vylo.daily_cap', 5)),
+                    TextInput::make('start_vylo_min_seconds')
+                        ->label(trans('plugged-host-ads::strings.start_vylo_min_seconds'))
+                        ->helperText(trans('plugged-host-ads::strings.start_vylo_min_seconds_helper'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(600)
+                        ->visible(fn (Get $get): bool => (bool) $get('start_vylo_enabled'))
+                        ->default(fn () => config('plugged-host-ads.start_credits.vylo.min_seconds', 10)),
                 ]),
 
             // The waiting rooms are the only surfaces in this plugin that carry more
@@ -733,13 +828,25 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
         $refreshSeconds = $this->clamp($data['refresh_seconds'] ?? 5, 5, 3600);
         $refreshPlusSeconds = max($refreshSeconds, $this->clamp($data['refresh_plus_seconds'] ?? 10, 5, 3600));
 
+        // A Monetag field that is not a tag is cleared, the way an empty one is.
+        $inPagePush = MonetagService::parse((string) ($data['monetag_in_page_push'] ?? ''));
+        $vignette = MonetagService::parse((string) ($data['monetag_vignette'] ?? ''));
+
         $values = [
             'ADS_ENABLED' => !empty($data['enabled']) ? 'true' : 'false',
+
+            'ADS_MONETAG_IN_PAGE_PUSH_ZONE' => $inPagePush['zone'] ?? '',
+            'ADS_MONETAG_IN_PAGE_PUSH_SRC' => $inPagePush['src'] ?? '',
+            'ADS_MONETAG_VIGNETTE_ZONE' => $vignette['zone'] ?? '',
+            'ADS_MONETAG_VIGNETTE_SRC' => $vignette['src'] ?? '',
+            'ADS_MONETAG_VIGNETTE_MINUTES' => (string) $this->clamp($data['monetag_vignette_minutes'] ?? 10, 0, 1440),
+            'ADS_MONETAG_VIGNETTE_PLUS' => !empty($data['monetag_vignette_plus']) ? 'true' : 'false',
             'ADS_SHOW_APP_PANEL' => !empty($data['show_app_panel']) ? 'true' : 'false',
             'ADS_SHOW_SERVER_PANEL' => !empty($data['show_server_panel']) ? 'true' : 'false',
             'ADS_SHOW_ADMIN_PANEL' => !empty($data['show_admin_panel']) ? 'true' : 'false',
 
             'ADS_MAX_UNITS_PER_PAGE' => (string) $this->clamp($data['max_units_per_page'] ?? 2, 0, 20),
+            'ADS_SLOT_TOP' => !empty($data['slot_top']) ? 'true' : 'false',
             'ADS_SLOT_SIDEBAR_FOOTER' => !empty($data['slot_sidebar_footer']) ? 'true' : 'false',
             'ADS_SLOT_CREATE' => !empty($data['slot_create']) ? 'true' : 'false',
             'ADS_SLOT_STORE' => !empty($data['slot_store']) ? 'true' : 'false',
@@ -809,6 +916,11 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
             'ADS_START_LINKVERTISE_REWARD' => (string) $this->clamp($data['start_linkvertise_reward'] ?? 1, 1, 50),
             'ADS_START_LINKVERTISE_DAILY_CAP' => (string) $this->clamp($data['start_linkvertise_daily_cap'] ?? 5, 0, 100),
 
+            'ADS_START_VYLO_ENABLED' => !empty($data['start_vylo_enabled']) ? 'true' : 'false',
+            'ADS_START_VYLO_REWARD' => (string) $this->clamp($data['start_vylo_reward'] ?? 1, 1, 50),
+            'ADS_START_VYLO_DAILY_CAP' => (string) $this->clamp($data['start_vylo_daily_cap'] ?? 5, 0, 100),
+            'ADS_START_VYLO_MIN_SECONDS' => (string) $this->clamp($data['start_vylo_min_seconds'] ?? 10, 0, 600),
+
             'ADS_START_GATE_ON_NAVIGATION' => !empty($data['start_gate_navigation']) ? 'true' : 'false',
             'ADS_START_GATE_BANNER' => !empty($data['start_gate_ad_banner']) ? 'true' : 'false',
             'ADS_START_GATE_NATIVE' => !empty($data['start_gate_ad_native']) ? 'true' : 'false',
@@ -826,6 +938,11 @@ class PluggedHostAdsPlugin implements HasPluginSettings, Plugin
         $lvToken = trim((string) ($data['start_linkvertise_token'] ?? ''));
         if ($lvToken !== '') {
             $values['ADS_START_LINKVERTISE_TOKEN'] = $this->envText($lvToken);
+        }
+
+        $vyloKey = trim((string) ($data['start_vylo_api_key'] ?? ''));
+        if ($vyloKey !== '') {
+            $values['ADS_START_VYLO_API_KEY'] = $this->envText($vyloKey);
         }
 
         $this->writeToEnvironment($values);

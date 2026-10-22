@@ -86,12 +86,12 @@ class RuxGatewayCommand extends GatewayDaemon
 
     protected function configuredIntents(): int
     {
-        return (int) config('plugged-host-ai.rux.gateway_intents', 37377);
+        return (int) RuxConfig::get('gateway_intents', 37377);
     }
 
     protected function idleTimeout(): int
     {
-        return (int) config('plugged-host-ai.rux.gateway_idle_timeout', 90);
+        return (int) RuxConfig::get('gateway_idle_timeout', 90);
     }
 
     protected function noMessageContentKey(): string

@@ -21,11 +21,11 @@ final class RuxPrompt
         $guild = RuxConfig::guild($context->guildId) ?? new RuxGuild($context->guildId);
         $host = $guild->hostName();
         $giveawayChannel = (string) $guild->giveawayChannelId;
-        $limits = (array) config('plugged-host-ai.rux.giveaway', []);
-        $ladder = (array) config('plugged-host-ai.rux.warnings', []);
+        $limits = (array) RuxConfig::get('giveaway', []);
+        $ladder = (array) RuxConfig::get('warnings', []);
         $portal = app(AccountPortal::class)->name();
         $app = (string) config('app.name');
-        $mainAdmin = $context->isAdmin() && in_array($context->actorDiscordId, array_map('strval', (array) config('plugged-host-ai.rux.credits.granters', [])), true);
+        $mainAdmin = $context->isAdmin() && in_array($context->actorDiscordId, array_map('strval', (array) RuxConfig::get('credits.granters', [])), true);
         $who = $context->isAdmin()
             ? "You are talking to {$context->actorName} (<@{$context->actorDiscordId}>), a {$portal} admin. Admins can have anything done, so do what they ask with your tools."
                 . ($mainAdmin ? " They are also {$app}'s main admin (rux checked their Discord account), the one person who can have credits given with give_credits." : '')

@@ -8,7 +8,7 @@ use PluggedHost\Ai\Models\NeoUserSetting;
 /**
  * The per-user switches in the chat's settings ("Enable neo", "Let neo make changes without
  * asking"), the model picked in the chat, and consent, in neo_user_settings. A missing row reads as
- * the defaults: on, asks first, the standard model, not yet acknowledged.
+ * the defaults: on, asks first, the default model, not yet acknowledged.
  */
 final class NeoPreferences
 {
@@ -40,12 +40,15 @@ final class NeoPreferences
     }
 
     /**
-     * The model picked in the chat: 'premium' or 'standard'. Whether the account may still use the
-     * premium one is NeoModel::forTurn()'s question.
+     * The model picked in the chat: its key (the slot number), 'premium' (picked before models had
+     * names: the first one not open to everyone), or null for the default model. Whether the
+     * account may still use it is the backend's question when the turn runs.
      */
-    public static function model(User $user): string
+    public static function model(User $user): ?string
     {
-        return self::for($user)->model === 'premium' ? 'premium' : 'standard';
+        $model = (string) self::for($user)->model;
+
+        return ctype_digit($model) || $model === 'premium' ? $model : null;
     }
 
     public static function acknowledged(User $user): bool

@@ -130,15 +130,19 @@ return [
     |
     | Each slot: enabled, zone (logical key), units (specs for AdsterraService::unitsFor():
     | `native`, a banner size, or sizes joined by `|` for "the widest that fits"), max_height
-    | (reserved space so nothing shifts on load). The in-content slot at the foot of every
-    | page is AdsterraService::IN_CONTENT (leaderboard + native); the named slots use other
-    | sizes so no zone is on a page twice. server-tools is a strip under the page header on
-    | server-panel pages, console excepted.
+    | (reserved space so nothing shifts on load). top is the leaderboard above the page heading
+    | on every app and server page, console included, waiting rooms and the suspended page
+    | excepted; a live sponsored top banner sits above it. The in-content slot at the foot of
+    | every page is AdsterraService::IN_CONTENT (leaderboard + 300x250 + native), and gets
+    | whatever the slots above it left. server-tools is a strip under the page header on
+    | server-panel pages, console excepted. Page components render before the layout, so the
+    | page's own slots (server-tools, create, store, …) pick first, then top, then the foot.
     |
     */
     'max_units_per_page' => (int) env('ADS_MAX_UNITS_PER_PAGE', 2),
 
     'placements' => [
+        'top'               => ['enabled' => env('ADS_SLOT_TOP', true),             'zone' => 'top-leaderboard',   'units' => ['728x90|468x60|320x50'], 'max_height' => 0],
         'sidebar-footer'    => ['enabled' => env('ADS_SLOT_SIDEBAR_FOOTER', true),  'zone' => 'sidebar-native',    'units' => ['native'],  'max_height' => 300],
         'create-under-plan' => ['enabled' => env('ADS_SLOT_CREATE', true),          'zone' => 'create-rect',       'units' => ['300x250'], 'max_height' => 250],
         'store-under-tx'    => ['enabled' => env('ADS_SLOT_STORE', true),           'zone' => 'store-rect',        'units' => ['300x250'], 'max_height' => 250],
@@ -197,6 +201,31 @@ return [
     | width is the frame's CSS width (a number with %, px or vw). Core renders it; nothing
     | here loads on any other page.
     */
+    /*
+    | Monetag (see Services\MonetagService): In-Page Push and Vignette, each a zone id plus the
+    | script URL from the tag Monetag issues. Ordinary app and server pages only, never the
+    | console or the waiting rooms. Vignette loads at most once per vignette_minutes per session
+    | and skips Plus unless vignette_plus is on. Empty zone = that format is off.
+    */
+    'monetag' => [
+        'in_page_push_zone' => (string) env('ADS_MONETAG_IN_PAGE_PUSH_ZONE', ''),
+        'in_page_push_src' => (string) env('ADS_MONETAG_IN_PAGE_PUSH_SRC', ''),
+        'vignette_zone' => (string) env('ADS_MONETAG_VIGNETTE_ZONE', ''),
+        'vignette_src' => (string) env('ADS_MONETAG_VIGNETTE_SRC', ''),
+        'vignette_minutes' => (int) env('ADS_MONETAG_VIGNETTE_MINUTES', 10),
+        'vignette_plus' => (bool) env('ADS_MONETAG_VIGNETTE_PLUS', false),
+    ],
+
+    /*
+    | Site-verification meta tags for ad networks. Written into the head of every panel page and
+    | into the small page a signed-out visit to `/` gets (Http\Middleware\SiteVerificationPage),
+    | because that visit is otherwise a redirect to the account portal. Empty = no tag.
+    */
+    'verification' => [
+        // Monetag's site check: the `content` of <meta name="monetag" content="…">.
+        'monetag' => (string) env('ADS_MONETAG_VERIFICATION', ''),
+    ],
+
     'maintenance' => [
         'aads_unit' => (string) env('ADS_MAINTENANCE_AADS_UNIT', ''),
         'width' => (string) env('ADS_MAINTENANCE_AADS_WIDTH', '70%'),
@@ -394,6 +423,21 @@ return [
             'token' => env('ADS_START_LINKVERTISE_TOKEN', ''),
             'reward' => env('ADS_START_LINKVERTISE_REWARD', 1),
             'daily_cap' => env('ADS_START_LINKVERTISE_DAILY_CAP', 5),
+        ],
+
+        /*
+        | Vylo (vylo.cc), a shortener without an anti-bypass API. Each click shortens
+        | our return URL through `vylo.cc/api` with api_key; the return URL carries
+        | the claim's nonce and an HMAC proof, so only a trip through the short link
+        | can settle it. min_seconds refuses a return faster than any real pass
+        | through the ads. See VyloProvider in plugged-host-economy.
+        */
+        'vylo' => [
+            'enabled' => env('ADS_START_VYLO_ENABLED', false),
+            'api_key' => env('ADS_START_VYLO_API_KEY', ''),
+            'reward' => env('ADS_START_VYLO_REWARD', 1),
+            'daily_cap' => env('ADS_START_VYLO_DAILY_CAP', 5),
+            'min_seconds' => env('ADS_START_VYLO_MIN_SECONDS', 10),
         ],
     ],
 ];

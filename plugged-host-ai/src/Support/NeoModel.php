@@ -7,37 +7,54 @@ use PluggedHost\Core\Support\Plugins;
 use Throwable;
 
 /**
- * The model a neo chat turn asks for: 'premium' (the premium provider slots, counted at a multiple
- * of their tokens) for plugged.host PlusPlus accounts that picked it in the chat, 'standard' for
- * everyone else. Whichever backend runs neo routes and meters by it.
+ * Which model a neo chat turn runs on, and on which plan its account is. Every model the backend
+ * offers is picked by its key (the slot number) in the chat; a turn names the picked one and runs
+ * on that model only, or on the backend's default model when nothing was picked.
+ *
+ * The plan (free, plus, plusplus: plugged-host-economy's MembershipService, free without it) says
+ * which models the account may pick and how much of a limited one it gets. Whichever backend runs
+ * neo decides by it.
  */
 final class NeoModel
 {
-    public const STANDARD = 'standard';
+    public const PLANS = ['free', 'plus', 'plusplus'];
 
-    public const PREMIUM = 'premium';
-
-    /**
-     * Whether the account may use the premium model: PlusPlus (plugged-host-economy's
-     * MembershipService); nobody without economy.
-     */
-    public static function premiumAllowed(?User $user): bool
+    public static function plan(?User $user): string
     {
         $membership = 'PluggedHost\\Economy\\Services\\MembershipService';
 
         try {
-            return $user !== null && Plugins::available($membership) && app($membership)->hasPlusPlus($user);
+            if ($user === null || !Plugins::available($membership)) {
+                return 'free';
+            }
+
+            $service = app($membership);
+
+            return match (true) {
+                $service->hasPlusPlus($user) => 'plusplus',
+                $service->hasPlus($user) => 'plus',
+                default => 'free',
+            };
         } catch (Throwable) {
-            return false;
+            return 'free';
         }
     }
 
     /**
-     * The model picked in the chat, while the account may still use it (PlusPlus can run out after
-     * it was picked).
+     * Whether $plan may pick a model open to $access (everyone, plus, plusplus).
      */
-    public static function forTurn(User $user): string
+    public static function allows(string $plan, string $access): bool
     {
-        return NeoPreferences::model($user) === self::PREMIUM && self::premiumAllowed($user) ? self::PREMIUM : self::STANDARD;
+        $rank = ['free' => 0, 'everyone' => 0, 'plus' => 1, 'plusplus' => 2];
+
+        return ($rank[$plan] ?? 0) >= ($rank[$access] ?? 0);
+    }
+
+    /**
+     * The model picked in the chat (its key), or null for the backend's default model.
+     */
+    public static function forTurn(User $user): ?string
+    {
+        return NeoPreferences::model($user);
     }
 }

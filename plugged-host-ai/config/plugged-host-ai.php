@@ -131,8 +131,15 @@ return [
                     'daily_token_cap' => (int) env($prefix . 'DAILY_TOKEN_CAP', $defaults['daily_token_cap']),
                     'extra_headers' => $json($prefix . 'EXTRA_HEADERS_B64', $defaults['extra_headers']),
                     'extra_body' => $json($prefix . 'EXTRA_BODY_B64', $defaults['extra_body']),
-                    // Answers only turns that ask for the premium model (PlusPlus picked it in the chat).
+                    // Read only as the default of access and multiplier (PlusPlus only, counted twice).
                     'premium' => (bool) env($prefix . 'PREMIUM', $defaults['premium'] ?? false),
+                    // Every slot is a model people pick in the chat by its label, with this line under it.
+                    'description' => (string) env($prefix . 'DESCRIPTION', ''),
+                    // Who may pick it: everyone, plus or plusplus. Unset: from premium.
+                    'access' => env($prefix . 'ACCESS'),
+                    // How many times its tokens count in the 5-hour and weekly windows. Unset: from premium.
+                    'multiplier' => env($prefix . 'MULTIPLIER'),
+                    'thinking' => (bool) env($prefix . 'THINKING', true),
                     // Sees images (screenshots go to these slots first). Unset: by driver, Gemini
                     // and Anthropic yes, OpenAI-style no (Chat\ProviderChain::seesImages()).
                     'vision' => env($prefix . 'VISION'),

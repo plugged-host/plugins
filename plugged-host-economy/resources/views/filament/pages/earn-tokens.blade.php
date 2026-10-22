@@ -117,8 +117,9 @@
                                         </x-filament::badge>
                                     @endif
                                 @else
+                                    {{-- {{ }}, not @js: Blade does not compile directives inside a component's attributes. --}}
                                     <x-filament::button
-                                        wire:click="earn(@js($provider['key']))"
+                                        wire:click="earn('{{ $provider['key'] }}')"
                                         wire:loading.attr="disabled"
                                         :color="$loop->first ? 'primary' : 'gray'"
                                         class="w-full justify-center">

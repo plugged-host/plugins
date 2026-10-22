@@ -62,7 +62,7 @@ class GiveawayService
      */
     public function create(RuxContext $context, array $input): RuxGiveaway
     {
-        $limits = (array) config('plugged-host-ai.rux.giveaway', []);
+        $limits = (array) RuxConfig::get('giveaway', []);
         $credits = (int) $input['credits'];
         $winners = (int) ($input['winners'] ?? 1);
         $exclude = (int) ($input['exclude_recent_winners'] ?? 0);
@@ -141,7 +141,7 @@ class GiveawayService
         $winners = isset($changes['winners']) ? (int) $changes['winners'] : $giveaway->winners_count;
         $endsAt = isset($changes['ends_at']) && $changes['ends_at'] !== '' ? RuxTime::parse((string) $changes['ends_at'], $now) : CarbonImmutable::instance($giveaway->ends_at);
 
-        $this->validate($credits, $winners, $endsAt, $now, (array) config('plugged-host-ai.rux.giveaway', []));
+        $this->validate($credits, $winners, $endsAt, $now, (array) RuxConfig::get('giveaway', []));
 
         $autoTitle = $giveaway->prize === number_format($giveaway->credits) . ' credits';
         $title = self::creditsOnlyTitle((string) ($changes['title'] ?? ''));
@@ -421,7 +421,7 @@ class GiveawayService
             throw new InvalidArgumentException("Giveaway #{$giveaway->id} is {$giveaway->status}; only an ended giveaway can be rerolled.");
         }
 
-        $count = max(1, min($count, (int) config('plugged-host-ai.rux.giveaway.max_winners', 25)));
+        $count = max(1, min($count, (int) RuxConfig::get('giveaway.max_winners', 25)));
 
         try {
             $winners = $this->pick($giveaway, $count);

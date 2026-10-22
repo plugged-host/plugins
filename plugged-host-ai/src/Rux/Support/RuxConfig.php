@@ -25,9 +25,44 @@ final class RuxConfig
 
     private static ?bool $tablesExist = null;
 
+    /**
+     * One of rux's settings by its key under config('plugged-host-ai.rux') ("spam.enabled"), as the
+     * bound RuxSettingsSource has it: this panel's own, or the account system's that keeps them.
+     */
+    public static function get(string $key, mixed $default = null): mixed
+    {
+        return data_get(self::settings(), $key, $default);
+    }
+
+    /**
+     * Every setting rux runs on (Contracts\RuxSettingsSource), in config('plugged-host-ai.rux')'s
+     * shape.
+     *
+     * @return array<string, mixed>
+     */
+    public static function settings(): array
+    {
+        return app(RuxSettingsSource::class)->settings();
+    }
+
+    /**
+     * Where rux's settings are edited when not in this panel's rux tab (which then only shows
+     * them), or null while this panel's own apply.
+     *
+     * @return array{by: string, url: string, fetched_at: ?int, saved_at?: ?string, saved_by?: ?string}|null
+     */
+    public static function managedBy(): ?array
+    {
+        try {
+            return app(RuxSettingsSource::class)->managedBy();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     public static function token(): string
     {
-        return trim((string) config('plugged-host-ai.rux.bot_token', ''));
+        return trim((string) self::get('bot_token', ''));
     }
 
     /**
@@ -106,7 +141,7 @@ final class RuxConfig
 
     public static function timezone(): string
     {
-        $zone = (string) config('plugged-host-ai.rux.timezone', 'Europe/Paris');
+        $zone = (string) self::get('timezone', 'Europe/Paris');
 
         return in_array($zone, timezone_identifiers_list(), true) ? $zone : 'Europe/Paris';
     }
@@ -118,7 +153,7 @@ final class RuxConfig
 
     public static function locale(): string
     {
-        return (string) config('plugged-host-ai.rux.locale', 'en') ?: 'en';
+        return (string) self::get('locale', 'en') ?: 'en';
     }
 
     /**
@@ -166,16 +201,21 @@ final class RuxConfig
             $blockers[] = 'rux only runs on the production panel (APP_ENV is ' . app()->environment() . ').';
         }
 
-        if (!config('plugged-host-ai.rux.enabled', false)) {
-            $blockers[] = 'rux is switched off (RUX_ENABLED).';
+        // Where each of these is set: this panel's rux tab (its .env keys), or the account system
+        // that keeps rux's settings.
+        $managed = self::managedBy();
+        $where = static fn (string $env): string => $managed === null ? $env : 'Admin > rux on ' . $managed['by'];
+
+        if (!self::get('enabled', false)) {
+            $blockers[] = 'rux is switched off (' . $where('RUX_ENABLED') . ').';
         }
 
         if (self::token() === '') {
-            $blockers[] = 'No bot token (RUX_BOT_TOKEN).';
+            $blockers[] = 'No bot token (' . $where('RUX_BOT_TOKEN') . ').';
         }
 
         if (self::guildId() === '') {
-            $blockers[] = 'No Discord server id (RUX_GUILD_ID).';
+            $blockers[] = 'No Discord server id (' . $where('RUX_GUILD_ID') . ').';
         }
 
         if (!app(DiscordAccounts::class)->configured() || !app(DiscordCreditPayouts::class)->configured()) {

@@ -143,7 +143,8 @@ class ProviderChain
     }
 
     /**
-     * One model turn on the first provider that answers.
+     * One model turn on the first provider that answers, or with $slot on that slot only (neo's
+     * models are picked, not a failover chain).
      *
      * @param  list<array<string, mixed>>  $messages
      * @param  list<array<string, mixed>>  $tools
@@ -151,9 +152,11 @@ class ProviderChain
      *
      * @throws AiBusyException|AiUnavailableException
      */
-    public function turn(array $messages, array $tools = [], string $toolChoice = 'auto', bool $premium = false): array
+    public function turn(array $messages, array $tools = [], string $toolChoice = 'auto', bool $premium = false, ?int $slot = null): array
     {
-        $providers = $this->slotsFor($premium);
+        $providers = $slot === null
+            ? $this->slotsFor($premium)
+            : array_values(array_filter($this->providers(), static fn (array $provider): bool => (int) $provider['slot'] === $slot));
 
         if ($providers === []) {
             throw new AiUnavailableException('not_configured');
@@ -210,7 +213,7 @@ class ProviderChain
                 }
 
                 return $outcome + [
-                    'provider' => ['slot' => $provider['slot'], 'label' => $provider['label'], 'model' => $provider['model'], 'premium' => !empty($provider['premium']), 'prompted_tools' => $prompted],
+                    'provider' => ['slot' => $provider['slot'], 'label' => $provider['label'], 'model' => $provider['model'], 'premium' => !empty($provider['premium']), 'multiplier' => (int) ($provider['multiplier'] ?? 1), 'prompted_tools' => $prompted],
                     'duration_ms' => (int) round((microtime(true) - $started) * 1000),
                 ];
             }

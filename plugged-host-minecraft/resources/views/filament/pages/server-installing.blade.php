@@ -97,6 +97,8 @@
                     <p class="phi-body">
                         @if ($failed)
                             {{ trans('plugged-host-minecraft::strings.installing.failed_body') }}
+                        @elseif ($stuck)
+                            {{ trans('plugged-host-minecraft::strings.installing.stuck_body') }}
                         @else
                             {{ trans('plugged-host-minecraft::strings.installing.status_body') }}
                         @endif
@@ -126,6 +128,10 @@
                             </span>
                         </x-filament::button>
                     @endif
+
+                    {{ $this->forceReinstallAction }}
+
+                    {{ $this->forceDeleteAction }}
 
                     @if ($failed && filled($supportUrl))
                         <x-filament::button

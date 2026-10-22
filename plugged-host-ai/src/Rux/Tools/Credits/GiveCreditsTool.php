@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\Rux\Tools\Credits;
 
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Tools\Moderation\ModerationTool;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
@@ -41,7 +42,7 @@ final class GiveCreditsTool extends ModerationTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $granters = array_map('strval', (array) config('plugged-host-ai.rux.credits.granters', []));
+        $granters = array_map('strval', (array) RuxConfig::get('credits.granters', []));
 
         if ($context->order === null || $context->actorAccountId === null || !in_array($context->actorDiscordId, $granters, true)) {
             throw new InvalidArgumentException('Only ' . config('app.name') . '\'s main admin can have rux give credits.');
@@ -68,6 +69,6 @@ final class GiveCreditsTool extends ModerationTool
 
     private function max(): int
     {
-        return max(1, (int) config('plugged-host-ai.rux.credits.max_per_grant', 10000));
+        return max(1, (int) RuxConfig::get('credits.max_per_grant', 10000));
     }
 }
