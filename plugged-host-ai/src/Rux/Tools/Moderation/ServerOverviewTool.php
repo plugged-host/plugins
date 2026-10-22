@@ -4,6 +4,7 @@ namespace PluggedHost\Ai\Rux\Tools\Moderation;
 
 use PluggedHost\Ai\Rux\Models\RuxModeratorRole;
 use PluggedHost\Ai\Rux\Support\RuxAccess;
+use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Ai\Rux\Watch\WatchService;
 use PluggedHost\Ai\Rux\Tools\RuxContext;
 use PluggedHost\Ai\Rux\Tools\ToolResult;
@@ -50,16 +51,18 @@ final class ServerOverviewTool extends ModerationTool
             ->values()
             ->all();
 
-        $giveawayChannel = trim((string) config('plugged-host-ai.rux.giveaway_channel_id', ''));
-        $modLog = trim((string) config('plugged-host-ai.rux.mod_log_channel_id', ''));
+        $guild = RuxConfig::guild($context->guildId);
+        $giveawayChannel = $guild?->giveawayChannelId;
+        $modLog = $guild?->modLogChannelId;
 
         return ToolResult::ok([
-            'watched_channels' => array_map(static fn (string $id): string => "<#{$id}>", app(WatchService::class)->watchedChannelIds(fresh: true)),
-            'rux_moderator_roles' => RuxModeratorRole::query()->get()->map(fn (RuxModeratorRole $r): string => "<@&{$r->role_id}> ({$r->role_name})")->all(),
+            'server' => $guild?->label() ?? $context->guildId,
+            'watched_channels' => array_map(static fn (string $id): string => "<#{$id}>", app(WatchService::class)->watchedChannelIds($context->guildId, fresh: true)),
+            'rux_moderator_roles' => RuxModeratorRole::query()->where('guild_id', $context->guildId)->get()->map(fn (RuxModeratorRole $r): string => "<@&{$r->role_id}> ({$r->role_name})")->all(),
             'channels' => $listed,
             'roles_highest_first' => $roles,
-            'default_giveaway_channel' => $giveawayChannel !== '' ? "<#{$giveawayChannel}>" : 'none set',
-            'mod_log_channel' => $modLog !== '' ? "<#{$modLog}>" : 'none set',
+            'default_giveaway_channel' => $giveawayChannel !== null ? "<#{$giveawayChannel}>" : 'none set',
+            'mod_log_channel' => $modLog !== null ? "<#{$modLog}>" : 'none set',
         ]);
     }
 }

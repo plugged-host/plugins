@@ -22,19 +22,21 @@ use PluggedHost\Ai\Rux\Support\RuxConfig;
  * and goes to a worker at most every few seconds (flush()), so a flood starts one or two workers,
  * not one per message. The worker (act()) leaves staff alone, deletes the spam and warns the
  * member at most once per rules.cooldown_seconds; the warning counts towards the automatic steps.
+ * Everything is per server: a member's messages on two servers are counted apart, and the
+ * warning, the staff check and the cooldown are the server's where the spam was.
  */
 final class SpamGuard
 {
     /** Seconds between two workers for the same member. */
     private const SPAWN_GAP = 3;
 
-    /** @var array<string, list<array{t: float, id: string, channel: string, text: string, said: string}>> member id => recent messages */
+    /** @var array<string, list<array{t: float, id: string, channel: string, text: string, said: string}>> "server:member" => recent messages */
     private array $recent = [];
 
-    /** @var array<string, array{name: string, roles: list<string>, reason: string, messages: array<string, array{id: string, channel: string, said: string}>}> */
+    /** @var array<string, array{guild_id: string, member: string, name: string, roles: list<string>, reason: string, messages: array<string, array{id: string, channel: string, said: string}>}> "server:member" => caught */
     private array $pending = [];
 
-    /** @var array<string, float> member id => when a worker last started for them */
+    /** @var array<string, float> "server:member" => when a worker last started for them */
     private array $spawned = [];
 
     /** @var array<string, float> message id => when it was handed on (never twice) */
@@ -59,12 +61,15 @@ final class SpamGuard
         $author = (array) ($message['author'] ?? []);
         $memberId = (string) ($author['id'] ?? '');
         $messageId = (string) ($message['id'] ?? '');
+        $guildId = (string) ($message['guild_id'] ?? '');
 
         if (!config('plugged-host-ai.rux.spam.enabled', true) || $memberId === '' || $messageId === ''
-            || (string) ($message['guild_id'] ?? '') !== RuxConfig::guildId()
+            || !RuxConfig::serves($guildId)
             || ($author['bot'] ?? false) || isset($message['webhook_id']) || $memberId === $botId) {
             return false;
         }
+
+        $who = "{$guildId}:{$memberId}";
 
         $config = (array) config('plugged-host-ai.rux.spam', []);
         $floodSeconds = max(1, (int) ($config['flood_seconds'] ?? 10));
@@ -74,11 +79,11 @@ final class SpamGuard
         $text = self::fingerprint($content);
 
         $recent = array_values(array_filter(
-            $this->recent[$memberId] ?? [],
+            $this->recent[$who] ?? [],
             static fn (array $seen): bool => $now - $seen['t'] <= max($floodSeconds, $duplicateSeconds),
         ));
         $recent[] = ['t' => $now, 'id' => $messageId, 'channel' => (string) ($message['channel_id'] ?? ''), 'text' => $text, 'said' => mb_substr($content, 0, 300)];
-        $this->recent[$memberId] = array_slice($recent, -60);
+        $this->recent[$who] = array_slice($recent, -60);
 
         $flood = array_values(array_filter($recent, static fn (array $seen): bool => $now - $seen['t'] <= $floodSeconds));
         $copies = $text === '' ? [] : array_values(array_filter($recent, static fn (array $seen): bool => $seen['text'] === $text && $now - $seen['t'] <= $duplicateSeconds));
@@ -100,7 +105,9 @@ final class SpamGuard
         }
 
         $member = (array) ($message['member'] ?? []);
-        $this->pending[$memberId] ??= [
+        $this->pending[$who] ??= [
+            'guild_id' => $guildId,
+            'member' => $memberId,
             'name' => mb_substr((string) ($member['nick'] ?? $author['global_name'] ?? $author['username'] ?? $memberId), 0, 100),
             'roles' => array_values(array_map('strval', (array) ($member['roles'] ?? []))),
             'reason' => $reason,
@@ -110,7 +117,7 @@ final class SpamGuard
         foreach ($spam as $seen) {
             if (!isset($this->handled[$seen['id']])) {
                 $this->handled[$seen['id']] = $now;
-                $this->pending[$memberId]['messages'][$seen['id']] = ['id' => $seen['id'], 'channel' => $seen['channel'], 'said' => $seen['said']];
+                $this->pending[$who]['messages'][$seen['id']] = ['id' => $seen['id'], 'channel' => $seen['channel'], 'said' => $seen['said']];
             }
         }
 
@@ -125,15 +132,15 @@ final class SpamGuard
     {
         $now = microtime(true);
 
-        foreach ($this->pending as $memberId => $caught) {
-            if ($caught['messages'] === [] || $now - ($this->spawned[$memberId] ?? 0.0) < self::SPAWN_GAP) {
+        foreach ($this->pending as $who => $caught) {
+            if ($caught['messages'] === [] || $now - ($this->spawned[$who] ?? 0.0) < self::SPAWN_GAP) {
                 continue;
             }
 
             $key = (string) Str::uuid();
-            Cache::put("plugged-host-ai:rux:spam:{$key}", array_merge(['member' => (string) $memberId], $caught, ['messages' => array_values($caught['messages'])]), 600);
-            unset($this->pending[$memberId]);
-            $this->spawned[$memberId] = $now;
+            Cache::put("plugged-host-ai:rux:spam:{$key}", array_merge($caught, ['messages' => array_values($caught['messages'])]), 600);
+            unset($this->pending[$who]);
+            $this->spawned[$who] = $now;
             $supervisor->spawnCommand('plugged-host:rux-spam', [$key]);
         }
 
@@ -164,8 +171,9 @@ final class SpamGuard
     public function act(string $key): void
     {
         $caught = Cache::pull("plugged-host-ai:rux:spam:{$key}");
+        $guild = is_array($caught) ? RuxConfig::guildFor(isset($caught['guild_id']) ? (string) $caught['guild_id'] : null) : null;
 
-        if (!is_array($caught) || ($caught['messages'] ?? []) === [] || $this->access->isStaff((string) $caught['member'], (array) $caught['roles'])) {
+        if ($guild === null || ($caught['messages'] ?? []) === [] || $this->access->isStaff($guild->id, (string) $caught['member'], (array) $caught['roles'])) {
             return;
         }
 
@@ -178,6 +186,7 @@ final class SpamGuard
         }
 
         $hit = [
+            'guild_id' => $guild->id,
             'message_id' => (string) $last['id'],
             'channel_id' => (string) $last['channel'],
             'author_id' => (string) $caught['member'],
@@ -185,9 +194,9 @@ final class SpamGuard
             'content' => (string) $last['said'],
         ];
 
-        Log::info('[rux] spam', ['member' => $hit['author_id'], 'reason' => $caught['reason'], 'messages' => count($messages) + 1]);
+        Log::info('[rux] spam', ['member' => $hit['author_id'], 'server' => $guild->id, 'reason' => $caught['reason'], 'messages' => count($messages) + 1]);
 
-        if (!Cache::add("plugged-host-ai:rux:spam-warned:{$hit['author_id']}", true, max(30, (int) config('plugged-host-ai.rux.rules.cooldown_seconds', 300)))) {
+        if (!Cache::add("plugged-host-ai:rux:spam-warned:{$guild->id}:{$hit['author_id']}", true, max(30, (int) config('plugged-host-ai.rux.rules.cooldown_seconds', 300)))) {
             $this->delete($hit['channel_id'], [$hit['message_id']], $audit);
 
             return;
@@ -195,7 +204,7 @@ final class SpamGuard
 
         try {
             $this->rules->enforceGuideline((string) $caught['reason'], $hit);
-        } catch (DiscordException $e) {
+        } catch (DiscordException|\InvalidArgumentException $e) {
             Log::warning('[rux] spam: warning failed', ['member' => $hit['author_id'], 'error' => $e->getMessage()]);
         }
     }

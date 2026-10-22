@@ -44,16 +44,16 @@ final class WatchChannelTool extends RuxTool
         $watch = $this->bool($arguments, 'watch', true);
 
         if ($watch) {
-            RuxWatch::query()->firstOrCreate(['channel' => $id], ['added_by_discord_id' => $context->actorDiscordId]);
+            RuxWatch::query()->firstOrCreate(['guild_id' => $context->guildId, 'channel' => $id], ['added_by_discord_id' => $context->actorDiscordId]);
         } else {
-            $ids = $this->watch->watchedChannelIds(fresh: true);
+            $ids = $this->watch->watchedChannelIds($context->guildId, fresh: true);
 
             if (!in_array($id, $ids, true)) {
                 throw new InvalidArgumentException("<#{$id}> is not watched.");
             }
 
-            // It may be watched by id or by a name that resolves to it.
-            RuxWatch::query()->get()->each(function (RuxWatch $row) use ($id, $channel): void {
+            // It may be watched by id or by a name that resolves to it (on this server).
+            RuxWatch::query()->forGuild($context->guildId)->get()->each(function (RuxWatch $row) use ($id, $channel): void {
                 $plain = static fn (string $n): string => (string) preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower(ltrim($n, '#')));
 
                 if ($row->channel === $id || $plain($row->channel) === $plain((string) $channel['name'])) {
@@ -67,7 +67,7 @@ final class WatchChannelTool extends RuxTool
         return ToolResult::ok([
             'channel' => "<#{$id}>",
             'watched' => $watch,
-            'all_watched' => array_map(static fn (string $c): string => "<#{$c}>", $this->watch->watchedChannelIds(fresh: true)),
+            'all_watched' => array_map(static fn (string $c): string => "<#{$c}>", $this->watch->watchedChannelIds($context->guildId, fresh: true)),
         ]);
     }
 }

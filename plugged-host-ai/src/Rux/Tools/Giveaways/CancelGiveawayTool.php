@@ -25,7 +25,7 @@ final class CancelGiveawayTool extends GiveawayTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $giveaway = $this->giveaways->cancel($this->giveaway($arguments, [RuxGiveaway::ACTIVE]));
+        $giveaway = $this->giveaways->cancel($this->giveaway($context, $arguments, [RuxGiveaway::ACTIVE]));
 
         return ToolResult::ok(['cancelled' => true] + $this->giveaways->summary($giveaway));
     }

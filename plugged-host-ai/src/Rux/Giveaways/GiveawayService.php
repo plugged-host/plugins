@@ -33,10 +33,20 @@ use Throwable;
  * At ends_at the giveaway is claimed by exactly one process (status active → drawing), winners
  * are drawn among entries that are still linked and still in the server, and noprofit.space pays
  * them under the key "rux:<id>", which makes a retried payout pay nobody twice.
+ *
+ * A giveaway belongs to the server it was posted on (guild_id): only that server's members can
+ * enter it and win it. Its prize is always credits; its title names the occasion and can never
+ * promise anything else (OTHER_PRIZES), because credits are all rux gives.
  */
 class GiveawayService
 {
     private const ACCENT = 0x1D4ED8;
+
+    /**
+     * Prizes rux cannot give, as a title might promise them ("1 month of Plus", "500 tokens",
+     * "8 GB RAM", "Nitro", "VIP role").
+     */
+    public const OTHER_PRIZES = '/\b(?:plus(?:plus)?|premium|vip|nitro|(?:cloud\s*)?tokens?|ram|cpus?|v?cores?|disk|ssd|\d+\s*(?:gb|mb|tb)|gb|tb|roles?|ranks?|subscriptions?)\b/iu';
 
     public function __construct(
         private readonly RuxDiscord $discord,
@@ -60,13 +70,14 @@ class GiveawayService
         $endsAt = RuxTime::parse((string) $input['ends_at'], $now);
 
         $this->validate($credits, $winners, $endsAt, $now, $limits);
+        $title = self::creditsOnlyTitle((string) ($input['title'] ?? ''));
 
         if ($exclude < 0 || $exclude > (int) ($limits['max_exclude_recent'] ?? 10)) {
             throw new InvalidArgumentException('exclude_recent_winners must be between 0 and ' . (int) ($limits['max_exclude_recent'] ?? 10) . '.');
         }
 
         $channelInput = $input['channel'] ?? null;
-        $channelInput = is_string($channelInput) && trim($channelInput) !== '' ? $channelInput : (string) config('plugged-host-ai.rux.giveaway_channel_id', '');
+        $channelInput = is_string($channelInput) && trim($channelInput) !== '' ? $channelInput : (string) RuxConfig::guild($context->guildId)?->giveawayChannelId;
 
         if ($channelInput === '') {
             throw new InvalidArgumentException('No channel given and no default giveaway channel is set. Ask the admin which channel to post it in.');
@@ -88,8 +99,6 @@ class GiveawayService
                 'discord_ids' => array_values(array_unique(array_merge(...array_map(static fn (array $g): array => $g['winners'], $recent ?: [['winners' => []]])))),
             ];
         }
-
-        $title = trim((string) ($input['title'] ?? ''));
 
         $giveaway = RuxGiveaway::query()->create([
             'guild_id' => $context->guildId,
@@ -135,7 +144,7 @@ class GiveawayService
         $this->validate($credits, $winners, $endsAt, $now, (array) config('plugged-host-ai.rux.giveaway', []));
 
         $autoTitle = $giveaway->prize === number_format($giveaway->credits) . ' credits';
-        $title = trim((string) ($changes['title'] ?? ''));
+        $title = self::creditsOnlyTitle((string) ($changes['title'] ?? ''));
 
         $giveaway->update([
             'credits' => $credits,
@@ -175,6 +184,20 @@ class GiveawayService
         $giveaway->update(['ends_at' => now()]);
 
         return $this->draw($giveaway) ?? $giveaway->refresh();
+    }
+
+    /**
+     * A giveaway's title, refused when it promises a prize other than credits.
+     */
+    public static function creditsOnlyTitle(string $title): string
+    {
+        $title = trim($title);
+
+        if ($title !== '' && preg_match(self::OTHER_PRIZES, $title, $m) === 1) {
+            throw new InvalidArgumentException("A giveaway's prize is always credits, and rux can give nothing else, so the title cannot promise \"{$m[0]}\". Use a title that names the occasion (or none) and say it is credits.");
+        }
+
+        return $title;
     }
 
     /**
@@ -224,6 +247,11 @@ class GiveawayService
         $user = (array) ($interaction['member']['user'] ?? $interaction['user'] ?? []);
         $discordId = (string) ($user['id'] ?? '');
         $giveaway = RuxGiveaway::query()->find((int) $m[2]);
+
+        // Only from the giveaway's own server: a button elsewhere cannot enter it.
+        if ($giveaway !== null && (string) ($interaction['guild_id'] ?? '') !== $giveaway->guild_id) {
+            $giveaway = null;
+        }
 
         $answer = match (true) {
             $discordId === '' || $giveaway === null => $this->ephemeralData(RuxConfig::say('entry.closed')),

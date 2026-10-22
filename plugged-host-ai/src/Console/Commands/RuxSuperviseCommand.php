@@ -13,6 +13,8 @@ use PluggedHost\Ai\Rux\Support\RuxSupervisor;
  * plugged.host bot: scheduled every minute, it starts the daemon when nothing holds its lock,
  * replaces it when it stops heartbeating or its token/server changed, backs off when it keeps
  * dying, and stops it when rux may not run here any more (switched off, not production).
+ * "Its servers changed" is the whole list (RuxConfig::guildIds()): adding or removing a server
+ * restarts the daemon within a minute.
  */
 class RuxSuperviseCommand extends Command
 {
@@ -64,7 +66,7 @@ class RuxSuperviseCommand extends Command
                 $supervisor->noteHealthy();
             }
 
-            $drifted = (string) ($status['guild_id'] ?? '') !== RuxConfig::guildId()
+            $drifted = (string) ($status['guild_id'] ?? '') !== implode(',', RuxConfig::guildIds())
                 || (string) ($status['bot_token_hash'] ?? '') !== substr(sha1(RuxConfig::token()), 0, 8);
 
             if (!$drifted && !$supervisor->isWedged()) {
@@ -117,6 +119,7 @@ class RuxSuperviseCommand extends Command
             $this->line("Heartbeat:  {$age}s ago");
         }
 
+        $this->line('Servers:    ' . (implode(', ', array_map(static fn ($guild): string => $guild->label(), RuxConfig::guilds())) ?: 'none'));
         $this->line('Invite:     ' . (RuxConfig::inviteUrl() ?? 'set the bot token first'));
         $this->line('Log:        ' . $supervisor->logPath());
 

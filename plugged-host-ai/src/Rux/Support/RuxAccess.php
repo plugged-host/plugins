@@ -12,11 +12,14 @@ use PluggedHost\Ai\Rux\Tools\RuxContext;
 /**
  * Who may do what with rux.
  *
- *  - admin: a Discord account linked to a noprofit.space admin. Everything.
+ *  - admin: a Discord account linked to a noprofit.space admin. Everything, on every server.
  *  - moderator: a member of a role an admin made a rux moderator role. Moderation only, never on
- *    staff, metered against the admin who made the role.
+ *    staff, metered against the admin who made the role, and only on the server of that role.
  *  - staff: the server owner, anyone whose roles may kick, ban, time out or manage messages or
  *    the server, and every rux moderator. Standing rules and watched channels leave staff alone.
+ *
+ * Everything but "admin" is per server: a moderator or staff member of one server is nobody
+ * special on another.
  */
 class RuxAccess
 {
@@ -68,42 +71,57 @@ class RuxAccess
     }
 
     /**
-     * A member's role ids, or null when they are not in the server.
+     * A member's role ids on a server, or null when they are not in it.
      *
      * @return list<string>|null
      */
-    public function memberRoles(string $discordId): ?array
+    public function memberRoles(string $guildId, string $discordId): ?array
     {
-        $member = $this->discord->member(RuxConfig::guildId(), $discordId);
+        $member = $this->discord->member($guildId, $discordId);
 
         return $member === null ? null : array_values(array_map('strval', (array) ($member['roles'] ?? [])));
     }
 
     /**
+     * The rux moderator role among these roles of a server's member, if any.
+     *
      * @param  list<string>  $roleIds
      */
-    public function moderatorRole(array $roleIds): ?RuxModeratorRole
+    public function moderatorRole(string $guildId, array $roleIds): ?RuxModeratorRole
     {
-        return $roleIds === [] ? null : RuxModeratorRole::query()->whereIn('role_id', $roleIds)->oldest('id')->first();
+        return $roleIds === [] ? null : RuxModeratorRole::query()->where('guild_id', $guildId)->whereIn('role_id', $roleIds)->oldest('id')->first();
+    }
+
+    /**
+     * Whether someone is a rux moderator on this server (a member of one of its moderator
+     * roles). False when Discord cannot say.
+     */
+    public function isModerator(string $guildId, string $discordId): bool
+    {
+        try {
+            $roles = $this->memberRoles($guildId, $discordId);
+        } catch (DiscordException) {
+            return false;
+        }
+
+        return $roles !== null && $this->moderatorRole($guildId, $roles) !== null;
     }
 
     /**
      * @param  list<string>|null  $roleIds  Null: look them up.
      */
-    public function isStaff(string $discordId, ?array $roleIds = null): bool
+    public function isStaff(string $guildId, string $discordId, ?array $roleIds = null): bool
     {
-        $guildId = RuxConfig::guildId();
-
         try {
-            $roleIds ??= $this->memberRoles($discordId) ?? [];
-            $owner = $this->owner();
+            $roleIds ??= $this->memberRoles($guildId, $discordId) ?? [];
+            $owner = $this->owner($guildId);
             $roles = collect($this->discord->roles($guildId))->keyBy('id');
         } catch (DiscordException) {
             // When Discord cannot say, treat them as staff: leaving someone alone is the safe mistake.
             return true;
         }
 
-        if ($discordId === $owner || $this->moderatorRole($roleIds) !== null) {
+        if ($discordId === $owner || $this->moderatorRole($guildId, $roleIds) !== null) {
             return true;
         }
 
@@ -122,16 +140,14 @@ class RuxAccess
      *
      * @param  array<string, mixed>  $channel
      */
-    public function canView(string $discordId, array $channel): bool
+    public function canView(string $guildId, string $discordId, array $channel): bool
     {
-        $guildId = RuxConfig::guildId();
-
         try {
-            if ($discordId === $this->owner()) {
+            if ($discordId === $this->owner($guildId)) {
                 return true;
             }
 
-            $roleIds = $this->memberRoles($discordId);
+            $roleIds = $this->memberRoles($guildId, $discordId);
             if ($roleIds === null) {
                 return false;
             }
@@ -175,11 +191,43 @@ class RuxAccess
         return ($permissions & self::VIEW_CHANNEL) !== 0;
     }
 
-    private function owner(): string
+    private function owner(string $guildId): string
     {
-        $guildId = RuxConfig::guildId();
-
         return Cache::remember("plugged-host-ai:rux:guild-owner:{$guildId}", 3600, fn (): string => (string) ($this->discord->json('GET', "guilds/{$guildId}")['owner_id'] ?? ''));
+    }
+
+    /**
+     * The server's name on Discord (for members' DMs and the servers list), the host's name
+     * when Discord cannot say.
+     */
+    public function serverName(string $guildId): string
+    {
+        return (string) Cache::remember("plugged-host-ai:rux:guild-name:{$guildId}", 3600, function () use ($guildId): string {
+            try {
+                return (string) ($this->discord->json('GET', "guilds/{$guildId}")['name'] ?? RuxConfig::guild($guildId)?->hostName() ?? config('app.name'));
+            } catch (DiscordException) {
+                return RuxConfig::guild($guildId)?->hostName() ?? (string) config('app.name');
+            }
+        });
+    }
+
+    /**
+     * Whether a role comes with rewards, so handing it out would give more than credits:
+     * roles Discord or an integration manages (the server's Booster role among them), the
+     * "2x Booster"-style roles that make a boost count double for the boost rewards (matched by
+     * name, as plugged-host-discord and noprofit.space find them), and the Discord plugin's
+     * configured 2x boost role. rux only ever gives credits.
+     *
+     * @param  array<string, mixed>  $role
+     */
+    public static function isRewardRole(array $role): bool
+    {
+        $boost2 = trim((string) config('plugged-host-discord.boost_2_role_id', ''));
+
+        return (bool) ($role['managed'] ?? false)
+            || array_key_exists('premium_subscriber', (array) ($role['tags'] ?? []))
+            || ($boost2 !== '' && (string) ($role['id'] ?? '') === $boost2)
+            || preg_match('/boost/i', (string) ($role['name'] ?? '')) === 1;
     }
 
     /**
@@ -200,7 +248,7 @@ class RuxAccess
             $this->discord->modifyRole($context->guildId, (string) $role['id'], ['permissions' => (string) ($current | $added)], $context->auditReason('made a rux moderator role'));
         }
 
-        $existing = RuxModeratorRole::query()->where('role_id', (string) $role['id'])->first();
+        $existing = RuxModeratorRole::query()->where('guild_id', $context->guildId)->where('role_id', (string) $role['id'])->first();
 
         $row = RuxModeratorRole::query()->updateOrCreate(['role_id' => (string) $role['id']], [
             'guild_id' => $context->guildId,
@@ -223,7 +271,7 @@ class RuxAccess
      */
     public function revoke(RuxContext $context, array $role, bool $discordPermissions): array
     {
-        $row = RuxModeratorRole::query()->where('role_id', (string) $role['id'])->first()
+        $row = RuxModeratorRole::query()->where('guild_id', $context->guildId)->where('role_id', (string) $role['id'])->first()
             ?? throw new InvalidArgumentException("{$role['name']} is not a rux moderator role.");
 
         $added = (int) $row->permissions_added;

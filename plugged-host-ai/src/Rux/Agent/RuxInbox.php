@@ -12,8 +12,9 @@ use PluggedHost\Ai\Support\ImageInput;
  * The gateway daemon's filter for MESSAGE_CREATE. It has to be cheap, because it runs inside
  * the daemon's read loop: no HTTP, only the database and the cache.
  *
- * An order is a DM to rux, or a message on rux's server that @mentions rux, replies to it, or
- * calls it by name ("hey rux, …", "yo rux …", "rux, …"; this needs the Message Content intent).
+ * An order is a DM to rux, or a message on one of rux's servers that @mentions rux, replies to
+ * it, or calls it by name ("hey rux, …", "yo rux …", "rux, …"; this needs the Message Content
+ * intent). Messages from servers rux is in but does not work on are ignored.
  * Bots are ignored, people noprofit.space recently said are not admins are dropped here without
  * a worker, and everyone gets a few orders per minute at most.
  */
@@ -43,7 +44,7 @@ final class RuxInbox
         $guildId = isset($message['guild_id']) ? (string) $message['guild_id'] : null;
 
         if ($guildId !== null) {
-            if ($guildId !== RuxConfig::guildId()) {
+            if (!RuxConfig::serves($guildId)) {
                 return null;
             }
 
@@ -67,7 +68,7 @@ final class RuxInbox
             return null;
         }
 
-        if (Cache::get(RuxAgent::deniedKey($authorId))) {
+        if (Cache::get(RuxAgent::deniedKey($authorId, $guildId))) {
             return null;
         }
 

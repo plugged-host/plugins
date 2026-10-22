@@ -14,7 +14,7 @@ final class ManageRoleTool extends ModerationTool
 
     public function description(): string
     {
-        return 'Give a member a role or take it away.';
+        return 'Give a member a role or take it away. Roles that come with rewards (booster roles) cannot be given: rux only ever gives credits.';
     }
 
     public function parameters(): array

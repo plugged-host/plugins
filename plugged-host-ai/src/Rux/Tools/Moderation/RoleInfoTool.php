@@ -46,7 +46,8 @@ final class RoleInfoTool extends ModerationTool
             'managed_by_integration' => ($role['managed'] ?? false) ? true : null,
             'permissions' => ($permissions & (1 << 3)) !== 0 ? ['Administrator: every permission, in every channel'] : (RuxAccess::permissionNames($permissions) ?: ['none']),
             'note' => $everyone ? null : 'Members also have @everyone\'s permissions, and channel settings can add or take away some per channel.',
-            'rux_moderator_role' => !$everyone && $this->access->moderatorRole([(string) $role['id']]) !== null,
+            'rux_moderator_role' => !$everyone && $this->access->moderatorRole($context->guildId, [(string) $role['id']]) !== null,
+            'comes_with_rewards' => !$everyone && RuxAccess::isRewardRole($role) ? 'yes: rux will not give this role to anyone' : null,
         ], static fn ($value): bool => $value !== null));
     }
 }

@@ -21,6 +21,14 @@ abstract class RuxTool
     }
 
     /**
+     * Whether the model is offered this tool for this order at all (on top of level()).
+     */
+    public function offeredIn(RuxContext $context): bool
+    {
+        return true;
+    }
+
+    /**
      * JSON schema of the arguments.
      *
      * @return array<string, mixed>

@@ -38,7 +38,7 @@ final class ListCasesTool extends ModerationTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $query = RuxCase::query();
+        $query = RuxCase::query()->where('guild_id', $context->guildId);
 
         if (($member = $this->string($arguments, 'member')) !== null) {
             $query->where('target_id', $this->memberOrUser($context, $member)['id']);

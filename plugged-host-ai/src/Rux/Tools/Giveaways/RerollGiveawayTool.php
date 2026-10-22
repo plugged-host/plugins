@@ -28,7 +28,7 @@ final class RerollGiveawayTool extends GiveawayTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $giveaway = $this->giveaway($arguments, [RuxGiveaway::ENDED]);
+        $giveaway = $this->giveaway($context, $arguments, [RuxGiveaway::ENDED]);
         $winners = $this->giveaways->reroll($giveaway, $this->int($arguments, 'count') ?? 1);
 
         return ToolResult::ok(['new_winners' => array_map(static fn (string $id): string => "<@{$id}>", $winners)] + $this->giveaways->summary($giveaway->refresh()));

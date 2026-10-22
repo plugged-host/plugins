@@ -23,6 +23,7 @@ const RUX_MEMBER = '500000000000000001';
 
 beforeEach(function () {
     loadPluginForTest('plugged-host-ai');
+    config()->set('plugged-host-ai.rux.guild_id', RUX_GUILD);
     config()->set('plugged-host-ai.rux.mod_log_channel_id', '');
 
     $this->discord = Mockery::mock(RuxDiscord::class);
@@ -30,7 +31,9 @@ beforeEach(function () {
     app()->instance(RuxDiscord::class, $this->discord);
 
     $access = Mockery::mock(RuxAccess::class);
-    $access->shouldReceive('isStaff')->andReturnUsing(fn (string $id) => $id === RUX_STAFF);
+    $access->shouldReceive('isStaff')->andReturnUsing(fn (string $guild, string $id) => $guild === RUX_GUILD && $id === RUX_STAFF);
+    // The moderator can see every channel of the server.
+    $access->shouldReceive('canView')->andReturnUsing(fn (string $guild) => $guild === RUX_GUILD);
     app()->instance(RuxAccess::class, $access);
 
     $this->noprofitAdmins = [];

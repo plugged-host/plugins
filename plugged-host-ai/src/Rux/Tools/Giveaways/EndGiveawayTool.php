@@ -26,7 +26,7 @@ final class EndGiveawayTool extends GiveawayTool
 
     public function execute(RuxContext $context, array $arguments): ToolResult
     {
-        $giveaway = $this->giveaways->endNow($this->giveaway($arguments, [RuxGiveaway::ACTIVE]));
+        $giveaway = $this->giveaways->endNow($this->giveaway($context, $arguments, [RuxGiveaway::ACTIVE]));
 
         if ($giveaway->status !== RuxGiveaway::ENDED) {
             $portal = app(AccountPortal::class)->name();

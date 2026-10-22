@@ -11,6 +11,8 @@ use PluggedHost\Ai\Rux\Support\RuxAccess;
  * rule or a watched channel); RuxAgent checks before the model is ever called. actorAccountId is
  * the actor's noprofit.space account when they have one. When rux acts by itself, evidence is
  * the message that was caught (kept with the case, so "why was he warned" has an answer).
+ * guildId is the one server everything in this order acts on: the server the order came from,
+ * or for a DM the server picked for it (RuxAgent; a moderator's level is that server's).
  */
 final class RuxContext
 {
@@ -30,6 +32,14 @@ final class RuxContext
     public function isAdmin(): bool
     {
         return $this->level === RuxAccess::ADMIN;
+    }
+
+    /**
+     * The same order, acting on another server from here on (a DM's switch_server).
+     */
+    public function withGuild(string $guildId): self
+    {
+        return new self($guildId, $this->actorDiscordId, $this->actorName, $this->actorAccountId, $this->channelId, $this->direct, $this->sourceMessageId, $this->order, $this->level, $this->evidence);
     }
 
     /**
