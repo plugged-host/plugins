@@ -4,10 +4,10 @@ namespace PluggedHost\Limbo\Providers;
 
 use App\Models\Server;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Filament\Server\Pages\SuspendedServerPage;
 use PluggedHost\Core\Power\StartChain;
+use PluggedHost\Core\Support\ActivityLines;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Limbo\Console\Commands\LimboSweepCommand;
 use PluggedHost\Limbo\Filament\Server\Pages\RestoreFromLimboPage;
@@ -16,7 +16,7 @@ use Throwable;
 
 /**
  * Wires limbo: the minute idle sweep, the human-readable activity descriptions (injected with
- * Lang::addLines so no upstream lang file is touched, fact 13), and registration of the restore
+ * core's ActivityLines so no upstream lang file is touched, fact 13), and registration of the restore
  * page as an ad interstitial (ads → limbo, by class-string so ads can be uninstalled alone).
  */
 class LimboPluginProvider extends ServiceProvider
@@ -96,22 +96,12 @@ class LimboPluginProvider extends ServiceProvider
     }
 
     /**
-     * Give the custom activity events human-readable descriptions in both locales without
+     * Give the custom activity events human-readable descriptions in every locale without
      * editing upstream's activity lang file (fact 13).
      */
     private function injectActivityDescriptions(): void
     {
-        foreach (['en', 'de'] as $locale) {
-            try {
-                $lines = trans('plugged-host-limbo::activity', [], $locale);
-
-                if (is_array($lines)) {
-                    Lang::addLines($lines, $locale);
-                }
-            } catch (Throwable) {
-                //
-            }
-        }
+        ActivityLines::inject('plugged-host-limbo');
     }
 
     /**

@@ -2,6 +2,12 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Activity log: Pelican's own lines show again.** The plugins' activity sentences (suspensions,
+  limbo, the start queue, Minecraft, FiveM, neo, servers, abuse) were added to the `activity`
+  group before Pelican had read its own file, which hid every upstream line ("Logged in",
+  "Started a new backup", …) behind its raw key (`activity.auth.success`). The plugins now go
+  through `Support\ActivityLines::inject()`, which loads upstream's group first and covers every
+  locale the plugin ships (was a fixed `['en', 'de']`).
 - **Pelican v1.0.0-rc.2** (from rc.1). No plugin needed a change for it. Two things it does
   differently: a plugin whose files cause a fatal error, or an error while the panel boots, is
   switched off (status `crashed`) and skipped until an admin enables it again in Admin › Plugins;

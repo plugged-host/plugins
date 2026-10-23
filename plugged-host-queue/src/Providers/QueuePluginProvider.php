@@ -5,6 +5,7 @@ namespace PluggedHost\Queue\Providers;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Power\StartChain;
+use PluggedHost\Core\Support\ActivityLines;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Queue\Console\Commands\QueueSweepCommand;
 use PluggedHost\Queue\Filament\Server\Pages\StartQueuePage;
@@ -95,17 +96,7 @@ class QueuePluginProvider extends ServiceProvider
      */
     protected function injectActivityDescriptions(): void
     {
-        foreach (['en', 'de'] as $locale) {
-            try {
-                $lines = trans('plugged-host-queue::activity', [], $locale);
-
-                if (is_array($lines)) {
-                    \Illuminate\Support\Facades\Lang::addLines($lines, $locale);
-                }
-            } catch (\Throwable) {
-                //
-            }
-        }
+        ActivityLines::inject('plugged-host-queue');
     }
 
     /**

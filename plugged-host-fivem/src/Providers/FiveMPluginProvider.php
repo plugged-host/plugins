@@ -5,11 +5,10 @@ namespace PluggedHost\FiveM\Providers;
 use App\Models\Egg;
 use App\Models\EggVariable;
 use App\Models\Server;
-use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Doctor\Doctor;
+use PluggedHost\Core\Support\ActivityLines;
 use PluggedHost\FiveM\Support\FiveM;
-use Throwable;
 
 /**
  * The FiveM plugin's activity sentences and its doctor check. Globbed from src/Providers, so it
@@ -19,17 +18,7 @@ class FiveMPluginProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        foreach (['en', 'de'] as $locale) {
-            try {
-                $lines = trans('plugged-host-fivem::activity', [], $locale);
-
-                if (is_array($lines)) {
-                    Lang::addLines($lines, $locale);
-                }
-            } catch (Throwable) {
-                //
-            }
-        }
+        ActivityLines::inject('plugged-host-fivem');
 
         // Core is a hard requirement (plugin.json), so its Doctor is always there.
         $this->registerDoctorChecks();

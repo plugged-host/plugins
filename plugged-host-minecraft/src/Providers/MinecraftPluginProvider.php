@@ -9,10 +9,10 @@ use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Core\Doctor\Doctor;
+use PluggedHost\Core\Support\ActivityLines;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Minecraft\Filament\Server\Pages\ServerOnboardingPage;
 use PluggedHost\Minecraft\Models\ServerOnboarding;
@@ -82,17 +82,7 @@ class MinecraftPluginProvider extends ServiceProvider
             }
         });
 
-        foreach (['en', 'de'] as $locale) {
-            try {
-                $lines = trans('plugged-host-minecraft::activity', [], $locale);
-
-                if (is_array($lines)) {
-                    Lang::addLines($lines, $locale);
-                }
-            } catch (Throwable) {
-                //
-            }
-        }
+        ActivityLines::inject('plugged-host-minecraft');
 
         $this->registerClientApi();
         $this->registerNeoTools();

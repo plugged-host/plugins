@@ -10,7 +10,6 @@ use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
@@ -21,6 +20,7 @@ use PluggedHost\Ai\Console\Commands\NeoPruneCommand;
 use PluggedHost\Ai\Livewire\LogCheckBanner;
 use PluggedHost\Ai\Livewire\NeoChat;
 use PluggedHost\Ai\Models\NeoMessage;
+use PluggedHost\Core\Support\ActivityLines;
 use Throwable;
 
 /**
@@ -111,16 +111,6 @@ class NeoPluginProvider extends ServiceProvider
 
     private function injectActivityDescriptions(): void
     {
-        foreach (['en', 'de'] as $locale) {
-            try {
-                $lines = trans('plugged-host-ai::activity', [], $locale);
-
-                if (is_array($lines)) {
-                    Lang::addLines($lines, $locale);
-                }
-            } catch (Throwable) {
-                //
-            }
-        }
+        ActivityLines::inject('plugged-host-ai');
     }
 }

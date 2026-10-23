@@ -8,7 +8,6 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use PluggedHost\Abuse\Console\Commands\AbusePurgeCommand;
@@ -19,7 +18,7 @@ use PluggedHost\Abuse\Services\AbusePurge;
 use PluggedHost\Abuse\Services\AgentGateway;
 use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Core\Filament\Server\Pages\SuspendedServerPage;
-use Throwable;
+use PluggedHost\Core\Support\ActivityLines;
 
 /**
  * Abuse control: the scheduled checks and the node agent's endpoints. (The suspend toggle on the
@@ -147,20 +146,10 @@ class AbuseControlPluginProvider extends ServiceProvider
 
     /**
      * The activity line for a server the purge deleted, without editing upstream's activity
-     * lang file (the Lang::addLines injection core and plugged-host-limbo use).
+     * lang file (core's Support\ActivityLines).
      */
     private function injectActivityDescriptions(): void
     {
-        foreach (['en', 'de'] as $locale) {
-            try {
-                $lines = trans('plugged-host-abuse::activity', [], $locale);
-
-                if (is_array($lines)) {
-                    Lang::addLines($lines, $locale);
-                }
-            } catch (Throwable) {
-                //
-            }
-        }
+        ActivityLines::inject('plugged-host-abuse');
     }
 }

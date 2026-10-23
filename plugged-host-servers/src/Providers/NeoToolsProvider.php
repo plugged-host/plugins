@@ -2,10 +2,9 @@
 
 namespace PluggedHost\Servers\Providers;
 
-use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
+use PluggedHost\Core\Support\ActivityLines;
 use PluggedHost\Core\Support\Plugins;
-use Throwable;
 
 /**
  * Contributes the server-management tools (create, resize, rename, delete, account overview)
@@ -16,17 +15,7 @@ class NeoToolsProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        foreach (['en', 'de'] as $locale) {
-            try {
-                $lines = trans('plugged-host-servers::activity', [], $locale);
-
-                if (is_array($lines)) {
-                    Lang::addLines($lines, $locale);
-                }
-            } catch (Throwable) {
-                //
-            }
-        }
+        ActivityLines::inject('plugged-host-servers');
 
         $registry = 'PluggedHost\\Ai\\Tools\\NeoToolRegistry';
 
