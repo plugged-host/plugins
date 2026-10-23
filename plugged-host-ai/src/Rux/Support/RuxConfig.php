@@ -19,9 +19,10 @@ final class RuxConfig
     /**
      * What the bot needs on the server: view channels, send messages (and in threads), embed
      * links, read history, manage messages, pin messages, manage channels, kick, ban, manage
-     * roles, manage nicknames and time members out.
+     * roles, manage nicknames and time members out; and manage server, to read the invites
+     * when rux is also plugged-host-discord's membership bot.
      */
-    public const BOT_PERMISSIONS = '2253174605966358';
+    public const BOT_PERMISSIONS = '2253174605966390';
 
     private static ?bool $tablesExist = null;
 
@@ -273,7 +274,8 @@ final class RuxConfig
 
         return $id === null
             ? null
-            : 'https://discord.com/oauth2/authorize?client_id=' . $id . '&scope=bot&permissions=' . self::BOT_PERMISSIONS
+            // applications.commands: the membership bot's /invites, /topinvites and /setboost.
+            : 'https://discord.com/oauth2/authorize?client_id=' . $id . '&scope=bot%20applications.commands&permissions=' . self::BOT_PERMISSIONS
                 . ($guildId !== null && preg_match('/^\d{17,20}$/', $guildId) === 1 ? '&guild_id=' . $guildId . '&disable_guild_select=true' : '');
     }
 
