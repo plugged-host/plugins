@@ -2,6 +2,11 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Languages offered** (settings › Languages, `ALLOWED_LANGUAGES`, e.g. `en,de,vi`): the profile's
+  and Admin › Users' language pickers list only those (`LimitedLanguageService` bound over Pelican's
+  `LanguageService`), and a user whose saved language is another one sees the panel in the app
+  locale until they pick again (their choice is kept). With a list set, Pelican's "Update On
+  Crowdin" hint under the picker is gone. Empty (the default): every installed language, as upstream.
 - Country names on the location cards and transfer pages are in the user's language
   (`Support\Countries::localName()`, ext-intl; English and the static list without it). The node
   daemon's connection error, the primary-allocation errors and the maintenance page's ad title are

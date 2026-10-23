@@ -28,6 +28,8 @@ use PluggedHost\Core\Http\Middleware\EnsureRememberMeCookie;
 use PluggedHost\Core\Http\Middleware\RedirectFromDisabledBackups;
 use PluggedHost\Core\Http\Middleware\RedirectToSuspendedPage;
 use PluggedHost\Core\Http\Middleware\RequirePanelTour;
+use PluggedHost\Core\Services\LimitedLanguageService;
+use PluggedHost\Core\Support\Languages;
 use PluggedHost\Core\Support\NodeBackups;
 use Throwable;
 
@@ -181,6 +183,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             'tour_enabled' => (bool) config('plugged-host-core.tour.enabled', true),
             'tour_version' => (string) config('plugged-host-core.tour.version', '2'),
             'backups_disabled_nodes' => NodeBackups::disabledNodeIds(),
+            'allowed_languages' => Languages::allowed(),
         ];
 
         // One Select per panel, because a navigation key is a class name and a class only
@@ -230,6 +233,17 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
                         ->searchable()
                         ->placeholder('No node')
                         ->default(fn () => NodeBackups::disabledNodeIds()),
+                ]),
+            Section::make('Languages')
+                ->description('The languages users can pick in their profile and admins in Admin › Users. Empty offers every installed language. Users who saved another language see the panel in English (the app locale) until they pick one of these; their choice is kept. With a list set, Pelican\'s "Update On Crowdin" hint under the picker is hidden.')
+                ->schema([
+                    Select::make('allowed_languages')
+                        ->label('Languages offered')
+                        ->options(fn () => app(LimitedLanguageService::class)->installedLanguages())
+                        ->multiple()
+                        ->searchable()
+                        ->placeholder('Every installed language')
+                        ->default(fn () => Languages::allowed()),
                 ]),
             Section::make('Sidebar visibility')
                 ->description('Hide navigation entries you do not want users to see. The pages stay reachable by URL — this only removes them from the sidebar.')
@@ -360,6 +374,7 @@ class PluggedHostCorePlugin implements HasPluginSettings, Plugin
             'TOUR_VERSION' => (string) $data['tour_version'],
             'NAV_HIDDEN_ITEMS' => implode(',', $this->hiddenNavigationFromForm($data)),
             'BACKUPS_DISABLED_NODES' => implode(',', array_filter(array_map('intval', (array) ($data['backups_disabled_nodes'] ?? [])))),
+            'ALLOWED_LANGUAGES' => implode(',', array_values(array_filter((array) ($data['allowed_languages'] ?? []), fn ($code): bool => is_string($code) && preg_match('/^[A-Za-z]{2,3}(_[A-Za-z]{2,4})?$/', $code) === 1))),
         ];
 
         $this->writeToEnvironment($environment);

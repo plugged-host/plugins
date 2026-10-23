@@ -76,4 +76,11 @@ return [
     'backups' => [
         'disabled_nodes' => (string) env('BACKUPS_DISABLED_NODES', ''),
     ],
+
+    /*
+     * Languages users can pick (profile, Admin › Users), comma-joined codes as in lang/ (e.g.
+     * en,de,vi). Empty: every language Pelican and language plugins ship. Anyone whose saved
+     * language is not in the list sees the app locale (or the first allowed one). Providers     * LanguagesPluginProvider; settings › Languages.
+     */
+    'languages' => (string) env('ALLOWED_LANGUAGES', ''),
 ];
