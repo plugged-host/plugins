@@ -343,7 +343,19 @@ class DiscordVerificationService
             return (int) $link->boost_count;
         }
 
-        // 3. Mathematical verification from Guild total boost count vs booster count:
+        // 3. Where another system pays the boosts (noprofit.space), it counts them per member, from
+        // the "just boosted" message each boost posts: take its count for this server. No guess
+        // there: guessing 2 would hand a single booster the 2x role, which it reads as two boosts.
+        $servers = app(DiscordServersStatus::class);
+        if ($servers->available()) {
+            $user = $link?->user;
+            $status = $user !== null ? $servers->forUser($user) : null;
+            $server = collect((array) ($status['servers'] ?? []))->firstWhere('id', $this->getGuildId());
+
+            return max(1, (int) ($server['boosts'] ?? 1));
+        }
+
+        // 4. Standalone, mathematical verification from Guild total boost count vs booster count:
         // Discord API does not expose per-user boost count. However, Discord exposes
         // the guild's aggregate `premium_subscription_count`.
         // If total boosts >= (total unique boosters * 2), every booster in the server has boosted >= 2 times.
