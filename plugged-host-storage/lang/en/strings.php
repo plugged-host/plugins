@@ -62,6 +62,10 @@ return [
         'failover_after_failures_hint' => 'Consecutive failed probes before a node is considered failed.',
         'failover_max_per_run' => 'Max Failovers Per Run',
         'failover_max_per_run_hint' => 'Safety cap on how many servers one sweep (once a minute) starts recovering, or notifies about in Notify mode.',
+        'failover_max_in_flight' => 'Recoveries At Once',
+        'failover_max_in_flight_hint' => 'How many recoveries may be under way together (installing on their new node or restoring). Installs run on the destination nodes, so this can be well above Restores At Once.',
+        'failover_max_restoring' => 'Restores At Once',
+        'failover_max_restoring_hint' => 'How many recovered servers may pull their files at the same time. Keep it at or below the archive builds the backup server and the storage box allow (their agent\'s PH_MAX_ARCHIVE_JOBS, 3 by default): a recovery waits for a free one instead of failing.',
     ],
 
     // The backups portal (backup-portal.blade.php). :app is the panel's name.

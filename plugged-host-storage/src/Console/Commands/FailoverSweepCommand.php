@@ -104,7 +104,42 @@ class FailoverSweepCommand extends Command
             $this->warn('declared down by an operator: ' . implode(', ', $declared));
         }
 
+        if ($dryRun) {
+            $this->listUnderWay();
+        }
+
         return self::SUCCESS;
+    }
+
+    /** The recoveries under way: where each one is and for how long. */
+    private function listUnderWay(): void
+    {
+        $records = NodeFailover::query()->whereIn('state', [FailoverService::CREATING, FailoverService::RESTORING])->orderBy('id')->get();
+        if ($records->isEmpty()) {
+            return;
+        }
+
+        $names = Node::query()->pluck('name', 'id');
+        $servers = Server::query()->whereKey($records->pluck('server_id'))->get()->keyBy('id');
+
+        $this->table(['#', 'Server', 'From', 'To', 'Step', 'Minutes', 'Restore tries', 'Last error'], $records->map(function (NodeFailover $r) use ($names, $servers): array {
+            $server = $servers->get($r->server_id);
+            $detail = $r->detail ?? [];
+            $step = $r->state === FailoverService::RESTORING
+                ? 'restoring'
+                : ($server?->status?->value === 'installing' ? 'installing' : 'waiting for a restore slot');
+
+            return [
+                $r->id,
+                $r->server_id,
+                $names[$r->from_node_id] ?? $r->from_node_id,
+                $names[$r->to_node_id] ?? $r->to_node_id,
+                $step,
+                $r->started_at ? (int) $r->started_at->diffInMinutes(now()) : '-',
+                ((int) ($detail['restore_attempts'] ?? 0)) . ' / ' . ((int) ($detail['restore_failures'] ?? 0)) . ' failed',
+                mb_strimwidth((string) ($detail['last_error'] ?? ''), 0, 60, '…'),
+            ];
+        })->all());
     }
 
     private function node(string $ref): ?Node

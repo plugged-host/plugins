@@ -74,7 +74,13 @@ return [
     'failover_mode' => env('STORAGE_FAILOVER_MODE', 'auto'),          // off | notify | auto
     'failover_after_failures' => (int) env('STORAGE_FAILOVER_AFTER_FAILURES', 5),
     'failover_max_per_run' => (int) env('STORAGE_FAILOVER_MAX_PER_RUN', 5),
-    'failover_max_in_flight' => (int) env('STORAGE_FAILOVER_MAX_IN_FLIGHT', 3), // recoveries installing/restoring at once (the agent builds 3 archives at a time)
+    // Recoveries under way at once (installing or restoring). Installs run on the destination nodes,
+    // so this can be well above the restores below.
+    'failover_max_in_flight' => (int) env('STORAGE_FAILOVER_MAX_IN_FLIGHT', 10),
+    // Restores at once: each one is a tar build on the box serving the archive, which builds
+    // PH_MAX_ARCHIVE_JOBS (3) at a time and answers 503 beyond that. A recovery whose install is done
+    // waits for a free slot instead of failing a restore on that 503.
+    'failover_max_restoring' => (int) env('STORAGE_FAILOVER_MAX_RESTORING', 3),
 
     // Agent auto-update bundle version currently served by the panel.
     // Normally empty: the version is the plugins release + the agent code's hash (AgentRelease).

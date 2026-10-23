@@ -122,7 +122,7 @@ class FailoverService
 
         $threshold = max(1, (int) config('plugged-host-storage.failover_after_failures', 5));
         $cap = max(1, (int) config('plugged-host-storage.failover_max_per_run', 5));
-        $maxInFlight = max(1, (int) config('plugged-host-storage.failover_max_in_flight', 5));
+        $maxInFlight = max(1, (int) config('plugged-host-storage.failover_max_in_flight', 10));
 
         $downNodes = Node::query()->get()->filter(fn (Node $n) => $this->looksDown($n, $threshold));
         $inFlight = NodeFailover::query()->whereIn('state', [self::CREATING, self::RESTORING])->count();
@@ -661,6 +661,13 @@ class FailoverService
             // The install callback clears `installing`. A wings that never reports back gets
             // 90 minutes; then the mirror goes on anyway — the data matters more than the egg.
             if ($server->status === ServerState::Installing && $age < 90) {
+                return;
+            }
+
+            // Installed: wait for a free archive slot (failover_max_restoring) rather than have the
+            // agent answer 503, which wings reports as a failed restore.
+            $slots = max(1, (int) config('plugged-host-storage.failover_max_restoring', 3));
+            if (NodeFailover::query()->where('state', self::RESTORING)->count() >= $slots) {
                 return;
             }
 

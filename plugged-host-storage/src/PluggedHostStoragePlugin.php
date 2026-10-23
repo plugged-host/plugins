@@ -89,6 +89,8 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'failover_mode' => (string) config('plugged-host-storage.failover_mode', 'auto'),
             'failover_after_failures' => (int) config('plugged-host-storage.failover_after_failures', 5),
             'failover_max_per_run' => (int) config('plugged-host-storage.failover_max_per_run', 5),
+            'failover_max_in_flight' => (int) config('plugged-host-storage.failover_max_in_flight', 10),
+            'failover_max_restoring' => (int) config('plugged-host-storage.failover_max_restoring', 3),
         ];
     }
 
@@ -248,6 +250,20 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
                         ->minValue(1)
                         ->maxValue(100)
                         ->required(),
+                    TextInput::make('failover_max_in_flight')
+                        ->label(trans('plugged-host-storage::strings.settings.failover_max_in_flight'))
+                        ->helperText(trans('plugged-host-storage::strings.settings.failover_max_in_flight_hint'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(100)
+                        ->required(),
+                    TextInput::make('failover_max_restoring')
+                        ->label(trans('plugged-host-storage::strings.settings.failover_max_restoring'))
+                        ->helperText(trans('plugged-host-storage::strings.settings.failover_max_restoring_hint'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(50)
+                        ->required(),
                 ]),
         ];
     }
@@ -287,6 +303,8 @@ class PluggedHostStoragePlugin implements HasPluginSettings, Plugin
             'STORAGE_FAILOVER_MODE' => $failoverMode,
             'STORAGE_FAILOVER_AFTER_FAILURES' => (string) max(1, min(100, (int) ($data['failover_after_failures'] ?? 5))),
             'STORAGE_FAILOVER_MAX_PER_RUN' => (string) max(1, min(100, (int) ($data['failover_max_per_run'] ?? 5))),
+            'STORAGE_FAILOVER_MAX_IN_FLIGHT' => (string) max(1, min(100, (int) ($data['failover_max_in_flight'] ?? 10))),
+            'STORAGE_FAILOVER_MAX_RESTORING' => (string) max(1, min(50, (int) ($data['failover_max_restoring'] ?? 3))),
         ];
 
         // Save-if-changed: only rewrite the HMAC secret when the admin actually typed one.

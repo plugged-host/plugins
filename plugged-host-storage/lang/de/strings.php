@@ -62,6 +62,10 @@ return [
         'failover_after_failures_hint' => 'Aufeinanderfolgende fehlgeschlagene Prüfungen, bevor ein Node als ausgefallen gilt.',
         'failover_max_per_run' => 'Max. Failover pro Lauf',
         'failover_max_per_run_hint' => 'Sicherheitsgrenze, wie viele Server ein Durchlauf (einmal pro Minute) wiederherzustellen beginnt oder im Modus „Nur benachrichtigen“ meldet.',
+        'failover_max_in_flight' => 'Wiederherstellungen gleichzeitig',
+        'failover_max_in_flight_hint' => 'Wie viele Wiederherstellungen gleichzeitig laufen dürfen (Installation auf dem neuen Node oder Rückspielen). Installationen laufen auf den Ziel-Nodes, der Wert kann also deutlich über „Rückspielungen gleichzeitig“ liegen.',
+        'failover_max_restoring' => 'Rückspielungen gleichzeitig',
+        'failover_max_restoring_hint' => 'Wie viele wiederhergestellte Server gleichzeitig ihre Dateien laden dürfen. Höchstens so viele, wie der Backup-Server und die Storage-Box Archive gleichzeitig bauen (PH_MAX_ARCHIVE_JOBS ihres Agents, standardmäßig 3): eine Wiederherstellung wartet dann auf einen freien Platz, statt fehlzuschlagen.',
     ],
 
     // Das Backup-Portal (backup-portal.blade.php). :app ist der Name des Panels.

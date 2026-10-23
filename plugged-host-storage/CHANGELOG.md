@@ -2,6 +2,12 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Faster recoveries**: installs and restores have separate limits. Up to 10 recoveries run at once
+  (`STORAGE_FAILOVER_MAX_IN_FLIGHT`, was 3 for both), while restores stay at 3
+  (`STORAGE_FAILOVER_MAX_RESTORING`, the agent's `PH_MAX_ARCHIVE_JOBS`): a server whose install is
+  done waits for a free archive slot instead of getting the agent's 503, which wings counted as a
+  failed restore. Both on the settings page (Recoveries At Once, Restores At Once).
+  `failover-sweep --status` lists the recoveries under way (step, minutes, restore tries, last error).
 - **Declare a node gone**: `plugged-host:failover-sweep --node=<id|name>` makes the sweep recover
   that node's servers while wings keeps missing its probes, even when the host refuses wings' port
   (which the detection reads as "up": a reinstalled machine, or an IP the provider gave to someone
