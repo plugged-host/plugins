@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - `NoprofitRuxSettings`: rux's settings from noprofit.space (`GET /api/v1/internal/rux/settings`,
   signed with the sync secret), reused for 60 s and kept encrypted in
   `storage/app/plugged-host/rux/rux-settings.enc` so rux keeps running while noprofit.space cannot

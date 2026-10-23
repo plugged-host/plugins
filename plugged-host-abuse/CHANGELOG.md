@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - The staff alert webhook posts as "<app name> abuse" (`APP_NAME`) instead of a hardcoded
   "plugged.host abuse".
 - Docs: resetting a node's Wings token does not re-key a running agent (it reads the token at

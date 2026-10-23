@@ -2,6 +2,11 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`): every first-party plugin and subdomains now ship a Vietnamese
+  copy of every string, next to en and de. Users pick *Tiếng Việt* in the profile's language
+  select (Pelican lists every `lang/` directory; with noprofit.space it sits under Customization ›
+  Language and time zone). Pelican's own vi is upstream's and partial; what it lacks falls back to
+  English.
 - **Activity log: Pelican's own lines show again.** The plugins' activity sentences (suspensions,
   limbo, the start queue, Minecraft, FiveM, neo, servers, abuse) were added to the `activity`
   group before Pelican had read its own file, which hid every upstream line ("Logged in",

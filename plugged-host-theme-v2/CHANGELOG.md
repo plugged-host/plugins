@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - The sidebar's Backups row shows only while `plugged-host-storage` is enabled, and links to its
   backups portal: `BACKUPS_PORTAL_URL` when set, else the panel's `/backups` (it used to fall back
   to plugged.host's portal address and show on every install).

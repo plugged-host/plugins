@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - A node whose host is up but whose Wings is not (refused port) is at most degraded.
 - **A blank health URL skips that probe.** `STATUS_SITE_HEALTH_URL` or `STATUS_PANEL_HEALTH_URL`
   left empty is no longer probed (an empty URL used to fail every minute and turn the overall
