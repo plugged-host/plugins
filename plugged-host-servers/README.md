@@ -135,6 +135,6 @@ in `.env` is harmless.
 
 ## Requirements
 
-Pelican Panel `v1.0.0-rc.1`. `plugged-host-core` (base, node telemetry) and `plugged-host-economy`
+Pelican Panel `v1.0.0-rc.2`. `plugged-host-core` (base, node telemetry) and `plugged-host-economy`
 (allowance, paid tiers). Optional: `plugged-host-ai` (neo's server tools), `plugged-host-ads`,
 and a game plugin such as `plugged-host-minecraft` (onboarding, software switcher).

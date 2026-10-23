@@ -1,13 +1,23 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
+- `NoprofitRuxSettings`: rux's settings from noprofit.space (`GET /api/v1/internal/rux/settings`,
+  signed with the sync secret), reused for 60 s and kept encrypted in
+  `storage/app/plugged-host/rux/rux-settings.enc` so rux keeps running while noprofit.space cannot
+  be reached. `plugged-host:rux-settings-upload` moves this panel's settings there once
+  (`--dry-run`, `--verify`, `--replace`).
+- neo's backend streams `/turn`, reports model errors as `ModelUnavailableException`, and sends
+  `/usage` once more when the connection to noprofit.space drops.
 - The plan noprofit.space sends carries `cut_cpu` / `cut_memory` / `cut_disk`, plugged.host's
   share of what lower bases took so far (an admin, a lower tier, a Discord server left; only ever
   counting up). When they grow and the base went down, `NoprofitCreditSync::adopt()` dispatches
   economy's `AccountLimitsLowered` with the smaller of the two (`lowered()`), in the transaction
   that takes on the plan; plugged-host-servers takes it off the servers. A plan that is lower
   only because plugged.cloud uses more moves no total and cuts nothing.
+
+## 2.2.0 (2026-10-17)
+
 - **New plugin**: noprofit.space is optional now. Sign-in, the account link, account sync,
   `/migrate`, the identity lock, the SFTP check and the `/api/noprofit/*` endpoints moved here
   from plugged-host-core with the same URLs, route names, env names, cache keys and migration
@@ -35,3 +45,4 @@
   minute's cache) is bound as discord's `DiscordServersStatus`; `NoprofitComputePlans::pool()`
   reads `NoprofitCreditSync::pool()` (`total_*` / `elsewhere_*`, else worked out from `base_*`
   and the resources bought).
+

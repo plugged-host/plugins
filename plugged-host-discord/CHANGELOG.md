@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
 - **Neutral defaults for other installs**: `DISCORD_INVITE_URL` defaults to empty (it was
   plugged.host's invite) and the invite links and buttons hide while it is empty; the settings
@@ -14,6 +14,8 @@
   `plugged-host:discord-bot-install` recognise a `schedule:run` line for this panel in
   /etc/crontab or /etc/cron.d too, instead of adding a second one to the web user's crontab.
 - The settings form's heartbeat timeout starts at 60 seconds, the least the supervisor uses.
+
+## 2.2.0 (2026-10-17)
 
 - **Works without noprofit.space**: `DiscordAccounts` (who a Discord user is) and
   `DiscordCreditPayouts` (giveaway and admin credit payouts). Standalone the panel answers from

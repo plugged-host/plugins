@@ -2,7 +2,7 @@
     "id": "plugged-host-minecraft",
     "name": "plugged.host Minecraft",
     "author": "plugged.host",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "description": "Minecraft onboarding wizard, player roster, content browser, Modrinth and CurseForge modpacks, version catalog, server.properties handling and software switcher.",
     "category": "plugin",
     "url": null,

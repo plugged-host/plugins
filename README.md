@@ -37,7 +37,7 @@ panel, along with the scheduler, the queue, the nodes and the agents.
 
 ## Running them
 
-You need a working Pelican Panel (v1.0.0-rc.1) with PHP 8.5, a database, the scheduler
+You need a working Pelican Panel (v1.0.0-rc.2) with PHP 8.5, a database, the scheduler
 (`schedule:run` every minute) and a queue worker. Then, in the panel's directory:
 
 ```bash

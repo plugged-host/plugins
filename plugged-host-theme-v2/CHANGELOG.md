@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased (2.2)
+## 2.2.1 (2026-10-23)
 
 - The sidebar's Backups row shows only while `plugged-host-storage` is enabled, and links to its
   backups portal: `BACKUPS_PORTAL_URL` when set, else the panel's `/backups` (it used to fall back
   to plugged.host's portal address and show on every install).
+
+## 2.2.0 (2026-10-17)
+
 - Settings tab: the accent colour, one of Tailwind's palettes or a custom colour
   (`THEME_V2_ACCENT`). Fills stay readable with white text and accent text with the sidebar
   behind it (4.5:1); light custom colours are darkened. Also applies to the standalone auth,

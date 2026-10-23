@@ -1,7 +1,23 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
+- **Pick any neo model by name**: the chat's picker lists every model the backend offers;
+  models a plan does not open link to the Plus page, and a turn runs on the picked model only.
+  Limits by model (mode "models": that model's weekly bar; "all": the 5-hour and weekly bars),
+  "No usage limit" next to models without one. Settings per model: description, who may pick it,
+  show thinking, weekly limit and tokens, multiplier; default model, PlusPlus share. Slots that are
+  off may stay empty (one must be on), model ids may contain `@`, and the form shows the saved
+  limits mode.
+- **Streamed answers**: text and thinking appear while they are written, rendered as markdown
+  (headings, tables in a framed grid, quotes, rules, footnotes, `==highlights==`); the finished
+  answer keeps its thinking folded under "Thinking". The consent notice names the picked model's
+  provider.
+- **rux runs on noprofit.space's settings** with plugged-host-noprofit (Admin › rux on
+  noprofit.space, once it keeps them; the rux tab then shows them read-only), and neo's provider
+  connections are set in noprofit.space's Admin › AI models. Without noprofit.space both tabs edit
+  everything on this panel as before.
+- neo's tools that are not about the open server run without a Filament tenant.
 - **rux on several Discord servers**: the main one (`RUX_GUILD_ID`) and up to nine more, set up in
   the rux tab › "More Discord servers" (`RUX_GUILD_{2..10}_ID`, `_NAME`, `_ABOUT`,
   `_GIVEAWAY_CHANNEL_ID`, `_MOD_LOG_CHANNEL_ID`, `_TRUSTED_DOMAINS`), behind the new
@@ -15,7 +31,6 @@
   and `rux-supervise --status` list the servers and an invite link per server.
 - **Credits are all rux gives**: giveaway titles cannot promise another prize, `manage_role` does
   not give reward roles (booster roles), the prompt says so, and a test pins the tool list.
-
 - **Neutral defaults for other installs** (plugged.host's own values move to its `.env`):
   - neo's prompts (panel and Discord) name the panel (`APP_NAME`) instead of plugged.host, the
     status page from `plugged-host-core.status_url`, the backups site from
@@ -38,6 +53,8 @@
   Minecraft consoles no longer runs while neo is off (`NEO_ENABLED=false`) or the switch is off.
 - The settings form falls back to the config defaults (25 steps, 24,000 context tokens, 30 s
   provider timeout) instead of 10 / 16,000 / 20.
+
+## 2.2.0 (2026-10-17)
 
 - **Model picker in neo's chat**: "Other models" (1x usage) or the premium model (the premium
   provider slot, named after its label, e.g. Haiku 5.5; counted at `NEO_PREMIUM_MULTIPLIER`, 2x;

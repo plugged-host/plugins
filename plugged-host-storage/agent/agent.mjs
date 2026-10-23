@@ -51,7 +51,7 @@ function runningVersion() {
     const dir = path.dirname(fs.realpathSync(fileURLToPath(import.meta.url)));
     if (path.basename(path.dirname(dir)) === 'releases') return path.basename(dir);
   } catch { /* fall back */ }
-  return process.env.PH_VERSION || '2.2.0';
+  return process.env.PH_VERSION || '2.2.1';
 }
 
 const CFG = {

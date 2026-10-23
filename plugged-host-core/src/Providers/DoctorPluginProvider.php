@@ -4,9 +4,11 @@ namespace PluggedHost\Core\Providers;
 
 use App\Models\Mount;
 use App\Models\Node;
+use App\Models\Plugin;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use PluggedHost\Core\Doctor\Doctor;
 use PluggedHost\Core\Doctor\QueueHeartbeat;
 use PluggedHost\Core\Support\Plugins;
@@ -47,6 +49,33 @@ class DoctorPluginProvider extends ServiceProvider
                 array_keys($unmet),
                 $unmet,
             )));
+        });
+
+        // Pelican (rc.2+) marks a plugin `crashed` when a fatal error or an error while the app
+        // boots comes from its files, and skips it from then on until an admin enables it again;
+        // `errored` is a load error it retries on the next request.
+        Doctor::check('plugged-host-core', 'Plugins load', function (): array {
+            $crashed = [];
+            $errored = [];
+
+            foreach (Plugin::query()->get() as $plugin) {
+                $status = $plugin->status->value;
+                $line = $plugin->id . ($plugin->status_message ? ': ' . Str::limit((string) $plugin->status_message, 120) : '');
+
+                if ($status === 'crashed') {
+                    $crashed[] = $line;
+                } elseif ($status === 'errored') {
+                    $errored[] = $line;
+                }
+            }
+
+            if ($crashed !== []) {
+                return Doctor::fail('crashed and switched off: ' . implode('; ', $crashed) . ' (Admin > Plugins: enable it again once fixed)');
+            }
+
+            return $errored === []
+                ? Doctor::ok('no plugin crashed or errored')
+                : Doctor::warn('errored: ' . implode('; ', $errored));
         });
 
         Doctor::check('plugged-host-core', 'Volume mounts', function (): array {

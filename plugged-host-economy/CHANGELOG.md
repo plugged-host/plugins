@@ -1,7 +1,11 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
+- **Vylo (vylo.cc) as a second way to earn tokens**: each Earn click shortens a one-time return
+  URL carrying the claim's nonce and an HMAC proof, checked against that claim plus a minimum trip
+  time. Settings under Ads › Tokens — Earning (`ADS_START_VYLO_*`), off until an API key is set.
+  Fix: the Earn button on a static-link card did nothing.
 - The Plus page's PlusPlus term ("a week, or credits for two weeks") and the credits FAQ ("credits
   buy two weeks at a time") are built from `PLUSPLUS_TOKEN_DAYS`/`PLUSPLUS_CREDIT_DAYS` instead of
   being written out, so they stay right when the days change (whole weeks read as weeks, anything
@@ -9,10 +13,12 @@
 - Self-hosting: "Plus"/"PlusPlus" on the Plus page, its notifications and ledger lines, the Tokens
   page, the admin Economy tab and the settings are named after the panel (`APP_NAME`), not a fixed
   "plugged.host Plus".
-
 - `Events\AccountLimitsLowered`: part of an account's limits was taken away (its base went down
   on noprofit.space) and its servers have to give it back (plugged-host-servers' `AllowanceTrim`
   listens).
+
+## 2.2.0 (2026-10-17)
+
 - The topbar's `AccountSummary` and the "get more resources" perks (`PerkDiscovery`, its widget
   and view) moved here from core; `AccountLimits` is the one definition of what an account may
   use, read by servers' `AccountAllowance` too.

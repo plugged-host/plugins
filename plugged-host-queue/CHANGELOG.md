@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
 - The README, plugin description and settings texts describe what the queue does: every start of
   a user who is not exempt and holds no pass waits at least `START_QUEUE_MIN_WAIT`, releases on one

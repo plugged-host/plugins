@@ -2,7 +2,7 @@
     "id": "plugged-host-devbox",
     "name": "plugged.host Devbox",
     "author": "plugged.host",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "description": "VS Code on the server for Plus: a private Linux devbox next to a game server (a hidden server Wings runs, with the game server's files mounted at /server) that VS Code Remote-SSH connects to with a connect code from the panel.",
     "category": "plugin",
     "url": null,

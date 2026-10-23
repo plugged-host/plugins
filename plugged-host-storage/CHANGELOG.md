@@ -1,7 +1,14 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
+- Failover counts a node as down only on real outages (`consecutiveOutages()`): a host that
+  refuses Wings' port is up, so a crashed or slowly restarting Wings no longer has its servers
+  recovered elsewhere. Destinations still need Wings answering.
+- **Mirror keys pinned to their addresses**: `STORAGE_MIRROR_FROM` / `STORAGE_BACKUP_MIRROR_FROM`
+  (settings: "Mirror key's addresses") are the IPs a box reaches the nodes from; the node installer
+  then writes its key as `from="<addresses>" ssh-…` and replaces an older line for the same key.
+  Unset: the key works from anywhere, as before.
 - **The backups portal's address is a setting.** `BACKUPS_PORTAL_URL` (config `portal_url`,
   Admin › Plugins › plugged.host Storage › Backups portal) defaults to empty instead of
   plugged.host's portal: the portal's routes answer on that URL's host when it is set, and on the
@@ -35,6 +42,9 @@
   changed, so the copy-time rule sent every download of a server parked on the backup server to
   the storage box). `StorageService::limboNodes()` lists every node with the limbo tag;
   failover leaves all of them out.
+
+## 2.2.0 (2026-10-17)
+
 - **Backup server**: an optional second box running the same agent, for a storage box that is
   stable but slow (one thread: packing an archive takes ages). Both copy every server; archives
   for the backups portal, the Backups banner, failover restores and `deleted-servers --url` come

@@ -1,7 +1,15 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
+- **Pelican v1.0.0-rc.2** (from rc.1). No plugin needed a change for it. Two things it does
+  differently: a plugin whose files cause a fatal error, or an error while the panel boots, is
+  switched off (status `crashed`) and skipped until an admin enables it again in Admin › Plugins;
+  and every power action the panel sends now writes a `server:power.*` activity entry, the plugins'
+  own included (limbo's stop, the start queue, a Geyser or neo restart), which limbo's idle clock
+  counts like any other server activity.
+- `plugged-host:doctor` › **Plugins load**: fails when a plugin crashed (with Pelican's message),
+  warns when one errored.
 - **No plugged.host defaults for other panels**: the error pages link the status page from
   `STATUS_PAGE_URL` (falling back to `STATUS_RSS_BASE_URL`; new key `plugged-host-core.status_url`)
   and hide the button without one; the maintenance page's Discord button has no built-in invite,
@@ -12,6 +20,17 @@
   line). The welcome tour says `APP_NAME` instead of plugged.host, mentions the Resource Store,
   Plus and tokens only with plugged-host-economy, Backups only with a backups portal, and the
   Minecraft pages only with plugged-host-minecraft.
+- **A crashed Wings is not a dead node.** A failed `NodeTelemetry` probe records `refused` when the
+  host refused Wings' port (the machine is up), and `consecutiveOutages()` ignores those.
+  `WingsDeleteGuard` (HTTP middleware) kills a running server and waits for it to be offline before
+  Wings' DELETE, and after a failed DELETE refuses power actions and deletes for that server on that
+  node until Wings drops the broken copy (Wings rc.1 panicked on such deletes).
+- `Support\Tenancy::without()` runs code with no Filament tenant (the server panel scopes
+  Allocation and friends to the open server). A server saved while its primary allocation is still
+  free on its node claims it instead of failing, which un-sticks its install callback.
+
+## 2.2.0 (2026-10-17)
+
 - **Two panel boxes**: prod's sessions, cache, queue and maintenance mode can live in the
   (replicated) database, so either box can answer any request. Migration
   `010_create_database_cache_tables` adds Laravel's `cache`/`cache_locks` tables and an index on

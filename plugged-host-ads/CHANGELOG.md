@@ -1,7 +1,17 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
+- **Leaderboard at the top of every page**: the `top` slot (`ADS_SLOT_TOP`, on by default)
+  puts a 728x90 / 468x60 / 320x50 above the page heading on every app and server page, console
+  included, and under a live sponsored top banner; not on the waiting rooms or the suspended page.
+  The foot slot also asks for a 300x250, so pages without a named rectangle carry one.
+- **Monetag In-Page Push and Vignette** on ordinary app and server pages (not the console, the
+  waiting rooms or the dead ends). Vignette loads at most once per `ADS_MONETAG_VIGNETTE_MINUTES`
+  per session (10) and skips Plus owners unless `ADS_MONETAG_VIGNETTE_PLUS`. Tags are pasted in the
+  settings as Monetag issues them and rebuilt from the validated zone id and script URL.
+- **Site-verification meta tags** (`ADS_MONETAG_VERIFICATION`) in the head of every panel page; a
+  signed-out request for `/` gets a small page with the tags and a refresh to `/login`.
 - **Fix: saving the settings no longer wipes fields the form is not showing.** Filament leaves a
   hidden field out of the submitted data, and `saveSettings()` wrote false/empty for it: with the
   start gate off a save switched Linkvertise off and cleared its publisher id and link (no more
@@ -19,6 +29,8 @@
   names `APP_NAME` and the host of `APP_URL`, and Plus is named after the panel in the settings.
 - README: clear caches with `config:clear`/`route:clear`/`view:clear`/`event:clear`, never
   `optimize:clear`.
+
+## 2.2.0 (2026-10-17)
 
 - **Sponsored banners**: banners the owner sells himself, uploaded in **Admin › Panel › Sponsored
   banners** (PNG, JPG, WebP or GIF up to 4 MB on the public disk under `plugged-host-ads/banners/`;

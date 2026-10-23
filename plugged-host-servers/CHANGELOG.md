@@ -1,7 +1,14 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-10-23)
 
+- **A Go egg that works** (imported over upstream's golang template, egg 16): Go 1.23/1.22
+  yolks, an empty server gets a starter web server, a project with a `go.mod` is built on every
+  start, or `GO_PACKAGE` installs a Go program. `update_url` is cleared so an egg update does not
+  bring the template back.
+- **neo's creates link their ports**: `ServerProvisioner` creates and resizes without a Filament
+  tenant, so a server neo makes from another server's chat gets its allocation (it used to stay
+  "installing" with no ports).
 - Settings cleanup: `NODES_HOT_PERCENT` ("Node is busy above") is gone from the settings and the
   config. Nothing acted on it any more: the start queue's own line (`START_QUEUE_THRESHOLD_PERCENT`)
   holds starts back, and the deployment pause takes a node over that line out of new servers.
@@ -13,7 +20,6 @@
   settings, transfer refusals and neo's tools, instead of a fixed "plugged.host Plus".
 - The README's latency source (core's `NodeTelemetry`), requirements (Pelican `v1.0.0-rc.1`) and
   the deployment pause are up to date.
-
 - **A lower base on noprofit.space takes effect on the servers**: whenever an account's base
   resources go down there (an admin, a lower tier, a Discord server left), what its servers use
   beyond the new allowance, up to plugged.host's share of what was taken away (noprofit.space
@@ -23,6 +29,9 @@
   "Lowered allowances"). `MemoryTrim` (`plugged-host:trim-memory`) and PlusPlusExpiry's CPU trim
   now run under the account's provisioning lock and take no more than is over at that moment, so
   two decreases at once never take the same overage twice.
+
+## 2.2.0 (2026-10-17)
+
 - The server settings' VS Code section (plugged-host-devbox) shows only to people who may have a
   devbox there (`DevboxAccess::isMember()`: owner, or a subuser with VS Code, SFTP and every
   file permission), not to every admin or subuser with the VS Code permission alone, for whom

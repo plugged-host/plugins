@@ -65,5 +65,5 @@ plugged.host. `plugged-host:doctor` warns while an egg the catalog lists is miss
 
 ## Requirements
 
-Pelican Panel `v1.0.0-rc.1`. `plugged-host-core` and `plugged-host-servers`. CurseForge features
+Pelican Panel `v1.0.0-rc.2`. `plugged-host-core` and `plugged-host-servers`. CurseForge features
 need a valid `CURSEFORGE_API_KEY`; Modrinth is the zero-config default.

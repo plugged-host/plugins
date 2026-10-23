@@ -68,4 +68,4 @@ None for other plugins. The exported files are its interface: their shapes (`sch
 
 ## Requirements
 
-Pelican Panel `v1.0.0-rc.1` and `plugged-host-core`. No API key.
+Pelican Panel `v1.0.0-rc.2` and `plugged-host-core`. No API key.

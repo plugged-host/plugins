@@ -2,7 +2,7 @@
     "id": "plugged-host-ads",
     "name": "plugged.host Ads",
     "author": "plugged.host",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "description": "Adds Adsterra advertising units to the Pelican panel, with optional ad-block detection, an ad-funded waiting room before oversized servers start, and off-site earning of the tokens that buy queue priority.",
     "category": "plugin",
     "url": null,

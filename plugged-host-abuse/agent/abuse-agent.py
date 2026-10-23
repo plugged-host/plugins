@@ -32,7 +32,7 @@ import urllib.request
 
 # The plugins release (the VERSION file; bump them together) and the start of this file's sha256,
 # e.g. 2.2.0.1a2b3c4: the same shape as the panel's v2.2.0.<commit>.
-RELEASE = "2.2.0"
+RELEASE = "2.2.1"
 try:
     with open(os.path.abspath(__file__), "rb") as _fh:
         VERSION = RELEASE + "." + hashlib.sha256(_fh.read()).hexdigest()[:7]
