@@ -2,6 +2,11 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Declare a node gone**: `plugged-host:failover-sweep --node=<id|name>` makes the sweep recover
+  that node's servers while wings keeps missing its probes, even when the host refuses wings' port
+  (which the detection reads as "up": a reinstalled machine, or an IP the provider gave to someone
+  else). The declaration ends by itself the first time wings answers again; `--clear-node`
+  withdraws it, `--status` lists it.
 - Failover counts a node as down only on real outages (`consecutiveOutages()`): a host that
   refuses Wings' port is up, so a crashed or slowly restarting Wings no longer has its servers
   recovered elsewhere. Destinations still need Wings answering.

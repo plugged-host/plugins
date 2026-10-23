@@ -54,6 +54,12 @@ use Throwable;
  *              (isFenced()): if the node the server was recovered to fails later, it is
  *              recovered again.
  *
+ * An operator can declare a node gone (`failover-sweep --node=<id|name>`, declareDown()): its servers
+ * are then recovered while wings keeps missing its probes, even when the host refuses wings' port,
+ * which the automatic detection reads as "up" (a reinstalled machine, or an IP the provider gave to
+ * someone else). The declaration ends by itself the first time wings answers a probe again, so it
+ * never outlives the outage it was made for.
+ *
  * Mode `off` stops the sweep altogether: no new recoveries, and those under way wait where they
  * are until the mode is `notify` or `auto` again (the command refuses --drill and --resume then,
  * as nothing would carry them on).
@@ -81,6 +87,9 @@ class FailoverService
     private const FENCED_STATES = ['running', 'fenced', self::CREATING, self::RESTORING];
 
     private const BACKUP_NAME = 'Recovery from the storage mirror';
+
+    /** Node ids an operator declared gone (shared cache: both panel boxes see it). */
+    private const DECLARED_KEY = 'plugged-host-storage:failover:declared-down';
 
     public function __construct(private readonly StorageService $storage) {}
 
@@ -212,6 +221,34 @@ class FailoverService
         return true;
     }
 
+    /** @return list<int> node ids an operator declared gone */
+    public function declaredDown(): array
+    {
+        return array_values(array_map('intval', (array) Cache::get(self::DECLARED_KEY, [])));
+    }
+
+    /**
+     * Declare $node gone: the sweep recovers its servers while wings misses its probes, refused
+     * port or not. Ends by itself once wings answers a probe again (looksDown()).
+     */
+    public function declareDown(Node $node): void
+    {
+        Cache::forever(self::DECLARED_KEY, array_values(array_unique([...$this->declaredDown(), (int) $node->getKey()])));
+        Log::warning("plugged-host-storage: node {$node->id} ({$node->name}) declared down by an operator; its servers are recovered while wings misses its probes.");
+    }
+
+    public function undeclare(Node $node): bool
+    {
+        $declared = $this->declaredDown();
+        if (!in_array((int) $node->getKey(), $declared, true)) {
+            return false;
+        }
+
+        Cache::forever(self::DECLARED_KEY, array_values(array_diff($declared, [(int) $node->getKey()])));
+
+        return true;
+    }
+
     /**
      * Node looks dead: core's node telemetry has at least `$threshold` probes in a row (one a
      * minute, every node) that neither reached wings nor had the host refuse its port. Gone,
@@ -224,7 +261,21 @@ class FailoverService
     private function looksDown(Node $node, int $threshold): bool
     {
         try {
-            return app(NodeTelemetry::class)->consecutiveOutages((int) $node->getKey()) >= $threshold;
+            $telemetry = app(NodeTelemetry::class);
+
+            if (in_array((int) $node->getKey(), $this->declaredDown(), true)) {
+                $samples = $telemetry->samples((int) $node->getKey());
+                $last = $samples === [] ? null : $samples[array_key_last($samples)];
+
+                if (!($last['reachable'] ?? false)) {
+                    return true;
+                }
+
+                $this->undeclare($node);
+                Log::info("plugged-host-storage: node {$node->id} ({$node->name}) answered again; its declaration as down ended.");
+            }
+
+            return $telemetry->consecutiveOutages((int) $node->getKey()) >= $threshold;
         } catch (Throwable) {
             return false;
         }
