@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - The installing page offers Reinstall and Delete server once an install has run for 30
   minutes (Delete also on a failed install).
 - Ships the Minecraft: Java Edition egg (`egg/egg-minecraft-java.json`, the UUID servers' catalog

@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - **Pick any neo model by name**: the chat's picker lists every model the backend offers;
   models a plan does not open link to the Plus page, and a turn runs on the picked model only.
   Limits by model (mode "models": that model's weekly bar; "all": the 5-hour and weekly bars),

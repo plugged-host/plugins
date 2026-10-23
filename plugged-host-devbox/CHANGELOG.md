@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - For panels other than plugged.host:
   - The web domain may be anything but the panel's own registrable domain (from `APP_URL`) or
     `SESSION_DOMAIN`, a name under or above them; it used to refuse only `plugged.host`. The

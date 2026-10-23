@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - **Neutral defaults for other installs**: `DISCORD_INVITE_URL` defaults to empty (it was
   plugged.host's invite) and the invite links and buttons hide while it is empty; the settings
   form no longer requires it. Embed footers and the rewards tab name the panel (`APP_NAME`). The

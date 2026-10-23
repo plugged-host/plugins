@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - **Faster recoveries**: installs and restores have separate limits. Up to 10 recoveries run at once
   (`STORAGE_FAILOVER_MAX_IN_FLIGHT`, was 3 for both), while restores stay at 3
   (`STORAGE_FAILOVER_MAX_RESTORING`, the agent's `PH_MAX_ARCHIVE_JOBS`): a server whose install is
