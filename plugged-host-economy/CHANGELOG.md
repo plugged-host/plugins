@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - **Vylo (vylo.cc) as a second way to earn tokens**: each Earn click shortens a one-time return
   URL carrying the claim's nonce and an HMAC proof, checked against that claim plus a minimum trip
   time. Settings under Ads › Tokens — Earning (`ADS_START_VYLO_*`), off until an API key is set.

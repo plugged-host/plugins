@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - README: owners are not notified when their server is stopped or parked; limbo only writes
   activity-log entries (the rule table said otherwise). The limbo node's tag is read through
   `config('plugged-host-limbo.node_tag')` by plugged-host-storage now, not `env()`.

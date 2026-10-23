@@ -1,0 +1,51 @@
+<?php
+
+return [
+    'title' => 'Máy chủ đang ngủ đông',
+    'restore' => 'Khôi phục máy chủ',
+    'confirm' => 'Khôi phục sẽ tiêu :cost token và chuyển máy chủ của bạn trở lại một node đang hoạt động.',
+    'restored' => 'Máy chủ của bạn đang được khôi phục.',
+    'restoring' => 'Máy chủ của bạn đang được chuyển trở lại một node đang hoạt động. Việc này mất vài phút; cửa sổ lệnh sẽ mở lại ngay khi máy chủ đã chuyển xong.',
+    'insufficient' => 'Bạn cần :cost token để khôi phục máy chủ này.',
+    'failed' => 'Không thể bắt đầu khôi phục. Không có token nào bị trừ.',
+    'location_full' => 'Hiện không còn chỗ cho máy chủ này ở đó. Hãy chọn một vị trí bên dưới. Không có token nào bị trừ.',
+    'pick_title' => 'Chọn vị trí',
+    'pick_body' => 'Vị trí cũ của máy chủ này hiện đã đầy. Hãy chọn một trong các vị trí của bạn để khôi phục máy chủ ở đó. Địa chỉ của máy chủ sẽ thay đổi.',
+    'pick_none' => 'Hiện không có vị trí nào của bạn còn chỗ cho máy chủ này. Vui lòng thử lại sau.',
+    'ms' => ':ms ms',
+    'body' => 'Máy chủ này đã không hoạt động một thời gian nên đã được chuyển sang trạng thái ngủ đông để giải phóng tài nguyên. Hãy khôi phục để đưa máy chủ trực tuyến trở lại.',
+
+    'entered' => 'Bắt đầu ngủ đông :time',
+    'cost_label' => 'Chi phí khôi phục',
+    'balance_label' => 'Số dư của bạn',
+    'tokens' => ':count token',
+
+    'settings' => [
+        'section_general' => 'Chung',
+        'section_general_hint' => 'Công tắc chính cho đợt quét ngủ đông. Khi tắt, đợt quét không làm gì cả và plugin ở trạng thái ẩn.',
+        'enabled' => 'Bật ngủ đông',
+        'enabled_hint' => 'Khi bật, các máy chủ không hoạt động sẽ bị dừng và chuyển sang node limbo theo lịch bên dưới.',
+
+        'section_schedule' => 'Lịch ngủ đông',
+        'section_schedule_hint' => 'Các ngưỡng tính bằng số giờ kể từ lần cuối máy chủ có hoạt động trên bảng điều khiển, cùng với nơi chuyển đến và tốc độ chuyển máy chủ.',
+        'stop_hours' => 'Dừng sau (giờ)',
+        'stop_hours_hint' => 'Số giờ không có hoạt động trên bảng điều khiển trước khi máy chủ bị dừng.',
+        'transfer_hours' => 'Chuyển sau (giờ)',
+        'transfer_hours_hint' => 'Số giờ không có hoạt động trên bảng điều khiển trước khi một máy chủ đã dừng được chuyển sang node limbo.',
+        'node_tag' => 'Thẻ node limbo',
+        'node_tag_hint' => 'Thẻ dùng để nhận diện node limbo. Không được là mã quốc gia và phải được loại khỏi các thẻ triển khai UCS. Chuyển thẻ sang node khác để đưa các máy chủ mới về đó; các máy chủ đã nằm trên node cũ vẫn ở lại đó.',
+        'max_per_run' => 'Số lượt chuyển tối đa cùng lúc',
+        'max_per_run_hint' => 'Số máy chủ có thể đang được chuyển sang node limbo cùng một lúc (cũng là số máy chủ tối đa mà một đợt quét dừng). Mỗi lần chuyển mất vài phút, nên giới hạn này giúp node limbo không bị quá tải.',
+        'max_disk_percent' => 'Giới hạn ổ đĩa của node limbo (%)',
+        'max_disk_percent_hint' => 'Không có lượt chuyển mới khi ổ đĩa của node limbo được dùng quá tỷ lệ phần trăm này. Node limbo cũng chứa các bản sao của agent lưu trữ, việc sao chép này sẽ dừng khi ổ đĩa sắp đầy. 0 sẽ tắt kiểm tra này.',
+
+        'section_ransom' => 'Chi phí khôi phục',
+        'section_ransom_hint' => 'Số token mà chủ sở hữu phải trả để khôi phục một máy chủ đang ngủ đông trở lại một node đang hoạt động.',
+        'cost_early' => 'Chi phí khôi phục sớm (token)',
+        'cost_early_hint' => 'Số token bị tính khi máy chủ được khôi phục trong khoảng thời gian tính phí sau khi vào limbo.',
+        'cost_late' => 'Chi phí khôi phục muộn (token)',
+        'cost_late_hint' => 'Số token bị tính khi máy chủ được khôi phục sau khi khoảng thời gian tính phí đã qua.',
+        'cost_window_hours' => 'Khoảng thời gian tính phí (giờ)',
+        'cost_window_hours_hint' => 'Số giờ sau khi vào limbo mà chi phí khôi phục sớm được áp dụng; sau đó, chi phí khôi phục muộn được áp dụng.',
+    ],
+];

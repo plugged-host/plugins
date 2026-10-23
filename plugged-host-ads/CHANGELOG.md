@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - **Leaderboard at the top of every page**: the `top` slot (`ADS_SLOT_TOP`, on by default)
   puts a 728x90 / 468x60 / 320x50 above the page heading on every app and server page, console
   included, and under a live sponsored top banner; not on the waiting rooms or the suspended page.

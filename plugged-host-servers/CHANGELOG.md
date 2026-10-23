@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - **A Go egg that works** (imported over upstream's golang template, egg 16): Go 1.23/1.22
   yolks, an empty server gets a starter web server, a project with a `go.mod` is built on every
   start, or `GO_PACKAGE` installs a Go program. `update_url` is cleared so an egg update does not

@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Vietnamese** (`lang/vi`), in step with en and de.
 - The README, plugin description and settings texts describe what the queue does: every start of
   a user who is not exempt and holds no pass waits at least `START_QUEUE_MIN_WAIT`, releases on one
   node are spaced by `START_QUEUE_RELEASE_INTERVAL`, and the node's load is checked at release
