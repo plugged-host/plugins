@@ -333,6 +333,10 @@ class DiscordBotCommand extends Command
                                 'browser' => 'pelican_panel',
                                 'device' => 'pelican_panel',
                             ],
+                            // The same presence as rux's gateway, which shares this bot when
+                            // rux is the bot (DiscordVerificationService::getBotToken()), so the
+                            // two sessions do not keep changing what it shows.
+                            'presence' => ['status' => 'online', 'afk' => false, 'since' => null, 'activities' => [['name' => (string) config('app.name'), 'type' => 3]]],
                         ],
                     ]));
                     $lastHeartbeatTime = microtime(true);

@@ -102,6 +102,7 @@ return [
         'secret_unset' => 'Not set',
         'bot_token_set_help' => 'A bot token is stored. Leave blank to keep it, or type a new one to replace it. Required for reading invite leaderboards, tracking joins, detecting boosts, and slash commands.',
         'bot_token_unset_help' => 'No bot token is stored. Required for reading invite leaderboards, tracking joins, detecting boosts, and slash commands.',
+        'bot_token_rux_help' => 'Not used: rux is the bot (its token is set with rux\'s settings), so one bot does moderation, invites, boosts and the slash commands. This token only applies when rux has none.',
         'public_key' => 'Discord Public Key (Optional)',
         'public_key_set_help' => 'A public key is stored. Leave blank to keep it, or type a new one to replace it. Used to verify Ed25519 signatures when using HTTP Interactions instead of the Gateway WebSocket.',
         'public_key_unset_help' => 'No public key is stored. Only needed if you verify Discord HTTP Interactions instead of using the Gateway WebSocket.',

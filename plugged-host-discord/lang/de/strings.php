@@ -102,6 +102,7 @@ return [
         'secret_unset' => 'Nicht gesetzt',
         'bot_token_set_help' => 'Ein Bot-Token ist gespeichert. Leer lassen, um es zu behalten, oder ein neues eingeben, um es zu ersetzen. Erforderlich zum Lesen der Einladungs-Bestenlisten, zum Erfassen von Beitritten, zum Erkennen von Boosts und für Slash-Befehle.',
         'bot_token_unset_help' => 'Es ist kein Bot-Token gespeichert. Erforderlich zum Lesen der Einladungs-Bestenlisten, zum Erfassen von Beitritten, zum Erkennen von Boosts und für Slash-Befehle.',
+        'bot_token_rux_help' => 'Wird nicht verwendet: rux ist der Bot (sein Token steht in den Einstellungen von rux), ein Bot übernimmt also Moderation, Einladungen, Boosts und die Slash-Befehle. Dieses Token gilt nur, wenn rux keins hat.',
         'public_key' => 'Discord Public Key (Optional)',
         'public_key_set_help' => 'Ein Public Key ist gespeichert. Leer lassen, um ihn zu behalten, oder einen neuen eingeben, um ihn zu ersetzen. Wird zur Prüfung von Ed25519-Signaturen verwendet, wenn HTTP-Interaktionen statt des Gateway-WebSocket genutzt werden.',
         'public_key_unset_help' => 'Es ist kein Public Key gespeichert. Nur nötig, wenn du Discord-HTTP-Interaktionen prüfst, statt den Gateway-WebSocket zu nutzen.',

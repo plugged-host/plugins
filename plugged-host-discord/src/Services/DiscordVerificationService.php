@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use PluggedHost\Ai\Rux\Support\RuxConfig;
 use PluggedHost\Core\Support\Plugins;
 use PluggedHost\Discord\Contracts\DiscordServersStatus;
 use PluggedHost\Discord\Models\DiscordInviteBaseline;
@@ -44,11 +45,36 @@ class DiscordVerificationService
     }
 
     /**
-     * Get the optional Discord Bot Token.
+     * The bot token: rux's wherever plugged.host AI has one, so one bot does moderation,
+     * giveaways, membership, invites and boosts (rux's gateway and this plugin's share it: their
+     * intents, events and interactions do not overlap). DISCORD_BOT_TOKEN otherwise.
      */
     public function getBotToken(): string
     {
-        return trim((string) config('plugged-host-discord.bot_token', ''));
+        $rux = $this->ruxBotToken();
+
+        return $rux !== '' ? $rux : trim((string) config('plugged-host-discord.bot_token', ''));
+    }
+
+    /**
+     * Whether the bot is rux (getBotToken()), not a bot of this plugin's own.
+     */
+    public function usesRuxBot(): bool
+    {
+        return $this->ruxBotToken() !== '';
+    }
+
+    private function ruxBotToken(): string
+    {
+        if (!Plugins::enabled('plugged-host-ai') || !Plugins::available(RuxConfig::class)) {
+            return '';
+        }
+
+        try {
+            return RuxConfig::token();
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /**

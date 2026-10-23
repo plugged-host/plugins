@@ -77,6 +77,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
     public function getSettingsForm(): array
     {
         $hasBotToken = filled(config('plugged-host-discord.bot_token'));
+        $usesRux = app(DiscordVerificationService::class)->usesRuxBot();
         $hasPublicKey = filled(config('plugged-host-discord.public_key'));
         // With plugged-host-noprofit, noprofit.space links Discord and sets the Discord tier;
         // standalone the panel links it and the tier is economy's (COMPUTE_DISCORD_*).
@@ -112,7 +113,7 @@ class PluggedHostDiscordPlugin implements HasPluginSettings, Plugin
                         ->nullable()
                         ->columnSpanFull()
                         ->placeholder($hasBotToken ? '•••••••• ' . trans('plugged-host-discord::strings.settings.secret_unchanged') : trans('plugged-host-discord::strings.settings.secret_unset'))
-                        ->helperText(trans('plugged-host-discord::strings.settings.' . ($hasBotToken ? 'bot_token_set_help' : 'bot_token_unset_help'))),
+                        ->helperText(trans('plugged-host-discord::strings.settings.' . ($usesRux ? 'bot_token_rux_help' : ($hasBotToken ? 'bot_token_set_help' : 'bot_token_unset_help')))),
                     TextInput::make('public_key')
                         ->label(trans('plugged-host-discord::strings.settings.public_key'))
                         ->password()
