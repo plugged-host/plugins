@@ -1660,7 +1660,7 @@ class TransferService
         }
 
         [$country, $tier] = app(LocationCatalog::class)->resolve($code);
-        $name = Countries::name($country) ?? strtoupper($country);
+        $name = Countries::localName($country, $locale) ?? strtoupper($country);
 
         return $tier === LocationCatalog::FREE ? $name : $name . ' (' . ucfirst($tier) . ')';
     }

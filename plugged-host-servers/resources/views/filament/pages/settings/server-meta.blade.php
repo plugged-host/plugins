@@ -34,8 +34,8 @@
                 type="button"
                 @click="navigator.clipboard.writeText('{{ $server->uuid }}'); copied = true; setTimeout(() => copied = false, 2000)"
                 class="fi-icon-btn fi-size-sm"
-                aria-label="Copy UUID"
-                x-tooltip="{ content: 'Copy UUID', theme: $store.theme }">
+                aria-label="{{ trans('plugged-host-servers::strings.server_settings.copy_uuid') }}"
+                x-tooltip="{ content: @js(trans('plugged-host-servers::strings.server_settings.copy_uuid')), theme: $store.theme }">
                 <x-filament::icon x-show="!copied" icon="tabler-copy" />
                 <x-filament::icon x-show="copied" icon="tabler-check" class="phset-copied" style="display: none;" />
             </button>
@@ -43,14 +43,14 @@
 
         {{-- Identifier (Short UUID) --}}
         <div x-data="{ copied: false }" class="phset-row">
-            <span class="phset-label">Identifier</span>
+            <span class="phset-label">{{ trans('plugged-host-servers::strings.server_settings.identifier') }}</span>
             <span class="phset-value font-mono">{{ $server->uuid_short }}</span>
             <button
                 type="button"
                 @click="navigator.clipboard.writeText('{{ $server->uuid_short }}'); copied = true; setTimeout(() => copied = false, 2000)"
                 class="fi-icon-btn fi-size-sm"
-                aria-label="Copy Identifier"
-                x-tooltip="{ content: 'Copy Identifier', theme: $store.theme }">
+                aria-label="{{ trans('plugged-host-servers::strings.server_settings.copy_identifier') }}"
+                x-tooltip="{ content: @js(trans('plugged-host-servers::strings.server_settings.copy_identifier')), theme: $store.theme }">
                 <x-filament::icon x-show="!copied" icon="tabler-copy" />
                 <x-filament::icon x-show="copied" icon="tabler-check" class="phset-copied" style="display: none;" />
             </button>
@@ -58,7 +58,7 @@
 
         {{-- Hosting Node --}}
         <div class="phset-row">
-            <span class="phset-label">Hosting Node</span>
+            <span class="phset-label">{{ trans('plugged-host-servers::strings.server_settings.hosting_node') }}</span>
             <span class="phset-value">
                 {{ $server->node->name }} <span class="phset-value-muted font-mono">#{{ $server->node->id }}</span>
             </span>

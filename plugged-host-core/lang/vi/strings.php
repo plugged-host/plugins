@@ -11,6 +11,21 @@ return [
         'disabled' => 'Sao lưu đã bị tắt cho các máy chủ trên node này.',
     ],
 
+    // The node daemon (Wings) did not answer a request (DaemonResiliencePluginProvider).
+    'daemon' => [
+        'connection_title' => 'Lỗi kết nối daemon',
+        'connection_body' => 'Không thể kết nối tới daemon của node. Vui lòng thử lại sau.',
+    ],
+
+    // Services\AllocationInvariant: every server keeps one primary allocation of its own.
+    'allocations' => [
+        'primary_required' => 'Mỗi máy chủ phải có một allocation mạng chính.',
+        'primary_invalid' => 'Mỗi máy chủ phải có một allocation mạng chính hợp lệ.',
+        'primary_taken' => 'Allocation mạng chính đã được gán cho một máy chủ khác.',
+        'primary_foreign' => 'Allocation mạng chính phải được gán cho máy chủ này.',
+        'primary_retain' => 'Một máy chủ phải luôn giữ một allocation mạng chính.',
+    ],
+
     'role' => 'Vai trò|Vai trò',
     'user' => 'Người dùng|Người dùng',
     'cpu' => 'CPU',
@@ -496,6 +511,7 @@ return [
         'status_page' => 'Trạng thái công khai',
         'service_unavailable' => '503 • Dịch vụ tạm thời không khả dụng',
         'checking' => 'Đang kiểm tra…',
+        'ad_title' => 'Quảng cáo',
     ],
 
     'errors' => [

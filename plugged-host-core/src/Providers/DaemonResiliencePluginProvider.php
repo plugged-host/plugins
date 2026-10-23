@@ -60,8 +60,8 @@ class DaemonResiliencePluginProvider extends ServiceProvider
                 $stopPropagation();
 
                 Notification::make()
-                    ->title('Daemon Connection Error')
-                    ->body('Unable to connect to the node daemon. Please try again later.')
+                    ->title(trans('plugged-host-core::strings.daemon.connection_title'))
+                    ->body(trans('plugged-host-core::strings.daemon.connection_body'))
                     ->danger()
                     ->send();
             }

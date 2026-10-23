@@ -131,7 +131,7 @@ class LocationCatalog
 
         return $nodeIds->map(fn (Collection $ids, string $code) => [
             'code' => $code,
-            'name' => Countries::name($code) ?? strtoupper($code),
+            'name' => Countries::localName($code) ?? strtoupper($code),
             'svg' => self::flagSvg($code),
             'node_count' => $ids->count(),
             'latency' => $this->reduceLatency($ids, $latencyByNode),

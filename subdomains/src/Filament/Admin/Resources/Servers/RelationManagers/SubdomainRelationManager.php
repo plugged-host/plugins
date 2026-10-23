@@ -256,11 +256,11 @@ class SubdomainRelationManager extends RelationManager
                                 $server = $this->getOwnerRecord();
 
                                 if (Subdomain::requiresDiscord() && !Subdomain::isUserDiscordLinked($server->user)) {
-                                    $fail('The server owner must link their Discord account before creating a subdomain.');
+                                    $fail(trans('subdomains::strings.ui.admin_owner_link_fail'));
                                 }
 
                                 if (Subdomain::requiresDiscordGuild() && !Subdomain::isUserInDiscordGuild($server->user)) {
-                                    $fail('The server owner must be a member of ' . Subdomain::discordServerPhrase() . ' before creating a subdomain.');
+                                    $fail(trans('subdomains::strings.ui.owner_member_fail', ['discord' => Subdomain::discordServerPhrase()]));
                                 }
                             };
                         },

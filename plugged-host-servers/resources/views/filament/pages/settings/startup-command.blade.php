@@ -18,8 +18,8 @@
         type="button"
         @click="navigator.clipboard.writeText({{ \Illuminate\Support\Js::from((string) $server->startup) }}); copied = true; setTimeout(() => copied = false, 2000)"
         class="fi-icon-btn fi-size-sm"
-        aria-label="Copy Command"
-        x-tooltip="{ content: 'Copy Command', theme: $store.theme }">
+        aria-label="{{ trans('plugged-host-servers::strings.server_settings.copy_command') }}"
+        x-tooltip="{ content: @js(trans('plugged-host-servers::strings.server_settings.copy_command')), theme: $store.theme }">
         <x-filament::icon x-show="!copied" icon="tabler-copy" />
         <x-filament::icon x-show="copied" icon="tabler-check" class="phset-copied" style="display: none;" />
     </button>

@@ -2,6 +2,7 @@
 
 ## 2.2.1 (2026-10-23)
 
+- The subuser invite's "no account uses that email" error is translatable and names `APP_NAME`.
 - **Vietnamese** (`lang/vi`), in step with en and de.
 - `NoprofitRuxSettings`: rux's settings from noprofit.space (`GET /api/v1/internal/rux/settings`,
   signed with the sync secret), reused for 60 s and kept encrypted in

@@ -2,6 +2,9 @@
 
 ## 2.2.1 (2026-10-23)
 
+- The settings page's SFTP description, copy buttons, identifier and node labels, account
+  password row, custom startup and danger-zone note, and the create page's login/game/name
+  messages are translatable (`server_settings.*`, `notifications.login_required|select_game|name_invalid`).
 - **Vietnamese** (`lang/vi`), in step with en and de.
 - **A Go egg that works** (imported over upstream's golang template, egg 16): Go 1.23/1.22
   yolks, an empty server gets a starter web server, a project with a `go.mod` is built on every

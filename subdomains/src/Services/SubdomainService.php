@@ -33,15 +33,15 @@ class SubdomainService
             $server = \App\Models\Server::findOrFail($serverId);
 
             if (!Subdomain::isServerEggSupported($server)) {
-                throw new Exception('Subdomains are not enabled for this server egg (only supported game servers are allowed).');
+                throw new Exception(trans('subdomains::strings.ui.egg_unsupported'));
             }
 
             if (Subdomain::requiresDiscord() && !Subdomain::isUserDiscordLinked($server->user)) {
-                throw new Exception('A linked Discord account is required to create subdomains. The server owner must link their Discord in Account Settings.');
+                throw new Exception(trans('subdomains::strings.ui.discord_link_required'));
             }
 
             if (Subdomain::requiresDiscordGuild() && !Subdomain::isUserInDiscordGuild($server->user)) {
-                throw new Exception('The server owner must be a member of ' . Subdomain::discordServerPhrase() . ' to create subdomains.');
+                throw new Exception(trans('subdomains::strings.ui.owner_member_required', ['discord' => Subdomain::discordServerPhrase()]));
             }
 
             // Limit, price tier and the insert run under a lock on the server row: counted
@@ -66,7 +66,7 @@ class SubdomainService
                         $subNum = $server->subdomains()->count() + 1;
 
                         if ($balance < $cost) {
-                            throw new Exception("You need {$cost} tokens for Subdomain #{$subNum}. Current balance: {$balance} tokens.");
+                            throw new Exception(trans('subdomains::strings.ui.tokens_needed', ['cost' => $cost, 'number' => $subNum, 'balance' => $balance]));
                         }
 
                         $spent = $tokenService->spend(
@@ -78,7 +78,7 @@ class SubdomainService
                         );
 
                         if (!$spent) {
-                            throw new Exception("Payment error: Could not deduct {$cost} tokens for subdomain creation.");
+                            throw new Exception(trans('subdomains::strings.ui.payment_failed', ['cost' => $cost]));
                         }
 
                         $tokensCharged = $cost;

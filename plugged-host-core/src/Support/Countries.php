@@ -273,4 +273,25 @@ class Countries
     {
         return self::NAMES[strtolower(trim($tag))] ?? null;
     }
+
+    /**
+     * The name a user reads, in their language (the app locale unless one is given): ext-intl's
+     * when it is loaded and knows the country, the English name above otherwise and for English.
+     * Prompts and logs keep name().
+     */
+    public static function localName(string $tag, ?string $locale = null): ?string
+    {
+        $code = strtolower(trim($tag));
+        $english = self::NAMES[$code] ?? null;
+        $locale ??= app()->getLocale();
+
+        if ($english === null || str_starts_with($locale, 'en') || !class_exists(\Locale::class)) {
+            return $english;
+        }
+
+        $local = \Locale::getDisplayRegion('-' . strtoupper($code), $locale);
+
+        // Unknown to intl: it hands the code back.
+        return is_string($local) && $local !== '' && strcasecmp($local, $code) !== 0 ? $local : $english;
+    }
 }

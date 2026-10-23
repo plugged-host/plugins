@@ -33,16 +33,16 @@
                 type="button"
                 @click="navigator.clipboard.writeText('{{ $hostAndPort }}'); copied = true; setTimeout(() => copied = false, 2000)"
                 class="fi-icon-btn fi-size-sm"
-                aria-label="Copy Host"
-                x-tooltip="{ content: 'Copy Host', theme: $store.theme }">
+                aria-label="{{ trans('plugged-host-servers::strings.server_settings.copy_host') }}"
+                x-tooltip="{ content: @js(trans('plugged-host-servers::strings.server_settings.copy_host')), theme: $store.theme }">
                 <x-filament::icon x-show="!copied" icon="tabler-copy" />
                 <x-filament::icon x-show="copied" icon="tabler-check" class="phset-copied" style="display: none;" />
             </button>
             <a
                 href="{{ $sftpUrl }}"
                 class="fi-icon-btn fi-size-sm"
-                aria-label="Launch in SFTP Client"
-                x-tooltip="{ content: 'Launch in SFTP Client', theme: $store.theme }">
+                aria-label="{{ trans('plugged-host-servers::strings.server_settings.open_sftp_client') }}"
+                x-tooltip="{ content: @js(trans('plugged-host-servers::strings.server_settings.open_sftp_client')), theme: $store.theme }">
                 <x-filament::icon icon="tabler-external-link" />
             </a>
         </span>
@@ -56,8 +56,8 @@
             type="button"
             @click="navigator.clipboard.writeText('{{ $username }}'); copied = true; setTimeout(() => copied = false, 2000)"
             class="fi-icon-btn fi-size-sm"
-            aria-label="Copy Username"
-            x-tooltip="{ content: 'Copy Username', theme: $store.theme }">
+            aria-label="{{ trans('plugged-host-servers::strings.server_settings.copy_username') }}"
+            x-tooltip="{ content: @js(trans('plugged-host-servers::strings.server_settings.copy_username')), theme: $store.theme }">
             <x-filament::icon x-show="!copied" icon="tabler-copy" />
             <x-filament::icon x-show="copied" icon="tabler-check" class="phset-copied" style="display: none;" />
         </button>
@@ -67,7 +67,7 @@
     <div class="phset-row">
         <span class="phset-label">{{ trans('server/setting.server_info.sftp.password') }}</span>
         <span class="phset-value phset-value-wrap">
-            Your Account Password
+            {{ trans('plugged-host-servers::strings.server_settings.account_password') }}
             <span class="phset-hint">{{ trans('server/setting.server_info.sftp.password_body') }}</span>
         </span>
     </div>

@@ -56,23 +56,23 @@
     <div class="ph-row">
         <div class="ph-row-text">
             <div class="flex flex-wrap items-center gap-2">
-                <h3 class="ph-heading">Off-site copy</h3>
+                <h3 class="ph-heading">{{ trans('plugged-host-storage::strings.banner.heading') }}</h3>
 
                 @if($hasBackup)
-                    <x-filament::badge color="success">Available</x-filament::badge>
+                    <x-filament::badge color="success">{{ trans('plugged-host-storage::strings.banner.available') }}</x-filament::badge>
                 @elseif($backupInfo === null)
-                    <x-filament::badge color="gray">Unreachable right now</x-filament::badge>
+                    <x-filament::badge color="gray">{{ trans('plugged-host-storage::strings.banner.unreachable') }}</x-filament::badge>
                 @else
-                    <x-filament::badge color="gray">Waiting for first copy</x-filament::badge>
+                    <x-filament::badge color="gray">{{ trans('plugged-host-storage::strings.banner.waiting') }}</x-filament::badge>
                 @endif
             </div>
 
             <p class="ph-row-body">
-                Your server files are also copied to a separate storage server, so you can download them even if this server is offline or deleted.
+                {{ trans('plugged-host-storage::strings.banner.body') }}
                 @if($hasBackup && $lastSyncTime)
-                    Last copied <strong>{{ $lastSyncTime }}</strong>@if($formattedSize) ({{ $formattedSize }})@endif.
+                    {!! trans($formattedSize ? 'plugged-host-storage::strings.banner.last_copied_size' : 'plugged-host-storage::strings.banner.last_copied', ['time' => '<strong>' . e($lastSyncTime) . '</strong>', 'size' => e($formattedSize)]) !!}
                 @elseif($hasBackup && $formattedSize)
-                    Size: <strong>{{ $formattedSize }}</strong>.
+                    {!! trans('plugged-host-storage::strings.banner.size', ['size' => '<strong>' . e($formattedSize) . '</strong>']) !!}
                 @endif
             </p>
         </div>
@@ -85,7 +85,7 @@
                     color="gray"
                     size="sm"
                 >
-                    Download
+                    {{ trans('plugged-host-storage::strings.banner.download') }}
                 </x-filament::button>
             @endif
 
@@ -95,7 +95,7 @@
                 rel="noopener noreferrer"
                 size="sm"
             >
-                Open backups portal
+                {{ trans('plugged-host-storage::strings.banner.open_portal') }}
             </x-filament::link>
         </div>
     </div>

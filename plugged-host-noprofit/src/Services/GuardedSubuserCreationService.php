@@ -22,7 +22,7 @@ class GuardedSubuserCreationService extends SubuserCreationService
     public function handle(Server $server, string $email, array $permissions): Subuser
     {
         if (!User::withoutGlobalScopes()->where('email', $email)->exists()) {
-            throw new DisplayException('No plugged.host account uses that email yet. Ask them to sign up first, then invite them.');
+            throw new DisplayException(trans('plugged-host-noprofit::strings.noprofit.subuser_unknown_email', ['app' => config('app.name')]));
         }
 
         return parent::handle($server, $email, $permissions);

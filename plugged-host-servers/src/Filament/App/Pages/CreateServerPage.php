@@ -434,7 +434,7 @@ class CreateServerPage extends Page
     {
         $user = auth()->user();
         if (!$user) {
-            return 'You must be logged in to create a server.';
+            return trans('plugged-host-servers::strings.notifications.login_required');
         }
 
         $reason = app(ServerProvisioner::class)->check($user, $this->provisioningInput($this->data ?? []));
@@ -499,9 +499,9 @@ class CreateServerPage extends Page
     protected function reasonMessage(string $reason): string
     {
         return match ($reason) {
-            'unknown_game' => 'Please select a game.',
+            'unknown_game' => trans('plugged-host-servers::strings.notifications.select_game'),
             'invalid_location', 'location_locked', 'location_unavailable' => trans('plugged-host-servers::strings.notifications.invalid_location'),
-            'name_required', 'name_too_long' => trans('plugged-host-servers::strings.name') . ' is required (max ' . ServerProvisioner::NAME_MAX . ' characters).',
+            'name_required', 'name_too_long' => trans('plugged-host-servers::strings.notifications.name_invalid', ['name' => trans('plugged-host-servers::strings.name'), 'max' => ServerProvisioner::NAME_MAX]),
             'no_viable_node' => trans('plugged-host-servers::strings.notifications.no_viable_node_found'),
             'no_viable_allocation' => trans('plugged-host-servers::strings.notifications.no_viable_allocation_found'),
             'creation_failed' => trans('plugged-host-servers::strings.notifications.unknown_server_creation_error'),

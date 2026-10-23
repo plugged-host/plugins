@@ -109,4 +109,19 @@ return [
         'starting' => 'Đang bắt đầu…',
         'downloading' => 'Đang tải xuống, hãy xem trình duyệt của bạn',
     ],
+
+    // The off-site copy card above a server's backups table and its header action (StoragePluginProvider).
+    'banner' => [
+        'offsite_backups' => 'Bản sao lưu ngoài hệ thống',
+        'heading' => 'Bản sao ngoài hệ thống',
+        'available' => 'Sẵn có',
+        'unreachable' => 'Hiện không truy cập được',
+        'waiting' => 'Đang chờ bản sao đầu tiên',
+        'body' => 'Các tệp của máy chủ cũng được sao chép sang một máy lưu trữ riêng, nên bạn vẫn tải xuống được ngay cả khi máy chủ này ngoại tuyến hoặc đã bị xóa.',
+        'last_copied' => 'Sao chép lần cuối :time.',
+        'last_copied_size' => 'Sao chép lần cuối :time (:size).',
+        'size' => 'Dung lượng: :size.',
+        'download' => 'Tải xuống',
+        'open_portal' => 'Mở cổng sao lưu',
+    ],
 ];

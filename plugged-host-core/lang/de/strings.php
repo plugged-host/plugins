@@ -11,6 +11,21 @@ return [
         'disabled' => 'Backups sind für Server auf dieser Node deaktiviert.',
     ],
 
+    // The node daemon (Wings) did not answer a request (DaemonResiliencePluginProvider).
+    'daemon' => [
+        'connection_title' => 'Verbindungsfehler zum Daemon',
+        'connection_body' => 'Der Daemon der Node ist nicht erreichbar. Bitte versuche es später erneut.',
+    ],
+
+    // Services\AllocationInvariant: every server keeps one primary allocation of its own.
+    'allocations' => [
+        'primary_required' => 'Jeder Server braucht eine primäre Netzwerkzuweisung.',
+        'primary_invalid' => 'Jeder Server braucht eine gültige primäre Netzwerkzuweisung.',
+        'primary_taken' => 'Die primäre Netzwerkzuweisung ist bereits einem anderen Server zugewiesen.',
+        'primary_foreign' => 'Die primäre Netzwerkzuweisung muss diesem Server zugewiesen sein.',
+        'primary_retain' => 'Ein Server muss immer eine primäre Netzwerkzuweisung behalten.',
+    ],
+
     'role' => 'Rolle|Rollen',
     'user' => 'Benutzer|Benutzer',
     'cpu' => 'CPU',
@@ -496,6 +511,7 @@ return [
         'status_page' => 'Öffentlicher Status',
         'service_unavailable' => '503 • Dienst vorübergehend nicht verfügbar',
         'checking' => 'Wird geprüft…',
+        'ad_title' => 'Werbung',
     ],
 
     'errors' => [

@@ -109,4 +109,19 @@ return [
         'starting' => 'Startet…',
         'downloading' => 'Wird heruntergeladen, siehe deinen Browser',
     ],
+
+    // The off-site copy card above a server's backups table and its header action (StoragePluginProvider).
+    'banner' => [
+        'offsite_backups' => 'Externe Backups',
+        'heading' => 'Externe Kopie',
+        'available' => 'Verfügbar',
+        'unreachable' => 'Gerade nicht erreichbar',
+        'waiting' => 'Wartet auf die erste Kopie',
+        'body' => 'Die Dateien deines Servers werden zusätzlich auf einen separaten Speicherserver kopiert, sodass du sie auch herunterladen kannst, wenn dieser Server offline oder gelöscht ist.',
+        'last_copied' => 'Zuletzt kopiert :time.',
+        'last_copied_size' => 'Zuletzt kopiert :time (:size).',
+        'size' => 'Größe: :size.',
+        'download' => 'Herunterladen',
+        'open_portal' => 'Backup-Portal öffnen',
+    ],
 ];

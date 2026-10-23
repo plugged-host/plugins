@@ -2,6 +2,10 @@
 
 ## 2.2.1 (2026-10-23)
 
+- Country names on the location cards and transfer pages are in the user's language
+  (`Support\Countries::localName()`, ext-intl; English and the static list without it). The node
+  daemon's connection error, the primary-allocation errors and the maintenance page's ad title are
+  translatable (`strings.daemon.*`, `strings.allocations.*`, `maintenance.ad_title`).
 - **Vietnamese** (`lang/vi`): every first-party plugin and subdomains now ship a Vietnamese
   copy of every string, next to en and de. Users pick *Tiếng Việt* in the profile's language
   select (Pelican lists every `lang/` directory; with noprofit.space it sits under Customization ›

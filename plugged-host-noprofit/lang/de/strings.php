@@ -7,5 +7,6 @@ return [
         'reset_moved' => 'Konto zu noprofit.space umgezogen? Dein Passwort liegt jetzt dort.',
         'reset_moved_link' => 'accounts.noprofit.space öffnen',
         'identity_locked' => 'Wird auf noprofit.space verwaltet.',
+        'subuser_unknown_email' => 'Noch kein :app-Konto nutzt diese E-Mail-Adresse. Bitte die Person, sich zuerst zu registrieren, und lade sie dann ein.',
     ],
 ];

@@ -200,7 +200,9 @@ class Subdomain extends Model implements HasLabel
     {
         $invite = self::getDiscordInviteUrl();
 
-        return 'our Discord server' . ($invite !== '' ? " ({$invite})" : '');
+        return $invite !== ''
+            ? trans('subdomains::strings.ui.our_discord_invite', ['invite' => $invite])
+            : trans('subdomains::strings.ui.our_discord');
     }
 
     public static function isUserInDiscordGuild(?User $user): bool
@@ -329,7 +331,7 @@ class Subdomain extends Model implements HasLabel
         return match ($srv) {
             SRVServiceType::Minecraft => 'Minecraft (SRV)',
             SRVServiceType::FiveM => 'FiveM / RedM (SRV)',
-            null => 'Standard (' . $this->record_type . ')',
+            null => trans('subdomains::strings.ui.standard', ['type' => $this->record_type]),
             default => $srv->getLabel() . ' (SRV)',
         };
     }
@@ -365,10 +367,10 @@ class Subdomain extends Model implements HasLabel
         if ($this->isPropagating()) {
             $diffSecs = max(0, now()->diffInSeconds($this->created_at->copy()->addMinutes(3), false));
             $mins = max(1, (int) ceil($diffSecs / 60));
-            return "Processing ({$mins}m)";
+            return trans('subdomains::strings.ui.processing', ['minutes' => $mins]);
         }
 
-        return 'Active';
+        return trans('subdomains::strings.ui.active');
     }
 
     public function getStatusColorAttribute(): string

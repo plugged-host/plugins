@@ -199,7 +199,7 @@ class ServerSettings extends ServerFormPage
     {
         return Section::make(trans('server/setting.server_info.sftp.title'))
             ->id('sftp')
-            ->description('Connect via any SFTP client (e.g. FileZilla, Cyberduck, WinSCP) to manage your server files directly.')
+            ->description(trans('plugged-host-servers::strings.server_settings.sftp_description'))
             ->columnSpanFull()
             ->visible(fn () => $this->hasSftpAccess())
             ->extraAttributes(['class' => 'scroll-mt-24'])
@@ -554,7 +554,7 @@ class ServerSettings extends ServerFormPage
                                 ->readOnly()
                                 ->dehydrated(false)
                                 ->visible(fn (Server $server) => !in_array($server->startup, $server->egg->startup_commands))
-                                ->formatStateUsing(fn () => 'Custom Startup')
+                                ->formatStateUsing(fn () => trans('plugged-host-servers::strings.server_settings.custom_startup'))
                                 ->hintAction(PreviewStartupAction::make()),
 
                             Select::make('image')

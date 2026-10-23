@@ -56,7 +56,7 @@
                         data-ph-unit="aads"
                         src="//acceptable.a-ads.com/{{ rawurlencode($adUnitId) }}/?size=Adaptive"
                         style="border:0; padding:0; width:{{ $adIframeWidth }}; max-width: 100%; min-height: 90px; height:auto; overflow:hidden; display: block; margin: auto;"
-                        title="Advertisement"
+                        title="{{ trans("$strings.ad_title") }}"
                         loading="lazy"></iframe>
             </div>
         </div>

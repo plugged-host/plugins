@@ -39,20 +39,20 @@ final class AllocationInvariant
     {
         throw_if(
             is_null($server->allocation_id),
-            new DisplayException('Every server must have a primary network allocation.')
+            new DisplayException(trans('plugged-host-core::strings.allocations.primary_required'))
         );
 
         $allocation = Allocation::withoutGlobalScopes()->find($server->allocation_id);
 
         throw_if(
             !$allocation,
-            new DisplayException('Every server must have a valid primary network allocation.')
+            new DisplayException(trans('plugged-host-core::strings.allocations.primary_invalid'))
         );
 
         if (!$server->exists) {
             throw_if(
                 !is_null($allocation->server_id) && $allocation->server_id !== $server->id,
-                new DisplayException('The primary network allocation is already assigned to another server.')
+                new DisplayException(trans('plugged-host-core::strings.allocations.primary_taken'))
             );
 
             return;
@@ -64,7 +64,7 @@ final class AllocationInvariant
 
         throw_if(
             $allocation->server_id !== $server->id,
-            new DisplayException('The primary network allocation must be assigned to this server.')
+            new DisplayException(trans('plugged-host-core::strings.allocations.primary_foreign'))
         );
     }
 
@@ -161,7 +161,7 @@ final class AllocationInvariant
                 ->whereKey($allocation->server_id)
                 ->where('allocation_id', $allocation->id)
                 ->exists(),
-            new DisplayException('A server must always retain a primary network allocation.')
+            new DisplayException(trans('plugged-host-core::strings.allocations.primary_retain'))
         );
     }
 

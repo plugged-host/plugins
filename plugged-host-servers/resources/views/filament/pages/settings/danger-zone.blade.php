@@ -19,7 +19,7 @@
 
 <div>
     <p class="phset-danger-note">
-        Actions in this area are destructive and directly affect your server runtime. Ensure you have backed up any critical data or world files before proceeding.
+        {{ trans('plugged-host-servers::strings.server_settings.danger_note') }}
     </p>
 
     <div class="phset-danger-rows">

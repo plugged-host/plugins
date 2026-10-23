@@ -107,7 +107,7 @@ class StoragePluginProvider extends ServiceProvider
                     // Secondary: the backups table's Create button is the page's one primary
                     // action. Labelled, so no icon beside the words.
                     Action::make('offsite_storage_backups')
-                        ->label('Off-site Backups')
+                        ->label(fn () => trans('plugged-host-storage::strings.banner.offsite_backups'))
                         ->color('gray')
                         ->url(fn () => BackupsPortal::forServer(Filament::getTenant()?->uuid_short))
                         ->openUrlInNewTab(true)
