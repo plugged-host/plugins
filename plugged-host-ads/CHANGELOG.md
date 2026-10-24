@@ -2,6 +2,17 @@
 
 ## 2.2.1 (2026-10-23)
 
+- **Monetag removed** (account suspended 2026-10-24): In-Page Push, Vignette, their settings
+  section, the `ADS_MONETAG_*` keys and the site-verification meta tag / signed-out `/` page
+  (`SiteVerification`, `SiteVerificationPage`) are gone.
+- **Anchor**: a bar fixed to the bottom of the screen with a 468x60 (320x50 on phones), the
+  `anchor` slot (`ADS_SLOT_ANCHOR`, on by default; Admin › Plugins › Ads › Named slots). Same
+  pages as the top leaderboard minus the console. It picks before the top, so the top keeps the
+  728x90; on phones the 320x50 is in the anchor instead of above the heading. Its close button
+  hides it for ten minutes in that browser.
+- **Units load when they are on screen**: every unit of a named slot and of the in-content slot
+  at the foot of the page is inserted once its spot is in the viewport in a visible tab, so the
+  foot of a long page no longer loads (and counts) a 300x250 and a native unit nobody saw.
 - **Vietnamese** (`lang/vi`), in step with en and de.
 - **Leaderboard at the top of every page**: the `top` slot (`ADS_SLOT_TOP`, on by default)
   puts a 728x90 / 468x60 / 320x50 above the page heading on every app and server page, console

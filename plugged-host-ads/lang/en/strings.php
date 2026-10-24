@@ -25,6 +25,7 @@ return [
     'enabled' => 'Enable Ads',
     'enabled_helper' => 'Master switch to turn ads on or off across the entire panel.',
     'unit_frame_title' => 'Advertisement',
+    'anchor_close' => 'Close ad',
 
     // Adsterra
     'adsterra_banner_key' => 'Banner Key',
@@ -64,6 +65,8 @@ return [
     'show_admin_panel_helper' => 'Display ads in the administrator control area.',
     'max_units_per_page' => 'Maximum units per page',
     'max_units_per_page_helper' => 'The hard cap on how many ad units any single page may render. The same zone is never served twice. Set 0 to show none.',
+    'slot_anchor' => 'Anchor (bottom of the screen)',
+    'slot_anchor_helper' => 'A 468x60 (320x50 on phones) in a bar fixed to the bottom of the screen, so it stays in view. Same pages as the top, minus the console. Closing it hides it for ten minutes.',
     'slot_sidebar_footer' => 'Sidebar footer',
     'slot_sidebar_footer_helper' => 'Native unit docked at the foot of the sidebar, on every panel page that shows ads.',
     'slot_create' => 'Under the plan picker',
@@ -73,7 +76,7 @@ return [
     'slot_server_list' => 'Server-list footer',
     'slot_server_list_helper' => '300x250 banner at the foot of the server list.',
     'slot_top' => 'Top of the page',
-    'slot_top_helper' => 'Leaderboard above the page heading on every app and server page, console included (468x60 or 320x50 when narrower). Sits right under a live top sponsored banner. Not on the waiting rooms or the suspended page.',
+    'slot_top_helper' => 'Leaderboard above the page heading on every app and server page, console included (728x90; 468x60 or 320x50 when narrower and the anchor is not on the page). Sits right under a live top sponsored banner. Not on the waiting rooms or the suspended page.',
     'slot_onboarding' => 'Onboarding / install page',
     'slot_onboarding_helper' => '300x250 banner on the server install screen.',
     'slot_server_tools' => 'Server tools (in-content)',
@@ -121,16 +124,6 @@ return [
     'antiblock_continue_in' => 'Continue anyway (:seconds)',
 
     // Maintenance page (core renders the unit)
-    'section_monetag' => 'Monetag',
-    'section_monetag_desc' => 'In-Page Push and Vignette. Paste each tag as Monetag shows it (Get tag). They load on ordinary app and server pages, never on the console or the waiting rooms. Empty = off. Push Notifications and MultiTag are not supported: they need a service worker at the site root.',
-    'monetag_in_page_push' => 'In-Page Push tag',
-    'monetag_in_page_push_helper' => 'Notification-style cards inside the page, no permission prompt.',
-    'monetag_vignette' => 'Vignette tag',
-    'monetag_vignette_helper' => 'A full-screen ad on some page changes, closed with one click.',
-    'monetag_vignette_minutes' => 'Vignette: minutes between loads',
-    'monetag_vignette_minutes_helper' => 'Per session. Once loaded it stays active until the next full page load, so the frequency settings in Monetag apply too. 0 = every page load.',
-    'monetag_vignette_plus' => 'Vignette for Plus',
-    'monetag_vignette_plus_helper' => 'Off: Plus owners never get the Vignette (In-Page Push still shows). PlusPlus sees no ads either way.',
     'section_maintenance' => 'Maintenance Page',
     'section_maintenance_desc' => 'One A-ADS unit on the page shown while the panel is down for maintenance. It loads nowhere else.',
     'maintenance_aads_unit' => 'A-ADS unit on the maintenance page',

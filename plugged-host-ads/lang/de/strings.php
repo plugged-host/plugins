@@ -25,6 +25,7 @@ return [
     'enabled' => 'Werbung aktivieren',
     'enabled_helper' => 'Hauptschalter zum Aktivieren oder Deaktivieren von Werbung im gesamten Panel.',
     'unit_frame_title' => 'Werbung',
+    'anchor_close' => 'Werbung schließen',
 
     // Adsterra
     'adsterra_banner_key' => 'Banner-Key',
@@ -64,6 +65,8 @@ return [
     'show_admin_panel_helper' => 'Werbung im Administratorbereich anzeigen.',
     'max_units_per_page' => 'Maximale Einheiten pro Seite',
     'max_units_per_page_helper' => 'Die feste Obergrenze, wie viele Werbeeinheiten eine einzelne Seite anzeigen darf. Dieselbe Zone wird nie doppelt ausgeliefert. 0 zeigt keine an.',
+    'slot_anchor' => 'Anker (unterer Bildschirmrand)',
+    'slot_anchor_helper' => 'Ein 468x60 (320x50 auf Handys) in einer Leiste am unteren Bildschirmrand, damit er im Blick bleibt. Dieselben Seiten wie oben, ohne die Konsole. Schließen blendet ihn für zehn Minuten aus.',
     'slot_sidebar_footer' => 'Seitenleisten-Fußzeile',
     'slot_sidebar_footer_helper' => 'Native Einheit am Fuß der Seitenleiste, auf jeder Panel-Seite, die Werbung zeigt.',
     'slot_create' => 'Unter der Planauswahl',
@@ -73,7 +76,7 @@ return [
     'slot_server_list' => 'Fußzeile der Serverliste',
     'slot_server_list_helper' => '300x250-Banner am Fuß der Serverliste.',
     'slot_top' => 'Seitenanfang',
-    'slot_top_helper' => 'Leaderboard über der Seitenüberschrift auf jeder App- und Server-Seite, auch auf der Konsole (468x60 oder 320x50, wenn schmaler). Steht direkt unter einem aktiven gesponserten Top-Banner. Nicht in den Warteräumen und nicht auf der Sperrseite.',
+    'slot_top_helper' => 'Leaderboard über der Seitenüberschrift auf jeder App- und Server-Seite, auch auf der Konsole (728x90; 468x60 oder 320x50, wenn schmaler und der Anker nicht auf der Seite ist). Steht direkt unter einem aktiven gesponserten Top-Banner. Nicht in den Warteräumen und nicht auf der Sperrseite.',
     'slot_onboarding' => 'Einrichtungs-/Installationsseite',
     'slot_onboarding_helper' => '300x250-Banner auf der Seite der Server-Installation.',
     'slot_server_tools' => 'Server-Werkzeuge (im Inhalt)',
@@ -121,16 +124,6 @@ return [
     'antiblock_continue_in' => 'Trotzdem fortfahren (:seconds)',
 
     // Wartungsseite (Core zeigt die Einheit an)
-    'section_monetag' => 'Monetag',
-    'section_monetag_desc' => 'In-Page Push und Vignette. Füge jedes Tag so ein, wie Monetag es zeigt (Get tag). Sie laden auf normalen App- und Server-Seiten, nie auf der Konsole oder in den Warteräumen. Leer = aus. Push Notifications und MultiTag werden nicht unterstützt: Sie brauchen einen Service Worker im Stammverzeichnis der Seite.',
-    'monetag_in_page_push' => 'In-Page-Push-Tag',
-    'monetag_in_page_push_helper' => 'Karten im Stil von Benachrichtigungen innerhalb der Seite, ohne Berechtigungsabfrage.',
-    'monetag_vignette' => 'Vignette-Tag',
-    'monetag_vignette_helper' => 'Eine Vollbild-Anzeige bei manchen Seitenwechseln, mit einem Klick geschlossen.',
-    'monetag_vignette_minutes' => 'Vignette: Minuten zwischen Ladevorgängen',
-    'monetag_vignette_minutes_helper' => 'Pro Sitzung. Einmal geladen bleibt sie bis zum nächsten vollständigen Seitenaufruf aktiv, daher gelten auch die Frequenzeinstellungen in Monetag. 0 = bei jedem Seitenaufruf.',
-    'monetag_vignette_plus' => 'Vignette für Plus',
-    'monetag_vignette_plus_helper' => 'Aus: Plus-Besitzer bekommen die Vignette nie (In-Page Push erscheint weiterhin). PlusPlus sieht ohnehin keine Werbung.',
     'section_maintenance' => 'Wartungsseite',
     'section_maintenance_desc' => 'Eine A-ADS-Einheit auf der Seite, die erscheint, während das Panel wegen Wartung nicht erreichbar ist. Sie lädt nirgends sonst.',
     'maintenance_aads_unit' => 'A-ADS-Einheit auf der Wartungsseite',

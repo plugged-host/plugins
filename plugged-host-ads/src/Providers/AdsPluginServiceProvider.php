@@ -6,7 +6,6 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
-use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
@@ -15,13 +14,10 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use PluggedHost\Ads\Filament\Server\Pages\StartGatePage;
 use PluggedHost\Ads\Http\Controllers\AdBannerClickController;
-use PluggedHost\Ads\Http\Middleware\SiteVerificationPage;
 use PluggedHost\Ads\Models\AdBanner;
 use PluggedHost\Ads\Services\AdBannerService;
 use PluggedHost\Ads\Services\AdDisplayService;
 use PluggedHost\Ads\Services\AdsterraService;
-use PluggedHost\Ads\Services\MonetagService;
-use PluggedHost\Ads\Services\SiteVerification;
 use Throwable;
 
 class AdsPluginServiceProvider extends ServiceProvider
@@ -31,7 +27,6 @@ class AdsPluginServiceProvider extends ServiceProvider
         $this->app->singleton(AdBannerService::class);
         $this->app->singleton(AdsterraService::class);
         $this->app->singleton(AdDisplayService::class);
-        $this->app->singleton(MonetagService::class);
     }
 
     public function boot(): void
@@ -49,42 +44,12 @@ class AdsPluginServiceProvider extends ServiceProvider
 
         $this->registerSlot();
         $this->registerTopBanner();
+        $this->registerAnchor();
         $this->registerPageLevelUnits();
         $this->registerNamedSlotHooks();
         $this->registerAdBlockResponse();
         $this->registerUnitScript();
         $this->registerBannerClicks();
-        $this->registerSiteVerification();
-    }
-
-    /**
-     * Ad networks' site-verification meta tags: in the head of every panel page, and on the
-     * page a signed-out visit to `/` gets instead of the redirect (SiteVerificationPage).
-     */
-    protected function registerSiteVerification(): void
-    {
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::HEAD_END,
-            function (): ?Htmlable {
-                try {
-                    $tags = app(SiteVerification::class)->tags();
-
-                    return $tags === '' ? null : new HtmlString($tags);
-                } catch (Throwable) {
-                    return null;
-                }
-            },
-        );
-
-        if ($this->app->runningInConsole()) {
-            return;
-        }
-
-        $kernel = $this->app->make(Kernel::class);
-
-        if (method_exists($kernel, 'prependMiddleware')) {
-            $kernel->prependMiddleware(SiteVerificationPage::class);
-        }
     }
 
     /**
@@ -105,6 +70,63 @@ class AdsPluginServiceProvider extends ServiceProvider
             PanelsRenderHook::CONTENT_START,
             fn (array $scopes = []): ?Htmlable => $this->topOfPage($scopes),
         );
+    }
+
+    /**
+     * The anchor: a bar fixed to the bottom of the screen with a 468x60 (320x50 on phones), so
+     * one banner stays in view the whole time the page is open instead of waiting at the foot
+     * for a scroll that often never comes. Decided with the top of the page (topOfPage()) and
+     * before it, so the top keeps the 728x90 and the anchor the narrower sizes; on a page
+     * without the anchor (the console, whose command line is at the bottom, the waiting rooms
+     * and the dead ends) the top takes all three again. Written at the end of the body, outside
+     * every Livewire component, so a poll never swaps it. Closing it hides it for ten minutes
+     * (resources/views/filament/anchor.blade.php).
+     */
+    protected function registerAnchor(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            function (array $scopes = []): ?Htmlable {
+                $this->topOfPage($scopes);
+
+                return $this->anchor;
+            },
+        );
+    }
+
+    private ?Htmlable $anchor = null;
+
+    /**
+     * The anchor bar, or null on the pages it stays off. The slot's own grant
+     * (AdDisplayService::slot()) applies the audience rule, the interstitial routes and the cap.
+     *
+     * @param  array<int, string>  $scopes
+     */
+    protected function renderAnchor(array $scopes): ?Htmlable
+    {
+        if (array_intersect($scopes, [...self::NOT_TOP, self::CONSOLE]) !== [] || StartGatePage::isCurrentRoute()) {
+            return null;
+        }
+
+        [$user, $panelId] = $this->context();
+
+        $ads = app(AdDisplayService::class);
+
+        if (!$ads->slot('anchor', $user, $panelId, false)) {
+            return null;
+        }
+
+        $adsterra = app(AdsterraService::class);
+        $units = $adsterra->unitsFor((array) ($ads->slotConfig('anchor')['units'] ?? []));
+
+        if ($units === []) {
+            return null;
+        }
+
+        return new HtmlString(view('plugged-host-ads::filament.anchor', [
+            'units' => $units,
+            'sandbox' => $adsterra->frameSandbox(),
+        ])->render());
     }
 
     /** The top of the page, decided once per request: see topOfPage(). */
@@ -136,6 +158,12 @@ class AdsPluginServiceProvider extends ServiceProvider
 
             if (!in_array($panelId, ['app', 'server'], true)) {
                 return null;
+            }
+
+            try {
+                $this->anchor = $this->renderAnchor($scopes);
+            } catch (Throwable) {
+                $this->anchor = null;
             }
 
             $banners = app(AdBannerService::class);
@@ -417,23 +445,12 @@ class AdsPluginServiceProvider extends ServiceProvider
 
                     $scripts = $waitingRoom ? $adsterra->gateScripts() : $adsterra->pageScripts();
 
-                    // Monetag: ordinary app and server pages only. Not the waiting rooms (their
-                    // own units), the dead ends, or the console, where a card or a full-screen ad
-                    // would land on top of what someone is typing.
-                    $monetag = $waitingRoom
-                        || !in_array($panelId, ['app', 'server'], true)
-                        || array_intersect($scopes, [...self::NOT_TOP, self::CONSOLE]) !== []
-                        ? []
-                        : app(MonetagService::class)->pageTags($user);
-
-                    if ($scripts === [] && $monetag === []) {
+                    if ($scripts === []) {
                         return null;
                     }
 
                     return new HtmlString(view('plugged-host-ads::filament.adsterra-page-scripts', [
                         'scripts' => $scripts,
-                    ])->render() . view('plugged-host-ads::filament.monetag-tags', [
-                        'tags' => $monetag,
                     ])->render());
                 } catch (Throwable) {
                     return null;

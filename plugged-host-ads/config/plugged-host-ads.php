@@ -132,17 +132,21 @@ return [
     | `native`, a banner size, or sizes joined by `|` for "the widest that fits"), max_height
     | (reserved space so nothing shifts on load). top is the leaderboard above the page heading
     | on every app and server page, console included, waiting rooms and the suspended page
-    | excepted; a live sponsored top banner sits above it. The in-content slot at the foot of
+    | excepted; a live sponsored top banner sits above it. anchor is a bar fixed to the bottom of
+    | the screen on the same pages minus the console, and picks before top, so top keeps the
+    | 728x90 and the anchor the narrower sizes. The in-content slot at the foot of
     | every page is AdsterraService::IN_CONTENT (leaderboard + 300x250 + native), and gets
     | whatever the slots above it left. server-tools is a strip under the page header on
     | server-panel pages, console excepted. Page components render before the layout, so the
-    | page's own slots (server-tools, create, store, …) pick first, then top, then the foot.
+    | page's own slots (server-tools, create, store, …) pick first, then anchor, top, the foot.
+    | Every unit in a slot or at the foot is inserted only once it is on screen.
     |
     */
     'max_units_per_page' => (int) env('ADS_MAX_UNITS_PER_PAGE', 2),
 
     'placements' => [
         'top'               => ['enabled' => env('ADS_SLOT_TOP', true),             'zone' => 'top-leaderboard',   'units' => ['728x90|468x60|320x50'], 'max_height' => 0],
+        'anchor'            => ['enabled' => env('ADS_SLOT_ANCHOR', true),          'zone' => 'anchor-strip',      'units' => ['468x60|320x50'], 'max_height' => 0],
         'sidebar-footer'    => ['enabled' => env('ADS_SLOT_SIDEBAR_FOOTER', true),  'zone' => 'sidebar-native',    'units' => ['native'],  'max_height' => 300],
         'create-under-plan' => ['enabled' => env('ADS_SLOT_CREATE', true),          'zone' => 'create-rect',       'units' => ['300x250'], 'max_height' => 250],
         'store-under-tx'    => ['enabled' => env('ADS_SLOT_STORE', true),           'zone' => 'store-rect',        'units' => ['300x250'], 'max_height' => 250],
@@ -201,31 +205,6 @@ return [
     | width is the frame's CSS width (a number with %, px or vw). Core renders it; nothing
     | here loads on any other page.
     */
-    /*
-    | Monetag (see Services\MonetagService): In-Page Push and Vignette, each a zone id plus the
-    | script URL from the tag Monetag issues. Ordinary app and server pages only, never the
-    | console or the waiting rooms. Vignette loads at most once per vignette_minutes per session
-    | and skips Plus unless vignette_plus is on. Empty zone = that format is off.
-    */
-    'monetag' => [
-        'in_page_push_zone' => (string) env('ADS_MONETAG_IN_PAGE_PUSH_ZONE', ''),
-        'in_page_push_src' => (string) env('ADS_MONETAG_IN_PAGE_PUSH_SRC', ''),
-        'vignette_zone' => (string) env('ADS_MONETAG_VIGNETTE_ZONE', ''),
-        'vignette_src' => (string) env('ADS_MONETAG_VIGNETTE_SRC', ''),
-        'vignette_minutes' => (int) env('ADS_MONETAG_VIGNETTE_MINUTES', 10),
-        'vignette_plus' => (bool) env('ADS_MONETAG_VIGNETTE_PLUS', false),
-    ],
-
-    /*
-    | Site-verification meta tags for ad networks. Written into the head of every panel page and
-    | into the small page a signed-out visit to `/` gets (Http\Middleware\SiteVerificationPage),
-    | because that visit is otherwise a redirect to the account portal. Empty = no tag.
-    */
-    'verification' => [
-        // Monetag's site check: the `content` of <meta name="monetag" content="…">.
-        'monetag' => (string) env('ADS_MONETAG_VERIFICATION', ''),
-    ],
-
     'maintenance' => [
         'aads_unit' => (string) env('ADS_MAINTENANCE_AADS_UNIT', ''),
         'width' => (string) env('ADS_MAINTENANCE_AADS_WIDTH', '70%'),

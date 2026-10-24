@@ -25,6 +25,7 @@ return [
     'enabled' => 'Bật quảng cáo',
     'enabled_helper' => 'Công tắc chính để bật hoặc tắt quảng cáo trên toàn bộ bảng điều khiển.',
     'unit_frame_title' => 'Quảng cáo',
+    'anchor_close' => 'Đóng quảng cáo',
 
     // Adsterra
     'adsterra_banner_key' => 'Khóa banner',
@@ -64,6 +65,8 @@ return [
     'show_admin_panel_helper' => 'Hiển thị quảng cáo trong khu vực quản trị.',
     'max_units_per_page' => 'Số đơn vị tối đa mỗi trang',
     'max_units_per_page_helper' => 'Giới hạn cứng về số đơn vị quảng cáo mà một trang được hiển thị. Cùng một vùng không bao giờ được phát hai lần. Đặt 0 để không hiển thị gì.',
+    'slot_anchor' => 'Thanh neo (cuối màn hình)',
+    'slot_anchor_helper' => 'Một banner 468x60 (320x50 trên điện thoại) trong thanh cố định ở cuối màn hình, để luôn nằm trong tầm nhìn. Cùng các trang như đầu trang, trừ cửa sổ lệnh. Đóng sẽ ẩn nó trong mười phút.',
     'slot_sidebar_footer' => 'Chân thanh bên',
     'slot_sidebar_footer_helper' => 'Đơn vị native gắn ở cuối thanh bên, trên mọi trang của bảng điều khiển có hiển thị quảng cáo.',
     'slot_create' => 'Dưới phần chọn gói',
@@ -73,7 +76,7 @@ return [
     'slot_server_list' => 'Chân danh sách máy chủ',
     'slot_server_list_helper' => 'Banner 300x250 ở cuối danh sách máy chủ.',
     'slot_top' => 'Đầu trang',
-    'slot_top_helper' => 'Leaderboard phía trên tiêu đề trang trên mọi trang app và máy chủ, kể cả cửa sổ lệnh (468x60 hoặc 320x50 khi màn hình hẹp hơn). Nằm ngay dưới banner tài trợ đầu trang đang chạy. Không có trên các phòng chờ hoặc trang bị tạm ngưng.',
+    'slot_top_helper' => 'Leaderboard phía trên tiêu đề trang trên mọi trang app và máy chủ, kể cả cửa sổ lệnh (728x90; 468x60 hoặc 320x50 khi màn hình hẹp hơn và trang không có thanh neo). Nằm ngay dưới banner tài trợ đầu trang đang chạy. Không có trên các phòng chờ hoặc trang bị tạm ngưng.',
     'slot_onboarding' => 'Trang hướng dẫn thiết lập / cài đặt',
     'slot_onboarding_helper' => 'Banner 300x250 trên màn hình cài đặt máy chủ.',
     'slot_server_tools' => 'Công cụ máy chủ (trong nội dung)',
@@ -121,16 +124,6 @@ return [
     'antiblock_continue_in' => 'Vẫn tiếp tục (:seconds)',
 
     // Maintenance page (core renders the unit)
-    'section_monetag' => 'Monetag',
-    'section_monetag_desc' => 'In-Page Push và Vignette. Dán từng thẻ đúng như Monetag hiển thị (Get tag). Chúng được tải trên các trang app và máy chủ thông thường, không bao giờ trên cửa sổ lệnh hoặc các phòng chờ. Để trống = tắt. Push Notifications và MultiTag không được hỗ trợ: chúng cần một service worker ở thư mục gốc của trang web.',
-    'monetag_in_page_push' => 'Thẻ In-Page Push',
-    'monetag_in_page_push_helper' => 'Các thẻ dạng thông báo bên trong trang, không có lời nhắc xin quyền.',
-    'monetag_vignette' => 'Thẻ Vignette',
-    'monetag_vignette_helper' => 'Một quảng cáo toàn màn hình khi chuyển một số trang, đóng bằng một lần nhấp.',
-    'monetag_vignette_minutes' => 'Vignette: số phút giữa các lần tải',
-    'monetag_vignette_minutes_helper' => 'Theo từng phiên. Sau khi tải, nó vẫn hoạt động cho đến lần tải lại toàn trang tiếp theo, nên các cài đặt tần suất trong Monetag cũng được áp dụng. 0 = mỗi lần tải trang.',
-    'monetag_vignette_plus' => 'Vignette cho Plus',
-    'monetag_vignette_plus_helper' => 'Tắt: chủ sở hữu Plus không bao giờ nhận Vignette (In-Page Push vẫn hiển thị). Dù thế nào thì PlusPlus cũng không thấy quảng cáo.',
     'section_maintenance' => 'Trang bảo trì',
     'section_maintenance_desc' => 'Một đơn vị A-ADS trên trang được hiển thị khi bảng điều khiển đang tạm ngừng để bảo trì. Nó không được tải ở bất kỳ nơi nào khác.',
     'maintenance_aads_unit' => 'Đơn vị A-ADS trên trang bảo trì',
