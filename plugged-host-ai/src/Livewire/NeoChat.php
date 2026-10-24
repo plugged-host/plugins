@@ -492,7 +492,7 @@ class NeoChat extends Component
             'limits' => is_array($usage['limits'] ?? null) ? $usage['limits'] : null,
             'mode' => $catalog['mode'],
             // Limits mode models: the weekly window of every limited model the account may use.
-            'model_windows' => array_values(array_filter($catalog['models'], static fn (array $model): bool => !empty($model['allowed']) && is_array($model['window'] ?? null))),
+            'model_windows' => array_values(array_filter($catalog['models'], static fn (array $model): bool => !empty($model['allowed']) && (is_array($model['window'] ?? null) || is_array($model['image_window'] ?? null)))),
             // Unknown (backend down) counts as linked: the limits then say "unavailable".
             'linked' => $usage['linked'] ?? true,
             'retention_days' => (int) config('plugged-host-ai.retention_days', 30),
@@ -625,7 +625,7 @@ class NeoChat extends Component
         return [
             'current' => $current,
             // Shown in the bars' place: the picked model is not metered at all (limits by model).
-            'unlimited' => $catalog['mode'] === 'models' && is_array($picked) && empty($picked['limited']),
+            'unlimited' => $catalog['mode'] === 'models' && is_array($picked) && empty($picked['limited']) && empty($picked['image_window']),
             'list' => $catalog['models'],
             'mode' => $catalog['mode'],
             'plus_url' => self::plusUrl(),
@@ -643,15 +643,18 @@ class NeoChat extends Component
     private function meter(?array $backend, ?array $models): ?array
     {
         $catalog = $this->catalog($backend);
+        $picked = collect($catalog['models'])->firstWhere('key', $models['current'] ?? $catalog['default']);
 
-        if ($catalog['mode'] === 'all') {
-            return is_array($backend['limits'] ?? null) ? $backend['limits'] : null;
+        $windows = $catalog['mode'] === 'all'
+            ? (is_array($backend['limits'] ?? null) ? $backend['limits'] : [])
+            : (is_array($picked['window'] ?? null) ? ['week' => $picked['window']] : []);
+
+        // An image model's pictures per 24 hours, in either mode.
+        if (is_array($picked['image_window'] ?? null)) {
+            $windows['images'] = $picked['image_window'];
         }
 
-        $current = $models['current'] ?? $catalog['default'];
-        $window = collect($catalog['models'])->firstWhere('key', $current)['window'] ?? null;
-
-        return is_array($window) ? ['week' => $window] : null;
+        return $windows === [] ? null : $windows;
     }
 
     /**

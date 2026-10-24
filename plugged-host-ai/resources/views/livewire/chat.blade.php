@@ -288,14 +288,27 @@
                     @elseif($settings['mode'] === 'models')
                         {{-- Limits by model: only the limited ones have a (weekly) window. --}}
                         @forelse($settings['model_windows'] as $model)
-                            @php $percent = max(0, min(100, (int) ($model['window']['percent'] ?? 0))); @endphp
-                            <div class="neo-usage">
-                                <div class="neo-usage-head">
-                                    <span>{{ $model['label'] }} · {{ $s('profile.long_window') }}</span>
-                                    <span>{{ $percent }}% · {{ $s('profile.resets', ['time' => $resetsAt($model['window'], 'ddd HH:mm')]) }}</span>
+                            @if(is_array($model['window'] ?? null))
+                                @php $percent = max(0, min(100, (int) ($model['window']['percent'] ?? 0))); @endphp
+                                <div class="neo-usage">
+                                    <div class="neo-usage-head">
+                                        <span>{{ $model['label'] }} · {{ $s('profile.long_window') }}</span>
+                                        <span>{{ $percent }}% · {{ $s('profile.resets', ['time' => $resetsAt($model['window'], 'ddd HH:mm')]) }}</span>
+                                    </div>
+                                    <div class="neo-bar neo-bar-lg {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
                                 </div>
-                                <div class="neo-bar neo-bar-lg {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
-                            </div>
+                            @endif
+                            @if(is_array($model['image_window'] ?? null))
+                                {{-- An image model: pictures in the last 24 hours. --}}
+                                @php $percent = max(0, min(100, (int) ($model['image_window']['percent'] ?? 0))); @endphp
+                                <div class="neo-usage">
+                                    <div class="neo-usage-head">
+                                        <span>{{ $model['label'] }} · {{ $s('profile.images_window') }}</span>
+                                        <span>{{ $s('profile.images_used', ['used' => (int) $model['image_window']['used'], 'limit' => (int) $model['image_window']['limit']]) }}@if(!empty($model['image_window']['resets_at'])) · {{ $s('profile.resets', ['time' => $resetsAt($model['image_window'], 'ddd HH:mm')]) }}@endif</span>
+                                    </div>
+                                    <div class="neo-bar neo-bar-lg {{ $barClass($percent) }}"><i style="width: {{ $percent }}%"></i></div>
+                                </div>
+                            @endif
                         @empty
                         @endforelse
                         <div class="neo-set-hint">{{ $s('profile.unlimited_models') }}</div>
@@ -500,6 +513,7 @@
                                                     $option['description'] ?? null,
                                                     $models['mode'] === 'all' && (int) ($option['multiplier'] ?? 1) > 1 ? $s('chat.model_multiplier', ['multiplier' => (int) $option['multiplier']]) : null,
                                                     $models['mode'] === 'models' && !empty($option['limited']) ? $s('chat.model_weekly') : null,
+                                                    !empty($option['image_window']['limit']) ? $s('chat.model_images', ['count' => (int) $option['image_window']['limit']]) : null,
                                                     ($option['access'] ?? 'everyone') !== 'everyone' ? $s('chat.model_plan', ['plan' => $plan]) : null,
                                                 ])->filter()->implode(' · ');
                                             @endphp
@@ -539,7 +553,7 @@
 
                             @if($usage)
                                 <div class="neo-meter">
-                                    @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm'], 'week' => [$s('chat.window_long'), 'ddd HH:mm']] as $window => [$windowLabel, $format])
+                                    @foreach(['short' => [$s('chat.window_short'), 'HH:mm'], 'long' => [$s('chat.window_long'), 'ddd HH:mm'], 'week' => [$s('chat.window_long'), 'ddd HH:mm'], 'images' => [$s('chat.window_images'), 'HH:mm']] as $window => [$windowLabel, $format])
                                         @continue(!is_array($usage[$window] ?? null))
                                         @php $percent = max(0, min(100, (int) ($usage[$window]['percent'] ?? 0))); @endphp
                                         <div class="neo-meter-item" title="{{ $s('chat.usage_title', ['window' => $windowLabel, 'percent' => $percent, 'time' => $resetsAt($usage[$window] ?? null, $format)]) }}">

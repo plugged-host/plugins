@@ -41,6 +41,8 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
     /** The service neo on Discord's turns are recorded under on noprofit.space. */
     public const DISCORD_SERVICE = 'plugged-host-discord';
 
+    public const RUX_SERVICE = 'plugged-host-rux';
+
     public function __construct(private readonly NoprofitClient $client) {}
 
     public function configured(): bool
@@ -114,6 +116,46 @@ final class NoprofitNeoBackend implements NeoBackend, NeoSettingsStore
         }
 
         $this->throwFor($response->status(), $data, (int) $response->header('Retry-After'));
+    }
+
+    /**
+     * One picture from noprofit.space's image model (model "image"), for rux's make_image.
+     *
+     * @return array{mime: string, data: string, label: ?string}
+     *
+     * @throws LimitReachedException|ModelUnavailableException|GatewayBusyException|GatewayUnavailableException
+     */
+    public function discordImage(string $discordId, string $prompt): array
+    {
+        $panelUser = self::panelUserForDiscord($discordId);
+
+        $response = $this->send('POST', '/turn', [
+            'discord_id' => $discordId,
+            'service' => self::RUX_SERVICE,
+            'usage_percent' => NeoUsagePercent::for($panelUser),
+            'plan' => NeoModel::plan($panelUser),
+            'model' => 'image',
+            'conversation' => 'rux-image:' . $discordId,
+            'request_id' => (string) Str::uuid(),
+            'messages' => [['role' => 'user', 'content' => $prompt]],
+            'tools' => [],
+            'tool_choice' => 'auto',
+        ], $this->timeout());
+
+        $data = (array) $response->json();
+
+        if (!$response->successful()) {
+            $this->throwFor($response->status(), $data, (int) $response->header('Retry-After'));
+        }
+
+        Cache::forget($this->discordKey($discordId));
+        $image = (array) ($data['images'][0] ?? []);
+
+        if (!is_string($image['data'] ?? null) || !is_string($image['mime'] ?? null)) {
+            throw new GatewayUnavailableException('no_image', 10);
+        }
+
+        return ['mime' => $image['mime'], 'data' => $image['data'], 'label' => $data['provider']['label'] ?? null];
     }
 
     /**

@@ -51,6 +51,7 @@ final class RuxToolRegistry
         Rules\WatchChannelTool::class,
         Rules\ModeratorRoleTool::class,
         Servers\SwitchServerTool::class,
+        Media\MakeImageTool::class,
     ];
 
     /** @var array<string, RuxTool>|null */

@@ -82,6 +82,14 @@ final class LocalNeoBackend implements NeoBackend
         return $this->run($subject, self::DISCORD_SERVICE, 'discord:' . $conversation, $messages, $tools, $toolChoice, $this->slotFor(null, $plan), $plan);
     }
 
+    /**
+     * The panel's own providers only read and write text.
+     */
+    public function discordImage(string $discordId, string $prompt): array
+    {
+        throw new ModelUnavailableException('model_unavailable');
+    }
+
     public function discordUsage(string $discordId): array
     {
         $this->assertReady();

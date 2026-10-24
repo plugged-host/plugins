@@ -113,6 +113,37 @@ class DiscordRest
     }
 
     /**
+     * A message with one file attached (multipart: payload_json + files[0]).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     *
+     * @throws DiscordException
+     */
+    public function createMessageWithFile(string $channelId, array $payload, string $filename, string $bytes): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bot ' . $this->token,
+                'User-Agent' => 'DiscordBot (https://github.com/plugged-host/plugins, 1.0) ' . $this->bot,
+            ])
+                ->acceptJson()
+                ->connectTimeout(5)
+                ->timeout(30)
+                ->attach('files[0]', $bytes, $filename)
+                ->post(self::BASE . "/channels/{$channelId}/messages", ['payload_json' => (string) json_encode($payload + ['attachments' => [['id' => 0, 'filename' => $filename]]])]);
+        } catch (ConnectionException $e) {
+            throw new DiscordException(0, null, 'Discord could not be reached: ' . $e->getMessage());
+        }
+
+        if (!$response->successful()) {
+            throw DiscordException::from($response->status(), (array) $response->json());
+        }
+
+        return (array) $response->json();
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */

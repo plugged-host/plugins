@@ -116,6 +116,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'limited' => (bool) ($provider['limited'] ?? !empty($provider['premium'])),
                 'weekly_tokens' => (int) ($provider['weekly_tokens'] ?? 0),
                 'multiplier' => (int) ($provider['multiplier'] ?? 1),
+                'daily_images' => (int) ($provider['daily_images'] ?? 0),
                 'thinking' => (bool) ($provider['thinking'] ?? true),
                 'extra_headers' => self::prettyJson($provider['extra_headers'] ?? []),
                 'extra_body' => self::prettyJson($provider['extra_body'] ?? []),
@@ -331,6 +332,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                         'openai' => $t('driver_openai'),
                         'anthropic' => $t('driver_anthropic'),
                         'gemini' => $t('driver_gemini'),
+                        'cloudflare_image' => $t('driver_cloudflare_image'),
                     ])->required($enabled)->native(false), 'driver'),
                     $lock(TextInput::make($prefix . 'model')->label($t('model'))->maxLength(128)->required($enabled), 'model'),
                     $lock(TextInput::make($prefix . 'endpoint')->label($t('endpoint'))->helperText($t('endpoint_hint'))->url()->maxLength(512)->required($enabled)->columnSpanFull(), 'endpoint'),
@@ -349,6 +351,8 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                     Toggle::make($prefix . 'limited')->label($t('limited'))->helperText($t('limited_hint')),
                     TextInput::make($prefix . 'weekly_tokens')->label($t('weekly_tokens'))->helperText($t('weekly_tokens_hint'))->numeric()->minValue(0)->required($enabled),
                     TextInput::make($prefix . 'multiplier')->label($t('multiplier'))->helperText($t('multiplier_hint'))->numeric()->minValue(1)->maxValue(10)->required($enabled),
+                    TextInput::make($prefix . 'daily_images')->label($t('daily_images'))->helperText($t('daily_images_hint'))->numeric()->minValue(0)->maxValue(10000)
+                        ->visible(($provider['driver'] ?? null) === 'cloudflare_image'),
                     $lock(Textarea::make($prefix . 'extra_headers')->label($t('extra_headers'))->helperText($t('extra_headers_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(), 'extra_headers'),
                     $lock(Textarea::make($prefix . 'extra_body')->label($t('extra_body'))->helperText($t('extra_body_hint'))->rows(3)->rule(self::jsonObjectRule($t))->columnSpanFull(), 'extra_body'),
                 ]),
@@ -427,6 +431,7 @@ class PluggedHostAiPlugin implements HasPluginSettings, Plugin
                 'weekly_tokens' => (int) ($fields['weekly_tokens'] ?? 0),
                 'multiplier' => (int) ($fields['multiplier'] ?? 1),
                 'thinking' => !empty($fields['thinking']),
+                'daily_images' => (int) ($fields['daily_images'] ?? 0),
                 'extra_headers' => self::decodeObject((string) ($fields['extra_headers'] ?? '{}')),
                 'extra_body' => self::decodeObject((string) ($fields['extra_body'] ?? '{}')),
             ];

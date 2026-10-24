@@ -7,6 +7,7 @@ use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Services\Gateway\GatewayBusyException;
 use PluggedHost\Ai\Services\Gateway\GatewayUnavailableException;
 use PluggedHost\Ai\Services\Gateway\LimitReachedException;
+use PluggedHost\Ai\Services\Gateway\ModelUnavailableException;
 use PluggedHost\Ai\Services\Gateway\NotLinkedException;
 
 /**
@@ -60,6 +61,16 @@ interface NeoBackend
      * @throws LimitReachedException|GatewayBusyException|GatewayUnavailableException
      */
     public function discordTurn(string $discordId, string $conversation, array $messages, array $tools, string $toolChoice): array;
+
+    /**
+     * One picture from neo's image model for a Discord account (rux's make_image), metered
+     * against that account like its other turns (the image model's daily images).
+     *
+     * @return array{mime: string, data: string, label: ?string} data is base64
+     *
+     * @throws LimitReachedException|ModelUnavailableException|GatewayBusyException|GatewayUnavailableException
+     */
+    public function discordImage(string $discordId, string $prompt): array;
 
     /**
      * Who a Discord account is and where its windows stand: linked, account_id, user_id (the

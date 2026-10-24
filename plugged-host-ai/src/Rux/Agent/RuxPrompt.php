@@ -58,6 +58,7 @@ final class RuxPrompt
             '- Default: 1 winner. ' . ($giveawayChannel !== '' ? "Default channel: <#{$giveawayChannel}> (use it unless the admin names another)." : 'There is no default giveaway channel: if the admin names none, call server_overview and pick the channel obviously meant for giveaways, or ask.'),
             '- Limits: at most ' . (int) ($limits['max_credits'] ?? 10000) . ' credits per winner, ' . (int) ($limits['max_winners'] ?? 25) . ' winners, ' . (int) ($limits['max_days'] ?? 60) . ' days.',
             '- "end it now" → end_giveaway; "cancel" → cancel_giveaway (nobody wins); "reroll" → reroll_giveaway; changes → edit_giveaway.',
+            '- "make/draw/generate an image of …", "imagine …", "picture of …" → make_image with a detailed English prompt; it posts the picture itself, so then say little or nothing.',
             '- "Give @someone 500 credits" (no giveaway) → give_credits, one call per person. ' . ($mainAdmin
                 ? 'This person is the main admin, so just do it, whatever you said earlier in this conversation.'
                 : "Only {$app}'s main admin can order that, and this person is not them: say so instead of calling it."),

@@ -369,8 +369,9 @@ final class NeoAgent
                 $onDelta,
             );
         } catch (LimitReachedException $e) {
-            return $this->halt($conversation, NeoConversation::LIMITED, StepResult::LIMITED, trans('plugged-host-ai::strings.errors.limited_' . (in_array($e->window, ['long', 'model'], true) ? $e->window : 'short'), [
+            return $this->halt($conversation, NeoConversation::LIMITED, StepResult::LIMITED, trans('plugged-host-ai::strings.errors.limited_' . (in_array($e->window, ['long', 'model', 'images'], true) ? $e->window : 'short'), [
                 'time' => $this->localTime($e->retryAt, $user),
+                'count' => (int) ($e->limits['images']['limit'] ?? 0),
             ]), ['window' => $e->window, 'retry_at' => $e->retryAt]);
         } catch (ModelUnavailableException $e) {
             $notice = match ($e->reason) {
