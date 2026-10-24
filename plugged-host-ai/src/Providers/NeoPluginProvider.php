@@ -50,13 +50,13 @@ class NeoPluginProvider extends ServiceProvider
     {
         Livewire::component('plugged-host-ai.chat', NeoChat::class);
 
-        // Images attached in the chat, for its owner only (ChatImages).
+        // Images attached in the chat or made for it, for its owner only (ChatImages).
         Route::middleware(['web'])->get('/neo/images/{message}/{index}', function (int $message, int $index) {
             $row = NeoMessage::query()->with('conversation')->find($message);
             $owner = $row?->conversation?->user_id;
             $path = ChatImages::existing(((array) $row?->meta)['images'][$index]['path'] ?? null);
 
-            abort_unless($row?->role === NeoMessage::USER && $owner !== null && (int) $owner === (int) auth()->id() && $path !== null, 404);
+            abort_unless(in_array($row?->role, [NeoMessage::USER, NeoMessage::ASSISTANT], true) && $owner !== null && (int) $owner === (int) auth()->id() && $path !== null, 404);
 
             return Storage::disk('local')->response($path, null, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, max-age=604800, immutable']);
         })->whereNumber(['message', 'index'])->name('plugged-host-ai.image');

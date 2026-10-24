@@ -66,6 +66,8 @@
 
     .neo-msg-images { align-self: flex-end; max-width: 85%; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .375rem; }
     .neo-msg-images img { display: block; max-width: 10rem; max-height: 10rem; border-radius: .75rem; object-fit: cover; }
+    .neo-msg-images.neo-msg-made { align-self: flex-start; justify-content: flex-start; max-width: 100%; }
+    .neo-msg-made img { max-width: min(100%, 24rem); max-height: 24rem; object-fit: contain; }
     .neo-msg-user { align-self: flex-end; max-width: 85%; padding: .5rem .75rem; border-radius: .75rem .75rem .25rem .75rem; background: var(--neo-raise-2); color: var(--neo-text); white-space: pre-wrap; word-break: break-word; }
     .neo-msg-ai { max-width: 100%; word-break: break-word; color: var(--neo-nav); }
     .neo-msg-ai p { margin: 0 0 .5rem; } .neo-msg-ai p:last-child { margin-bottom: 0; }

@@ -107,7 +107,8 @@ final class ContextBuilder
             NeoMessage::USER => self::user($row),
             NeoMessage::ASSISTANT => array_filter([
                 'role' => 'assistant',
-                'content' => $row->content,
+                // A picture an image model made is not sent back to a model, only that it was made.
+                'content' => $row->content ?? (empty(((array) $row->meta)['images']) ? null : '(Made the picture that was asked for.)'),
                 'tool_calls' => $row->tool_calls ?: null,
             ], static fn (mixed $value): bool => $value !== null) + ['content' => null],
             NeoMessage::TOOL => [

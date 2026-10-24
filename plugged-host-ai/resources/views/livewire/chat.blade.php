@@ -394,6 +394,15 @@
                                         <pre>{{ $message->meta['thinking'] }}</pre>
                                     </details>
                                 @endif
+                                @if(!empty($message->meta['images']))
+                                    <div class="neo-msg-images neo-msg-made">
+                                        @foreach($message->meta['images'] as $index => $image)
+                                            <a href="{{ route('plugged-host-ai.image', [$message->id, $index]) }}" target="_blank" rel="noopener">
+                                                <img src="{{ route('plugged-host-ai.image', [$message->id, $index]) }}" alt="{{ $s('chat.image') }}" loading="lazy">
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @endif
                                 @if(filled($message->content))
                                     <div class="neo-msg-ai">{!! \PluggedHost\Ai\Livewire\NeoChat::markdown($message->content, (string) $message->id) !!}</div>
                                 @endif

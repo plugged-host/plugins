@@ -10,9 +10,9 @@ use PluggedHost\Ai\Models\NeoConversation;
 use PluggedHost\Ai\Support\ImageInput;
 
 /**
- * Images attached in the panel chat. Shrunk once on upload (ImageInput) and kept as JPEGs on the
- * private disk under neo-images/{conversation}/, so the model and the chat both read the small
- * copy. They go with their conversation: deleting a chat or the whole history removes them, and
+ * Images attached in the panel chat, and pictures an image model made for it. Shrunk once
+ * (ImageInput) and kept as JPEGs on the private disk under neo-images/{conversation}/, so the
+ * model and the chat both read the small copy. They go with their conversation: deleting a chat or the whole history removes them, and
  * the prune sweeps folders whose conversation is gone.
  */
 final class ChatImages
@@ -25,7 +25,16 @@ final class ChatImages
     public static function store(NeoConversation $conversation, UploadedFile $file): ?array
     {
         $bytes = $file->getSize() <= ImageInput::MAX_BYTES ? @file_get_contents($file->getRealPath()) : false;
-        $jpeg = is_string($bytes) ? ImageInput::jpeg($bytes) : null;
+
+        return is_string($bytes) ? self::storeBytes($conversation, $bytes) : null;
+    }
+
+    /**
+     * @return array{path: string}|null Null when the bytes are not an image neo can read.
+     */
+    public static function storeBytes(NeoConversation $conversation, string $bytes): ?array
+    {
+        $jpeg = strlen($bytes) <= ImageInput::MAX_BYTES ? ImageInput::jpeg($bytes) : null;
 
         if ($jpeg === null) {
             return null;

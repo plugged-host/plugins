@@ -398,8 +398,16 @@ final class NeoAgent
         $content = is_string($message['content'] ?? null) && trim($message['content']) !== '' ? trim($message['content']) : null;
         // What the model thought, for the chat to show folded away; never sent back to a model.
         $thinking = is_string($response['thinking'] ?? null) && trim($response['thinking']) !== '' ? Str::limit(trim($response['thinking']), 12000) : null;
+        // Pictures an image model made (base64), kept with the conversation like attached ones.
+        $made = [];
+        foreach (array_slice(array_filter((array) ($response['images'] ?? []), 'is_array'), 0, ImageInput::MAX_IMAGES) as $image) {
+            $bytes = base64_decode((string) ($image['data'] ?? ''), true);
+            if (is_string($bytes) && ($stored = ChatImages::storeBytes($conversation, $bytes)) !== null) {
+                $made[] = $stored;
+            }
+        }
 
-        DB::transaction(function () use ($conversation, $user, $response, $calls, $content, $thinking, $available, $finalAnswer): void {
+        DB::transaction(function () use ($conversation, $user, $response, $calls, $content, $thinking, $made, $available, $finalAnswer): void {
             $this->append($conversation, NeoMessage::ASSISTANT, [
                 'content' => $content,
                 'tool_calls' => $calls === [] ? null : $calls,
@@ -409,6 +417,7 @@ final class NeoAgent
                     'finish_reason' => $response['finish_reason'] ?? null,
                     'tokens' => (int) ($response['usage']['charged_tokens'] ?? 0),
                     'thinking' => $thinking,
+                    'images' => $made === [] ? null : $made,
                 ], static fn (mixed $value): bool => $value !== null),
             ]);
 
