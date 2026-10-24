@@ -202,6 +202,25 @@ class FailoverService
     }
 
     /**
+     * Recover one server of a down node that has no copy to restore (an empty volume: the
+     * mirror skips those, or a server made minutes before its node died): moved and installed
+     * fresh on a healthy node, without the restore. An operator's call (the command's --fresh),
+     * never the sweep's: whatever was on the dead node is not brought along.
+     */
+    public function fresh(Server $server): ?NodeFailover
+    {
+        $node = $server->node;
+        if ($this->mode() === 'off' || SystemServers::is($server) || $this->isFenced($server) || $server->transfer !== null
+            || !$node instanceof Node || !$this->looksDown($node, max(1, (int) config('plugged-host-storage.failover_after_failures', 5)))) {
+            return null;
+        }
+
+        $this->start($server, $node, fresh: true);
+
+        return NodeFailover::query()->where('server_id', $server->getKey())->latest('id')->first();
+    }
+
+    /**
      * Pick a failed recovery up again where it stopped, for one that already moved the server
      * (it is on the destination, installed, and only the restore is missing).
      */
@@ -397,7 +416,7 @@ class FailoverService
      * node to put the server on. A create wings refuses is undone, so the server is back on its
      * old node exactly as it was and is tried again after the back-off.
      */
-    private function start(Server $server, Node $fromNode, bool $drill = false): bool
+    private function start(Server $server, Node $fromNode, bool $drill = false, bool $fresh = false): bool
     {
         $record = NodeFailover::query()->create([
             'node_id' => $fromNode->getKey(),
@@ -405,11 +424,11 @@ class FailoverService
             'from_node_id' => $fromNode->getKey(),
             'state' => self::CREATING,
             'started_at' => now(),
-            'detail' => ['mode' => $drill ? 'drill' : 'auto', 'v' => 2],
+            'detail' => ['mode' => $drill ? 'drill' : ($fresh ? 'fresh' : 'auto'), 'v' => 2],
         ]);
 
-        $info = $this->storage->backupInfo($server->uuid);
-        if (!is_array($info) || !($info['exists'] ?? false)) {
+        $info = $fresh ? [] : $this->storage->backupInfo($server->uuid);
+        if (!$fresh && (!is_array($info) || !($info['exists'] ?? false))) {
             $this->fail($record, $info === null ? 'storage agent unreachable' : 'no completed mirror copy of this server', notify: false);
 
             return false;
@@ -664,6 +683,12 @@ class FailoverService
                 return;
             }
 
+            if (($detail['mode'] ?? null) === 'fresh') {
+                $this->finish($record, $server);
+
+                return;
+            }
+
             // Installed: wait for a free archive slot (failover_max_restoring) rather than have the
             // agent answer 503, which wings reports as a failed restore.
             $slots = max(1, (int) config('plugged-host-storage.failover_max_restoring', 3));
@@ -833,6 +858,14 @@ class FailoverService
             ->property('from_node', $record->from_node_id)
             ->property('to_node', $record->to_node_id)
             ->log();
+
+        if (($detail['mode'] ?? null) === 'fresh') {
+            $this->tell($server, true, 'Your server\'s node went offline and there was no copy of its files, so it was set up fresh on a healthy node.'
+                . ($address ? " Its new address is {$address}." : '') . ' Start it whenever you are ready.');
+            Log::info("plugged-host-storage: fresh failover of server {$server->id} to node {$record->to_node_id} done.");
+
+            return;
+        }
 
         $since = isset($detail['mirror_mtime']) ? ' Files are as they were at ' . \Carbon\Carbon::parse($detail['mirror_mtime'])->format('Y-m-d H:i') . ' UTC.' : '';
         $this->tell($server, true, 'Your server\'s node went offline, so it was recovered onto a healthy node from its latest copy.'
