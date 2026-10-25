@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The "Delete abuse-suspended servers after" setting takes a duration such as `7d` or `24h`
+  (core's `Duration`) instead of a number of hours; `ABUSE_DELETE_AFTER_HOURS` is unchanged.
+
 ## 2.2.1 (2026-10-23)
 
 - **Vietnamese** (`lang/vi`), in step with en and de.

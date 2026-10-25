@@ -12,6 +12,7 @@ use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use PluggedHost\Abuse\Services\AbuseEnforcer;
 use PluggedHost\Abuse\Services\AbusePurge;
+use PluggedHost\Core\Support\Duration;
 
 /**
  * Abuse protection: the 3-hourly full scan, the per-minute CPU watch, the node agent and the
@@ -47,7 +48,7 @@ class PluggedHostAbusePlugin implements HasPluginSettings, Plugin
             'abuse_alert_webhook' => '',
             'abuse_cpu_percent' => (int) config('plugged-host-abuse.cpu_percent', 90),
             'abuse_cpu_minutes' => (int) config('plugged-host-abuse.cpu_minutes', 20),
-            'abuse_delete_after_hours' => AbusePurge::hours(),
+            'abuse_delete_after' => Duration::format(AbusePurge::hours()),
         ];
     }
 
@@ -91,15 +92,12 @@ class PluggedHostAbusePlugin implements HasPluginSettings, Plugin
                         ->maxValue(1440)
                         ->required()
                         ->default(fn () => (int) config('plugged-host-abuse.cpu_minutes', 20)),
-                    TextInput::make('abuse_delete_after_hours')
+                    TextInput::make('abuse_delete_after')
                         ->label('Delete abuse-suspended servers after')
-                        ->helperText('Only servers the abuse checks suspended, and not if an admin unsuspended one or dismissed a finding on it. 0 never deletes.')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(8760)
-                        ->suffix('hours')
+                        ->helperText('For example 7d or 24h, counted from the suspension. Only servers the abuse checks suspended, and not if an admin unsuspended one or dismissed a finding on it. 0 never deletes.')
+                        ->rules([Duration::RULE])
                         ->required()
-                        ->default(fn () => AbusePurge::hours()),
+                        ->default(fn () => Duration::format(AbusePurge::hours())),
                 ]),
         ];
     }
@@ -110,7 +108,7 @@ class PluggedHostAbusePlugin implements HasPluginSettings, Plugin
             'ABUSE_MODE' => in_array($data['abuse_mode'] ?? null, AbuseEnforcer::MODES, true) ? $data['abuse_mode'] : AbuseEnforcer::mode(),
             'ABUSE_CPU_PERCENT' => (string) max(50, min(100, (int) ($data['abuse_cpu_percent'] ?? 90))),
             'ABUSE_CPU_MINUTES' => (string) max(5, min(1440, (int) ($data['abuse_cpu_minutes'] ?? 20))),
-            'ABUSE_DELETE_AFTER_HOURS' => (string) max(0, min(8760, (int) ($data['abuse_delete_after_hours'] ?? 24))),
+            'ABUSE_DELETE_AFTER_HOURS' => (string) max(0, min(8760, Duration::parse($data['abuse_delete_after'] ?? null) ?? AbusePurge::hours())),
         ];
 
         $webhook = trim((string) ($data['abuse_alert_webhook'] ?? ''));

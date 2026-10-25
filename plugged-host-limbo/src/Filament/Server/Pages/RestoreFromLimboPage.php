@@ -9,6 +9,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Log;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Limbo\Services\LimboPurge;
 use PluggedHost\Limbo\Services\LimboService;
 use Throwable;
 
@@ -31,6 +32,9 @@ class RestoreFromLimboPage extends Page
     public ?int $cost = null;
 
     public ?string $enteredAt = null;
+
+    /** When the server is deleted unless restored first (LimboPurge), for humans. */
+    public ?string $deletesAt = null;
 
     /** The move back is in flight: the page shows progress instead of the button. */
     public bool $restoring = false;
@@ -83,6 +87,7 @@ class RestoreFromLimboPage extends Page
         if ($state !== null) {
             $this->cost = app(LimboService::class)->cost($state);
             $this->enteredAt = $state->limbo_at?->diffForHumans();
+            $this->deletesAt = LimboPurge::deletesAt($state)?->diffForHumans();
             $this->restoring = $state->state === 'restoring';
             $this->needsLocation = !$this->restoring && !app(LimboService::class)->canRestoreHome($server);
         }

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Delete after** (`LIMBO_DELETE_AFTER_HOURS`, new setting, off by default): a server parked in
+  limbo that long is deleted with its files by `plugged-host:limbo-purge` (hourly, `--dry-run`),
+  with an activity entry on the owner's account. The restore page tells the owner when. The
+  setting takes a duration such as `7d` or `36h` (core's `Duration`).
+
 ## 2.2.1 (2026-10-23)
 
 - **Vietnamese** (`lang/vi`), in step with en and de.

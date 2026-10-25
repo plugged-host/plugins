@@ -9,6 +9,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
+use PluggedHost\Core\Support\Duration;
+use PluggedHost\Limbo\Services\LimboPurge;
 
 /**
  * Filament registration for limbo. Only the server-panel RestoreFromLimboPage is UI; the sweep,
@@ -16,7 +18,7 @@ use Filament\Schemas\Components\Section;
  * topbar(true) — theme-v2 owns the topbar.
  *
  * Settings tab: the hibernation master switch, the stop/transfer thresholds, the limbo node tag
- * and per-run cap, and the token ransom, over the same EnvironmentWriterTrait every plugged.host
+ * and per-run cap, the delete-after timer, and the token ransom, over the same EnvironmentWriterTrait every plugged.host
  * plugin uses. No secrets here, so every field round-trips through .env and each integer is
  * clamped in saveSettings.
  */
@@ -61,6 +63,7 @@ class PluggedHostLimboPlugin implements HasPluginSettings, Plugin
             'cost_early' => (int) config('plugged-host-limbo.cost_early', 5),
             'cost_late' => (int) config('plugged-host-limbo.cost_late', 10),
             'cost_window_hours' => (int) config('plugged-host-limbo.cost_window_hours', 72),
+            'delete_after' => Duration::format(LimboPurge::hours()),
         ];
     }
 
@@ -112,6 +115,11 @@ class PluggedHostLimboPlugin implements HasPluginSettings, Plugin
                         ->minValue(0)
                         ->maxValue(99)
                         ->required(),
+                    TextInput::make('delete_after')
+                        ->label(trans('plugged-host-limbo::strings.settings.delete_after'))
+                        ->helperText(trans('plugged-host-limbo::strings.settings.delete_after_hint'))
+                        ->rules([Duration::RULE])
+                        ->required(),
                 ]),
             Section::make(trans('plugged-host-limbo::strings.settings.section_ransom'))
                 ->description(trans('plugged-host-limbo::strings.settings.section_ransom_hint'))
@@ -156,6 +164,7 @@ class PluggedHostLimboPlugin implements HasPluginSettings, Plugin
             'LIMBO_COST_EARLY' => (string) max(0, min(100000, (int) ($data['cost_early'] ?? 5))),
             'LIMBO_COST_LATE' => (string) max(0, min(100000, (int) ($data['cost_late'] ?? 10))),
             'LIMBO_COST_WINDOW_HOURS' => (string) max(1, min(8760, (int) ($data['cost_window_hours'] ?? 72))),
+            'LIMBO_DELETE_AFTER_HOURS' => (string) max(0, min(8760, Duration::parse($data['delete_after'] ?? null) ?? LimboPurge::hours())),
         ]);
     }
 }

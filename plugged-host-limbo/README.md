@@ -27,6 +27,10 @@ limbo's own stop, transfers). Merely opening the console logs nothing and does n
   conflict-state / installing / restoring / suspended / maintenance / unbounded-disk servers;
   checks with wings that the server is offline; caps moves in flight (`LIMBO_MAX_PER_RUN`); backs
   off 24 h after a failed move; global kill switch.
+- **Purge** (`plugged-host:limbo-purge`, hourly; `--dry-run`): deletes a server, with its files,
+  once it has been parked in limbo for `LIMBO_DELETE_AFTER_HOURS` (settings: "Delete after", e.g.
+  `7d`; 0 never deletes). Counted from its arrival in limbo; a restore started before then stops
+  the clock. The owner's restore page says when, and their activity log keeps the server's name.
 - **Exemptions** (`ExemptionPruner`): before a move, the storage agent's exclude list
   (plugged-host-storage `StorageService::excludePatterns()`, read from `agent.mjs` `EXCLUDES`:
   node_modules, caches, logs, …) is deleted from the server, because a wings transfer cannot skip
@@ -79,6 +83,7 @@ box, and that agent stops copying when the disk runs low.
 | `node_tag` | `LIMBO_NODE_TAG` (`limbo`) | The limbo node's tag (not a country code; keep out of `UCS_DEPLOYMENT_TAGS`) |
 | `max_per_run` | `LIMBO_MAX_PER_RUN` (`3`) | Cap on moves to the limbo node in flight at once (and stops per sweep) |
 | `max_disk_percent` | `LIMBO_MAX_DISK_PERCENT` (`85`) | No new moves while the limbo node's disk is used past this (0: off) |
+| `delete_after_hours` | `LIMBO_DELETE_AFTER_HOURS` (`0`) | Delete servers parked in limbo this long (0: never); the setting takes `7d` / `36h` |
 | `cost_early` / `cost_late` / `cost_window_hours` | `LIMBO_COST_*` | Ransom |
 
 ## Migrations

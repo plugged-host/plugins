@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `Support\Duration`: settings fields that take `7d` / `36h` / `0` and keep hours in `.env`
+  (limbo's and abuse's delete-after timers).
+
 ## 2.2.1 (2026-10-23)
 
 - **Languages offered** (settings › Languages, `ALLOWED_LANGUAGES`, e.g. `en,de,vi`): the profile's

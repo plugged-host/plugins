@@ -24,6 +24,11 @@
                         {{ trans('plugged-host-limbo::strings.entered', ['time' => $enteredAt]) }}
                     </p>
                 @endif
+                @if ($deletesAt)
+                    <p class="ph-row-body">
+                        {{ trans('plugged-host-limbo::strings.deletes_at', ['time' => $deletesAt]) }}
+                    </p>
+                @endif
             </div>
 
             <dl class="flex flex-wrap gap-8">

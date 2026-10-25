@@ -43,6 +43,10 @@ return [
     'prune' => (bool) env('LIMBO_PRUNE', true),
     'prune_keep' => ['alpine', 'libraries', 'src'],
 
+    // A server parked in limbo this long (hours since it arrived there) is deleted with its files,
+    // unless the owner restored it first (plugged-host:limbo-purge, hourly). 0 never deletes.
+    'delete_after_hours' => (int) env('LIMBO_DELETE_AFTER_HOURS', 0),
+
     // Ransom. Early = restored within the window after entering limbo; late = after it.
     'cost_early' => (int) env('LIMBO_COST_EARLY', 5),
     'cost_late' => (int) env('LIMBO_COST_LATE', 10),

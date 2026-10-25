@@ -16,6 +16,7 @@ return [
     'body' => 'Dieser Server war längere Zeit inaktiv und wurde in den Ruhezustand versetzt, um Kapazität freizugeben. Stelle ihn wieder her, um ihn wieder online zu bringen.',
 
     'entered' => ':time in den Ruhezustand versetzt',
+    'deletes_at' => 'Er wird :time samt seinen Dateien gelöscht, sofern du ihn bis dahin nicht wiederherstellst.',
     'cost_label' => 'Wiederherstellungskosten',
     'balance_label' => 'Dein Guthaben',
     'tokens' => ':count Tokens',
@@ -38,6 +39,8 @@ return [
         'max_per_run_hint' => 'Wie viele Server gleichzeitig auf dem Weg zum Limbo-Node sein dürfen (auch die meisten Server, die ein Durchlauf stoppt). Eine Verschiebung dauert Minuten, so wird der Limbo-Node nicht überflutet.',
         'max_disk_percent' => 'Speichergrenze des Limbo-Nodes (%)',
         'max_disk_percent_hint' => 'Keine neuen Verschiebungen, solange die Festplatte des Limbo-Nodes über diesem Prozentsatz belegt ist. Der Limbo-Node hält auch die Kopien eines Storage-Agents, die bei knappem Speicher anhalten. 0 schaltet die Prüfung ab.',
+        'delete_after' => 'Löschen nach',
+        'delete_after_hint' => 'Zum Beispiel 7d oder 36h, gezählt ab der Ankunft des Servers im Limbo. Ein bis dahin nicht wiederhergestellter Server wird samt seinen Dateien gelöscht. 0 löscht nie.',
 
         'section_ransom' => 'Wiederherstellungskosten',
         'section_ransom_hint' => 'Token-Lösegeld, das der Besitzer zahlt, um einen im Ruhezustand befindlichen Server auf einen aktiven Node zurückzuholen.',

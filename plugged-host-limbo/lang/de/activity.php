@@ -5,4 +5,5 @@ return [
     'activity.server.limbo.stop' => 'hat :server wegen Inaktivität gestoppt',
     'activity.server.limbo.hibernate' => 'hat :server in den Ruhezustand versetzt',
     'activity.server.limbo.restore' => 'hat :server für :cost Tokens aus dem Ruhezustand geholt',
+    'activity.server.limbo.deleted' => 'hat den Server :name gelöscht, nachdem seine Zeit im Ruhezustand abgelaufen war',
 ];

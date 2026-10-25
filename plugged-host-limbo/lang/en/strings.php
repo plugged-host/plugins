@@ -16,6 +16,7 @@ return [
     'body' => 'This server was idle for a while, so it was moved to hibernation to free up capacity. Restore it to bring it back online.',
 
     'entered' => 'Hibernated :time',
+    'deletes_at' => 'It will be deleted :time, with its files, unless you restore it before then.',
     'cost_label' => 'Restore cost',
     'balance_label' => 'Your balance',
     'tokens' => ':count tokens',
@@ -38,6 +39,8 @@ return [
         'max_per_run_hint' => 'How many servers may be on their way to the limbo node at the same time (also the most servers one sweep stops). A move takes minutes, so this keeps the limbo node from being flooded.',
         'max_disk_percent' => 'Limbo node disk limit (%)',
         'max_disk_percent_hint' => 'No new moves while the limbo node\'s disk is used past this percentage. The limbo node also holds a storage agent\'s copies, which stop when its disk runs low. 0 turns the check off.',
+        'delete_after' => 'Delete after',
+        'delete_after_hint' => 'For example 7d or 36h, counted from the server\'s arrival in limbo. A server not restored by then is deleted with its files. 0 never deletes.',
 
         'section_ransom' => 'Restore cost',
         'section_ransom_hint' => 'Token ransom the owner pays to restore a hibernated server back to a live node.',

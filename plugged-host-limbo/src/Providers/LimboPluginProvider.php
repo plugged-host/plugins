@@ -9,13 +9,14 @@ use PluggedHost\Core\Filament\Server\Pages\SuspendedServerPage;
 use PluggedHost\Core\Power\StartChain;
 use PluggedHost\Core\Support\ActivityLines;
 use PluggedHost\Core\Support\Plugins;
+use PluggedHost\Limbo\Console\Commands\LimboPurgeCommand;
 use PluggedHost\Limbo\Console\Commands\LimboSweepCommand;
 use PluggedHost\Limbo\Filament\Server\Pages\RestoreFromLimboPage;
 use PluggedHost\Limbo\Services\LimboService;
 use Throwable;
 
 /**
- * Wires limbo: the minute idle sweep, the human-readable activity descriptions (injected with
+ * Wires limbo: the minute idle sweep, the hourly purge of servers left in limbo, the human-readable activity descriptions (injected with
  * core's ActivityLines so no upstream lang file is touched, fact 13), and registration of the restore
  * page as an ad interstitial (ads → limbo, by class-string so ads can be uninstalled alone).
  */
@@ -30,6 +31,12 @@ class LimboPluginProvider extends ServiceProvider
                 ->everyMinute()
                 ->withoutOverlapping(10)
                 ->name('plugged-host-limbo:limbo-sweep');
+
+            // Deletes servers left in limbo past LIMBO_DELETE_AFTER_HOURS; a no-op while it is 0.
+            $schedule->command(LimboPurgeCommand::class)
+                ->hourly()
+                ->withoutOverlapping(60)
+                ->runInBackground();
         });
     }
 

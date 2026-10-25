@@ -7,4 +7,5 @@ return [
     'activity.server.limbo.stop' => 'đã dừng :server vì không hoạt động',
     'activity.server.limbo.hibernate' => 'đã chuyển :server sang trạng thái ngủ đông',
     'activity.server.limbo.restore' => 'đã khôi phục :server khỏi trạng thái ngủ đông với :cost token',
+    'activity.server.limbo.deleted' => 'đã xóa máy chủ :name sau khi hết thời gian ngủ đông',
 ];

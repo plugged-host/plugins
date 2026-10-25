@@ -16,6 +16,7 @@ return [
     'body' => 'Máy chủ này đã không hoạt động một thời gian nên đã được chuyển sang trạng thái ngủ đông để giải phóng tài nguyên. Hãy khôi phục để đưa máy chủ trực tuyến trở lại.',
 
     'entered' => 'Bắt đầu ngủ đông :time',
+    'deletes_at' => 'Máy chủ sẽ bị xóa :time cùng với các tệp của nó, trừ khi bạn khôi phục trước thời điểm đó.',
     'cost_label' => 'Chi phí khôi phục',
     'balance_label' => 'Số dư của bạn',
     'tokens' => ':count token',
@@ -38,6 +39,8 @@ return [
         'max_per_run_hint' => 'Số máy chủ có thể đang được chuyển sang node limbo cùng một lúc (cũng là số máy chủ tối đa mà một đợt quét dừng). Mỗi lần chuyển mất vài phút, nên giới hạn này giúp node limbo không bị quá tải.',
         'max_disk_percent' => 'Giới hạn ổ đĩa của node limbo (%)',
         'max_disk_percent_hint' => 'Không có lượt chuyển mới khi ổ đĩa của node limbo được dùng quá tỷ lệ phần trăm này. Node limbo cũng chứa các bản sao của agent lưu trữ, việc sao chép này sẽ dừng khi ổ đĩa sắp đầy. 0 sẽ tắt kiểm tra này.',
+        'delete_after' => 'Xóa sau',
+        'delete_after_hint' => 'Ví dụ 7d hoặc 36h, tính từ lúc máy chủ vào limbo. Máy chủ chưa được khôi phục đến lúc đó sẽ bị xóa cùng các tệp của nó. 0 sẽ không bao giờ xóa.',
 
         'section_ransom' => 'Chi phí khôi phục',
         'section_ransom_hint' => 'Số token mà chủ sở hữu phải trả để khôi phục một máy chủ đang ngủ đông trở lại một node đang hoạt động.',
