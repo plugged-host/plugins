@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **The agent's panel requests always finish.** An answer cut off half-way (the proxy switching
+  boxes) never settled the request, so the mirror loop waited for good: the storage box mirrored
+  nothing from 2026-10-24 10:04 UTC until it was restarted on 2026-10-25. Cut-off answers are now
+  errors, and every request has a 2-minute deadline.
+
 ## 2.2.1 (2026-10-23)
 
 - The off-site copy card on a server's Backups page and its "Off-site Backups" header action are

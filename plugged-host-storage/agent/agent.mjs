@@ -170,6 +170,10 @@ function verifySignedRequest(kind, arg, expires, sig) {
 
 // ---- Panel API (outbound, agent-signed) -------------------------------------
 
+// Settles every time: `timeout` only covers an idle socket, and an answer cut off half-way (the
+// proxy switching boxes) never emitted 'end', which left the mirror loop waiting for good (2026-10-24).
+const PANEL_DEADLINE_MS = 120000;
+
 function panelRequest(method, apiPath, bodyObj) {
   return new Promise((resolve, reject) => {
     if (!CFG.panelUrl) return reject(new Error('PH_PANEL_URL not set'));
@@ -195,6 +199,11 @@ function panelRequest(method, apiPath, bodyObj) {
       (res) => {
         let data = '';
         res.on('data', (c) => (data += c));
+        res.on('error', reject);
+        res.on('aborted', () => reject(new Error('panel answer cut off')));
+        res.on('close', () => {
+          if (!res.complete) reject(new Error('panel answer cut off'));
+        });
         res.on('end', () => {
           if (res.statusCode < 200 || res.statusCode >= 300) {
             return reject(new Error(`panel ${method} ${apiPath} -> ${res.statusCode}: ${data.slice(0, 200)}`));
@@ -209,6 +218,11 @@ function panelRequest(method, apiPath, bodyObj) {
     );
     req.on('error', reject);
     req.on('timeout', () => req.destroy(new Error('panel request timeout')));
+    const deadline = setTimeout(() => {
+      req.destroy(new Error('panel request deadline'));
+      reject(new Error('panel request deadline'));
+    }, PANEL_DEADLINE_MS);
+    req.on('close', () => clearTimeout(deadline));
     if (body) req.write(body);
     req.end();
   });
