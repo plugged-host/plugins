@@ -12,7 +12,9 @@ use Throwable;
  *
  * Instead of allocating randomly or by promised/committed allocation limits (where
  * identical nodes can have vastly different real container loads), this service
- * evaluates nodes by their rolling 5-minute average of RAM and CPU usage.
+ * evaluates nodes by their rolling 5-minute average of RAM and CPU usage, and ranks
+ * each by the fuller of the two: a node out of CPU is not picked for its free RAM
+ * (nodes differ in shape: the old dual Xeons have RAM to spare, the EPYCs CPU).
  *
  * It uses the minute-by-minute node telemetry core samples (NodeTelemetry).
  * If a node lacks snapshot history (e.g. newly joined), it falls back to live daemon
@@ -44,8 +46,8 @@ class NodeBalancer
     }
 
     /**
-     * Sort a collection of nodes so that the node with the lowest sustained
-     * 5-minute average of RAM & CPU is first.
+     * Sort a collection of nodes so that the node whose fuller resource (RAM or CPU,
+     * 5-minute average) has the most room is first.
      *
      * @param  Collection<int, Node>  $nodes
      * @return Collection<int, Node>
@@ -158,7 +160,8 @@ class NodeBalancer
 
         $cpuWeight = (float) config('plugged-host-servers.balance.cpu_weight', 1.0);
         $memWeight = (float) config('plugged-host-servers.balance.memory_weight', 1.0);
-        $totalWeight = max(0.001, $cpuWeight + $memWeight);
+        // The higher of the two, not their average: 85 % CPU at 60 % RAM is a full node.
+        $scoreOf = fn (float $cpu, float $mem): float => max($cpu * $cpuWeight, $mem * $memWeight);
 
         if ($valid->isNotEmpty()) {
             $avgCpuUsed = (float) $valid->avg(fn ($s) => (float) $s->metrics['cpu_used']);
@@ -175,7 +178,7 @@ class NodeBalancer
             $memPercent = $avgMemTotal > 0 ? ($avgMemBytes / $avgMemTotal) * 100.0 : 0.0;
             $memGb = $avgMemBytes / (1024 * 1024 * 1024);
 
-            $score = (($cpuPercent * $cpuWeight) + ($memPercent * $memWeight)) / $totalWeight;
+            $score = $scoreOf($cpuPercent, $memPercent);
 
             return [
                 'node_id' => (int) $node->getKey(),
@@ -197,7 +200,7 @@ class NodeBalancer
         if ($live !== null) {
             $cpuPercent = (float) ($live['cpu'] ?? 0.0);
             $memPercent = (float) ($live['memory'] ?? 0.0);
-            $score = (($cpuPercent * $cpuWeight) + ($memPercent * $memWeight)) / $totalWeight;
+            $score = $scoreOf($cpuPercent, $memPercent);
 
             return [
                 'node_id' => (int) $node->getKey(),

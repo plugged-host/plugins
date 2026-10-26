@@ -196,11 +196,12 @@ return [
     |
     | Balances new server allocations across nodes sharing the same location tag.
     | Rather than allocating randomly or by committed limit sums, it ranks nodes
-    | by their rolling 5-minute average of RAM and CPU usage, picking the coolest.
+    | by their rolling 5-minute average of RAM and CPU usage, picking the node whose
+    | fuller resource (the higher of RAM % and CPU %) has the most room.
     |
     | window_minutes — rolling window for telemetry samples (default: 5).
-    | cpu_weight — relative weight for CPU utilization (default: 1.0).
-    | memory_weight — relative weight for memory utilization (default: 1.0).
+    | cpu_weight — multiplier on CPU utilization before the comparison (default: 1.0).
+    | memory_weight — multiplier on memory utilization before the comparison (default: 1.0).
     |
     */
     'balance' => [

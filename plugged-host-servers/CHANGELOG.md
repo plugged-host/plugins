@@ -33,6 +33,11 @@
   "Lowered allowances"). `MemoryTrim` (`plugged-host:trim-memory`) and PlusPlusExpiry's CPU trim
   now run under the account's provisioning lock and take no more than is over at that moment, so
   two decreases at once never take the same overage twice.
+- **New servers go to the node with the most room on its fuller resource**: `NodeBalancer` ranks
+  a location's nodes by the higher of their 5-minute RAM % and CPU %, not the average of the two.
+  The average let a big-RAM node on old CPUs (pl2: 86 % CPU at 70 % RAM) keep winning until the
+  deployment pause stopped it. `NODES_BALANCE_CPU_WEIGHT` / `_MEMORY_WEIGHT` now multiply each
+  side before the comparison. Calagopus (v3) already ranks this way.
 
 ## 2.2.0 (2026-10-17)
 
