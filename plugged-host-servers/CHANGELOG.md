@@ -38,6 +38,13 @@
   The average let a big-RAM node on old CPUs (pl2: 86 % CPU at 70 % RAM) keep winning until the
   deployment pause stopped it. `NODES_BALANCE_CPU_WEIGHT` / `_MEMORY_WEIGHT` now multiply each
   side before the comparison. Calagopus (v3) already ranks this way.
+- **A location's ping is the visitor's own**: the create, Transfer and limbo restore pages time
+  each location's nodes from the browser (`window.phLocationPings`, LocationCatalog's new `probes`:
+  up to 4 nodes' Wings addresses; the first request opens the connection and is left out, the
+  fastest of the next three counts) instead of showing the panel's median Wings answer, which is
+  measured from Paris (Thailand showed 763 ms "poor" to everyone, the United States 413 ms). The
+  create page then picks the closest location that can take the server, unless the visitor picked
+  one already. `latency` stays in the catalog for neo's tools and PlusPlus moves.
 
 ## 2.2.0 (2026-10-17)
 

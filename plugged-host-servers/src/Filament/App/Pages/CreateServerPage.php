@@ -279,7 +279,9 @@ class CreateServerPage extends Page
                                     'value' => $location['code'],
                                     'label' => $location['name'],
                                     'svg' => $location['svg'],
-                                    'signal' => $this->latencySignal($location['latency']),
+                                    // The visitor's own ping, timed by the browser (the panel's
+                                    // distance to a node is not theirs); the closest is then picked.
+                                    'probes' => $location['probes'] ?? [],
                                     // A locked Plus/Premium card is not selectable but links to
                                     // the Token Store (Plus or PlusPlus); an unlocked one is a
                                     // normal selectable card that keeps its tier pill.
@@ -395,22 +397,6 @@ class CreateServerPage extends Page
             $plan['memory'] . " {$memoryUnit} " . trans('plugged-host-servers::strings.memory'),
             $plan['disk'] . " {$memoryUnit} " . trans('plugged-host-servers::strings.disk'),
         ]);
-    }
-
-    protected function latencySignal(mixed $ms): ?array
-    {
-        if (!is_int($ms)) {
-            return null;
-        }
-
-        [$bars, $level] = match (true) {
-            $ms < 40 => [4, 'great'],
-            $ms < 80 => [3, 'good'],
-            $ms < 150 => [2, 'ok'],
-            default => [1, 'poor'],
-        };
-
-        return ['ms' => $ms, 'bars' => $bars, 'level' => $level];
     }
 
     /**

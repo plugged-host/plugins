@@ -4,6 +4,11 @@
     $options = $getCardOptions();
     $state = $getState();
     $isCentered = $isCentered();
+    // Cards the browser times (locations: their nodes' addresses), value => addresses.
+    $probes = collect($options)
+        ->filter(fn (array $option) => $option['probes'] !== [])
+        ->mapWithKeys(fn (array $option) => [$option['value'] => $option['probes']])
+        ->all();
 
     // Literal class strings so Tailwind's scanner picks them up — a computed
     // "grid-cols-{$n}" would never be generated.
@@ -45,6 +50,7 @@
         .phcs-signal { pointer-events: none; position: absolute; top: .75rem; right: .75rem; display: inline-flex; align-items: flex-end; gap: 3px; }
         .phcs-signal-ms { margin-right: .25rem; align-self: center; font-size: .6875rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
         .phcs-signal-ms span { font-weight: 400; color: var(--phv2-text-muted); }
+        .phcs-signal-ms b { font: inherit; }
         .phcs-signal-bar { width: 3px; border-radius: 1px; background: var(--phv2-raise-2); }
         .phcs-tier { margin-top: .5rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
         .phcs-badge { display: inline-flex; align-items: center; gap: .25rem; padding: .125rem .5rem; border-radius: .5rem; background: var(--phv2-raise-2); font-size: .6875rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--phv2-text-nav); }
@@ -60,9 +66,39 @@
     <div
         x-data="{
             state: $wire.{{ $applyStateBindingModifiers("\$entangle('{$statePath}')") }},
+            pings: {},
+            picked: false,
             select(val) {
                 this.state = val;
-            }
+                this.picked = true;
+            },
+            {{-- The browser's own ping to each timed card (window.phLocationPings), then the
+                 closest card that can be picked, unless the visitor picked one first. --}}
+            init() {
+                const probes = @js((object) $probes);
+                const codes = Object.keys(probes);
+                if (codes.length === 0) return;
+                const start = (tries) => {
+                    if (!window.phLocationPings) {
+                        if (tries > 0) setTimeout(() => start(tries - 1), 250);
+                        return;
+                    }
+                    Promise.all(codes.map(async (code) => {
+                        const ms = await window.phLocationPings.measure(probes[code]);
+                        if (ms !== null) this.pings[code] = ms;
+                    })).then(() => this.pickClosest());
+                };
+                start(20);
+            },
+            pickClosest() {
+                if (this.picked) return;
+                let best = null;
+                this.$root.querySelectorAll('[data-phcs-selectable]').forEach((card) => {
+                    const ms = this.pings[card.dataset.phcsValue];
+                    if (ms !== undefined && (best === null || ms < best.ms)) best = { value: card.dataset.phcsValue, ms };
+                });
+                if (best !== null && best.value !== this.state) this.state = best.value;
+            },
         }"
         class="grid gap-3 {{ $gridClass }}"
     >
@@ -129,7 +165,9 @@
                 {{-- Standard horizontal card layout (used for locations and plans) --}}
                 <label
                     @click="if (!{{ $radioDisabled ? 'true' : 'false' }}) select('{{ $option['value'] }}')"
-                    class="phcs-card phcs-row {{ $option['signal'] ? 'has-signal' : '' }} {{ $radioDisabled ? ($optionDisabled && !$isLocked ? 'is-disabled' : '') : 'is-clickable' }} {{ $isSelected && !$radioDisabled ? 'is-selected' : '' }}"
+                    data-phcs-value="{{ $option['value'] }}"
+                    @if (!$radioDisabled) data-phcs-selectable @endif
+                    class="phcs-card phcs-row {{ $option['signal'] || $option['probes'] !== [] ? 'has-signal' : '' }} {{ $radioDisabled ? ($optionDisabled && !$isLocked ? 'is-disabled' : '') : 'is-clickable' }} {{ $isSelected && !$radioDisabled ? 'is-selected' : '' }}"
                     :class="{
                         'is-selected': state == '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }},
                         'is-hoverable': state != '{{ $option['value'] }}' && !{{ $radioDisabled ? 'true' : 'false' }} && !{{ $isLocked ? 'true' : 'false' }}
@@ -140,6 +178,7 @@
                         name="{{ $getId() }}"
                         value="{{ $option['value'] }}"
                         x-model="state"
+                        x-on:change="picked = true"
                         @class(['fi-radio-input mt-0.5 shrink-0', 'hidden' => $isLocked])
                         @disabled($radioDisabled)
                         {{ $getExtraInputAttributeBag() }}
@@ -171,6 +210,30 @@
                                     aria-hidden="true"
                                     class="phcs-signal-bar"
                                     style="height: {{ 3 + $i * 2 }}px; {{ $i <= ($sig['bars'] ?? 0) ? 'background: ' . $signalColor . ';' : '' }}"
+                                ></span>
+                            @endfor
+                        </span>
+                    @elseif ($option['probes'] !== [])
+                        {{-- The same meter from the browser's own ping (init() above); hidden
+                             until a node answers. Only Alpine draws it, so morphs leave it be. --}}
+                        @php $ping = 'pings[' . \Illuminate\Support\Js::from($option['value']) . ']'; @endphp
+                        <span
+                            wire:ignore
+                            class="phcs-signal"
+                            style="display: none;"
+                            x-show="{{ $ping }} !== undefined"
+                            x-bind:title="{{ $ping }} + ' ms'"
+                            x-bind:aria-label="{{ $ping }} + ' ms latency'"
+                        >
+                            <span class="phcs-signal-ms" x-bind:style="{ color: window.phLocationPings?.color({{ $ping }}) }">
+                                <b x-text="{{ $ping }}"></b><span> ms</span>
+                            </span>
+                            @for ($i = 1; $i <= 4; $i++)
+                                <span
+                                    aria-hidden="true"
+                                    class="phcs-signal-bar"
+                                    style="height: {{ 3 + $i * 2 }}px;"
+                                    x-bind:style="(window.phLocationPings?.bars({{ $ping }}) ?? 0) >= {{ $i }} ? { background: window.phLocationPings.color({{ $ping }}) } : {}"
                                 ></span>
                             @endfor
                         </span>

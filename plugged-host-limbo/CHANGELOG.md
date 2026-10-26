@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The restore page's location ping is the visitor's own, timed by the browser
+  (plugged-host-servers' `window.phLocationPings`), not the panel's distance to the node.
 - **Delete after** (`LIMBO_DELETE_AFTER_HOURS`, new setting, off by default): a server parked in
   limbo that long is deleted with its files by `plugged-host:limbo-purge` (hourly, `--dry-run`),
   with an activity entry on the owner's account. The restore page tells the owner when. The

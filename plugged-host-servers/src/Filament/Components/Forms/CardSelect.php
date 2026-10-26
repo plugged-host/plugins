@@ -59,7 +59,7 @@ class CardSelect extends Field
      * Normalised card definitions. Every key the view reads is guaranteed present
      * here so the blade template stays free of null juggling.
      *
-     * @return array<int, array{value: string, label: string, description: ?string, meta: ?string, image: ?string, svg: ?string, icon: ?string, badge: ?string, signal: ?array, tier: ?string, locked: bool, cost: int, disabled: bool}>
+     * @return array<int, array{value: string, label: string, description: ?string, meta: ?string, image: ?string, svg: ?string, icon: ?string, badge: ?string, signal: ?array, probes: array<int, string>, tier: ?string, locked: bool, cost: int, disabled: bool}>
      */
     public function getCardOptions(): array
     {
@@ -86,6 +86,11 @@ class CardSelect extends Field
                 // plain "N ms" badge for latency). Shape: ['ms' => int, 'bars' => 1..4,
                 // 'level' => 'great'|'good'|'ok'|'poor']. Null when latency is unknown.
                 'signal' => (isset($option['signal']) && is_array($option['signal'])) ? $option['signal'] : null,
+                // Addresses the browser times for the same meter (a location's nodes,
+                // window.phLocationPings): the visitor's own ping. Until one answers no meter
+                // shows. The closest selectable card is then picked, unless the visitor already
+                // picked one.
+                'probes' => array_values(array_filter((array) ($option['probes'] ?? []), 'is_string')),
                 // WP13 location tier ('free' | 'plus' | 'premium'), shown as a pill with an uptime
                 // tooltip. A locked Plus/Premium card is inert with a button to the Token Store
                 // (requires: 'plus' | 'plusplus') rather than a plain disabled radio; an unlocked

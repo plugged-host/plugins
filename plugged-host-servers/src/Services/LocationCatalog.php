@@ -70,7 +70,11 @@ class LocationCatalog
      * PlusPlus, PremiumAccess) and what it requires. Without plugged-host-economy's memberships
      * paid locations are omitted entirely.
      *
-     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, available: bool, full: bool, tier: string, unlocked: bool, requires: ?string}>
+     * `latency` is the panel's own (median Wings answer, from wherever the panel runs): fine for
+     * ordering, wrong as the visitor's ping. Pages show the browser's instead, timed against
+     * `probes` (window.phLocationPings).
+     *
+     * @return Collection<int, array{code: string, name: string, svg: ?string, node_count: int, latency: ?int, probes: array<int, string>, available: bool, full: bool, tier: string, unlocked: bool, requires: ?string}>
      */
     public function available(int $cpu = 0, int $memory = 0, int $disk = 0, ?User $user = null): Collection
     {
@@ -135,6 +139,7 @@ class LocationCatalog
             'svg' => self::flagSvg($code),
             'node_count' => $ids->count(),
             'latency' => $this->reduceLatency($ids, $latencyByNode),
+            'probes' => $this->probes($ids, $allNodes),
             'available' => $viableCodes->has($code),
             'full' => !$openCodes->has($code),
             'tier' => $tier,
@@ -225,6 +230,28 @@ class LocationCatalog
         }
 
         return collect($map)->map(fn (array $ids) => collect(array_values($ids)));
+    }
+
+    /** Nodes a browser times per location: a few are enough to find the closest. */
+    private const PROBES_PER_LOCATION = 4;
+
+    /**
+     * The Wings addresses a browser can time for a location: https only (an http one is blocked
+     * as mixed content), the root path (any answer will do, even a 401).
+     *
+     * @param  Collection<int, int>  $nodeIds
+     * @param  Collection<int, Node>  $allNodes
+     * @return array<int, string>
+     */
+    private function probes(Collection $nodeIds, Collection $allNodes): array
+    {
+        return $allNodes
+            ->filter(fn (Node $node) => $nodeIds->contains((int) $node->getKey()) && $node->scheme === 'https')
+            ->map(fn (Node $node) => "https://{$node->fqdn}:{$node->daemon_connect}/")
+            ->unique()
+            ->take(self::PROBES_PER_LOCATION)
+            ->values()
+            ->all();
     }
 
     /**

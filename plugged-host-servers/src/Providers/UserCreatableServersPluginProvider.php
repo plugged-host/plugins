@@ -143,6 +143,7 @@ class UserCreatableServersPluginProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerServerSettingsStyles();
+        $this->registerLocationPingScript();
 
         // Economy says an account's limits changed: forget the allowance remembered for it.
         Event::listen(AccountLimitsChanged::class, fn (AccountLimitsChanged $event) => AccountAllowance::forgetMemo($event->user));
@@ -190,6 +191,19 @@ class UserCreatableServersPluginProvider extends ServiceProvider
      * CSS alone: .ph-reveal is what hides a section, and nothing adds it unless Alpine is
      * alive to take it back off again.
      */
+    /**
+     * window.phLocationPings: the create, transfer and limbo pages time their locations' nodes
+     * from the browser (LocationCatalog's `probes`). The panel's own distance to a node says
+     * nothing about the visitor's: from Paris, Thailand looked like 760 ms to everyone.
+     */
+    protected function registerLocationPingScript(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_AFTER,
+            fn (): string => view('plugged-host-servers::filament.scripts.location-ping')->render(),
+        );
+    }
+
     protected function registerServerSettingsStyles(): void
     {
         FilamentView::registerRenderHook(

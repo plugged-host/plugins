@@ -243,8 +243,17 @@
                                     <x-filament::badge color="gray" size="sm">{{ $t('full') }}</x-filament::badge>
                                 @endif
                             </span>
-                            @if ($loc['latency'] !== null)
-                                <span class="pht-ms font-mono">{{ $t('ms', ['ms' => $loc['latency']]) }}</span>
+                            @if (($loc['probes'] ?? []) !== [])
+                                {{-- The visitor's own ping, timed by the browser (window.phLocationPings). --}}
+                                <span
+                                    wire:ignore
+                                    class="pht-ms font-mono"
+                                    style="display: none;"
+                                    x-data="{ ms: null }"
+                                    x-init="window.phLocationPings?.measure(@js($loc['probes'])).then((value) => ms = value)"
+                                    x-show="ms !== null"
+                                    x-text="@js($t('ms', ['ms' => ':ms'])).replace(':ms', ms)"
+                                ></span>
                             @endif
                             <span class="pht-radio" aria-hidden="true"></span>
                         </button>

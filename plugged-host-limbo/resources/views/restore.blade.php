@@ -84,8 +84,17 @@
                                         <x-filament::badge color="gray" size="sm">{{ ucfirst($loc['tier']) }}</x-filament::badge>
                                     @endif
                                 </span>
-                                @if (($loc['latency'] ?? null) !== null)
-                                    <span class="pht-ms font-mono">{{ trans('plugged-host-limbo::strings.ms', ['ms' => $loc['latency']]) }}</span>
+                                @if (($loc['probes'] ?? []) !== [])
+                                    {{-- The visitor's own ping, timed by the browser (plugged-host-servers' window.phLocationPings). --}}
+                                    <span
+                                        wire:ignore
+                                        class="pht-ms font-mono"
+                                        style="display: none;"
+                                        x-data="{ ms: null }"
+                                        x-init="window.phLocationPings?.measure(@js($loc['probes'])).then((value) => ms = value)"
+                                        x-show="ms !== null"
+                                        x-text="@js(trans('plugged-host-limbo::strings.ms', ['ms' => ':ms'])).replace(':ms', ms)"
+                                    ></span>
                                 @endif
                                 <span class="pht-radio" aria-hidden="true"></span>
                             </button>
