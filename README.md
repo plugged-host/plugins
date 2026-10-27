@@ -1,10 +1,15 @@
 # plugged.host plugins
 
+> **Deprecated.** These plugins are no longer maintained and this repository is archived. Since
+> 27 October 2026 plugged.host runs on **plugged.host Calagopus**, our own panel based on
+> [Calagopus](https://github.com/calagopus/panel), with everything these plugins did built in.
+> The code stays here for reference only.
+
 The plugins that turn a [Pelican Panel](https://pelican.dev) into [plugged.host](https://plugged.host),
 a free host for game servers, bots and small services. Pelican itself stays unmodified: everything
 plugged.host adds lives here and hooks into the panel the way Pelican plugins are meant to.
 
-**Status:** these run plugged.host in production. They are written for plugged.host first, so
+**Status:** these ran plugged.host in production until 27 October 2026. They are written for plugged.host first, so
 expect opinions (plans, ads, our look) rather than a polished general-purpose product. The full
 setup guide and a page per plugin are at **[docs.plugged.host](https://docs.plugged.host)**; each
 plugin's README and CHANGELOG say what changed and why.
