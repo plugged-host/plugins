@@ -13,6 +13,6 @@
     @endif
 
     @foreach ($adsterraUnits as $unit)
-        @include('plugged-host-ads::filament.deferred-unit', ['unit' => $unit, 'sandbox' => $sandbox])
+        @include('plugged-host-ads::filament.adsterra-unit', ['unit' => $unit, 'sandbox' => $sandbox])
     @endforeach
 </div>

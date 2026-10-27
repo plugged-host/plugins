@@ -50,12 +50,8 @@ class AdsterraService
     /** The horizontal banners, widest first: one slot that takes whichever fits. */
     public const LEADERBOARD = '728x90|468x60|320x50';
 
-    /**
-     * Unit spec of the in-content slot at the foot of every page. The leaderboard is usually
-     * on the page already (the `top` slot renders first), so the foot is mostly the rectangle
-     * and the native unit.
-     */
-    public const IN_CONTENT = [self::LEADERBOARD, '300x250', 'native'];
+    /** Unit spec of the in-content slot at the foot of every page. */
+    public const IN_CONTENT = [self::LEADERBOARD, 'native'];
 
     /** @var array<string, true> Banner keys already handed out in this request. */
     protected array $taken = [];

@@ -6,10 +6,6 @@
      <template> per size, widest first; the widest that fits the unit's width is inserted,
      or none. Nothing hidden is ever loaded.
 
-     Deferred: a slot's or the foot's unit (filament/deferred-unit.blade.php) is a group like
-     that with one template, inserted only once its spot is on screen in a visible tab, so a
-     unit at the foot of a long page loads when someone scrolls to it, not on page load.
-
      No fill: Adsterra sends nothing to some visitors (VPNs among them), which used to leave a
      blank frame. A frame whose document has finished loading and still holds nothing with a
      size after NO_FILL_AFTER is folded to zero height, and a slot, waiting-room cell or stack
@@ -43,44 +39,24 @@
 
     window.pluggedHostAdUnits = true;
 
-    // Any part of the box in the viewport (a group waiting to be filled has no height yet).
-    const onScreen = (el) => {
-        const box = el.getBoundingClientRect();
-
-        return box.bottom >= 0 && box.top <= window.innerHeight;
-    };
-
-    // Deferred groups (filament/deferred-unit.blade.php) wait until they are on screen in a
-    // visible tab. A deferred unit can itself be a multi-size group, picked in the same call.
     const pick = () => {
-        let inserted = true;
+        document.querySelectorAll('[data-ph-pick]:not([data-ph-picked])').forEach((group) => {
+            const room = group.clientWidth;
 
-        while (inserted) {
-            inserted = false;
+            // Not laid out yet (a collapsed parent): asked again on the next tick.
+            if (room === 0) {
+                return;
+            }
 
-            document.querySelectorAll('[data-ph-pick]:not([data-ph-picked])').forEach((group) => {
-                const room = group.clientWidth;
+            group.dataset.phPicked = '1';
 
-                // Not laid out yet (a collapsed parent): asked again on the next tick.
-                if (room === 0) {
-                    return;
-                }
+            const fit = Array.from(group.querySelectorAll(':scope > template'))
+                .find((template) => Number(template.dataset.phWidth) <= room);
 
-                if ('phDefer' in group.dataset && (document.visibilityState !== 'visible' || !onScreen(group))) {
-                    return;
-                }
-
-                group.dataset.phPicked = '1';
-
-                const fit = Array.from(group.querySelectorAll(':scope > template'))
-                    .find((template) => Number(template.dataset.phWidth) <= room);
-
-                if (fit) {
-                    group.appendChild(fit.content.cloneNode(true));
-                    inserted = true;
-                }
-            });
-        }
+            if (fit) {
+                group.appendChild(fit.content.cloneNode(true));
+            }
+        });
     };
 
     const NO_FILL_AFTER = 5000;

@@ -44,7 +44,6 @@ class AdsPluginServiceProvider extends ServiceProvider
 
         $this->registerSlot();
         $this->registerTopBanner();
-        $this->registerAnchor();
         $this->registerPageLevelUnits();
         $this->registerNamedSlotHooks();
         $this->registerAdBlockResponse();
@@ -59,165 +58,40 @@ class AdsPluginServiceProvider extends ServiceProvider
      * is rendered once per page load (wire:navigate included) and never on a Livewire update:
      * a poll cannot swap it, and it rotates per page load, not per tick.
      *
-     * The `top` named slot (an Adsterra leaderboard) sits in the same place, under the top
-     * banner when one is live, so the most visible spot always earns — except on the waiting rooms,
-     * which carry their own units, and the suspended page, which is a dead end. Who sees either
-     * is the same rule as every other ad (AdDisplayService::showsAdsTo()).
+     * Nothing renders when no top banner is live, so there is no empty box. Who sees it is the
+     * same rule as every other ad (AdDisplayService::showsAdsTo()); it needs no Adsterra.
      */
     protected function registerTopBanner(): void
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_START,
-            fn (array $scopes = []): ?Htmlable => $this->topOfPage($scopes),
-        );
-    }
+            function (): ?Htmlable {
+                try {
+                    [$user, $panelId, $isAuthPage] = $this->context();
 
-    /**
-     * The anchor: a bar fixed to the bottom of the screen with a 468x60 (320x50 on phones), so
-     * one banner stays in view the whole time the page is open instead of waiting at the foot
-     * for a scroll that often never comes. Decided with the top of the page (topOfPage()) and
-     * before it, so the top keeps the 728x90 and the anchor the narrower sizes; on a page
-     * without the anchor (the console, whose command line is at the bottom, the waiting rooms
-     * and the dead ends) the top takes all three again. Written at the end of the body, outside
-     * every Livewire component, so a poll never swaps it. Closing it hides it for ten minutes
-     * (resources/views/filament/anchor.blade.php).
-     */
-    protected function registerAnchor(): void
-    {
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::BODY_END,
-            function (array $scopes = []): ?Htmlable {
-                $this->topOfPage($scopes);
+                    if (!in_array($panelId, ['app', 'server'], true)) {
+                        return null;
+                    }
 
-                return $this->anchor;
+                    $banners = app(AdBannerService::class);
+
+                    // The cache read first: most pages have no top banner, and the audience
+                    // rule can reach the database (roles, memberships).
+                    if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)
+                        || !app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
+                        return null;
+                    }
+
+                    $unit = $banners->top();
+
+                    return $unit === null ? null : new HtmlString(view('plugged-host-ads::filament.top-banner', [
+                        'unit' => $unit,
+                    ])->render());
+                } catch (Throwable) {
+                    return null;
+                }
             },
         );
-    }
-
-    private ?Htmlable $anchor = null;
-
-    /**
-     * The anchor bar, or null on the pages it stays off. The slot's own grant
-     * (AdDisplayService::slot()) applies the audience rule, the interstitial routes and the cap.
-     *
-     * @param  array<int, string>  $scopes
-     */
-    protected function renderAnchor(array $scopes): ?Htmlable
-    {
-        if (array_intersect($scopes, [...self::NOT_TOP, self::CONSOLE]) !== [] || StartGatePage::isCurrentRoute()) {
-            return null;
-        }
-
-        [$user, $panelId] = $this->context();
-
-        $ads = app(AdDisplayService::class);
-
-        if (!$ads->slot('anchor', $user, $panelId, false)) {
-            return null;
-        }
-
-        $adsterra = app(AdsterraService::class);
-        $units = $adsterra->unitsFor((array) ($ads->slotConfig('anchor')['units'] ?? []));
-
-        if ($units === []) {
-            return null;
-        }
-
-        return new HtmlString(view('plugged-host-ads::filament.anchor', [
-            'units' => $units,
-            'sandbox' => $adsterra->frameSandbox(),
-        ])->render());
-    }
-
-    /** The top of the page, decided once per request: see topOfPage(). */
-    private ?Htmlable $topOfPage = null;
-
-    private bool $topDecided = false;
-
-    /**
-     * What goes at the top of the page, decided once per request and remembered.
-     *
-     * The page component renders before the layout, so without this the server-tools strip
-     * (inside the page) would take the leaderboard zones before CONTENT_START asks for them,
-     * and the most visible spot would get what is left. The strip asks for the top first
-     * instead, on full page loads and Livewire updates alike (the strip renders on both), so
-     * the two always agree on which zones are on the page.
-     *
-     * @param  array<int, string>  $scopes
-     */
-    protected function topOfPage(array $scopes): ?Htmlable
-    {
-        if ($this->topDecided) {
-            return $this->topOfPage;
-        }
-
-        $this->topDecided = true;
-
-        try {
-            [$user, $panelId, $isAuthPage] = $this->context();
-
-            if (!in_array($panelId, ['app', 'server'], true)) {
-                return null;
-            }
-
-            try {
-                $this->anchor = $this->renderAnchor($scopes);
-            } catch (Throwable) {
-                $this->anchor = null;
-            }
-
-            $banners = app(AdBannerService::class);
-
-            // The cache read first: most pages have no top banner, and the audience
-            // rule can reach the database (roles, memberships).
-            if (!$banners->hasLive(AdBanner::PLACEMENT_TOP)) {
-                return $this->topOfPage = $this->renderTopSlot($scopes);
-            }
-
-            if (!app(AdDisplayService::class)->showsAdsTo($user, $panelId, $isAuthPage)) {
-                return null;
-            }
-
-            $unit = $banners->top();
-
-            if ($unit === null) {
-                return $this->topOfPage = $this->renderTopSlot($scopes);
-            }
-
-            // A live sponsored top banner goes first and the leaderboard right under it, so
-            // selling the top never takes the panel's best Adsterra placement away.
-            $html = view('plugged-host-ads::filament.top-banner', ['unit' => $unit])->render()
-                . $this->renderTopSlot($scopes)?->toHtml();
-
-            return $this->topOfPage = new HtmlString($html);
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    private const CONSOLE = 'App\\Filament\\Server\\Pages\\Console';
-
-    /** Pages the `top` leaderboard stays off: the waiting rooms (own units) and dead ends. */
-    private const NOT_TOP = [
-        StartGatePage::class,
-        'PluggedHost\\Queue\\Filament\\Server\\Pages\\StartQueuePage',
-        'PluggedHost\\Limbo\\Filament\\Server\\Pages\\RestoreFromLimboPage',
-        'PluggedHost\\Core\\Filament\\Server\\Pages\\SuspendedServerPage',
-    ];
-
-    /**
-     * The `top` named slot, or null on the pages it stays off. The slot's own grant
-     * (AdDisplayService::slot()) applies the audience rule, the interstitial routes and the cap.
-     *
-     * @param  array<int, string>  $scopes
-     */
-    protected function renderTopSlot(array $scopes): ?Htmlable
-    {
-        if (array_intersect($scopes, self::NOT_TOP) !== [] || StartGatePage::isCurrentRoute()) {
-            return null;
-        }
-
-        return $this->renderNamedSlot('top');
     }
 
     /**
@@ -312,9 +186,6 @@ class AdsPluginServiceProvider extends ServiceProvider
                 } catch (Throwable) {
                     return null;
                 }
-
-                // The top of the page picks its zones first (see topOfPage()).
-                $this->topOfPage($scopes);
 
                 return $this->renderNamedSlot('server-tools');
             },

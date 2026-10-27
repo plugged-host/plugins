@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.2 (2026-10-25)
+
+- **Reverted the 2026-10-20/24 placement changes.** The top leaderboard slot, the anchor bar
+  and the on-screen deferred loading are gone; named slots and the page foot render their
+  units as before, `IN_CONTENT` is the leaderboard + native again, and the per-page cap is 2.
+  Adsterra's placement report showed every banner/native zone at $0.00 on 2026-10-24 while
+  Popunder and Social Bar still paid, so this restores the 2026-10-22 layout as the baseline
+  to measure against. Monetag stays removed.
+
 ## 2.2.1 (2026-10-23)
 
 - **Monetag removed** (account suspended 2026-10-24): In-Page Push, Vignette, their settings

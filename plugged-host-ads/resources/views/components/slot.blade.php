@@ -39,7 +39,7 @@
     <div class="ph-ad-slot ph-ad-slot-{{ $name }}" data-ph-slot wire:ignore
          style="width:100%;margin:1.5rem auto 1rem auto;text-align:center;position:relative;z-index:{{ $adDisplay->getZIndex() }};overflow:visible;@if ($maxHeight) min-height:{{ $maxHeight }}px;@endif">
         @foreach ($units as $unit)
-            @include('plugged-host-ads::filament.deferred-unit', ['unit' => $unit, 'sandbox' => $adsterra->frameSandbox()])
+            @include('plugged-host-ads::filament.adsterra-unit', ['unit' => $unit, 'sandbox' => $adsterra->frameSandbox()])
         @endforeach
     </div>
 @endif
